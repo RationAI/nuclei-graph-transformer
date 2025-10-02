@@ -1,10 +1,8 @@
 from typing import Any
 
 import torch
-from hydra.utils import instantiate
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
-from omegaconf import DictConfig
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -24,10 +22,10 @@ THRESHOLDS = [0.40, 0.45, 0.50, 0.55, 0.60]
 
 
 class NucleiGraphTransformer(LightningModule):
-    def __init__(self, lr: float, net: DictConfig):
+    def __init__(self, lr: float, net: nn.Module):
         super().__init__()
         self.lr = lr
-        self.net = instantiate(net)
+        self.net = net
         self.criterion = nn.BCEWithLogitsLoss()
 
         thresholded_metrics: dict[str, Metric | MetricCollection] = {}
@@ -131,7 +129,7 @@ class NucleiGraphTransformer(LightningModule):
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         """Groups model parameters into those with weight decay and those without.
 
-        Excludes weight decay for biases, norms, and the STRING RoPE P matrix.
+        Excludes weight decay for biases, norms, and the RoPE P matrix.
         """
         decay_params = []
         no_decay_params = []
@@ -139,8 +137,7 @@ class NucleiGraphTransformer(LightningModule):
         for name, param in self.net.named_parameters():
             if not param.requires_grad:
                 continue
-
-            if name.endswith(".bias") or "norm" in name or "P.weight" in name:
+            if name.endswith(".bias") or "norm" in name or "rope.P" in name:
                 no_decay_params.append(param)
             else:
                 decay_params.append(param)
@@ -156,7 +153,7 @@ class NucleiGraphTransformer(LightningModule):
 
         scheduler_cosine = CosineAnnealingLR(
             optimizer,
-            T_max=1,
+            T_max=1,  # placeholder, overwritten in `on_train_start`
             eta_min=1.0e-06,
         )
         scheduler = GradualWarmupScheduler(

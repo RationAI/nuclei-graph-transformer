@@ -24,9 +24,7 @@ def main(config: DictConfig, logger: Logger | None) -> None:
     torch.set_float32_matmul_precision("medium")
 
     data = instantiate(config.data, _recursive_=False, _target_=DataModule)
-    model = instantiate(
-        config.model, _target_=NucleiGraphTransformer, _recursive_=False
-    )
+    model = instantiate(config.model, _target_=NucleiGraphTransformer)
     trainer = instantiate(config.trainer, _target_=Trainer, logger=logger)
     getattr(trainer, config.mode)(model, datamodule=data, ckpt_path=config.checkpoint)
 
