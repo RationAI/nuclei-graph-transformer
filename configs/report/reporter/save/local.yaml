@@ -1,0 +1,2 @@
+_target_: report.save.LocalReportStorer
+output_path: report.html

@@ -1,0 +1,6 @@
+job:
+  name: report
+  chdir: true
+
+help:
+  app_name: Experiment Report

@@ -1,0 +1,50 @@
+defaults:
+  - background: mlflow_tyler
+  - save: mlflow_standalone_run
+
+title: Pure Self-Attention Prediction Report
+
+background:
+  _target_: report.masks.TylerMLFlowMaskRetriever
+  artifact_uris:
+  - mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - test
+  item_name_col: id
+  item_extension: .tiff
+  background_masks_directory: /mnt/data/Projects/prostate_cancer/cancer/test_tiff
+  ground_truth_col: null
+  layer_name: Prostate WSI
+
+mask_retrievers:
+- _target_: report.masks.RunIDMlflowMaskRetriever
+  run_id: 5c81d5dc6e044b04be5811b61e100b28
+  dir_name: annotation_masks
+  layer_name: Expert Annotation Mask
+  shader_conf:
+    opacity: 0.5
+    type: edge
+    color: '#ffff00'
+    visible: 0
+- _target_: report.masks.RunIDMlflowMaskRetriever
+  run_id: efa8c70cdb62408a87e278e42fbc49e1
+  dir_name: Prospective Test Cases
+  layer_name: CAM Annot
+  shader_conf:
+    type: bipolar-heatmap
+    params:
+      threshold: 30
+      opacity: 0.5
+- _target_: report.masks.RunIDMlflowMaskRetriever
+  run_id: 590126b28ab54567bf81dc357e166bc7
+  dir_name: predictions
+  layer_name: Pure Self-Attention Prediction
+  shader_conf:
+    type: heatmap
+    color: '#0000FF'
+    visible: 0
+
+save:
+  metadata:
+    user: ${user}
+    experiment_name: Graph Transformer
+    run_name: Report[test] Pure Self-Attention
+    description: Prediction Report

@@ -1,0 +1,11 @@
+defaults:
+  - /data/transforms@transforms: ???
+  - _self_
+
+_target_: nuclei_graph.data.datasets.NucleiDataset
+metadata_path: "mlflow-artifacts:/72/67260ad5af234c80852a5aa0b283ea23/artifacts/Prostate Nuclei Graph Dataset - train/slides.parquet"
+nuclei_path: "mlflow-artifacts:/72/1766057cdac7474f989c5a137add6eb6/artifacts/Prostate Nuclei Graph Data - train"
+annot_masks_path: "mlflow-artifacts:/72/788171ef30694da8b9a51c7ca1dd6f83/artifacts/artifacts/"
+crop_size: ${data.crop_size}
+k: ${data.k}
+attn_block_size: ${data.attn_block_size}
