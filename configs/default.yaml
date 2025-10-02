@@ -30,7 +30,7 @@ model:
 
 data:
   batch_size: ???
-  num_workers: 4
+  num_workers: 10
   crop_size: ???
 
 metadata:
