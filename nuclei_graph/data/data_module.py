@@ -10,10 +10,10 @@ from torch.utils.data import DataLoader
 from nuclei_graph.data.datasets import NucleiDataset
 from nuclei_graph.typing import (
     Batch,
-    Input,
     PartialConf,
     PredictBatch,
     PredictInput,
+    Sample,
 )
 from nuclei_graph.utils import batch_block_masks
 
@@ -52,7 +52,7 @@ class DataModule(LightningDataModule):
             case "predict":
                 self.predict = prepare(self.datasets["predict"])
 
-    def _collate_fn(self, batch: Batch) -> Input:
+    def _collate_fn(self, batch: Batch) -> Sample:
         return {
             "x": torch.stack([b["x"] for b in batch], dim=0),
             "pos": torch.stack([b["pos"] for b in batch], dim=0),
@@ -65,7 +65,7 @@ class DataModule(LightningDataModule):
         items, metadata = zip(*batch, strict=True)
         return self._collate_fn(list(items)), list(metadata)
 
-    def train_dataloader(self) -> Iterable[Input]:
+    def train_dataloader(self) -> Iterable[Sample]:
         sampler = (
             instantiate(
                 self.sampler_partial, slides_positivity=self.train.slides_positivity
@@ -84,7 +84,7 @@ class DataModule(LightningDataModule):
             persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> Iterable[Input]:
+    def val_dataloader(self) -> Iterable[Sample]:
         return DataLoader(
             self.val,
             batch_size=1,  # process full graphs
@@ -92,7 +92,7 @@ class DataModule(LightningDataModule):
             collate_fn=self._collate_fn,
         )
 
-    def test_dataloader(self) -> Iterable[Input]:
+    def test_dataloader(self) -> Iterable[Sample]:
         return DataLoader(
             self.test,
             batch_size=1,  # process full graphs
