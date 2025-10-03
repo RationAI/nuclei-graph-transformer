@@ -5,9 +5,9 @@ defaults:
   - /data/datasets@data.val: nuclei_dataset/val
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
-  - override /data/transforms@data.train.transforms: normalize
-  - override /data/transforms@data.val.transforms: normalize
-  - override /data/transforms@data.test.transforms: normalize
+  #- override /data/transforms@data.train.transforms: normalize
+  #- override /data/transforms@data.val.transforms: normalize
+  #- override /data/transforms@data.test.transforms: normalize
 
 checkpoint: null
 
@@ -34,7 +34,7 @@ data:
 metadata:
   experiment_name: Graph Transformer
   run_name: "Pure Self-Attention (512,2048,2,16,16,(4,128,4096)(0.40)"
-  description: "No decay, no ls, incresed warmup steps to 10"
+  description: "No decay, no ls, incresed warmup steps to 10, no normalization"
   hyperparams: 
     sampler_positivity_threshold: ${data.sampler.positivity_threshold}
     batch_size: ${data.batch_size}
