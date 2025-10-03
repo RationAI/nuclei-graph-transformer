@@ -33,8 +33,8 @@ data:
 
 metadata:
   experiment_name: Graph Transformer
-  run_name: "[Eval 1] Pure Self-Attention (256,1024,2,8,8),(8,128,4096)(0.40)"
-  description: ""
+  run_name: "Pure Self-Attention (512,2048,2,16,16,(16,128,4096)(0.40)"
+  description: "Decay 1e-6"
   hyperparams: 
     sampler_positivity_threshold: ${data.sampler.positivity_threshold}
     batch_size: ${data.batch_size}
