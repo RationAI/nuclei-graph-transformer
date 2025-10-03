@@ -24,6 +24,9 @@ class Layer(nn.Module):
         self.ls1 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
         self.ls2 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
 
+        self.ls1._no_weight_decay = True
+        self.ls2._no_weight_decay = True
+
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         assert pos.shape[-1] >= self.pos_dim
         pos = pos[:, :, : self.pos_dim]

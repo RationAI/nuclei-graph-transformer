@@ -129,7 +129,8 @@ class NucleiGraphTransformer(LightningModule):
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         """Groups model parameters into those with weight decay and those without.
 
-        Excludes weight decay for biases, norms, and the RoPE P matrix.
+        Excludes weight decay for all tagged parameters (layer scale params, RoPE freqs and P matrix),
+        biases and norms.
         """
         decay_params = []
         no_decay_params = []
@@ -137,7 +138,12 @@ class NucleiGraphTransformer(LightningModule):
         for name, param in self.net.named_parameters():
             if not param.requires_grad:
                 continue
-            if name.endswith(".bias") or "norm" in name or "rope.P" in name:
+
+            if (
+                hasattr(param, "_no_weight_decay")
+                or name.endswith(".bias")
+                or "norm" in name
+            ):
                 no_decay_params.append(param)
             else:
                 decay_params.append(param)
