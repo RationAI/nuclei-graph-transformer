@@ -152,7 +152,7 @@ class NucleiGraphTransformer(LightningModule):
             eta_min=1.0e-06,
         )
         scheduler = GradualWarmupScheduler(
-            optimizer, multiplier=1, total_epoch=5, after_scheduler=scheduler_cosine
+            optimizer, multiplier=1, total_epoch=10, after_scheduler=scheduler_cosine
         )
         return {
             "optimizer": optimizer,

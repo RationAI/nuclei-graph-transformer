@@ -34,7 +34,7 @@ data:
 metadata:
   experiment_name: Graph Transformer
   run_name: "Pure Self-Attention (512,2048,2,16,16,(4,128,4096)(0.40)"
-  description: "No decay, no ls"
+  description: "No decay, no ls, incresed warmup steps to 10"
   hyperparams: 
     sampler_positivity_threshold: ${data.sampler.positivity_threshold}
     batch_size: ${data.batch_size}
