@@ -18,23 +18,12 @@ from warmup_scheduler import GradualWarmupScheduler
 from nuclei_graph.typing import Outputs, PredictInput, Sample
 
 
-THRESHOLDS = [0.40, 0.45, 0.50, 0.55, 0.60]
-
-
 class NucleiGraphTransformer(LightningModule):
     def __init__(self, lr: float, net: nn.Module):
         super().__init__()
         self.lr = lr
         self.net = net
         self.criterion = nn.BCEWithLogitsLoss()
-
-        thresholded_metrics: dict[str, Metric | MetricCollection] = {}
-        for t in THRESHOLDS:
-            t_str = str(t).replace(".", "_")
-            thresholded_metrics[f"precision_{t_str}"] = BinaryPrecision(threshold=t)
-            thresholded_metrics[f"recall_{t_str}"] = BinaryRecall(threshold=t)
-        thresholded_metrics["AUROC"] = BinaryAUROC()
-        thresholded_metrics["AUPRC"] = BinaryAveragePrecision()
 
         metrics: dict[str, Metric | MetricCollection] = {
             "precision": BinaryPrecision(),
@@ -43,7 +32,7 @@ class NucleiGraphTransformer(LightningModule):
             "AUPRC": BinaryAveragePrecision(),
         }
 
-        self.val_metrics = MetricCollection(thresholded_metrics, prefix="validation/")
+        self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
@@ -140,7 +129,7 @@ class NucleiGraphTransformer(LightningModule):
                 continue
 
             if (
-                hasattr(param, "_no_weight_decay")
+                getattr(param, "_no_weight_decay", False)
                 or name.endswith(".bias")
                 or "norm" in name
             ):

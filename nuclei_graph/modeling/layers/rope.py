@@ -1,5 +1,7 @@
 """Taken from the Nuclei Foundational Model repository, by Matěj Pekár."""
 
+from typing import Any, cast
+
 import torch
 from einops import rearrange, repeat
 from torch import Tensor, nn
@@ -31,8 +33,8 @@ class RoPE(nn.Module):
             nn.Linear(dim, dim, bias=False), orthogonal_map="householder"
         )
 
-        self.P._no_weight_decay = True
-        self.freqs._no_weight_decay = True
+        cast("Any", self.P).parametrizations.weight.original._no_weight_decay = True
+        cast("Any", self.freqs)._no_weight_decay = True
 
     @torch.autocast("cuda", enabled=False)  # type: ignore[misc]
     def forward(self, x: Tensor, positions: Tensor) -> Tensor:
