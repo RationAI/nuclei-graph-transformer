@@ -5,9 +5,9 @@ defaults:
   - /data/datasets@data.val: nuclei_dataset/val
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
-  - override /data/transforms@data.train.transforms: None #normalize
-  - override /data/transforms@data.val.transforms: None #normalize
-  - override /data/transforms@data.test.transforms: None #normalize
+  - override /data/transforms@data.train.transforms: normalize
+  - override /data/transforms@data.val.transforms: normalize
+  - override /data/transforms@data.test.transforms: normalize
 
 checkpoint: null
 
