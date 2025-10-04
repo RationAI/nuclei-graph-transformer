@@ -230,9 +230,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         tree = KDTree(points[perm], leafsize=self.attn_block_size)
         return tree, torch.from_numpy(perm).long()
 
-    def _add_rotation(self, positions: Tensor, embeddings: Tensor) -> Tensor:
+    def _add_rotation(self, positions: Tensor, psi_1: Tensor) -> Tensor:
         """Append the rotation angle as a third positional dimension."""
-        _, psi_1, _ = normalize_efd(embeddings, return_angles=True)
         angles = (psi_1 % torch.pi).view(-1, 1)
         return torch.cat([positions, angles], dim=1)
 
@@ -282,6 +281,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         nuclei_data = torch.load(slide_nuclei_path, weights_only=False, mmap=True)
         nuclei_data["annot_mask"] = self._get_annot_mask(idx, nuclei_data["x"].shape[0])
 
+        # save the rotation angle psi_1 before normalization
+        _, psi_1, _ = normalize_efd(nuclei_data.x, return_angles=True)
+
         for transform in filter(None, self.transforms):
             nuclei_data = transform(nuclei_data)
 
@@ -307,7 +309,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         tree, perm = self._build_kd_tree(crop_positions.numpy())
 
         perm_embeddings = crop_embeddings[perm]
-        perm_positions = self._add_rotation(crop_positions[perm], crop_embeddings[perm])
+        perm_positions = self._add_rotation(
+            crop_positions[perm], psi_1[crop_indices][perm]
+        )
         perm_labels = crop_labels[perm]
         perm_annot_mask = crop_annot_mask[perm]
 
