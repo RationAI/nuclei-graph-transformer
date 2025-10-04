@@ -1,7 +1,6 @@
 from random import randint
 
 import hydra
-import torch
 from hydra.utils import instantiate
 from lightning import seed_everything
 from lightning.pytorch.loggers import Logger
@@ -21,7 +20,7 @@ OmegaConf.register_new_resolver(
 @autolog
 def main(config: DictConfig, logger: Logger | None) -> None:
     seed_everything(config.seed, workers=True)
-    torch.set_float32_matmul_precision("medium")
+    # torch.set_float32_matmul_precision("medium")
 
     data = instantiate(config.data, _recursive_=False, _target_=DataModule)
     model = instantiate(config.model, _target_=NucleiGraphTransformer)

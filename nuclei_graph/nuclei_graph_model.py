@@ -79,6 +79,10 @@ class NucleiGraphTransformer(LightningModule):
         )
         self.val_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
 
+        if torch.isnan(loss).any():
+            print("NaN loss detected!")
+            raise ValueError("NaN loss detected")
+
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
@@ -152,7 +156,7 @@ class NucleiGraphTransformer(LightningModule):
             eta_min=1.0e-06,
         )
         scheduler = GradualWarmupScheduler(
-            optimizer, multiplier=1, total_epoch=10, after_scheduler=scheduler_cosine
+            optimizer, multiplier=1, total_epoch=8, after_scheduler=scheduler_cosine
         )
         return {
             "optimizer": optimizer,

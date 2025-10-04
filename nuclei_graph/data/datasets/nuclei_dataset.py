@@ -282,9 +282,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         nuclei_data = torch.load(slide_nuclei_path, weights_only=False, mmap=True)
         nuclei_data["annot_mask"] = self._get_annot_mask(idx, nuclei_data["x"].shape[0])
 
-        for _ in filter(None, self.transforms):
-            pass
-            # nuclei_data = transform(nuclei_data)
+        for transform in filter(None, self.transforms):
+            nuclei_data = transform(nuclei_data)
 
         embeddings, positions, labels, masks = (
             nuclei_data["x"],
