@@ -26,15 +26,15 @@ model:
       layer_scale_init: 0.0 #1e-4
   
 data:
-  batch_size: 8
+  batch_size: 16
   k: 128
   attn_block_size: 128
   crop_size: 4096
 
 metadata:
   experiment_name: Graph Transformer
-  run_name: "Pure Self-Attention (512,2048,2,16,16,(8,128,4096)(0.40)"
-  description: "No decay, no ls, warmup steps to 8, lr 1e-5"
+  run_name: "Pure Self-Attention (512,2048,2,16,16,(16,128,4096)(0.40)"
+  description: "No decay, no ls, warmup steps to 8, lr 1e-5, bigger batch size (16)"
   hyperparams: 
     sampler_positivity_threshold: ${data.sampler.positivity_threshold}
     batch_size: ${data.batch_size}

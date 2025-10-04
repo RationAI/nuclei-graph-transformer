@@ -46,6 +46,7 @@ class NucleiGraphTransformer(LightningModule):
         assert targets_masked.shape == logits_masked.shape
 
         masked_size = targets_masked.numel()
+        self.log("train/masked_batch_size", float(masked_size), on_step=True)
         assert masked_size > 0, "There are no annotated targets to compute loss from"
 
         loss = self.criterion(logits_masked, targets_masked)
@@ -57,6 +58,10 @@ class NucleiGraphTransformer(LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
+        if torch.isnan(loss).any():
+            print("NaN loss detected!")
+            raise ValueError("NaN loss detected")
+
         return loss
 
     def validation_step(self, batch: Sample) -> None:
@@ -78,10 +83,6 @@ class NucleiGraphTransformer(LightningModule):
             batch_size=masked_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
-
-        if torch.isnan(loss).any():
-            print("NaN loss detected!")
-            raise ValueError("NaN loss detected")
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
