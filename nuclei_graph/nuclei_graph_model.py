@@ -58,10 +58,6 @@ class NucleiGraphTransformer(LightningModule):
             prog_bar=True,
             sync_dist=True,
         )
-        if torch.isnan(loss).any():
-            print("NaN loss detected!")
-            raise ValueError("NaN loss detected")
-
         return loss
 
     def validation_step(self, batch: Sample) -> None:
@@ -143,7 +139,7 @@ class NucleiGraphTransformer(LightningModule):
                 decay_params.append(param)
 
         return [
-            {"params": decay_params, "weight_decay": 0.0},  # 1e-3
+            {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
