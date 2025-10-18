@@ -4,7 +4,7 @@ defaults:
 
 _target_: nuclei_graph.data.datasets.NucleiDataset
 metadata_path: "mlflow-artifacts:/97/23ab056750e1490b8ef2c2c20ad5084a/artifacts/Prostate Nuclei Dataset - test/slides.parquet"
-nuclei_path: "mlflow-artifacts:/97/9a2e8334fca349f693f108f225ab8e9a/artifacts/Nuclei Point Cloud Dataset - test"
+nuclei_path: "mlflow-artifacts:/97/fe68c7527c3a4501946e08af0f08bdc3/artifacts/Nuclei Point Cloud Dataset - test"
 annot_masks_path: "mlflow-artifacts:/97/36b22d7ff10c444ab6e16fca50eb757a/artifacts/cam_positive_masks"
 crop_size: ${data.crop_size}
 k: ${data.k}
