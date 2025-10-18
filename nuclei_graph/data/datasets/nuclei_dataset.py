@@ -1,4 +1,12 @@
-"""Adjusted from the Nuclei Foundational Model repository."""
+"""Dataset for nuclei point clouds from whole-slide images.
+
+Loads nuclei embeddings, positions, and labels from slides, builds Delaunay-based adjacency graphs,
+and samples spatially connected crops for training or full-slide inference.
+Supports annotation masks for more precise supervision, rotation-aware positional encoding,
+and KD-tree-based block masks for sparse attention.
+
+Adjusted from the Nuclei Foundational Model repository.
+"""
 
 import heapq
 import random
@@ -14,9 +22,8 @@ from scipy.spatial import Delaunay, KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from nuclei_graph.typing import Metadata, PredictSample, Sample, Transforms
-from nuclei_graph.utils import create_single_block_mask_from_kdtree
-from nuclei_graph.utils.torch_efd import normalize_efd
+from nuclei_graph.typing import FeatureDict, Metadata, PredictSample, Sample, Transforms
+from nuclei_graph.utils import create_single_block_mask_from_kdtree, normalize_efd
 
 
 Neighbor: TypeAlias = tuple[int, float]  # (node_idx, edge_weight)
@@ -39,11 +46,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         full_slide: bool = False,
         predict: bool = False,
     ) -> None:
-        """Dataset for nuclei point clouds.
+        """Initialize the dataset.
 
         Args:
             metadata_path: Local path to dataset metadata.
-            nuclei_path: Local path to the .pt files of the nuclei data: Data(x=embeddings, pos=centroids, y=labels).
+            nuclei_path: Local path to the .pt files of the nuclei data (a dictionary with keys: x=embeddings, pos=centroids, y=labels).
             annot_masks_path: Optional local path for positive slides, includes finer annotation for masked training.
             transforms: Optional (list of) transforms to apply to the data (e.g. normalization, ...).
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors.
@@ -77,7 +84,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         skipped_count = 0
         for slide_nuclei in slides_nuclei:
             slide_id = slide_nuclei.stem
-            data = torch.load(slide_nuclei, weights_only=False, mmap=True)
+            data = torch.load(slide_nuclei, weights_only=False)
             n_nuclei = data["x"].shape[0]
 
             if not self.full_slide and n_nuclei < self.crop_size:
@@ -86,8 +93,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                     f"Skipping the slide..."
                 )
                 skipped_count += 1
-                continue
-            valid_slides[slide_id] = slide_nuclei
+            else:
+                valid_slides[slide_id] = slide_nuclei
 
         if skipped_count > 0:
             print(f"Total slides skipped: {skipped_count}")
@@ -118,10 +125,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         for idx in range(len(self.slides)):
             mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
             slides_positivity[idx] = (
-                torch.load(mask_path, weights_only=False, mmap=True)
-                .float()
-                .mean()
-                .item()
+                torch.load(mask_path, weights_only=False).float().mean().item()
                 if mask_path is not None
                 else 0.0
             )
@@ -193,9 +197,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
         if mask_path is not None:
-            return (
-                torch.load(mask_path, weights_only=False, mmap=True).bool().view(-1, 1)
-            )
+            return torch.load(mask_path, weights_only=False).bool().view(-1, 1)
         return torch.ones((nuclei_count, 1), dtype=torch.bool)
 
     def _get_slide_metadata(
@@ -203,8 +205,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> Metadata:
         return {
             "slide_id": self.slides.iloc[idx].slide_id,
-            "slide_tiff_path": self.slides.iloc[idx].slide_tiff_path,
-            "raw_cells_path": self.slides.iloc[idx].raw_cells_path,
+            "slide_mrxs_path": self.slides.iloc[idx].slide_mrxs_path,
+            "slide_nuclei_path": self.slides.iloc[idx].slide_nuclei_path,
             "nuclei_count": nuclei_count,
             "perm_inverse": perm_inverse,
         }
@@ -212,7 +214,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def _get_crop_indices(self, centroids: PointArray, annot_mask: Tensor) -> list[int]:
         """Build graph and create a crop of size `crop_size` by growing a component starting from a random nucleus.
 
-        Only annotated nuclei are considered as seeds to avoid creating a crop fully in an unlabelled region.
+        Only annotated nuclei are considered as seeds to avoid creating a crop fully in an unlabeled region.
         """
         graph = self._build_graph(centroids)
 
@@ -264,10 +266,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
 
     def _get_inverse_perm(self, perm: Tensor) -> Tensor:
-        """Computes the inverse permutation.
-
-        Note: Used for prediction when generating nuclei label masks from the saved data.
-        """
         assert perm.dim() == 1, "perm must be 1D"
         perm_inverse = torch.empty_like(perm)
         perm_inverse[perm] = torch.arange(perm.size(0), dtype=perm.dtype)
@@ -276,13 +274,34 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return perm_inverse
 
+    def _get_cropped_data(
+        self,
+        embeddings: Tensor,
+        positions: Tensor,
+        labels: Tensor,
+        masks: Tensor,
+        crop_indices: Tensor,
+        perm: Tensor,
+        angle: Tensor,
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        crop_embeddings = embeddings[crop_indices][perm]
+        crop_positions = positions[crop_indices][perm]
+        crop_labels = labels[crop_indices][perm]
+        crop_annot_mask = masks[crop_indices][perm]
+
+        crop_positions = self._add_rotation(crop_positions, angle[crop_indices][perm])
+
+        return self._pad_to_block_size(
+            crop_embeddings, crop_positions, crop_labels, crop_annot_mask
+        )
+
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         slide_nuclei_path = self.nuclei[self.slides.iloc[idx].slide_id]
-        nuclei_data = torch.load(slide_nuclei_path, weights_only=False, mmap=True)
+        nuclei_data: FeatureDict = torch.load(slide_nuclei_path, weights_only=False)
         nuclei_data["annot_mask"] = self._get_annot_mask(idx, nuclei_data["x"].shape[0])
 
         # save the rotation angle psi_1 before normalization
-        _, psi_1, _ = normalize_efd(nuclei_data.x, return_angles=True)
+        _, psi_1, _ = normalize_efd(nuclei_data["x"], return_angles=True)
 
         for transform in filter(None, self.transforms):
             nuclei_data = transform(nuclei_data)
@@ -301,26 +320,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 self._get_crop_indices(positions.numpy(), masks), dtype=torch.long
             )
 
-        crop_embeddings = embeddings[crop_indices]
-        crop_positions = positions[crop_indices]
-        crop_labels = labels[crop_indices]
-        crop_annot_mask = masks[crop_indices]
-
-        tree, perm = self._build_kd_tree(crop_positions.numpy())
-
-        perm_embeddings = crop_embeddings[perm]
-        perm_positions = self._add_rotation(
-            crop_positions[perm], psi_1[crop_indices][perm]
-        )
-        perm_labels = crop_labels[perm]
-        perm_annot_mask = crop_annot_mask[perm]
+        tree, perm = self._build_kd_tree(positions[crop_indices].numpy())
 
         crop_embeddings, crop_positions, crop_labels, crop_annot_mask = (
-            self._pad_to_block_size(
-                perm_embeddings, perm_positions, perm_labels, perm_annot_mask
+            self._get_cropped_data(
+                embeddings, positions, labels, masks, crop_indices, perm, psi_1
             )
         )
-
         crop_block_mask = create_single_block_mask_from_kdtree(
             kdtree=tree,
             points=crop_positions[
@@ -330,13 +336,15 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             k=self.k,
             block_size=self.attn_block_size,
         )
+
         item: Sample = {
             "x": crop_embeddings,  # (n, d)
             "pos": crop_positions,  # (n, 3)
             "y": crop_labels[crop_annot_mask],  # (num_filtered,)
             "annot_mask": crop_annot_mask,  # (n, 1)
-            "block_mask": crop_block_mask,
+            "block_mask": crop_block_mask,  # BlockMask
         }
+
         if self.predict:
             perm_inverse = self._get_inverse_perm(perm)
             return item, self._get_slide_metadata(idx, len(crop_indices), perm_inverse)

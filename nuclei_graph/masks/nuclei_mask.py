@@ -3,9 +3,10 @@
 The code was adapted by Lukáš Hudec from the Nuclei Segmentation repository of Matěj Pekár.
 """
 
-import json
 from collections.abc import Iterable
 
+import numpy as np
+import pyarrow.parquet as pq
 from PIL import Image, ImageDraw
 from rationai.masks.annotations import PolygonMask
 from torch import Tensor
@@ -21,7 +22,7 @@ class NucleiMask(PolygonMask[Region]):
         mask_size: tuple[int, int],
         mask_mpp_x: float,
         mask_mpp_y: float,
-        raw_cells_path: str,
+        nuclei_path: str,
         labels: Tensor | None = None,
     ) -> None:
         """Nuclei mask for predictions.
@@ -32,13 +33,17 @@ class NucleiMask(PolygonMask[Region]):
             mask_size (tuple[int, int]): Mask dimensions.
             mask_mpp_x (float): Mask microns per pixel in the x-axis.
             mask_mpp_y (float): Mask microns per pixel in the y-axis.
-            raw_cells_path (str): Path to the raw cells JSON file.
+            nuclei_path (str): Path to the partitioned Parquet dataset with segmented nuclei.
             labels (Tensor | None, optional): Prediction labels, if None, every cell is labeled with 255. Defaults to None.
         """
         self.base_mpp_x = base_mpp_x
         self.base_mpp_y = base_mpp_y
-        with open(raw_cells_path) as json_data:
-            self.cells = json.load(json_data)
+        self.nuclei = (
+            pq.read_table(nuclei_path)
+            .to_pandas()
+            .sort_values("nucleus_id")
+            .reset_index(drop=True)
+        )
         self.labels = labels
         super().__init__(
             mode="L",
@@ -49,11 +54,19 @@ class NucleiMask(PolygonMask[Region]):
 
     @property
     def regions(self) -> Iterable[tuple[Region, int]]:
-        for i, cell in enumerate(self.cells["cells"]):
+        for i, row in self.nuclei.iterrows():
+            polygon = row["polygon"]
+            # convert flat np.ndarray into list of (x, y) tuples
+            if isinstance(polygon, (np.ndarray | list)):
+                polygon = [
+                    (float(polygon[j]), float(polygon[j + 1]))
+                    for j in range(0, len(polygon), 2)
+                ]
+
             if self.labels is not None:
-                yield cell["contour"], int(self.labels[i].item() * 255)
+                yield polygon, int(self.labels[i].item() * 255)
             else:
-                yield cell["contour"], 255
+                yield polygon, 255
 
     def get_region_coordinates(self, region: Region) -> Iterable[tuple[float, float]]:
         yield from region

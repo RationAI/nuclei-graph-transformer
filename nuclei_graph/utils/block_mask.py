@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from numpy.typing import NDArray
 from scipy.spatial import KDTree
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
@@ -13,7 +14,7 @@ def dummy_mask_mod(
 
 def create_single_block_mask_from_kdtree(
     kdtree: KDTree,
-    points: np.ndarray,
+    points: NDArray[np.floating],
     n_points_unpadded: int,
     k: int,
     block_size: int,

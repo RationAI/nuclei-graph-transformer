@@ -11,8 +11,8 @@ Transforms = list[BaseTransform] | BaseTransform
 
 class Metadata(TypedDict):
     slide_id: str
-    slide_tiff_path: str
-    raw_cells_path: str
+    slide_mrxs_path: str
+    slide_nuclei_path: str
     nuclei_count: int
     perm_inverse: Tensor
 
@@ -24,6 +24,8 @@ class Sample(TypedDict):
     annot_mask: Tensor
     block_mask: BlockMask
 
+
+FeatureDict: TypeAlias = dict[str, Tensor]
 
 PredictInput: TypeAlias = tuple[Sample, list[Metadata]]
 

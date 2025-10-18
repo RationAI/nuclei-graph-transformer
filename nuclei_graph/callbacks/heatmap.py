@@ -22,8 +22,8 @@ BASE_LEVEL = 0
 class NucleiHeatmapCallback(Callback):
     def save_mask(self, logits: Tensor, metadata: Metadata) -> None:
         slide_id = metadata["slide_id"]
-        slide_tiff_path = metadata["slide_tiff_path"]
-        raw_cells_path = metadata["raw_cells_path"]
+        slide_mrxs_path = metadata["slide_mrxs_path"]
+        slide_nuclei_path = metadata["slide_nuclei_path"]
         nuclei_count = metadata["nuclei_count"]
         perm_inverse = metadata["perm_inverse"]
 
@@ -31,7 +31,7 @@ class NucleiHeatmapCallback(Callback):
         logits_original_order = logits_unpadded[perm_inverse]
         predicted_labels = torch.sigmoid(logits_original_order).squeeze()
 
-        with OpenSlide(slide_tiff_path) as slide:
+        with OpenSlide(slide_mrxs_path) as slide:
             base_mpp_x, base_mpp_y = slide_resolution(slide, level=BASE_LEVEL)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, level=LEVEL)
             annotator = NucleiMask(
@@ -41,7 +41,7 @@ class NucleiHeatmapCallback(Callback):
                 mask_mpp_x=mask_mpp_x,
                 mask_mpp_y=mask_mpp_y,
                 labels=predicted_labels,
-                raw_cells_path=str(raw_cells_path),
+                nuclei_path=str(slide_nuclei_path),
             )
 
         mask = annotator()
@@ -49,6 +49,7 @@ class NucleiHeatmapCallback(Callback):
 
         with tempfile.TemporaryDirectory(dir=os.getcwd()) as temp_dir:
             file_path = f"{temp_dir}/{slide_id}.tiff"
+
             xres = 1000 / annotator.mask_mpp_x
             yres = 1000 / annotator.mask_mpp_y
             # needed for compatability in xOpat

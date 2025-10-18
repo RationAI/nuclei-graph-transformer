@@ -2,17 +2,12 @@
 
 from pathlib import Path
 
+import hydra
 import pandas as pd
 import torch
 from mlflow.artifacts import download_artifacts
+from omegaconf import DictConfig
 from pandas import DataFrame
-
-
-METADATA_URI = "mlflow-artifacts:/72/67260ad5af234c80852a5aa0b283ea23/artifacts/Prostate Nuclei Graph Dataset - train/slides.parquet"
-NUCLEI_URI = "mlflow-artifacts:/72/1766057cdac7474f989c5a137add6eb6/artifacts/Prostate Nuclei Graph Data - train"
-ANNOTATIONS_URI = (
-    "mlflow-artifacts:/72/788171ef30694da8b9a51c7ca1dd6f83/artifacts/artifacts/"
-)
 
 
 def load_nuclei(nuclei_path: str) -> dict[str, Path]:
@@ -39,7 +34,7 @@ def compute_slides_positivity(
 ) -> None:
     """Computes total positive and negative nuclei counts across slides.
 
-    For positive slides, only labelled positive nuclei are counted.
+    For positive slides, only labeled positive nuclei are counted.
     For negative slides, all the nuclei are counted as negative.
     """
     total_pos_nuclei = 0
@@ -65,11 +60,14 @@ def compute_slides_positivity(
     print(f"Overall neg/pos ratio: {total_neg_nuclei / total_pos_nuclei:.4f}")
 
 
-def main() -> None:
-    metadata_path = download_artifacts(METADATA_URI)
-    nuclei_path = download_artifacts(NUCLEI_URI)
+@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
+def main(config: DictConfig) -> None:
+    metadata_path = download_artifacts(config.efd_transform.train_uri)
+    nuclei_path = download_artifacts(config.efd_mean_std.train_uri)
     annot_masks_path = (
-        download_artifacts(ANNOTATIONS_URI) if ANNOTATIONS_URI is not None else None
+        download_artifacts(config.nuclei_masks.cam_masks_uri)
+        if config.nuclei_masks.cam_masks_uri is not None
+        else None
     )
 
     slides = pd.read_parquet(metadata_path)

@@ -58,7 +58,7 @@ class DataModule(LightningDataModule):
             "pos": torch.stack([b["pos"] for b in batch], dim=0),
             "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
             "annot_mask": torch.stack([b["annot_mask"] for b in batch], dim=0),
-            "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
+            "block_mask": self.batch_block_masks([b["block_mask"] for b in batch]),
         }
 
     def _collate_fn_predict(self, batch: PredictBatch) -> PredictInput:
