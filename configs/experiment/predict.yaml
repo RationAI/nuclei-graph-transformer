@@ -27,8 +27,7 @@ data:
   crop_size: 4096
 
 metadata:
-  experiment_name: Graph Transformer
+  experiment_name: Nuclei Graph — Transformer
   run_name: 📊 Predictions[test] (512,2048,2,16,16),(4,128,4096)(0.40)
   description: Prediction Metrics for the run [6c0c949605b142d28cb260e05df9e42d](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/92/runs/6c0c949605b142d28cb260e05df9e42d).
   hyperparams: {}
-
