@@ -16,15 +16,15 @@ model:
   net:
     config:
       node_features: 40
-      dim: 512
-      hidden_dim: 2048
-      pos_dim: 2  # (x, y, α)
-      num_heads: 16
-      num_layers: 16
+      dim: 256
+      hidden_dim: 1024
+      pos_dim: 2 # (x, y, α)
+      num_heads: 8
+      num_layers: 8
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4
-  
+
 data:
   batch_size: 16
   k: 128
@@ -33,9 +33,9 @@ data:
 
 metadata:
   experiment_name: Graph Transformer
-  run_name: "Pure Self-Attention (512,2048,2,16,16,(16,128,4096)(0.30)"
-  description: "Decay 1e-3, ls 1e-4, warmup steps 8, lr 1e-4, batch size (16), sampler 0.30"
-  hyperparams: 
+  run_name: "Pure Self-Attention (256,1024,2,8,8),(16,128,4096)(0.30)"
+  description: "testing run"
+  hyperparams:
     sampler_positivity_threshold: ${data.sampler.positivity_threshold}
     batch_size: ${data.batch_size}
     k: ${data.k}
