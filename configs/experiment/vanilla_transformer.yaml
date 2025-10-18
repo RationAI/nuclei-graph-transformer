@@ -32,7 +32,7 @@ data:
   crop_size: 4096
 
 metadata:
-  experiment_name: Graph Transformer
+  experiment_name: Nuclei Graph — Transformer
   run_name: "Pure Self-Attention (256,1024,2,8,8),(16,128,4096)(0.30)"
   description: "testing run"
   hyperparams:
