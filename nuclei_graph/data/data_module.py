@@ -37,6 +37,7 @@ class DataModule(LightningDataModule):
         def prepare(conf: DictConfig) -> NucleiDataset:
             conf.metadata_path = download_artifacts(conf.metadata_path)
             conf.nuclei_path = download_artifacts(conf.nuclei_path)
+            conf.graphs_path = download_artifacts(conf.graphs_path)
             if conf.get("annot_masks_path") is not None:
                 conf.annot_masks_path = download_artifacts(conf.annot_masks_path)
             return instantiate(conf)

@@ -1,14 +1,13 @@
 """Dataset for nuclei point clouds from whole-slide images.
 
-Loads nuclei embeddings, positions, and labels from slides, builds Delaunay-based adjacency graphs,
-and samples spatially connected crops for training or full-slide inference.
+Loads nuclei embeddings, positions, labels, and precomputed slide-level Delaunay-based
+adjacency graphs, and samples spatially connected crops for training or full-slide inference.
 Supports annotation masks for more precise supervision, rotation-aware positional encoding,
 and KD-tree-based block masks for sparse attention.
-
-Adjusted from the Nuclei Foundational Model repository.
 """
 
 import heapq
+import pickle
 import random
 from pathlib import Path
 from typing import TypeAlias
@@ -16,19 +15,23 @@ from typing import TypeAlias
 import numpy as np
 import pandas as pd
 import torch
-from graph_pytorch_ext import build_adjacency_graph
 from numpy.typing import NDArray
-from scipy.spatial import Delaunay, KDTree
+from scipy.spatial import KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from nuclei_graph.typing import FeatureDict, Metadata, PredictSample, Sample, Transforms
+from nuclei_graph.typing import (
+    AdjacencyGraph,
+    FeatureDict,
+    Metadata,
+    PointArray,
+    PredictSample,
+    Sample,
+    Transforms,
+)
 from nuclei_graph.utils import create_single_block_mask_from_kdtree, normalize_efd
 
 
-Neighbor: TypeAlias = tuple[int, float]  # (node_idx, edge_weight)
-AdjacencyGraph: TypeAlias = list[list[Neighbor]]
-PointArray: TypeAlias = NDArray[np.float32]
 HeapItem: TypeAlias = tuple[float, int]  # (priority, node_idx)
 
 
@@ -37,6 +40,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self,
         metadata_path: str,
         nuclei_path: str,
+        graphs_path: str,
         annot_masks_path: str | None = None,
         transforms: Transforms | None = None,
         alpha: float = 0.8,
@@ -51,6 +55,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Args:
             metadata_path: Local path to dataset metadata.
             nuclei_path: Local path to the .pt files of the nuclei data (a dictionary with keys: x=embeddings, pos=centroids, y=labels).
+            graphs_path: Local path to the precomputed Delaunay graphs as pickle files.
             annot_masks_path: Optional local path for positive slides, includes finer annotation for masked training.
             transforms: Optional (list of) transforms to apply to the data (e.g. normalization, ...).
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors.
@@ -64,6 +69,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self.crop_size = crop_size
         self.slides = pd.read_parquet(metadata_path)
         self.nuclei = self._load_nuclei(nuclei_path)
+        self.graphs = self._load_graphs(graphs_path)
         self.annotations = self._load_annotations(annot_masks_path)
         self.slides_positivity = self._compute_slides_positivity()
         self.transforms = transforms if isinstance(transforms, list) else [transforms]
@@ -84,7 +90,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         skipped_count = 0
         for slide_nuclei in slides_nuclei:
             slide_id = slide_nuclei.stem
-            data = torch.load(slide_nuclei, weights_only=False)
+            data = torch.load(slide_nuclei, weights_only=False, mmap=True)
             n_nuclei = data["x"].shape[0]
 
             if not self.full_slide and n_nuclei < self.crop_size:
@@ -103,6 +109,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             drop=True
         )
         return valid_slides
+
+    def _load_graphs(self, graphs_path: str) -> dict[str, Path]:
+        graphs: dict[str, Path] = {}
+        for graph_file in list(Path(graphs_path).rglob("*.pkl")):
+            if graph_file.stem in self.slides.slide_id.values:
+                graphs[graph_file.stem] = graph_file
+        return graphs
 
     def _load_annotations(self, annot_masks_path: str | None) -> dict[str, Path]:
         annotations: dict[str, Path] = {}
@@ -125,26 +138,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         for idx in range(len(self.slides)):
             mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
             slides_positivity[idx] = (
-                torch.load(mask_path, weights_only=False).float().mean().item()
+                torch.load(mask_path, weights_only=False, mmap=True)
+                .float()
+                .mean()
+                .item()
                 if mask_path is not None
                 else 0.0
             )
         return slides_positivity
-
-    def _build_graph(self, points: PointArray) -> AdjacencyGraph:
-        """Builds an undirected Delaunay-based adjacency graph with edge weights as Euclidean distances."""
-        tri = Delaunay(points)
-        distances = np.linalg.norm(
-            points[tri.simplices[:, [0, 1, 2]]]
-            - points[np.roll(tri.simplices[:, [0, 1, 2]], shift=-1, axis=1)],
-            axis=2,
-        )
-        adj_graph = build_adjacency_graph(
-            tri.simplices.astype(np.int64),
-            distances.astype(np.float32),
-            len(points),
-        )
-        return adj_graph
 
     def _find_component(
         self,
@@ -152,7 +153,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         k: int,
         graph: AdjacencyGraph,
         centroids: PointArray,
-        indices: NDArray[np.uint32] | None = None,
+        indices: NDArray[np.int64] | None = None,
     ) -> list[int]:
         """Grows a connected component of up to `k` nuclei starting from a seed index.
 
@@ -197,7 +198,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
         if mask_path is not None:
-            return torch.load(mask_path, weights_only=False).bool().view(-1, 1)
+            return (
+                torch.load(mask_path, weights_only=False, mmap=True).bool().view(-1, 1)
+            )
         return torch.ones((nuclei_count, 1), dtype=torch.bool)
 
     def _get_slide_metadata(
@@ -211,12 +214,16 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "perm_inverse": perm_inverse,
         }
 
-    def _get_crop_indices(self, centroids: PointArray, annot_mask: Tensor) -> list[int]:
-        """Build graph and create a crop of size `crop_size` by growing a component starting from a random nucleus.
+    def _get_crop_indices(
+        self, centroids: PointArray, annot_mask: Tensor, slide_id: str
+    ) -> list[int]:
+        """Loads Delaunay graph and creates a crop of size `crop_size` by growing a component starting from a random nucleus.
 
         Only annotated nuclei are considered as seeds to avoid creating a crop fully in an unlabeled region.
         """
-        graph = self._build_graph(centroids)
+        graph_path = self.graphs[slide_id]
+        with open(graph_path, "rb") as f:
+            graph = pickle.load(f)
 
         annotated_indices = (
             torch.nonzero(annot_mask.squeeze(-1), as_tuple=False).squeeze(-1).tolist()
@@ -296,8 +303,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
-        slide_nuclei_path = self.nuclei[self.slides.iloc[idx].slide_id]
-        nuclei_data: FeatureDict = torch.load(slide_nuclei_path, weights_only=False)
+        slide_id = self.slides.iloc[idx].slide_id
+        slide_nuclei_path = self.nuclei[slide_id]
+        nuclei_data: FeatureDict = torch.load(
+            slide_nuclei_path, weights_only=False, mmap=True
+        )
         nuclei_data["annot_mask"] = self._get_annot_mask(idx, nuclei_data["x"].shape[0])
 
         # save the rotation angle psi_1 before normalization
@@ -317,7 +327,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             crop_indices = torch.arange(len(embeddings))
         else:
             crop_indices = torch.tensor(
-                self._get_crop_indices(positions.numpy(), masks), dtype=torch.long
+                self._get_crop_indices(positions.numpy(), masks, slide_id),
+                dtype=torch.long,
             )
 
         tree, perm = self._build_kd_tree(positions[crop_indices].numpy())

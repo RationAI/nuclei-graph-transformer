@@ -1,5 +1,7 @@
 from typing import TypeAlias, TypedDict
 
+import numpy as np
+from numpy.typing import NDArray
 from omegaconf import DictConfig
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
@@ -26,6 +28,12 @@ class Sample(TypedDict):
 
 
 FeatureDict: TypeAlias = dict[str, Tensor]
+
+Neighbor: TypeAlias = tuple[int, float]  # (node_idx, edge_weight)
+
+AdjacencyGraph: TypeAlias = list[list[Neighbor]]
+
+PointArray: TypeAlias = NDArray[np.float32]
 
 PredictInput: TypeAlias = tuple[Sample, list[Metadata]]
 
