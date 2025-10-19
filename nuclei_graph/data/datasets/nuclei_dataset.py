@@ -166,6 +166,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         Returns:
             list[int]: Indices of nuclei in the component.
+
+        Taken from the Nuclei Foundational Model repository.
         """
         component_indices: list[int] = []
         in_component = np.zeros(len(centroids), dtype=bool)
