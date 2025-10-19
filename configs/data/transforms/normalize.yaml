@@ -1,4 +1,4 @@
-_target_: nuclei_graph.data.transforms.Compose
+_target_: torch_geometric.transforms.Compose
 transforms:
   - _target_: nuclei_graph.data.transforms.NormalizeEFD
   - _target_: nuclei_graph.data.transforms.Normalize
