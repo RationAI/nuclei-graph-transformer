@@ -25,6 +25,7 @@ dependencies = [
     "graph_pytorch_ext",
     "rationai-masks",
     "rationai-mlkit",
+    "ratiopath>=1.0.3",
 ]
 
 [tool.uv.sources]
