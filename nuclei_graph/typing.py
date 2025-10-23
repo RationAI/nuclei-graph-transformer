@@ -1,4 +1,4 @@
-from typing import TypeAlias, TypedDict
+from typing import TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -27,24 +27,24 @@ class Sample(TypedDict):
     block_mask: BlockMask
 
 
-FeatureDict: TypeAlias = dict[str, Tensor]
+type FeatureDict = dict[str, Tensor]
 
-Neighbor: TypeAlias = tuple[int, float]  # (node_idx, edge_weight)
+type Neighbor = tuple[int, float]  # (node_idx, edge_weight)
 
-AdjacencyGraph: TypeAlias = list[list[Neighbor]]
+type AdjacencyGraph = list[list[Neighbor]]
 
-PointArray: TypeAlias = NDArray[np.float32]
+type PointArray = NDArray[np.float32]
 
-PredictInput: TypeAlias = tuple[Sample, list[Metadata]]
+type PredictInput = tuple[Sample, list[Metadata]]
 
-PredictSample: TypeAlias = tuple[Sample, Metadata]
+type PredictSample = tuple[Sample, Metadata]
 
-Batch: TypeAlias = list[Sample]
+type Batch = list[Sample]
 
-PredictBatch: TypeAlias = list[PredictSample]
+type PredictBatch = list[PredictSample]
 
-PartialConf: TypeAlias = DictConfig
+type PartialConf = DictConfig
 
-Outputs: TypeAlias = Tensor
+type Outputs = Tensor
 
 Region = list[tuple[int, int]]

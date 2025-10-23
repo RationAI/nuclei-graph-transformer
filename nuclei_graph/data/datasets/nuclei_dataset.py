@@ -7,19 +7,20 @@ and KD-tree-based block masks for sparse attention.
 """
 
 import heapq
-import pickle
 import random
 from pathlib import Path
-from typing import TypeAlias
 
 import numpy as np
 import pandas as pd
 import torch
+from graph_pytorch_ext import build_adjacency_graph
 from numpy.typing import NDArray
-from scipy.spatial import KDTree
+from scipy.spatial import Delaunay, KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from nuclei_graph.data.block_mask import create_single_block_mask_from_kdtree
+from nuclei_graph.features import normalize_efd
 from nuclei_graph.typing import (
     AdjacencyGraph,
     FeatureDict,
@@ -29,10 +30,9 @@ from nuclei_graph.typing import (
     Sample,
     Transforms,
 )
-from nuclei_graph.utils import create_single_block_mask_from_kdtree, normalize_efd
 
 
-HeapItem: TypeAlias = tuple[float, int]  # (priority, node_idx)
+type HeapItem = tuple[float, int]  # (priority, node_idx)
 
 
 class NucleiDataset(Dataset[Sample | PredictSample]):
@@ -216,17 +216,30 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "perm_inverse": perm_inverse,
         }
 
-    def _get_crop_indices(
-        self, centroids: PointArray, annot_mask: Tensor, slide_id: str
-    ) -> list[int]:
-        """Loads Delaunay graph and creates a crop of size `crop_size` by growing a component starting from a random nucleus.
+    def _build_graph(self, points: PointArray) -> AdjacencyGraph:
+        """Builds an undirected Delaunay-based adjacency graph with edge weights as Euclidean distances.
+
+        Taken from the Nuclei Foundational Model repository.
+        """
+        tri = Delaunay(points)
+        distances = np.linalg.norm(
+            points[tri.simplices[:, [0, 1, 2]]]
+            - points[np.roll(tri.simplices[:, [0, 1, 2]], shift=-1, axis=1)],
+            axis=2,
+        )
+        adj_graph = build_adjacency_graph(
+            tri.simplices.astype(np.int64),
+            distances.astype(np.float32),
+            len(points),
+        )
+        return adj_graph
+
+    def _get_crop_indices(self, centroids: PointArray, annot_mask: Tensor) -> list[int]:
+        """Builds a Delaunay graph and creates a crop of size `crop_size` by growing a component starting from a random nucleus.
 
         Only annotated nuclei are considered as seeds to avoid creating a crop fully in an unlabeled region.
         """
-        graph_path = self.graphs[slide_id]
-        with open(graph_path, "rb") as f:
-            graph = pickle.load(f)
-
+        graph = self._build_graph(centroids)
         annotated_indices = (
             torch.nonzero(annot_mask.squeeze(-1), as_tuple=False).squeeze(-1).tolist()
         )
@@ -329,7 +342,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             crop_indices = torch.arange(len(embeddings))
         else:
             crop_indices = torch.tensor(
-                self._get_crop_indices(positions.numpy(), masks, slide_id),
+                self._get_crop_indices(positions.numpy(), masks),
                 dtype=torch.long,
             )
 

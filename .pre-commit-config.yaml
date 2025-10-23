@@ -2,23 +2,20 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: v4.6.0
     hooks:
       - id: check-yaml
         args: [--unsafe]
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.9.1
+    rev: v3.29.0
     hooks:
       - id: commitizen
-        additional_dependencies: ["deprecated"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.2
+    rev: v0.6.4
     hooks:
       # Run the linter.
       - id: ruff
-        entry: pdm lint --force-exclude
       # Run the formatter.
       - id: ruff-format
-        entry: pdm format --force-exclude

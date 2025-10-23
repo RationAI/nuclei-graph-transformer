@@ -4,8 +4,8 @@ import torch
 from mlflow.artifacts import download_artifacts
 from torch_geometric.transforms import BaseTransform
 
+from nuclei_graph.features import normalize_efd
 from nuclei_graph.typing import FeatureDict
-from nuclei_graph.utils import normalize_efd
 
 
 class NormalizeEFD(BaseTransform):  # type: ignore[misc]

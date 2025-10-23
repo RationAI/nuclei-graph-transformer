@@ -7,7 +7,7 @@ from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import Trainer, autolog
 
-from nuclei_graph.data import DataModule
+from nuclei_graph.data.data_module import DataModule
 from nuclei_graph.nuclei_graph_model import NucleiGraphTransformer
 
 

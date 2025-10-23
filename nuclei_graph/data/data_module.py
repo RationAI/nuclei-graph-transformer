@@ -7,6 +7,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 
+from nuclei_graph.data.block_mask import batch_block_masks
 from nuclei_graph.data.datasets import NucleiDataset
 from nuclei_graph.typing import (
     Batch,
@@ -15,7 +16,6 @@ from nuclei_graph.typing import (
     PredictInput,
     Sample,
 )
-from nuclei_graph.utils import batch_block_masks
 
 
 class DataModule(LightningDataModule):
