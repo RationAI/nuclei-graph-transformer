@@ -1,21 +1,25 @@
 from collections.abc import Iterable
+from copy import deepcopy
+from pathlib import Path
 
+import pandas as pd
 import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.block_mask import batch_block_masks
-from nuclei_graph.data.datasets import NucleiDataset
-from nuclei_graph.typing import (
+from nuclei_graph.nuclei_graph_typing import (
     Batch,
     PartialConf,
     PredictBatch,
     PredictInput,
     Sample,
 )
+from preprocessing.slide_helpers import get_ground_truth
 
 
 class DataModule(LightningDataModule):
@@ -33,25 +37,77 @@ class DataModule(LightningDataModule):
         self.sampler_partial = sampler
         self.batch_block_masks = batch_block_masks
 
-    def setup(self, stage: str) -> None:
-        def prepare(conf: DictConfig) -> NucleiDataset:
-            conf.metadata_path = download_artifacts(conf.metadata_path)
-            conf.nuclei_path = download_artifacts(conf.nuclei_path)
-            conf.graphs_path = download_artifacts(conf.graphs_path)
-            if conf.get("annot_masks_path") is not None:
-                conf.annot_masks_path = download_artifacts(conf.annot_masks_path)
-            return instantiate(conf)
+    def _train_val_split(
+        self, df_metadata: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        df_metadata["label"] = df_metadata["slide_mrxs_path"].apply(get_ground_truth)
 
+        patient_labels = df_metadata.groupby("patient_id")["label"].max()
+        unique_patients = patient_labels.index.to_list()
+        patient_y = patient_labels.to_list()
+
+        train_patients, val_patients = train_test_split(
+            unique_patients,
+            test_size=0.1,
+            random_state=42,
+            stratify=patient_y,
+        )
+        df_metadata_train = df_metadata[
+            df_metadata["patient_id"].isin(train_patients)
+        ].drop(columns=["patient_id", "label"])
+        df_metadata_val = df_metadata[
+            df_metadata["patient_id"].isin(val_patients)
+        ].drop(columns=["patient_id", "label"])
+
+        return df_metadata_train.reset_index(drop=True), df_metadata_val.reset_index(
+            drop=True
+        )
+
+    def _check_nuclei_count(self, df_metadata: pd.DataFrame) -> pd.DataFrame:
+        """Filters out slides with insufficient nuclei for cropping during training."""
+        df_tmp = df_metadata.copy()
+        df_tmp["nuclei_count"] = df_tmp["slide_nuclei_path"].apply(
+            lambda path: len(pd.read_parquet(path))
+        )
+        df_tmp = df_tmp[df_tmp["nuclei_count"] >= self.datasets["train"].crop_size]
+        return df_tmp.reset_index(drop=True)
+
+    def _prepare_split(self, conf: DictConfig):
+        if conf.get("annot_masks_path") is not None:
+            conf.annot_masks_path = download_artifacts(conf.annot_masks_path)
+
+        df_metadata = pd.read_csv(Path(download_artifacts(conf.metadata_path)))
+        df_metadata_train, df_metadata_val = self._train_val_split(df_metadata)
+        df_metadata_train = self._check_nuclei_count(df_metadata_train)
+
+        conf_train, conf_val = deepcopy(conf), deepcopy(conf)
+        conf_train.df_metadata = df_metadata_train
+        conf_val.df_metadata = df_metadata_val
+        conf_train.pop("metadata_path", None)
+        conf_val.pop("metadata_path", None)
+
+        return instantiate(conf_train), instantiate(conf_val)
+
+    def _prepare_single(self, conf: DictConfig):
+        conf_copy = deepcopy(conf)
+
+        if conf.get("annot_masks_path") is not None:
+            conf_copy.annot_masks_path = download_artifacts(conf.annot_masks_path)
+
+        conf_copy.df_metadata = pd.read_csv(
+            Path(download_artifacts(conf.metadata_path))
+        )
+        conf_copy.pop("metadata_path", None)
+        return instantiate(conf_copy)
+
+    def setup(self, stage: str) -> None:
         match stage:
-            case "fit":
-                self.train = prepare(self.datasets["train"])
-                self.val = prepare(self.datasets["val"])
-            case "validate":
-                self.val = prepare(self.datasets["val"])
+            case "fit" | "validate":
+                self.train, self.val = self._prepare_split(self.datasets["train"])
             case "test":
-                self.test = prepare(self.datasets["test"])
+                self.test = self._prepare_single(self.datasets["test"])
             case "predict":
-                self.predict = prepare(self.datasets["predict"])
+                self.predict = self._prepare_single(self.datasets["predict"])
 
     def _collate_fn(self, batch: Batch) -> Sample:
         return {

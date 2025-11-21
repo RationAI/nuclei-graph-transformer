@@ -9,8 +9,6 @@ defaults:
   - override /data/transforms@data.val.transforms: normalize
   - override /data/transforms@data.test.transforms: normalize
 
-checkpoint: null
-
 model:
   lr: 1e-4
   net:

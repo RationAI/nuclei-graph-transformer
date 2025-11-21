@@ -1,29 +1,22 @@
-"""Dataset for nuclei point clouds from whole-slide images.
-
-Loads nuclei embeddings, positions, labels, and precomputed slide-level Delaunay-based
-adjacency graphs, and samples spatially connected crops for training or full-slide inference.
-Supports annotation masks for more precise supervision, rotation-aware positional encoding,
-and KD-tree-based block masks for sparse attention.
-"""
+"""Dataset for nuclei point clouds from whole-slide images."""
 
 import heapq
 import random
-from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
 import torch
-from graph_pytorch_ext import build_adjacency_graph
+from degraph import build_spatial_graph
 from numpy.typing import NDArray
-from scipy.spatial import Delaunay, KDTree
+from scipy.spatial import KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
 from nuclei_graph.data.block_mask import create_single_block_mask_from_kdtree
 from nuclei_graph.features import normalize_efd
-from nuclei_graph.typing import (
+from nuclei_graph.nuclei_graph_typing import (
     AdjacencyGraph,
-    FeatureDict,
     Metadata,
     PointArray,
     PredictSample,
@@ -38,10 +31,8 @@ type HeapItem = tuple[float, int]  # (priority, node_idx)
 class NucleiDataset(Dataset[Sample | PredictSample]):
     def __init__(
         self,
-        metadata_path: str,
-        nuclei_path: str,
-        graphs_path: str,
-        annot_masks_path: str | None = None,
+        df_metadata: pd.DataFrame,
+        indicator_masks_path: str | None = None,
         transforms: Transforms | None = None,
         alpha: float = 0.8,
         crop_size: int = 4096,
@@ -53,10 +44,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """Initialize the dataset.
 
         Args:
-            metadata_path: Local path to dataset metadata.
-            nuclei_path: Local path to the .pt files of the nuclei data (a dictionary with keys: x=embeddings, pos=centroids, y=labels).
-            graphs_path: Local path to the precomputed Delaunay graphs as pickle files.
-            annot_masks_path: Optional local path for positive slides, includes finer annotation for masked training.
+            df_metadata: DataFrame containing dataset metadata.
+            indicator_masks_path: Optional local path for positive slides, includes finer annotation for masked training (i.e., CAM masks).
             transforms: Optional (list of) transforms to apply to the data (e.g. normalization, ...).
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors.
             crop_size: Number of nuclei in a crop.
@@ -67,11 +56,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         self.full_slide = full_slide
         self.crop_size = crop_size
-        self.slides = pd.read_parquet(metadata_path)
-        self.nuclei = self._load_nuclei(nuclei_path)
-        self.graphs = self._load_graphs(graphs_path)
-        self.annotations = self._load_annotations(annot_masks_path)
-        self.slides_positivity = self._compute_slides_positivity()
+        self.df_metadata = df_metadata
+        self.indicator_masks_path = indicator_masks_path
+        self.slides_positivity = self.compute_slides_positivity()
         self.transforms = transforms if isinstance(transforms, list) else [transforms]
         self.alpha = alpha
         self.k = k
@@ -80,74 +67,26 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self.predict = predict
 
     def __len__(self) -> int:
-        return len(self.slides)
+        return len(self.df_metadata)
 
-    def _load_nuclei(self, nuclei_path: str) -> dict[str, Path]:
-        """Loads nuclei slides, skips slides with fewer nuclei than `crop_size`, and aligns the `self.slides` index."""
-        slides_nuclei = list(Path(nuclei_path).rglob("*.pt"))
-
-        valid_slides = {}
-        skipped_count = 0
-        for slide_nuclei in slides_nuclei:
-            slide_id = slide_nuclei.stem
-            data = torch.load(slide_nuclei, weights_only=False, mmap=True)
-            n_nuclei = data["x"].shape[0]
-
-            if not self.full_slide and n_nuclei < self.crop_size:
-                print(
-                    f"Warning: Slide {slide_id} has only {n_nuclei} nuclei (crop_size={self.crop_size}). "
-                    f"Skipping the slide..."
-                )
-                skipped_count += 1
-            else:
-                valid_slides[slide_id] = slide_nuclei
-
-        if skipped_count > 0:
-            print(f"Total slides skipped: {skipped_count}")
-
-        self.slides = self.slides[self.slides.slide_id.isin(valid_slides)].reset_index(
-            drop=True
-        )
-        return valid_slides
-
-    def _load_graphs(self, graphs_path: str) -> dict[str, Path]:
-        graphs: dict[str, Path] = {}
-        for graph_file in list(Path(graphs_path).rglob("*.pkl")):
-            if graph_file.stem in self.slides.slide_id.values:
-                graphs[graph_file.stem] = graph_file
-        return graphs
-
-    def _load_annotations(self, annot_masks_path: str | None) -> dict[str, Path]:
-        annotations: dict[str, Path] = {}
-        if annot_masks_path is None:
-            return annotations
-
-        annot_masks = Path(annot_masks_path)
-        for annot_mask in annot_masks.rglob("*.pt"):
-            if annot_mask.stem in self.slides.slide_id.values:
-                annotations[annot_mask.stem] = annot_mask
-        return annotations
-
-    def _compute_slides_positivity(self) -> dict[int, float]:
+    def compute_slides_positivity(self) -> dict[int, float]:
         """Computes the fraction of annotated positive nuclei per slide.
 
         Returns:
             dict[int, float]: Mapping from slide index to positivity score.
         """
         slides_positivity: dict[int, float] = {}
-        for idx in range(len(self.slides)):
-            mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
+        for idx in range(len(self.df_metadata)):
+            mask_path = self.annotations.get(self.df_metadata.iloc[idx].slide_id, None)
             slides_positivity[idx] = (
                 torch.load(mask_path, weights_only=False, mmap=True)
                 .float()
                 .mean()
                 .item()
-                if mask_path is not None
-                else 0.0
             )
         return slides_positivity
 
-    def _find_component(
+    def find_component(
         self,
         idx: int,
         k: int,
@@ -192,20 +131,16 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         return component_indices
 
-    def _get_annot_mask(self, idx: int, nuclei_count: int) -> Tensor:
-        """Return the annotation mask for a slide.
+    def get_annot_mask(self, idx: int) -> Tensor:
+        """Return the annotation mask for a slide."""
+        slide_id = self.slides.iloc[idx].slide_id
+        mask_path = self.annotations.get(slide_id, None)
+        assert mask_path is not None, (
+            f"Annotation mask not found for slide '{slide_id}'."
+        )
+        return torch.load(mask_path, weights_only=False, mmap=True).bool().view(-1, 1)
 
-        For positive slides, the mask is loaded from a saved file.
-        For negative slides, all nuclei are considered annotated.
-        """
-        mask_path = self.annotations.get(self.slides.iloc[idx].slide_id, None)
-        if mask_path is not None:
-            return (
-                torch.load(mask_path, weights_only=False, mmap=True).bool().view(-1, 1)
-            )
-        return torch.ones((nuclei_count, 1), dtype=torch.bool)
-
-    def _get_slide_metadata(
+    def get_slide_metadata(
         self, idx: int, nuclei_count: int, perm_inverse: Tensor
     ) -> Metadata:
         return {
@@ -216,50 +151,32 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "perm_inverse": perm_inverse,
         }
 
-    def _build_graph(self, points: PointArray) -> AdjacencyGraph:
-        """Builds an undirected Delaunay-based adjacency graph with edge weights as Euclidean distances.
-
-        Taken from the Nuclei Foundational Model repository.
-        """
-        tri = Delaunay(points)
-        distances = np.linalg.norm(
-            points[tri.simplices[:, [0, 1, 2]]]
-            - points[np.roll(tri.simplices[:, [0, 1, 2]], shift=-1, axis=1)],
-            axis=2,
-        )
-        adj_graph = build_adjacency_graph(
-            tri.simplices.astype(np.int64),
-            distances.astype(np.float32),
-            len(points),
-        )
-        return adj_graph
-
-    def _get_crop_indices(self, centroids: PointArray, annot_mask: Tensor) -> list[int]:
+    def get_crop_indices(self, centroids: PointArray, annot_mask: Tensor) -> list[int]:
         """Builds a Delaunay graph and creates a crop of size `crop_size` by growing a component starting from a random nucleus.
 
         Only annotated nuclei are considered as seeds to avoid creating a crop fully in an unlabeled region.
         """
-        graph = self._build_graph(centroids)
+        graph = build_spatial_graph(centroids)
         annotated_indices = (
             torch.nonzero(annot_mask.squeeze(-1), as_tuple=False).squeeze(-1).tolist()
         )
         assert annotated_indices
         seed = random.choice(annotated_indices)
-        return self._find_component(seed, self.crop_size, graph, centroids)
+        return self.find_component(seed, self.crop_size, graph, centroids)
 
-    def _build_kd_tree(self, points: PointArray) -> tuple[KDTree, Tensor]:
+    def build_kd_tree(self, points: PointArray) -> tuple[KDTree, Tensor]:
         """Builds a KDTree and computes permutation that clusters points by leaf for sparse attention."""
         tree_tmp = KDTree(points, leafsize=self.attn_block_size)
         perm = tree_tmp.indices
         tree = KDTree(points[perm], leafsize=self.attn_block_size)
         return tree, torch.from_numpy(perm).long()
 
-    def _add_rotation(self, positions: Tensor, psi_1: Tensor) -> Tensor:
+    def add_rotation(self, positions: Tensor, psi_1: Tensor) -> Tensor:
         """Append the rotation angle as a third positional dimension."""
         angles = (psi_1 % torch.pi).view(-1, 1)
         return torch.cat([positions, angles], dim=1)
 
-    def _pad_to_block_size(
+    def pad_to_block_size(
         self, x: torch.Tensor, pos: torch.Tensor, y: torch.Tensor, mask: torch.Tensor
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         """Pad tensors so that their first dimension is divisible by the attention block size.
@@ -287,7 +204,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             torch.cat([mask, pad_mask], dim=0),
         )
 
-    def _get_inverse_perm(self, perm: Tensor) -> Tensor:
+    def get_inverse_perm(self, perm: Tensor) -> Tensor:
         assert perm.dim() == 1, "perm must be 1D"
         perm_inverse = torch.empty_like(perm)
         perm_inverse[perm] = torch.arange(perm.size(0), dtype=perm.dtype)
@@ -296,7 +213,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return perm_inverse
 
-    def _get_cropped_data(
+    def get_cropped_data(
         self,
         embeddings: Tensor,
         positions: Tensor,
@@ -311,19 +228,19 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_labels = labels[crop_indices][perm]
         crop_annot_mask = masks[crop_indices][perm]
 
-        crop_positions = self._add_rotation(crop_positions, angle[crop_indices][perm])
+        crop_positions = self.add_rotation(crop_positions, angle[crop_indices][perm])
 
-        return self._pad_to_block_size(
+        return self.pad_to_block_size(
             crop_embeddings, crop_positions, crop_labels, crop_annot_mask
         )
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         slide_id = self.slides.iloc[idx].slide_id
-        slide_nuclei_path = self.nuclei[slide_id]
-        nuclei_data: FeatureDict = torch.load(
-            slide_nuclei_path, weights_only=False, mmap=True
-        )
-        nuclei_data["annot_mask"] = self._get_annot_mask(idx, nuclei_data["x"].shape[0])
+        slide_nuclei_path = cast(
+            "pd.Series",
+            self.slides.loc[self.slides.slide_id == slide_id, "slide_nuclei_path"],
+        ).item()
+        nuclei_data["annot_mask"] = self.get_annot_mask(idx)
 
         # save the rotation angle psi_1 before normalization
         _, psi_1, _ = normalize_efd(nuclei_data["x"], return_angles=True)
@@ -342,14 +259,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             crop_indices = torch.arange(len(embeddings))
         else:
             crop_indices = torch.tensor(
-                self._get_crop_indices(positions.numpy(), masks),
+                self.get_crop_indices(positions.numpy(), masks),
                 dtype=torch.long,
             )
 
-        tree, perm = self._build_kd_tree(positions[crop_indices].numpy())
+        tree, perm = self.build_kd_tree(positions[crop_indices].numpy())
 
         crop_embeddings, crop_positions, crop_labels, crop_annot_mask = (
-            self._get_cropped_data(
+            self.get_cropped_data(
                 embeddings, positions, labels, masks, crop_indices, perm, psi_1
             )
         )
@@ -372,6 +289,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         }
 
         if self.predict:
-            perm_inverse = self._get_inverse_perm(perm)
-            return item, self._get_slide_metadata(idx, len(crop_indices), perm_inverse)
+            perm_inverse = self.get_inverse_perm(perm)
+            return item, self.get_slide_metadata(idx, len(crop_indices), perm_inverse)
         return item

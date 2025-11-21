@@ -1,7 +1,8 @@
 defaults:
-  - _self_
   - override hydra_logging: disabled
-  - override job_logging: disabled
+  - override job_logging: custom
+  - _self_
+
 output_subdir: null
 run:
   dir: .

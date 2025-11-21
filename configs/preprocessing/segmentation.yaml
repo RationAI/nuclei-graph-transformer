@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - base
+  - _self_
+
+nuclei_segmentation:
+  mpp: 0.25
+  precision_factor: 10000
+  tile_extent: 2048
+  overlap: 64
+  batch_size: 8
+  concurrency: 4
+  tissue_masks_uri: mlflow-artifacts:/65/4ea7cee809a2443389855facba548959/artifacts/tissue_masks
+  output_base_path: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
+
+metadata:
+  run_name: Nuclei Segmentation

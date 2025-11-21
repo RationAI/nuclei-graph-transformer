@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /default
+  - _self_
+
+# Paths to the slides (MRXS format) and annotations
+data_path: /mnt/data/MOU/prostate/tile_level_annotations
+test_data_path: /mnt/data/MOU/prostate/tile_level_annotations_test
+
+metadata:
+  run_name: "Exploration: Save Metadataset"

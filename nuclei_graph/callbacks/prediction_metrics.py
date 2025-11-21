@@ -7,7 +7,7 @@ import torch
 from lightning import Callback, LightningModule, Trainer
 from torchmetrics import MetricCollection
 
-from nuclei_graph.typing import Outputs, PredictInput
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictInput
 
 
 class PredictionMetricsCallback(Callback):

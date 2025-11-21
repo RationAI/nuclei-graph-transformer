@@ -1,11 +1,10 @@
 defaults:
   - /data/transforms@transforms: ???
+  - /preprocessing: segmentation
   - _self_
 
 _target_: nuclei_graph.data.datasets.NucleiDataset
-metadata_path: "mlflow-artifacts:/97/23ab056750e1490b8ef2c2c20ad5084a/artifacts/Prostate Nuclei Dataset - test/slides.parquet"
-nuclei_path: "mlflow-artifacts:/97/fe68c7527c3a4501946e08af0f08bdc3/artifacts/Nuclei Point Cloud Dataset - test"
-graphs_path: "mlflow-artifacts:/97/59f7e8620f814e869f588a7ffeb045be/artifacts/Delaunay Graphs - test"
+metadata_path: "mlflow-artifacts:/97/4cb4783faf21473f90dcf479496cb7e2/artifacts/tile_level_annotations_test/slides_metadata.csv"
 annot_masks_path: "mlflow-artifacts:/97/36b22d7ff10c444ab6e16fca50eb757a/artifacts/cam_positive_masks"
 crop_size: ${data.crop_size}
 k: ${data.k}

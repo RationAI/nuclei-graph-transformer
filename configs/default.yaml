@@ -4,37 +4,8 @@ defaults:
   - /experiment: vanilla_transformer
   - _self_
 
-seed: ${random_seed:}
-mode: ???
-checkpoint: ???
-
-trainer:
-  gradient_clip_val: 0.8
-  enable_checkpointing: True
-  max_epochs: 80
-  log_every_n_steps: 5
-  callbacks:
-    #- _target_: nuclei_graph.callbacks.NucleiHeatmapCallback
-    #- _target_: nuclei_graph.callbacks.PredictionMetricsCallback
-    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
-      save_top_k: 1
-      monitor: validation/loss
-      mode: min
-    - _target_: lightning.pytorch.callbacks.EarlyStopping
-      monitor: validation/loss
-      mode: min
-      patience: 13
-
-model:
-  lr: ???
-
-data:
-  batch_size: ???
-  num_workers: 10
-  crop_size: ???
-
 metadata:
-  experiment_name: ???
+  experiment_name: Nuclei Graph — Transformer
   run_name: ???
-  description: ???
+  description: ""
   hyperparams: {}

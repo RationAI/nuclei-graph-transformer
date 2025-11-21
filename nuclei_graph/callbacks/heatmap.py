@@ -12,7 +12,7 @@ from rationai.masks import slide_resolution
 from torch import Tensor
 
 from nuclei_graph.masks import NucleiMask
-from nuclei_graph.typing import Metadata, Outputs, PredictInput
+from nuclei_graph.nuclei_graph_typing import Metadata, Outputs, PredictInput
 
 
 LEVEL = 1

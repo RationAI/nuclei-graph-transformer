@@ -15,7 +15,7 @@ from torchmetrics.classification import (
 )
 from warmup_scheduler import GradualWarmupScheduler
 
-from nuclei_graph.typing import Outputs, PredictInput, Sample
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictInput, Sample
 
 
 class NucleiGraphTransformer(LightningModule):
