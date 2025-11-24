@@ -12,7 +12,7 @@ nuclei_segmentation:
   batch_size: 8
   concurrency: 4
   tissue_masks_uri: mlflow-artifacts:/65/4ea7cee809a2443389855facba548959/artifacts/tissue_masks
-  output_base_path: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
+  output_base_path: ${project_path}/nuclei_segmentation
 
 metadata:
   run_name: Nuclei Segmentation

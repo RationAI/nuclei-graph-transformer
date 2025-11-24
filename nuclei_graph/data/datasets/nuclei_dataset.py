@@ -1,5 +1,3 @@
-"""Dataset for nuclei point clouds from whole-slide images."""
-
 import heapq
 import random
 from typing import cast
@@ -13,7 +11,7 @@ from scipy.spatial import KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from nuclei_graph.data.block_mask import create_single_block_mask_from_kdtree
+from nuclei_graph.data.block_mask import create_block_mask
 from nuclei_graph.features import normalize_efd
 from nuclei_graph.nuclei_graph_typing import (
     AdjacencyGraph,
@@ -32,7 +30,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __init__(
         self,
         df_metadata: pd.DataFrame,
-        indicator_masks_path: str | None = None,
+        labels_path: str,
+        label_indicators_path: str | None = None,
         transforms: Transforms | None = None,
         alpha: float = 0.8,
         crop_size: int = 4096,
@@ -41,29 +40,32 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         full_slide: bool = False,
         predict: bool = False,
     ) -> None:
-        """Initialize the dataset.
+        """Dataset for nuclei point clouds from whole-slide images.
 
         Args:
-            df_metadata: DataFrame containing dataset metadata.
-            indicator_masks_path: Optional local path for positive slides, includes finer annotation for masked training (i.e., CAM masks).
+            df_metadata: Pandas DataFrame containing slide metadata with columns `slide_id`, `slide_mrxs_path`, and `slide_nuclei_path`.
+            labels_path: Local path to the nuclei label parquet files with columns `slide_id`, `nucleus_id`, and `label`.
+            label_indicators_path: Optional local path to parquet files containing finer annotation with columns
+                                   `slide_id`, `nucleus_id` and `cam_label_indicator`.
             transforms: Optional (list of) transforms to apply to the data (e.g. normalization, ...).
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors.
             crop_size: Number of nuclei in a crop.
             k: Number of neighbors for sparse attention.
-            attn_block_size: Block size for sparse attention, it must hold that `crop_size % attn_block_size == 0`.
+            attn_block_size: Block size for sparse attention, it must hold that `crop_size` is divisible by `attn_block_size`.
             full_slide: Whether the dataset is used for full slide inference.
             predict: Whether to return the metadata needed for prediction along with the data.
         """
-        self.full_slide = full_slide
-        self.crop_size = crop_size
         self.df_metadata = df_metadata
-        self.indicator_masks_path = indicator_masks_path
+        self.labels_path = labels_path
+        self.label_indicators_path = label_indicators_path
         self.slides_positivity = self.compute_slides_positivity()
         self.transforms = transforms if isinstance(transforms, list) else [transforms]
         self.alpha = alpha
+        self.crop_size = crop_size
         self.k = k
         self.attn_block_size = attn_block_size
         assert self.crop_size % self.attn_block_size == 0
+        self.full_slide = full_slide
         self.predict = predict
 
     def __len__(self) -> int:
@@ -77,11 +79,17 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         slides_positivity: dict[int, float] = {}
         for idx in range(len(self.df_metadata)):
-            mask_path = self.annotations.get(self.df_metadata.iloc[idx].slide_id, None)
+            slide_id = self.df_metadata.iloc[idx].slide_id
+            if self.label_indicators_path is None:
+                labels_df = pd.read_parquet(self.labels_path)
+                slides_positivity[idx] = (
+                    labels_df[labels_df["slide_id"] == slide_id].label.mean().item()
+                )
+                continue
+            label_indicators_df = pd.read_parquet(self.label_indicators_path)
             slides_positivity[idx] = (
-                torch.load(mask_path, weights_only=False, mmap=True)
-                .float()
-                .mean()
+                label_indicators_df[label_indicators_df["slide_id"] == slide_id]
+                .cam_label_indicator.mean()
                 .item()
             )
         return slides_positivity
@@ -132,8 +140,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         return component_indices
 
     def get_annot_mask(self, idx: int) -> Tensor:
-        """Return the annotation mask for a slide."""
-        slide_id = self.slides.iloc[idx].slide_id
+        slide_id = self.df_metadata.iloc[idx].slide_id
         mask_path = self.annotations.get(slide_id, None)
         assert mask_path is not None, (
             f"Annotation mask not found for slide '{slide_id}'."
@@ -144,9 +151,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self, idx: int, nuclei_count: int, perm_inverse: Tensor
     ) -> Metadata:
         return {
-            "slide_id": self.slides.iloc[idx].slide_id,
-            "slide_mrxs_path": self.slides.iloc[idx].slide_mrxs_path,
-            "slide_nuclei_path": self.slides.iloc[idx].slide_nuclei_path,
+            "slide_id": self.df_metadata.iloc[idx].slide_id,
+            "slide_mrxs_path": self.df_metadata.iloc[idx].slide_mrxs_path,
+            "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
             "nuclei_count": nuclei_count,
             "perm_inverse": perm_inverse,
         }
@@ -235,10 +242,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
-        slide_id = self.slides.iloc[idx].slide_id
+        slide_id = self.df_metadata.iloc[idx].slide_id
         slide_nuclei_path = cast(
             "pd.Series",
-            self.slides.loc[self.slides.slide_id == slide_id, "slide_nuclei_path"],
+            self.df_metadata.loc[
+                self.df_metadata.slide_id == slide_id, "slide_nuclei_path"
+            ],
         ).item()
         nuclei_data["annot_mask"] = self.get_annot_mask(idx)
 
@@ -270,7 +279,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 embeddings, positions, labels, masks, crop_indices, perm, psi_1
             )
         )
-        crop_block_mask = create_single_block_mask_from_kdtree(
+        crop_block_mask = create_block_mask(
             kdtree=tree,
             points=crop_positions[
                 :, :2
@@ -284,7 +293,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_embeddings,  # (n, d)
             "pos": crop_positions,  # (n, 3)
             "y": crop_labels[crop_annot_mask],  # (num_filtered,)
-            "annot_mask": crop_annot_mask,  # (n, 1)
+            "y_indicator_mask": crop_y_indicator_mask,  # (n, 1)
             "block_mask": crop_block_mask,  # BlockMask
         }
 

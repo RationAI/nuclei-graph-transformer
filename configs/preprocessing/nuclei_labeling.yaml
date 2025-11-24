@@ -1,0 +1,16 @@
+# @package _global_
+
+defaults:
+  - segmentation
+  - _self_
+
+nuclei_seg_path: ${nuclei_segmentation.output_base_path}
+annot_masks_uri: mlflow-artifacts:/97/db7b5972812d49f2b441241641a51532/artifacts/annotation_masks
+annot_mask_level: 2
+overlap_threshold: 1.0
+artifact_path: nuclei_labels
+
+metadata:
+  run_name: Nuclei Labeling
+  hyperparams:
+    annot_mask_level: ${annot_mask_level}

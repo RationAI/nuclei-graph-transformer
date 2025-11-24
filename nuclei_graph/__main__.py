@@ -18,7 +18,7 @@ OmegaConf.register_new_resolver(
 
 @hydra.main(config_path="../configs", config_name="default", version_base=None)
 @autolog
-def main(config: DictConfig, logger: Logger | None) -> None:
+def main(config: DictConfig, logger: Logger) -> None:
     seed_everything(config.seed, workers=True)
     # torch.set_float32_matmul_precision("medium")
 

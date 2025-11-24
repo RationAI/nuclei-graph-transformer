@@ -4,6 +4,11 @@ defaults:
   - /experiment: vanilla_transformer
   - _self_
 
+data_path: /mnt/data/MOU/prostate/tile_level_annotations
+test_data_path: /mnt/data/MOU/prostate/tile_level_annotations_test
+
+project_path: /mnt/projects/nuclei_based_wsi_analysis
+
 metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: ???

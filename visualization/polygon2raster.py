@@ -34,12 +34,12 @@ import torch
 from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from openslide import OpenSlide
-from preprocessing.slide_helpers import get_ground_truth, get_slide_paths
 from pyvips import Image
-from rationai.masks import process_items, slide_resolution
+from rationai.masks import process_items, slide_resolution, write_big_tiff
 from rationai.mlkit import autolog
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
+from preprocessing.slide_helpers import get_ground_truth, get_slide_paths
 from visualization.nuclei_mask import NucleiMask
 
 
@@ -120,9 +120,7 @@ def process_slide(
 ) -> None:
     slide_id = slide_path.stem
     dataset_name = slide_path.parents[0].name
-    nuclei_path = (
-        Path(nuclei_seg_path) / dataset_name / "nuclei" / f"slide_id={slide_id}"
-    )
+    nuclei_path = nuclei_seg_path / dataset_name / "nuclei" / f"slide_id={slide_id}"
     cam_indicator_path = get_cam_indicator_path(
         slide_path, use_cam, dataset_name, cam_indicators_dir
     )
@@ -135,19 +133,13 @@ def process_slide(
 
     mask_path = output_path / slide_path.with_suffix(".tiff").name
 
-    xres = 1000 / mpp_x
-    yres = 1000 / mpp_y
-
-    mask.tiffsave(
+    write_big_tiff(
+        mask,
         mask_path,
-        bigtiff=True,
-        compression=pyvips.enums.ForeignTiffCompression.DEFLATE,
-        tile=True,
+        mpp_x=mpp_x,
+        mpp_y=mpp_y,
         tile_width=MASK_TILE_WIDTH,
         tile_height=MASK_TILE_HEIGHT,
-        xres=xres,
-        yres=yres,
-        pyramid=True,
     )
 
 
@@ -169,8 +161,7 @@ def get_cam_indicators_dir(
     version_base=None,
 )
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger | None = None) -> None:
-    assert logger is not None, "Need logger."
+def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_slides_paths = get_slide_paths(Path(download_artifacts(config.metadata_uri)))
     test_slides_paths = get_slide_paths(
         Path(download_artifacts(config.test_metadata_uri))
@@ -197,7 +188,6 @@ def main(config: DictConfig, logger: MLFlowLogger | None = None) -> None:
 
     logger.log_hyperparams(
         {
-            "Level": config.level,
             "Mask Tile Width": MASK_TILE_WIDTH,
             "Mask Tile Height": MASK_TILE_HEIGHT,
         }
@@ -206,5 +196,7 @@ def main(config: DictConfig, logger: MLFlowLogger | None = None) -> None:
 
 if __name__ == "__main__":
     ray.init()
-    main()
-    ray.shutdown()
+    try:
+        main()
+    finally:
+        ray.shutdown()

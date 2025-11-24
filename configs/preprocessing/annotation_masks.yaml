@@ -1,0 +1,19 @@
+# @package _global_
+
+defaults:
+  - base
+  - _self_
+
+level: 2
+max_concurrent: 6
+artifact_path: annotation_masks
+
+metadata:
+  run_name: "🖍️ Annotation Masks: Prostate Cancer"
+  description: |
+    Annotation Masks for the [Tile-Level Annotations Data](https://youtrack.rationai.cloud.e-infra.cz/articles/PC-A-13/Tile-Level-Annotations-Data). 
+    Handles *Carcinoma*, *Exclude* and *Another pathology* regions. The resulting mask marks regions that are *Carcinoma* and are neither *Exclude* nor *Another pathology*.
+
+    Positive slides with no annotations are logged in `missing_annotations.csv`.
+  hyperparams:
+    level: ${level}

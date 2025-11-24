@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.block_mask import batch_block_masks
+from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
     PartialConf,
@@ -37,21 +38,31 @@ class DataModule(LightningDataModule):
         self.sampler_partial = sampler
         self.batch_block_masks = batch_block_masks
 
+    def _remove_uri_keys(self, conf: DictConfig) -> DictConfig:
+        uri_keys = [key for key in conf if str(key).endswith("_uri")]
+        for uri_key in uri_keys:
+            conf.pop(uri_key, None)
+        return conf
+
     def _train_val_split(
         self, df_metadata: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Split metadata into train/val sets at the patient level.
+
+        The split is stratified — any patient with at least one positive slide is considered as positive.
+        """
         df_metadata["label"] = df_metadata["slide_mrxs_path"].apply(get_ground_truth)
 
         patient_labels = df_metadata.groupby("patient_id")["label"].max()
         unique_patients = patient_labels.index.to_list()
-        patient_y = patient_labels.to_list()
 
         train_patients, val_patients = train_test_split(
             unique_patients,
             test_size=0.1,
             random_state=42,
-            stratify=patient_y,
+            stratify=patient_labels.to_list(),
         )
+
         df_metadata_train = df_metadata[
             df_metadata["patient_id"].isin(train_patients)
         ].drop(columns=["patient_id", "label"])
@@ -67,37 +78,49 @@ class DataModule(LightningDataModule):
         """Filters out slides with insufficient nuclei for cropping during training."""
         df_tmp = df_metadata.copy()
         df_tmp["nuclei_count"] = df_tmp["slide_nuclei_path"].apply(
-            lambda path: len(pd.read_parquet(path))
+            lambda path: pd.read_parquet(path, columns=[]).shape[0]
         )
         df_tmp = df_tmp[df_tmp["nuclei_count"] >= self.datasets["train"].crop_size]
         return df_tmp.reset_index(drop=True)
 
-    def _prepare_split(self, conf: DictConfig):
-        if conf.get("annot_masks_path") is not None:
-            conf.annot_masks_path = download_artifacts(conf.annot_masks_path)
+    def _prepare_one_split(
+        self, conf: DictConfig, df_metadata: pd.DataFrame
+    ) -> NucleiDataset:
+        conf.df_metadata = df_metadata
+        conf.labels_path = download_artifacts(conf.labels_uri)
 
-        df_metadata = pd.read_csv(Path(download_artifacts(conf.metadata_path)))
+        if conf.get("label_indicators_uri") is not None:
+            conf.label_indicators_path = download_artifacts(conf.label_indicators_uri)
+
+        self._remove_uri_keys(conf)
+        return instantiate(conf)
+
+    def _prepare_split(self, conf: DictConfig) -> tuple[NucleiDataset, NucleiDataset]:
+        df_metadata = pd.read_csv(Path(download_artifacts(conf.metadata_uri)))
+
         df_metadata_train, df_metadata_val = self._train_val_split(df_metadata)
         df_metadata_train = self._check_nuclei_count(df_metadata_train)
 
-        conf_train, conf_val = deepcopy(conf), deepcopy(conf)
-        conf_train.df_metadata = df_metadata_train
-        conf_val.df_metadata = df_metadata_val
-        conf_train.pop("metadata_path", None)
-        conf_val.pop("metadata_path", None)
+        conf_train = self._prepare_one_split(deepcopy(conf), df_metadata_train)
+        conf_val = self._prepare_one_split(deepcopy(conf), df_metadata_val)
 
-        return instantiate(conf_train), instantiate(conf_val)
+        return conf_train, conf_val
 
-    def _prepare_single(self, conf: DictConfig):
+    def _prepare_single(self, conf: DictConfig) -> NucleiDataset:
         conf_copy = deepcopy(conf)
 
-        if conf.get("annot_masks_path") is not None:
-            conf_copy.annot_masks_path = download_artifacts(conf.annot_masks_path)
-
         conf_copy.df_metadata = pd.read_csv(
-            Path(download_artifacts(conf.metadata_path))
+            Path(download_artifacts(conf_copy.metadata_uri))
         )
-        conf_copy.pop("metadata_path", None)
+        conf_copy.df_metadata = conf_copy.df_metadata.drop(columns=["patient_id"])
+
+        if conf_copy.get("label_indicators_uri") is not None:
+            conf_copy.label_indicators_path = download_artifacts(
+                conf_copy.label_indicators_uri
+            )
+        conf_copy.labels_path = download_artifacts(conf_copy.labels_uri)
+
+        self._remove_uri_keys(conf_copy)
         return instantiate(conf_copy)
 
     def setup(self, stage: str) -> None:

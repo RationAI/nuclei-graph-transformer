@@ -1,6 +1,0 @@
-_target_: torch_geometric.transforms.Compose
-transforms:
-  - _target_: nuclei_graph.data.transforms.NormalizeEFD
-  - _target_: nuclei_graph.data.transforms.Normalize
-    mean_uri: mlflow-artifacts:/97/fe68c7527c3a4501946e08af0f08bdc3/artifacts/normalization_stats/efd_train_mean.pt
-    std_uri: mlflow-artifacts:/97/fe68c7527c3a4501946e08af0f08bdc3/artifacts/normalization_stats/efd_train_std.pt

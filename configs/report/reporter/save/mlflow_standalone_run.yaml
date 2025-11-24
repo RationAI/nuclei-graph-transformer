@@ -1,3 +1,0 @@
-_target_: report.save.MLFlowReportStorer
-artifact_path: report.html
-metadata: ${metadata}

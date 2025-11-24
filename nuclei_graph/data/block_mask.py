@@ -12,7 +12,7 @@ def dummy_mask_mod(
     return torch.ones_like(q_block_idx, dtype=torch.bool)
 
 
-def create_single_block_mask_from_kdtree(
+def create_block_mask(
     kdtree: KDTree,
     points: NDArray[np.floating],
     n_points_unpadded: int,
