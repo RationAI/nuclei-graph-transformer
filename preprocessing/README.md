@@ -24,5 +24,5 @@ The preprocessing pipeline follows these steps:
 
 ### Visualization
 
-- **Nuclei Masks** (`visualization/polygon2raster.py`)
+- **Nuclei Masks** (`visualization/polygon2raster.py`)  
   Provides visualizations of segmented nuclei and optionally annotations or CAM-refined nuclei masks.
