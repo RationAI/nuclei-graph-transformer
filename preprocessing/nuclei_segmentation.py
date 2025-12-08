@@ -242,12 +242,15 @@ def run_segmentation(
     tiles = slides.flat_map(tiling, num_cpus=0.1, memory=128 * 1024**2).repartition(
         target_num_rows_per_block=128
     )
-    tiles = tiles.map_batches(read_slide_tiles, num_cpus=1, memory=5 * 1024**3)
-    tissue_tiles = tiles.filter(
-        filter_tissue_tiles,
-        fn_kwargs={"tissue_masks_dir": tissue_masks_dir},
-        memory=3 * 1024**3,
-    ).repartition(target_num_rows_per_block=config.batch_size * 16)
+    tissue_tiles = (
+        tiles.filter(
+            filter_tissue_tiles,
+            fn_kwargs={"tissue_masks_dir": tissue_masks_dir},
+            memory=3 * 1024**3,
+        )
+        .repartition(target_num_rows_per_block=config.batch_size * 16)
+        .map_batches(read_slide_tiles, num_cpus=1, memory=5 * 1024**3)
+    )
 
     nuclei = tissue_tiles.map_batches(
         Model,
