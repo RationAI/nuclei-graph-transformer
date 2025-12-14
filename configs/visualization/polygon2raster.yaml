@@ -1,0 +1,20 @@
+# @package _global_
+
+defaults:
+  - /preprocessing: segmentation
+  - _self_
+
+# Note: tile sizes need to be consistent across masks to display correctly in xOpat
+mask_tile_width: 256
+mask_tile_height: 256
+max_concurrent: 1
+cam_indicators_uri: mlflow-artifacts:/97/62124c91aa204c34a43ff4ed0cc46e77/artifacts/cam_label_indicators
+nuclei_labels_uri: mlflow-artifacts:/97/7c40e793d45b400eaf014c25fd22b3bc/artifacts/nuclei_labels
+nuclei_path: ${output_path}
+mlflow_artifact_path: nuclei_masks
+
+metadata:
+  run_name: Nuclei Visualization
+  hyperparams:
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}

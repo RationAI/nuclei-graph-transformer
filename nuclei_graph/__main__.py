@@ -20,8 +20,6 @@ OmegaConf.register_new_resolver(
 @autolog
 def main(config: DictConfig, logger: Logger) -> None:
     seed_everything(config.seed, workers=True)
-    # torch.set_float32_matmul_precision("medium")
-
     data = instantiate(config.data, _recursive_=False, _target_=DataModule)
     model = instantiate(config.model, _target_=NucleiGraphTransformer)
     trainer = instantiate(config.trainer, _target_=Trainer, logger=logger)

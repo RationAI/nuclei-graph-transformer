@@ -1,6 +1,10 @@
-defaults:
-  - default
-  - _self_
+# @package _global_
+
+mlflow:
+  tracking_uri: http://mlflow.rationai-mlflow:5000/
+
+train_data_path: /mnt/data/MOU/prostate/tile_level_annotations
+test_data_path: /mnt/data/MOU/prostate/tile_level_annotations_test
 
 reporter:
   title: Nuclei Segmentation Masks
@@ -17,21 +21,21 @@ reporter:
       description: ""
 
   background:
-    _target_: report.masks.TylerMLFlowMaskRetriever
+    _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
     artifact_uris:
-      - mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - test
-      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - train
+      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - test
+      - mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - train
       #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - val
     item_name_col: id
-    background_masks_directory: /mnt/data/MOU/prostate/tile_level_annotations_test
+    background_masks_directory: ${train_data_path}
     ground_truth_col: null
-    layer_name: Prostate WSI
     item_extension: .mrxs
+    layer_name: Prostate WSI
 
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      run_id: 40f68a0ceccf45c7a57698a50bc45ec2
       dir_name: cam_masks
+      run_id: 20d6c9cfb28d49ab9799328be24ead99
       layer_name: CAM Mask
       shader_conf:
         type: bipolar-heatmap
@@ -40,8 +44,8 @@ reporter:
           opacity: 0.5
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      run_id: db7b5972812d49f2b441241641a51532
       dir_name: annotation_masks
+      run_id: 0f1925cc96554daaa7b9d4926ab169cf
       layer_name: Annotation Mask
       shader_conf:
         opacity: 0.5
@@ -50,8 +54,8 @@ reporter:
         visible: 0
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      run_id: e5060ff5a18c42fd9c38eb04fc6e1619
       dir_name: nuclei_masks
+      run_id: ac605ca1c6c346cd86bb44d4c0834d9f
       layer_name: Nuclei Segmentation Mask
       shader_conf:
         type: heatmap

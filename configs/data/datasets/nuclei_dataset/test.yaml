@@ -1,12 +1,11 @@
 defaults:
-  - /data/transforms@transforms: ???
   - /preprocessing: segmentation
   - _self_
 
 _target_: nuclei_graph.data.datasets.NucleiDataset
 metadata_uri: "mlflow-artifacts:/97/4cb4783faf21473f90dcf479496cb7e2/artifacts/tile_level_annotations_test/slides_metadata.csv"
 labels_uri: null # TODO
-label_indicators_uri: "mlflow-artifacts:/97/36b22d7ff10c444ab6e16fca50eb757a/artifacts/cam_positive_masks"
+cam_indicators_uri: # TODO
 crop_size: ${data.crop_size}
 k: ${data.k}
 attn_block_size: ${data.attn_block_size}

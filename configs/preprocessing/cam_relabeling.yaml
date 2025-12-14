@@ -4,17 +4,16 @@ defaults:
   - segmentation
   - _self_
 
-nuclei_seg_path: ${nuclei_segmentation.output_base_path}
-nuclei_labels_uri: mlflow-artifacts:/97/12c9cb5819864a3f8838df2a8abc1f02/artifacts/nuclei_labels
-cam_masks_uri: mlflow-artifacts:/97/60a6f75e9d7141f397704d60f8e3c57a/artifacts/cam_masks
-cam_mask_level: 1
+nuclei_path: ${output_path}
+labels_uri: mlflow-artifacts:/97/13509217e14a4e42af5bba5c60f95674/artifacts/nuclei_labels
+cam_masks_uri: mlflow-artifacts:/97/3035fa39faf44ef4ad12001e882f9868/artifacts/cam_masks
+bipolar_zero_offset: 127.0
 overlap_threshold: 0.5
 positivity_threshold: 0.3 # determined by pathologist
-artifact_path: cam_label_indicators
+mlflow_artifact_path: cam_label_indicators
 
 metadata:
   run_name: CAM Label Indicator Masks
   hyperparams:
-    cam_mask_level: ${cam_mask_level}
     overlap_threshold: ${overlap_threshold}
     positivity_threshold: ${positivity_threshold}
