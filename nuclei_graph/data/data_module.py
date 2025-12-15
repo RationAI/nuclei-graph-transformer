@@ -29,6 +29,15 @@ class DataModule(LightningDataModule):
         sampler: PartialConf | None = None,
         **datasets: DictConfig,
     ) -> None:
+        """LightningDataModule for the Nuclei Dataset.
+
+        Assumes the `datasets` config provides URIs for:
+            1. Metadata (.parquet): Must contain keys `slide_id`, `patient_id`, `slide_path`, `slide_nuclei_path`, and `is_carcinoma`.
+            2. Labels (.parquet): Must contain keys `slide_id` (str), `id` (str) and `label` (int).
+            3. CAM Indicators (Optional .parquet): Must contain keys `slide_id` (str), `id` (str) and `cam_label_indicator` (bool).
+
+        Note: Training slides with fewer nuclei than `crop_size` are filtered out.
+        """
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -67,13 +76,13 @@ class DataModule(LightningDataModule):
         ]
         return df_train.reset_index(drop=True), df_val.reset_index(drop=True)
 
-    def compute_slides_positivity(
+    def _compute_slides_positivity(
         self,
         df_metadata: pd.DataFrame,
         df_labels: pd.DataFrame,
         df_cam_indicators: pd.DataFrame | None,
     ) -> dict[int, float]:
-        """Computes the fraction of *annotated* positive nuclei per slide."""
+        """Computes the fraction of annotated positive nuclei per slide; used for sampling during training."""
         if df_cam_indicators is not None:
             merged = df_labels.merge(df_cam_indicators, on="id", how="inner")
             merged["pos_score"] = (
@@ -85,6 +94,13 @@ class DataModule(LightningDataModule):
             positivity_series = df_labels.groupby("slide_id")["label"].mean()
 
         return df_metadata["slide_id"].map(positivity_series).fillna(0.0).to_dict()
+
+    def _filter_slides(self, df: pd.DataFrame, min_count: int) -> pd.DataFrame:
+        """Filters out slides that have fewer nuclei than the crop size."""
+        counts = df["slide_nuclei_path"].apply(
+            lambda path: pd.read_parquet(path, columns=[]).shape[0]
+        )
+        return df[counts >= min_count].reset_index(drop=True)
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
@@ -99,14 +115,9 @@ class DataModule(LightningDataModule):
         match stage:
             case "fit" | "validate":
                 df_train, df_val = self._train_val_split(
-                    pd.read_csv(Path(download_artifacts(conf.metadata_uri)))
+                    pd.read_parquet(Path(download_artifacts(conf.metadata_uri)))
                 )
-
-                # filter out slides with insufficient nuclei for cropping during training
-                counts = df_train["slide_nuclei_path"].apply(
-                    lambda path: pd.read_parquet(path, columns=[]).shape[0]
-                )
-                df_train = df_train[counts >= conf.crop_size].reset_index(drop=True)
+                df_train = self._filter_slides(df_train, conf.crop_size)
 
                 train_ids = set(df_train["slide_id"])
                 self.train = self._instantiate_dataset(
@@ -118,7 +129,7 @@ class DataModule(LightningDataModule):
                     ]
                     if df_cam_indicators is not None
                     else None,
-                    slides_positivity=self.compute_slides_positivity(
+                    slides_positivity=self._compute_slides_positivity(
                         df_metadata=df_train,
                         df_labels=df_labels,
                         df_cam_indicators=df_cam_indicators,
@@ -140,7 +151,7 @@ class DataModule(LightningDataModule):
             case "test":
                 self.test = self._instantiate_dataset(
                     conf,
-                    df_metadata=pd.read_csv(
+                    df_metadata=pd.read_parquet(
                         Path(download_artifacts(conf.metadata_uri)),
                         usecols=["slide_id", "slide_nuclei_path"],
                     ),
@@ -151,7 +162,7 @@ class DataModule(LightningDataModule):
             case "predict":
                 self.predict = self._instantiate_dataset(
                     conf,
-                    df_metadata=pd.read_csv(
+                    df_metadata=pd.read_parquet(
                         Path(download_artifacts(conf.metadata_uri)),
                         usecols=["slide_id", "slide_path", "slide_nuclei_path"],
                     ),
