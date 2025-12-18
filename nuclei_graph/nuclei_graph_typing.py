@@ -1,7 +1,5 @@
 from typing import TypedDict
 
-import numpy as np
-from numpy.typing import NDArray
 from omegaconf import DictConfig
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
@@ -19,15 +17,9 @@ class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    annot_mask: Tensor
+    indicator_mask: Tensor
     block_mask: BlockMask
 
-
-type Neighbor = tuple[int, float]  # (node_idx, edge_weight)
-
-type AdjacencyGraph = list[list[Neighbor]]
-
-type PointArray = NDArray[np.float32]
 
 type PredictInput = tuple[Sample, list[Metadata]]
 
