@@ -170,6 +170,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             else torch.ones(len(nuclei), dtype=torch.bool)
         )
 
+        # compute crop indices
         if self.full_slide:
             crop_indices = torch.arange(len(efd))
         else:
@@ -178,13 +179,15 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 torch.nonzero(indicators.squeeze(-1), as_tuple=False)
                 .squeeze(-1)
                 .tolist()
-            )  # ensure positive indicator in the crop
+            )  # ensure positive indicator is present in the crop
             assert indicators_indices
             seed = random.choice(indicators_indices)
             crop_indices = torch.tensor(
                 self.find_component(seed, self.crop_size, graph, centroids),
                 dtype=torch.long,
             )
+
+        # permute for better data locality
         perm = KDTree(centroids[crop_indices], leafsize=self.attn_block_size).indices
         tree = KDTree(centroids[crop_indices][perm], leafsize=self.attn_block_size)
         perm = torch.from_numpy(perm).long()
