@@ -175,7 +175,7 @@ class DataModule(LightningDataModule):
             "x": torch.stack([b["x"] for b in batch], dim=0),
             "pos": torch.stack([b["pos"] for b in batch], dim=0),
             "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
-            "annot_mask": torch.stack([b["annot_mask"] for b in batch], dim=0),
+            "label_mask": torch.stack([b["label_mask"] for b in batch], dim=0),
             "block_mask": self.batch_block_masks([b["block_mask"] for b in batch]),
         }
 

@@ -185,9 +185,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 self.find_component(seed, self.crop_size, graph, centroids),
                 dtype=torch.long,
             )
-
-        tree_tmp = KDTree(centroids[crop_indices], leafsize=self.attn_block_size)
-        perm = tree_tmp.indices
+        perm = KDTree(centroids[crop_indices], leafsize=self.attn_block_size).indices
         tree = KDTree(centroids[crop_indices][perm], leafsize=self.attn_block_size)
         perm = torch.from_numpy(perm).long()
 
@@ -214,7 +212,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_efd,  # (n, d)
             "pos": crop_positions,  # (n, 3)
             "y": crop_labels[crop_mask],  # (num_filtered,)
-            "indicator_mask": crop_mask.unsqueeze(-1),  # (n, 1)
+            "label_mask": crop_mask.unsqueeze(-1),  # (n, 1)
             "block_mask": crop_block_mask,  # BlockMask
         }
 

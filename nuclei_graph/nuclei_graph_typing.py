@@ -17,7 +17,7 @@ class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    indicator_mask: Tensor
+    label_mask: Tensor
     block_mask: BlockMask
 
 

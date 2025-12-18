@@ -42,7 +42,7 @@ class NucleiGraphTransformer(LightningModule):
     def training_step(self, batch: Sample) -> Tensor:
         targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["annot_mask"]]
+        logits_masked = logits[batch["label_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         masked_size = targets_masked.numel()
@@ -63,7 +63,7 @@ class NucleiGraphTransformer(LightningModule):
     def validation_step(self, batch: Sample) -> None:
         targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["annot_mask"]]
+        logits_masked = logits[batch["label_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         masked_size = targets_masked.numel()
@@ -88,7 +88,7 @@ class NucleiGraphTransformer(LightningModule):
     def test_step(self, batch: Sample) -> None:
         targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["annot_mask"]]
+        logits_masked = logits[batch["label_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         self.test_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
