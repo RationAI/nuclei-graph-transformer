@@ -192,12 +192,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_efd = torch.from_numpy(efd[crop_indices][perm])
         crop_positions = torch.from_numpy(centroids[crop_indices][perm])
         crop_labels = labels[crop_indices][perm]
-        crop_mask = indicators[crop_indices][perm]
+        crop_label_masks = indicators[crop_indices][perm]
 
         # crop_positions = self.add_rotation(crop_positions, angle[crop_indices][perm])
 
-        crop_efd, crop_positions, crop_labels, crop_mask = self.pad_to_block_size(
-            crop_efd, crop_positions, crop_labels, crop_mask
+        crop_efd, crop_positions, crop_labels, crop_label_masks = (
+            self.pad_to_block_size(
+                crop_efd, crop_positions, crop_labels, crop_label_masks
+            )
         )
         crop_block_mask = create_block_mask(
             kdtree=tree,
@@ -211,8 +213,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         item: Sample = {
             "x": crop_efd,  # (n, d)
             "pos": crop_positions,  # (n, 3)
-            "y": crop_labels[crop_mask],  # (num_filtered,)
-            "label_mask": crop_mask.unsqueeze(-1),  # (n, 1)
+            "y": crop_labels[crop_label_masks],  # (num_filtered,)
+            "label_mask": crop_label_masks.unsqueeze(-1),  # (n, 1)
             "block_mask": crop_block_mask,  # BlockMask
         }
 
