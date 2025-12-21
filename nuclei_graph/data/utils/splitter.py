@@ -26,5 +26,5 @@ def train_val_split(metadata: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]
     return df_train.reset_index(drop=True), df_val.reset_index(drop=True)
 
 
-def get_subset(df: pd.DataFrame | None, slide_ids: set[str]) -> pd.DataFrame | None:
+def get_subset(slide_ids: set[str], df: pd.DataFrame | None) -> pd.DataFrame | None:
     return df[df["slide_id"].isin(slide_ids)] if df is not None else None

@@ -73,15 +73,15 @@ class DataModule(LightningDataModule):
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(df_labels, set(df_train["slide_id"])),
-                    df_indicators=get_subset(df_indicators, set(df_train["slide_id"])),
+                    df_labels=get_subset(set(df_train["slide_id"]), df_labels),
+                    df_indicators=get_subset(set(df_train["slide_id"]), df_indicators),
                     slides_positivity=positivity,
                 )
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(df_labels, set(df_val["slide_id"])),
-                    df_indicators=get_subset(df_indicators, set(df_val["slide_id"])),
+                    df_labels=get_subset(set(df_val["slide_id"]), df_labels),
+                    df_indicators=get_subset(set(df_val["slide_id"]), df_indicators),
                     full_slide=True,
                 )
             case "test":
