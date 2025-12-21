@@ -2,20 +2,20 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import pandas as pd
-import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig, open_dict
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.block_mask import batch_block_masks
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
+from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
+from nuclei_graph.data.utils.sampler_prep import (
+    compute_slides_positivity,
+    pre_crop_filter,
+)
+from nuclei_graph.data.utils.splitter import get_subset, train_val_split
 from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    PartialConf,
-    PredictBatch,
     PredictInput,
     Sample,
 )
@@ -26,24 +26,14 @@ class DataModule(LightningDataModule):
         self,
         batch_size: int,
         num_workers: int = 0,
-        sampler: PartialConf | None = None,
+        sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
-        """LightningDataModule for the Nuclei Dataset.
-
-        Assumes the `datasets` config provides URIs for:
-            1. Metadata (.parquet): Must contain keys `slide_id`, `patient_id`, `slide_path`, `slide_nuclei_path`, and `is_carcinoma`.
-            2. Labels (.parquet): Must contain keys `slide_id` (str), `id` (str) and `label` (int).
-            3. CAM Indicators (Optional .parquet): Must contain keys `slide_id` (str), `id` (str) and `label_indicator` (bool).
-
-        Note: Training slides with fewer nuclei than `crop_size` are filtered out.
-        """
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.datasets = datasets
         self.sampler_partial = sampler
-        self.batch_block_masks = batch_block_masks
 
     def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
         conf = conf.copy()
@@ -56,132 +46,66 @@ class DataModule(LightningDataModule):
 
         return instantiate(conf, **kwargs)
 
-    def _train_val_split(
-        self, df_metadata: pd.DataFrame
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Split metadata into train/validation sets at the patient level."""
-        patient_labels = df_metadata.groupby("patient_id")["is_carcinoma"].max()
-
-        train_patients, val_patients = train_test_split(
-            patient_labels.index.to_list(),
-            test_size=0.1,
-            random_state=42,
-            stratify=patient_labels.to_list(),
-        )
-        df_train = df_metadata[df_metadata["patient_id"].isin(train_patients)][
-            ["slide_id", "slide_nuclei_path"]
-        ]
-        df_val = df_metadata[df_metadata["patient_id"].isin(val_patients)][
-            ["slide_id", "slide_nuclei_path"]
-        ]
-        return df_train.reset_index(drop=True), df_val.reset_index(drop=True)
-
-    def _compute_slides_positivity(
-        self,
-        df_metadata: pd.DataFrame,
-        df_labels: pd.DataFrame,
-        df_cam_indicators: pd.DataFrame | None,
-    ) -> dict[int, float]:
-        """Computes the fraction of annotated positive nuclei per slide; used for sampling during training."""
-        if df_cam_indicators is not None:
-            merged = df_labels.merge(df_cam_indicators, on="id", how="inner")
-            merged["pos_score"] = (merged["label"] * merged["label_indicator"]).astype(
-                "uint8"
-            )
-            positivity_series = merged.groupby("slide_id")["pos_score"].mean()
-
-        else:
-            positivity_series = df_labels.groupby("slide_id")["label"].mean()
-
-        return df_metadata["slide_id"].map(positivity_series).fillna(0.0).to_dict()
-
-    def _filter_slides(self, df: pd.DataFrame, min_count: int) -> pd.DataFrame:
-        """Filters out slides that have fewer nuclei than the crop size."""
-        counts = df["slide_nuclei_path"].apply(
-            lambda path: pd.read_parquet(path, columns=[]).shape[0]
-        )
-        return df[counts >= min_count].reset_index(drop=True)
-
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
+
         df_labels = pd.read_parquet(download_artifacts(conf.labels_uri))
-        df_cam_indicators = (
+        df_indicators = (
             pd.read_parquet(download_artifacts(conf.cam_indicators_uri))
             if conf.get("cam_indicators_uri") is not None
             else None
         )
+        metadata_cols = ["slide_id", "patient_id", "is_carcinoma", "slide_nuclei_path"]
 
         match stage:
             case "fit" | "validate":
-                df_train, df_val = self._train_val_split(
-                    pd.read_parquet(Path(download_artifacts(conf.metadata_uri)))
+                metadata = pd.read_parquet(
+                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
                 )
-                df_train = self._filter_slides(df_train, conf.crop_size)
+                df_train, df_val = train_val_split(metadata)
 
-                train_ids = set(df_train["slide_id"])
+                df_train = pre_crop_filter(df_train, conf.crop_size)
+                positivity = compute_slides_positivity(
+                    df_train, df_labels, df_indicators
+                )
+
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=df_labels[df_labels["slide_id"].isin(train_ids)],
-                    df_cam_indicators=df_cam_indicators[
-                        df_cam_indicators["slide_id"].isin(train_ids)
-                    ]
-                    if df_cam_indicators is not None
-                    else None,
-                    slides_positivity=self._compute_slides_positivity(
-                        df_metadata=df_train,
-                        df_labels=df_labels,
-                        df_cam_indicators=df_cam_indicators,
-                    ),
+                    df_labels=get_subset(df_labels, set(df_train["slide_id"])),
+                    df_indicators=get_subset(df_indicators, set(df_train["slide_id"])),
+                    slides_positivity=positivity,
                 )
-                val_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=df_labels[df_labels["slide_id"].isin(val_ids)],
-                    df_cam_indicators=df_cam_indicators[
-                        df_cam_indicators["slide_id"].isin(val_ids)
-                    ]
-                    if df_cam_indicators is not None
-                    else None,
+                    df_labels=get_subset(df_labels, set(df_val["slide_id"])),
+                    df_indicators=get_subset(df_indicators, set(df_val["slide_id"])),
                     full_slide=True,
                 )
-
             case "test":
+                metadata_cols = ["slide_id", "slide_nuclei_path"]
+                metadata = pd.read_parquet(
+                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
+                )
                 self.test = self._instantiate_dataset(
                     conf,
-                    df_metadata=pd.read_parquet(
-                        Path(download_artifacts(conf.metadata_uri)),
-                        usecols=["slide_id", "slide_nuclei_path"],
-                    ),
+                    df_metadata=metadata,
                     df_labels=df_labels,
-                    df_cam_indicators=df_cam_indicators,
+                    df_indicators=df_indicators,
                 )
-
             case "predict":
+                metadata_cols = ["slide_id", "slide_path", "slide_nuclei_path"]
+                metadata = pd.read_parquet(
+                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
+                )
                 self.predict = self._instantiate_dataset(
                     conf,
-                    df_metadata=pd.read_parquet(
-                        Path(download_artifacts(conf.metadata_uri)),
-                        usecols=["slide_id", "slide_path", "slide_nuclei_path"],
-                    ),
+                    df_metadata=metadata,
                     df_labels=df_labels,
-                    df_cam_indicators=df_cam_indicators,
+                    df_indicators=df_indicators,
                 )
-
-    def _collate_fn(self, batch: Batch) -> Sample:
-        return {
-            "x": torch.stack([b["x"] for b in batch], dim=0),
-            "pos": torch.stack([b["pos"] for b in batch], dim=0),
-            "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
-            "label_mask": torch.stack([b["label_mask"] for b in batch], dim=0),
-            "block_mask": self.batch_block_masks([b["block_mask"] for b in batch]),
-        }
-
-    def _collate_fn_predict(self, batch: PredictBatch) -> PredictInput:
-        items, metadata = zip(*batch, strict=True)
-        return self._collate_fn(list(items)), list(metadata)
 
     def train_dataloader(self) -> Iterable[Sample]:
         sampler = (
@@ -196,7 +120,7 @@ class DataModule(LightningDataModule):
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
-            collate_fn=self._collate_fn,
+            collate_fn=collate_fn,
             drop_last=True,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
@@ -207,7 +131,7 @@ class DataModule(LightningDataModule):
             self.val,
             batch_size=1,  # process full graphs
             num_workers=0,
-            collate_fn=self._collate_fn,
+            collate_fn=collate_fn,
         )
 
     def test_dataloader(self) -> Iterable[Sample]:
@@ -215,7 +139,7 @@ class DataModule(LightningDataModule):
             self.test,
             batch_size=1,  # process full graphs
             num_workers=0,
-            collate_fn=self._collate_fn,
+            collate_fn=collate_fn,
         )
 
     def predict_dataloader(self) -> Iterable[PredictInput]:
@@ -223,5 +147,5 @@ class DataModule(LightningDataModule):
             self.predict,
             batch_size=1,  # process full graphs
             num_workers=0,
-            collate_fn=self._collate_fn_predict,
+            collate_fn=collate_fn_predict,
         )
