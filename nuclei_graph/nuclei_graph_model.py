@@ -103,19 +103,6 @@ class NucleiGraphTransformer(LightningModule):
         logits = self(sample)
         return logits
 
-    def on_train_start(self) -> None:
-        scheduler = self.trainer.lr_scheduler_configs[0].scheduler
-        if isinstance(scheduler, GradualWarmupScheduler):
-            cosine = scheduler.after_scheduler
-            assert cosine is not None
-            total_epochs = (
-                self.trainer.estimated_stepping_batches
-                / self.trainer.num_training_batches
-            )
-            remaining_epochs = max(1, int(total_epochs - scheduler.total_epoch))
-            cosine.T_max = remaining_epochs
-            print(f"Set CosineAnnealingLR T_max to {cosine.T_max}")
-
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         """Groups model parameters into those with weight decay and those without.
 
@@ -147,19 +134,24 @@ class NucleiGraphTransformer(LightningModule):
         optimizer_grouped_parameters = self._get_optimizer_params()
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.lr)
 
+        warmup_epochs = 8
+
         scheduler_cosine = CosineAnnealingLR(
             optimizer,
-            T_max=1,  # placeholder, overwritten in `on_train_start`
+            T_max=self.trainer.max_epochs - warmup_epochs,
             eta_min=1.0e-06,
         )
         scheduler = GradualWarmupScheduler(
-            optimizer, multiplier=1, total_epoch=8, after_scheduler=scheduler_cosine
+            optimizer,
+            multiplier=1.0,
+            total_epoch=warmup_epochs,
+            after_scheduler=scheduler_cosine,
         )
+
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "interval": "epoch",
-                "monitor": "validation/loss",
             },
         }
