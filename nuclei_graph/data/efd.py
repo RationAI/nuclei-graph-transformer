@@ -1,11 +1,43 @@
-"""Script for computation and normalization of Elliptic Fourier Descriptors (EFD).
+"""Script for computation and normalization of Elliptic Fourier Descriptors (EFD) from batched contours.
 
-Adjusted from PyEFD library to work with batched contours.
-Taken from the Nuclei Foundational Model repository by Matěj Pekár.
+Extended implementation from the Nuclei Foundational Model repository by Matěj Pekár.
 """
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+def normalize_efd_for_rotation(
+    coeffs: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Aligns the EFD semi-major axis to the X-axis and extracts the orientation."""
+    # orientation of the first harmonic
+    angle = np.arctan2(coeffs[:, 0, 2], coeffs[:, 0, 0])
+
+    # nuclei are symmetric (180 deg rotation is invariant)
+    norm_angle = angle % np.pi
+
+    cos_psi = np.cos(angle)
+    sin_psi = np.sin(angle)
+
+    a, b, c, d = coeffs.transpose(2, 0, 1)
+    new_a = a * cos_psi[:, None] + c * sin_psi[:, None]
+    new_b = b * cos_psi[:, None] + d * sin_psi[:, None]
+    new_c = -a * sin_psi[:, None] + c * cos_psi[:, None]
+    new_d = -b * sin_psi[:, None] + d * cos_psi[:, None]
+
+    normalized_coeffs = np.stack([new_a, new_b, new_c, new_d], axis=2)
+    return normalized_coeffs, norm_angle[:, None]
+
+
+def normalize_efd_for_scale(
+    coeffs: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Normalizes the size of EFD coefficients and extracts the scale."""
+    a1, c1 = coeffs[:, 0, 0], coeffs[:, 0, 2]
+    scale = np.sqrt(a1**2 + c1**2)
+    normalized_coeffs = coeffs / scale[:, None, None]
+    return normalized_coeffs, scale[:, None]
 
 
 def _phase_shift_efd(

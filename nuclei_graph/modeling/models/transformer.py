@@ -9,7 +9,7 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 
 
 class Layer(nn.Module):
-    def __init__(self, config: Config, layer_idx: int, num_layers: int) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
         self.pos_dim = config.pos_dim
         self.self_attn = RotarySparseAttention(
@@ -45,9 +45,7 @@ class Transformer(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
 
-        self.layers = nn.ModuleList(
-            Layer(config, i, config.num_layers) for i in range(config.num_layers)
-        )
+        self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim, config.num_classes)

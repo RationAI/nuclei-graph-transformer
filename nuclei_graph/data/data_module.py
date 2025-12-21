@@ -34,6 +34,7 @@ class DataModule(LightningDataModule):
         self.num_workers = num_workers
         self.datasets = datasets
         self.sampler_partial = sampler
+        self.positivity: dict[str, float] = {}
 
     def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
         conf = conf.copy()
@@ -64,9 +65,8 @@ class DataModule(LightningDataModule):
                     Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
                 )
                 df_train, df_val = train_val_split(metadata)
-
                 df_train = pre_crop_filter(df_train, conf.crop_size)
-                positivity = compute_slides_positivity(
+                self.positivity = compute_slides_positivity(
                     df_train, df_labels, df_indicators
                 )
 
@@ -75,7 +75,6 @@ class DataModule(LightningDataModule):
                     df_metadata=df_train,
                     df_labels=get_subset(set(df_train["slide_id"]), df_labels),
                     df_indicators=get_subset(set(df_train["slide_id"]), df_indicators),
-                    slides_positivity=positivity,
                 )
                 self.val = self._instantiate_dataset(
                     conf,
@@ -109,9 +108,9 @@ class DataModule(LightningDataModule):
 
     def train_dataloader(self) -> Iterable[Sample]:
         sampler = (
-            instantiate(
-                self.sampler_partial, slides_positivity=self.train.slides_positivity
-            )(dataset=self.train)
+            instantiate(self.sampler_partial, slides_positivity=self.positivity)(
+                dataset=self.train
+            )
             if self.sampler_partial is not None
             else None
         )

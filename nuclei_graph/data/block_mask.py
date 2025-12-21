@@ -41,21 +41,23 @@ def create_block_mask(
     assert n_points % block_size == 0
     num_blocks = n_points // block_size
 
-    # build block adjacency mask
+    # build block adjacency mask from kNN query
+    _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
+    q_block_indices = np.arange(n_points_unpadded) // block_size
+    kv_block_indices = neighbor_indices // block_size
     mask = np.zeros((num_blocks, num_blocks), dtype=bool)
-    for q_idx in range(n_points_unpadded):
-        _, neighbor_indices = kdtree.query(points[q_idx], k=k)
-        q_block = q_idx // block_size
-        for n_idx in neighbor_indices:
-            kv_block = n_idx // block_size
-            mask[q_block, kv_block] = True
+    valid_neighbors = neighbor_indices < n_points_unpadded  # ignore padded neighbors
+    mask[
+        q_block_indices[:, None][valid_neighbors], kv_block_indices[valid_neighbors]
+    ] = True
 
     # convert boolean mask to per-row global indices
     indices_list = [np.where(row)[0].tolist() for row in mask]
     num_blocks_per_row = [len(lst) for lst in indices_list]
 
+    max_kv_len = max(num_blocks_per_row) if num_blocks_per_row else 0
     kv_num_blocks = torch.tensor([num_blocks_per_row], dtype=torch.int32)
-    kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
+    kv_indices = torch.full((1, num_blocks, max_kv_len), -1, dtype=torch.int32)
 
     for i, lst in enumerate(indices_list):
         if lst:
