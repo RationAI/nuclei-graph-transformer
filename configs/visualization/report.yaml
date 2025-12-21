@@ -21,31 +21,27 @@ reporter:
       description: ""
 
   background:
-    _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
-    artifact_uris:
-      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - test
-      - mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - train
-      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - val
-    item_name_col: id
-    background_masks_directory: ${train_data_path}
-    ground_truth_col: null
-    item_extension: .mrxs
+    _target_: report.masks.BasicImageRetriever
+    source_dir: ${train_data_path}
+    globs: ["*.mrxs"]
     layer_name: Prostate WSI
 
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: cam_masks
-      run_id: 20d6c9cfb28d49ab9799328be24ead99
+      run_id: 5ce428634d6c4ec095c9259bdef87eca
       layer_name: CAM Mask
       shader_conf:
         type: bipolar-heatmap
         params:
           threshold: 30
-          opacity: 0.5
+          opacity: 0.6
+          colorHigh: "#00ff00" # green
+          colorLow: "#ff0000" # red
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: annotation_masks
-      run_id: 0f1925cc96554daaa7b9d4926ab169cf
+      run_id: dab2028a50e7431ba0e93f617b5242b6
       layer_name: Annotation Mask
       shader_conf:
         opacity: 0.5
@@ -55,7 +51,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: ac605ca1c6c346cd86bb44d4c0834d9f
+      run_id: 3d2ae17022ec457a9e585c5f86542b5a
       layer_name: Nuclei Segmentation Mask
       shader_conf:
         type: heatmap
