@@ -12,13 +12,10 @@ def normalize_efd_for_rotation(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Aligns the EFD semi-major axis to the X-axis and extracts the orientation."""
     # orientation of the first harmonic
-    angle = np.arctan2(coeffs[:, 0, 2], coeffs[:, 0, 0])
+    psi_1 = np.arctan2(coeffs[:, 0, 2], coeffs[:, 0, 0])
 
-    # nuclei are symmetric (180 deg rotation is invariant)
-    norm_angle = angle % np.pi
-
-    cos_psi = np.cos(angle)
-    sin_psi = np.sin(angle)
+    cos_psi = np.cos(psi_1)
+    sin_psi = np.sin(psi_1)
 
     a, b, c, d = coeffs.transpose(2, 0, 1)
     new_a = a * cos_psi[:, None] + c * sin_psi[:, None]
@@ -27,7 +24,7 @@ def normalize_efd_for_rotation(
     new_d = -b * sin_psi[:, None] + d * cos_psi[:, None]
 
     normalized_coeffs = np.stack([new_a, new_b, new_c, new_d], axis=2)
-    return normalized_coeffs, norm_angle[:, None]
+    return normalized_coeffs, psi_1[:, None]
 
 
 def normalize_efd_for_scale(

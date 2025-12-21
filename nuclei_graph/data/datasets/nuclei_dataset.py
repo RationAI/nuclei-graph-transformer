@@ -152,7 +152,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         features = rearrange(efd, "n order c -> n (order c)")
         x = np.concatenate([features, scale], axis=-1)
-        pos = np.concatenate([centroids, angle], axis=-1)
+        # take modulo π to account for the 180° symmetry and
+        # map to [0, 2π) range to ensure closure at the 0/π boundary
+        pos = np.concatenate([centroids, 2.0 * (angle % np.pi)], axis=-1)
 
         # get labels and optionally label refinements
         slide_id = self.df_metadata.iloc[idx].slide_id
@@ -175,7 +177,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             crop_indices = torch.arange(len(efd))
         else:
             graph = build_spatial_graph(centroids)
-            # ensure at least one positive indicator is in the crop (can be positive or negative nucleus)
+            # ensure at least one positive indicator is in the crop
             indicators_indices = (
                 torch.nonzero(indicators.squeeze(-1), as_tuple=False)
                 .squeeze(-1)
@@ -188,7 +190,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 dtype=torch.long,
             )
 
-        # compute permutation w.r.t the centroids for better data locality
+        # compute permutation w.r.t. the centroids for better data locality
         perm = KDTree(centroids[crop_indices], leafsize=self.attn_block_size).indices
         tree = KDTree(centroids[crop_indices][perm], leafsize=self.attn_block_size)
         perm = torch.from_numpy(perm).long()
@@ -211,7 +213,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "label_mask": crop_masks.unsqueeze(-1),  # (n, 1)
             "block_mask": create_block_mask(
                 kdtree=tree,
-                points=crop_pos[:, :2].numpy(),
+                points=crop_pos[:, :2].numpy(),  # only pass the spatial coordinates
                 n_points_unpadded=len(crop_indices),
                 k=self.k,
                 block_size=self.attn_block_size,
