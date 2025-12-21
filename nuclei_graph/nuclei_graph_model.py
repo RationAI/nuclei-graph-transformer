@@ -15,7 +15,7 @@ from torchmetrics.classification import (
 )
 from warmup_scheduler import GradualWarmupScheduler
 
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictInput, Sample
+from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
 
 class NucleiGraphTransformer(LightningModule):
@@ -36,7 +36,7 @@ class NucleiGraphTransformer(LightningModule):
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
-    def forward(self, batch: Sample) -> Outputs:
+    def forward(self, batch: Sample) -> Tensor:
         return self.net(batch["x"], batch["pos"], batch["block_mask"])
 
     def training_step(self, batch: Sample) -> Tensor:
@@ -98,7 +98,7 @@ class NucleiGraphTransformer(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictInput) -> Outputs:
+    def predict_step(self, batch: PredictInput) -> Tensor:
         sample, _ = batch
         logits = self(sample)
         return logits
