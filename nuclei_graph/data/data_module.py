@@ -34,7 +34,7 @@ class DataModule(LightningDataModule):
         Assumes the `datasets` config provides URIs for:
             1. Metadata (.parquet): Must contain keys `slide_id`, `patient_id`, `slide_path`, `slide_nuclei_path`, and `is_carcinoma`.
             2. Labels (.parquet): Must contain keys `slide_id` (str), `id` (str) and `label` (int).
-            3. CAM Indicators (Optional .parquet): Must contain keys `slide_id` (str), `id` (str) and `cam_label_indicator` (bool).
+            3. CAM Indicators (Optional .parquet): Must contain keys `slide_id` (str), `id` (str) and `label_indicator` (bool).
 
         Note: Training slides with fewer nuclei than `crop_size` are filtered out.
         """
@@ -85,9 +85,9 @@ class DataModule(LightningDataModule):
         """Computes the fraction of annotated positive nuclei per slide; used for sampling during training."""
         if df_cam_indicators is not None:
             merged = df_labels.merge(df_cam_indicators, on="id", how="inner")
-            merged["pos_score"] = (
-                merged["label"] * merged["cam_label_indicator"]
-            ).astype("uint8")
+            merged["pos_score"] = (merged["label"] * merged["label_indicator"]).astype(
+                "uint8"
+            )
             positivity_series = merged.groupby("slide_id")["pos_score"].mean()
 
         else:
