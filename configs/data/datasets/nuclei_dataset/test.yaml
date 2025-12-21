@@ -11,4 +11,5 @@ cam_indicators_uri: # TODO
 crop_size: ${data.crop_size}
 k: ${data.k}
 attn_block_size: ${data.attn_block_size}
+efd_order: ${data.efd_order}
 full_slide: True

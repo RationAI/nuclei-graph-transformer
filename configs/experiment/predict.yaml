@@ -24,6 +24,7 @@ data:
   batch_size: 1
   k: 128
   attn_block_size: 128
+  efd_order: 10
   crop_size: 4096
 
 metadata:
