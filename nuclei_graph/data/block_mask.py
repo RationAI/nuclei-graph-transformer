@@ -61,10 +61,10 @@ def create_block_mask(
     # --------------------------------------------
     # count how many KV blocks each Q block attends to
     kv_counts = adj_matrix.sum(axis=1)
-    max_kv_len = kv_counts.max() if kv_counts.size > 0 else 0
-
-    # initialize the output tensors (-1 for the padding)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)  # (1, num_blocks)
+
+    # initialize the indices (-1 for the padding)
+    max_kv_len = kv_counts.max() if kv_counts.size > 0 else 0
     kv_indices = torch.full((1, num_blocks, max_kv_len), -1, dtype=torch.int32)
 
     # get coordinates of all connections (rows=Q, cols=KV)
