@@ -115,6 +115,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
 
     # concatenate along the batch dimension
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
+
     kv_indices_list = [m.kv_indices for m in masks]
     max_kv_len = max(t.shape[-1] for t in kv_indices_list)  # maximum neighbor count
 
@@ -127,7 +128,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
             kv_tensor = torch.nn.functional.pad(kv_tensor, padding, "constant", -1)
         padded_kv_indices.append(kv_tensor)
 
-    # result: (batch, num_blocks, max_neighbors_global)
+    # (batch, num_blocks, max_neighbors_global)
     kv_indices = torch.cat(padded_kv_indices, dim=0)
 
     # unsqueeze for the heads dimension (B, H, Q, K)
