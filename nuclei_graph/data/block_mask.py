@@ -70,8 +70,7 @@ def create_block_mask(
     # get coordinates of all connections (rows=Q, cols=KV)
     rows, cols = np.nonzero(adj_matrix)
 
-    # we want to fill kv_indices[batch, row, slot] = col in a vectorized way;
-    # we need to compute a slot index for each connection:
+    # to fill kv_indices[batch, row, slot] = col in a vectorized way, we need a slot index for each connection;
     # e.g., row 0 has 2 connections -> indices [0, 1],
     #       row 1 has 1 connection -> index [0], ...
     cum_counts = np.cumsum(kv_counts)  # cumulative count of connections per block
