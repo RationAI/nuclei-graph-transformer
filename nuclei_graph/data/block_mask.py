@@ -9,7 +9,7 @@ from torch.nn.attention.flex_attention import BlockMask
 def dummy_mask_mod(
     q_block_idx: Tensor, kv_block_idx: Tensor, q_idx: Tensor, kv_idx: Tensor
 ) -> Tensor:
-    return torch.ones_like(q_block_idx, dtype=torch.bool)
+    return torch.ones_like(q_block_idx, dtype=torch.bool)  # attend all
 
 
 def create_block_mask(
@@ -41,29 +41,50 @@ def create_block_mask(
     assert n_points % block_size == 0
     num_blocks = n_points // block_size
 
-    # build block adjacency mask from kNN query
+    # 1. Build Block Adjacency Mask from a kNN Query
+    # --------------------------------------------
+    # query `k` neighbors for every valid (unpadded) point
     _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
-    q_block_indices = np.arange(n_points_unpadded) // block_size
-    kv_block_indices = neighbor_indices // block_size
-    mask = np.zeros((num_blocks, num_blocks), dtype=bool)
-    valid_neighbors = neighbor_indices < n_points_unpadded  # ignore padded neighbors
-    mask[
-        q_block_indices[:, None][valid_neighbors], kv_block_indices[valid_neighbors]
-    ] = True
 
-    # convert boolean mask to per-row global indices
-    indices_list = [np.where(row)[0].tolist() for row in mask]
-    num_blocks_per_row = [len(lst) for lst in indices_list]
+    # convert point indices to block indices
+    q_block_ids = np.arange(n_points_unpadded) // block_size
+    kv_block_ids = neighbor_indices // block_size
 
-    max_kv_len = max(num_blocks_per_row) if num_blocks_per_row else 0
-    kv_num_blocks = torch.tensor([num_blocks_per_row], dtype=torch.int32)
+    # we have to filter out neighbors that point to the padded region
+    valid_mask = neighbor_indices < n_points_unpadded
+
+    adj_matrix = np.zeros((num_blocks, num_blocks), dtype=bool)
+    # mark blocks as connected if any point in Q attends to any point in K
+    adj_matrix[q_block_ids[:, None][valid_mask], kv_block_ids[valid_mask]] = True
+
+    # 2. Convert to Sparse Format
+    # --------------------------------------------
+    # count how many KV blocks each Q block attends to
+    kv_counts = adj_matrix.sum(axis=1)
+    max_kv_len = kv_counts.max() if kv_counts.size > 0 else 0
+
+    # initialize the output tensors (-1 for the padding)
+    kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)  # (1, num_blocks)
     kv_indices = torch.full((1, num_blocks, max_kv_len), -1, dtype=torch.int32)
 
-    for i, lst in enumerate(indices_list):
-        if lst:
-            kv_indices[0, i, : len(lst)] = torch.tensor(lst, dtype=torch.int32)
+    # get coordinates of all connections (rows=Q, cols=KV)
+    rows, cols = np.nonzero(adj_matrix)
 
-    block_mask = BlockMask.from_kv_blocks(
+    # we want to fill kv_indices[batch, row, slot] = col in a vectorized way;
+    # we need to compute a slot index for each connection:
+    # e.g., row 0 has 2 connections -> indices [0, 1],
+    #       row 1 has 1 connection -> index [0], ...
+    cum_counts = np.cumsum(kv_counts)  # cumulative count of connections per block
+    shifts = np.zeros_like(cum_counts)  # where each row starts in the flattened list
+    shifts[1:] = cum_counts[:-1]  # shift right to get start indices
+
+    global_idx = np.arange(len(rows))  # position in flattened list
+    slot_idx = global_idx - shifts[rows]  # local_idx = global_idx - start_idx_of_row
+
+    # assign the values: (batch=0, row=rows, slot=slot_idx)
+    kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
+
+    return BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks,
         kv_indices=kv_indices,
         full_kv_num_blocks=None,
@@ -71,13 +92,14 @@ def create_block_mask(
         BLOCK_SIZE=(block_size, block_size),
         mask_mod=dummy_mask_mod,
     )
-    return block_mask
 
 
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
-    Note: All masks must have the same number of query blocks (`block_size`).
+    Different neighbor counts (at the block level) are handled by padding.
+
+    Note: All masks must have the same number of query blocks (sequence length).
 
     Args:
         masks: List of BlockMask objects.
@@ -96,22 +118,24 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     block_size = first_mask.BLOCK_SIZE
     mask_mod = first_mask.mask_mod
 
-    # concatenate kv_num_blocks along the batch dimension
+    # concatenate along the batch dimension
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
-
-    # pad the kv_indices and concatenate
     kv_indices_list = [m.kv_indices for m in masks]
-    max_kv_len = max(t.shape[-1] for t in kv_indices_list)
+    max_kv_len = max(t.shape[-1] for t in kv_indices_list)  # maximum neighbor count
 
     padded_kv_indices = []
     for kv_tensor in kv_indices_list:
+        # pad to the maximum neighbor count in the batch
         pad_len = max_kv_len - kv_tensor.shape[-1]
         if pad_len > 0:
             padding = (0, pad_len)
             kv_tensor = torch.nn.functional.pad(kv_tensor, padding, "constant", -1)
         padded_kv_indices.append(kv_tensor)
+
+    # result: (batch, num_blocks, max_neighbors_global)
     kv_indices = torch.cat(padded_kv_indices, dim=0)
 
+    # unsqueeze for the heads dimension (B, H, Q, K)
     batched_mask = BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks.unsqueeze(1),
         kv_indices=kv_indices.unsqueeze(1),
