@@ -70,17 +70,13 @@ def create_block_mask(
     # get coordinates of all connections (rows=Q, cols=KV)
     rows, cols = np.nonzero(adj_matrix)
 
-    # to fill kv_indices[batch, row, slot] = col in a vectorized way, we need a slot index for each connection;
-    # e.g., row 0 has 2 connections -> indices [0, 1],
-    #       row 1 has 1 connection -> index [0], ...
+    # to fill kv_indices[batch, row, slot] = col, we need a slot index for each connection
     cum_counts = np.cumsum(kv_counts)  # cumulative count of connections per block
     shifts = np.zeros_like(cum_counts)  # where each row starts in the flattened list
     shifts[1:] = cum_counts[:-1]  # shift right to get start indices
-
     global_idx = np.arange(len(rows))  # position in flattened list
     slot_idx = global_idx - shifts[rows]  # local_idx = global_idx - start_idx_of_row
 
-    # assign the values: (batch=0, row=rows, slot=slot_idx)
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
     return BlockMask.from_kv_blocks(
