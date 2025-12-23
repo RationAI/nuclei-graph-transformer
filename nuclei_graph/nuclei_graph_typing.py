@@ -8,7 +8,7 @@ class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    label_mask: Tensor
+    target_mask: Tensor
     block_mask: BlockMask
 
 

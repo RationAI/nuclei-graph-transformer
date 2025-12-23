@@ -287,7 +287,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_x,  # (n, d)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_masks],  # (num_filtered,)
-            "label_mask": crop_masks.unsqueeze(-1),  # (n, 1)
+            "target_mask": crop_masks.unsqueeze(-1),  # (n, 1)
             "block_mask": create_block_mask(
                 kdtree=tree,
                 points=crop_pos[:, :2].numpy(),  # only pass the spatial coordinates

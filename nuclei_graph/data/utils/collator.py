@@ -9,7 +9,7 @@ def collate_fn(batch: list[Sample]) -> Sample:
         "x": torch.stack([b["x"] for b in batch], dim=0),
         "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
-        "label_mask": torch.stack([b["label_mask"] for b in batch], dim=0),
+        "target_mask": torch.stack([b["target_mask"] for b in batch], dim=0),
         "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
     }
 
