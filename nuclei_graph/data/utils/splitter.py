@@ -2,13 +2,16 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-def train_val_split(metadata: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def train_val_split(
+    metadata: pd.DataFrame, keep_cols: list
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split metadata into train and validation sets at the patient level.
 
     Args:
-        metadata: pandas DataFrame containing at least columns: "patient_id" (str),
-                  "slide_id" (str), and "slide_nuclei_path" (str).
+        metadata: pandas DataFrame containing at least columns: "patient_id" (str) and "is_carcinoma" (bool).
+        keep_cols: List of columns to keep in the returned DataFrames.
     """
+    # patient is considered positive if any of their slides is positive
     patient_labels = metadata.groupby("patient_id")["is_carcinoma"].max()
 
     train_patients, val_patients = train_test_split(
@@ -17,12 +20,8 @@ def train_val_split(metadata: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]
         random_state=42,
         stratify=patient_labels.to_list(),
     )
-    df_train = metadata[metadata["patient_id"].isin(train_patients)][
-        ["slide_id", "slide_nuclei_path"]
-    ]
-    df_val = metadata[metadata["patient_id"].isin(val_patients)][
-        ["slide_id", "slide_nuclei_path"]
-    ]
+    df_train = metadata[metadata["patient_id"].isin(train_patients)][keep_cols]
+    df_val = metadata[metadata["patient_id"].isin(val_patients)][keep_cols]
     return df_train.reset_index(drop=True), df_val.reset_index(drop=True)
 
 

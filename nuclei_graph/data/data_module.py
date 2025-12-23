@@ -51,59 +51,66 @@ class DataModule(LightningDataModule):
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.labels_uri))
+        df_annots = pd.read_parquet(download_artifacts(conf.annots_uri))
         df_indicators = (
             pd.read_parquet(download_artifacts(conf.cam_indicators_uri))
             if conf.get("cam_indicators_uri") is not None
             else None
         )
-        metadata_cols = ["slide_id", "patient_id", "is_carcinoma", "slide_nuclei_path"]
+        df_scores = (
+            pd.read_parquet(download_artifacts(conf.cam_scores_uri))
+            if conf.get("cam_scores_uri") is not None
+            else None
+        )
+        keep_cols = ["slide_id", "is_carcinoma", "slide_nuclei_path"]
 
         match stage:
             case "fit" | "validate":
+                keep_cols.append("patient_id")
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
+                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
                 )
-                df_train, df_val = train_val_split(metadata)
+                df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_indicators
+                    df_train, df_annots, df_indicators
                 )
-
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(set(df_train["slide_id"]), df_labels),
+                    df_annots=get_subset(set(df_train["slide_id"]), df_annots),
                     df_indicators=get_subset(set(df_train["slide_id"]), df_indicators),
+                    df_scores=get_subset(set(df_train["slide_id"]), df_scores),
                 )
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(set(df_val["slide_id"]), df_labels),
+                    df_annots=get_subset(set(df_val["slide_id"]), df_annots),
                     df_indicators=get_subset(set(df_val["slide_id"]), df_indicators),
-                    full_slide=True,
+                    df_scores=get_subset(set(df_val["slide_id"]), df_scores),
                 )
             case "test":
-                metadata_cols = ["slide_id", "slide_nuclei_path"]
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
+                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
                 )
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
+                    df_annots=df_annots,
                     df_indicators=df_indicators,
+                    df_scores=df_scores,
                 )
             case "predict":
-                metadata_cols = ["slide_id", "slide_path", "slide_nuclei_path"]
+                keep_cols.append("slide_path")
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=metadata_cols
+                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
                 )
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
+                    df_annots=df_annots,
                     df_indicators=df_indicators,
+                    df_scores=df_scores,
                 )
 
     def train_dataloader(self) -> Iterable[Sample]:
