@@ -278,7 +278,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_y = targets[crop_indices][perm]
         crop_masks = indicators[crop_indices][perm]
 
-        # pad to block size if needed (for validation or full slide inference)
+        # pad to block size if needed (full slide mode)
         crop_x, crop_pos, crop_y, crop_masks = self.pad_to_block_size(
             crop_x, crop_pos, crop_y, crop_masks
         )
