@@ -255,7 +255,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             valid_seeds = torch.nonzero(indicators).squeeze(-1).tolist()
 
         # get crop indices
-        if self.full_slide:  # validation or full slide inference
+        if self.full_slide:
             crop_indices = torch.arange(len(efd))
         else:
             graph = build_spatial_graph(centroids) if graph is None else graph
