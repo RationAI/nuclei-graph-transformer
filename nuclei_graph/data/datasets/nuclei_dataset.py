@@ -204,7 +204,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
-        nuclei = pd.read_parquet(nuclei_path)
+        nuclei = pd.read_parquet(nuclei_path).sort_values("id")
         centroids = np.stack(nuclei["centroid"].tolist())
         contours = rearrange(nuclei["polygon"].tolist(), "b (m c) -> b m c", c=2)
 
