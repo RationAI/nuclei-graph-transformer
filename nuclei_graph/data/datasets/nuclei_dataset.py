@@ -30,8 +30,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     """Dataset for nuclei point clouds from whole-slide images.
 
     Possible labeling schemes:
-        a) binary labeling based on annotations,
-        b) binary refinement of annotations using boolean mask,
+        a) binary labeling,
+        b) binary refinement of labels using boolean mask,
         c) soft labeling using float scores.
     """
 
