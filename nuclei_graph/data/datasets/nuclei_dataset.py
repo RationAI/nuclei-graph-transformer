@@ -178,7 +178,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         slide_id = self.df_metadata.iloc[idx].slide_id
         slide_is_carcinoma = self.df_metadata.iloc[idx].is_carcinoma
-        valid_seeds = []  # indices of valid seed nuclei for crop selection
+        valid_seeds = []
 
         if slide_is_carcinoma and self.use_soft_labels:
             assert self.df_refinement is not None
