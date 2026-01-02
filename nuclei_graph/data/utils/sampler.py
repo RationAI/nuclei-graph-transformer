@@ -4,32 +4,31 @@ import pandas as pd
 def compute_slides_positivity(
     metadata: pd.DataFrame,
     labels: pd.DataFrame,
-    label_indicators: pd.DataFrame | None,
+    label_mask: pd.DataFrame | None,
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling.
 
-    If `label_indicators` is provided, a nucleus is only considered positive if it exists
-    within an expert-annotated region and is flagged by the refinement indicator.
+    If `label_mask` is provided, a nucleus is only considered positive if it exists
+    within an expert-annotated region and is flagged by the refinement mask.
 
     Args:
         metadata: DataFrame containing slide metadata with a "slide_id" (str) column.
-        labels: DataFrame containing nuclei labels with "slide_id" (str) and "label" (int) columns.
-        label_indicators: Optional DataFrame containing label indicators with "id" (str) and
-                          "label_indicator" (bool) columns.
+        labels: DataFrame containing nuclei labels with "slide_id" (str), "id" (str)
+                and "annot_label" (int) columns.
+        label_mask: Optional DataFrame containing label indicators with "slide_id" (str),
+                    "id" (str) and "cam_thr_mask" (bool) columns.
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
     """
-    if label_indicators is not None:
-        merged = labels.merge(label_indicators, on="id", how="inner")
-        merged["pos_score"] = (merged["label"] * merged["label_indicator"]).astype(
+    if label_mask is not None:
+        merged = labels.merge(label_mask, on=["slide_id", "id"], how="inner")
+        merged["pos_score"] = (merged["annot_label"] * merged["cam_thr_mask"]).astype(
             "uint8"
         )
         positivity_series = merged.groupby("slide_id")["pos_score"].mean()
-
     else:
-        positivity_series = labels.groupby("slide_id")["label"].mean()
-
+        positivity_series = labels.groupby("slide_id")["annot_label"].mean()
     return metadata["slide_id"].map(positivity_series).fillna(0.0).to_dict()
 
 

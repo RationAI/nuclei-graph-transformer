@@ -1,5 +1,5 @@
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
-from nuclei_graph.data.utils.sampler_prep import (
+from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
     pre_crop_filter,
 )

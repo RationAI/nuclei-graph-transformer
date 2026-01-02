@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
-from nuclei_graph.data.utils.sampler_prep import (
+from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
     pre_crop_filter,
 )
@@ -51,19 +51,17 @@ class DataModule(LightningDataModule):
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_annots = pd.read_parquet(download_artifacts(conf.annots_uri))
-        df_indicators = (
-            pd.read_parquet(download_artifacts(conf.cam_indicators_uri))
-            if conf.get("cam_indicators_uri") is not None
-            else None
-        )
-        df_scores = (
-            pd.read_parquet(download_artifacts(conf.cam_scores_uri))
-            if conf.get("cam_scores_uri") is not None
-            else None
-        )
-        keep_cols = ["slide_id", "is_carcinoma", "slide_nuclei_path"]
+        df_labels = pd.read_parquet(download_artifacts(conf.annots_uri))
+        df_labels = df_labels.rename(columns={"annot_label": "label"})
+        if conf.get("cam_refinement_uri") is not None:
+            df_refinement = pd.read_parquet(download_artifacts(conf.cam_refinement_uri))
+            df_refinement = df_refinement.rename(
+                columns={"cam_thr_mask": "refinement_mask", "cam_score": "score"}
+            )
+        else:
+            df_refinement = None
 
+        keep_cols = ["slide_id", "is_carcinoma", "slide_nuclei_path"]
         match stage:
             case "fit" | "validate":
                 keep_cols.append("patient_id")
@@ -73,21 +71,19 @@ class DataModule(LightningDataModule):
                 df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_annots, df_indicators
+                    df_train, df_labels, df_refinement
                 )
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_annots=get_subset(set(df_train["slide_id"]), df_annots),
-                    df_indicators=get_subset(set(df_train["slide_id"]), df_indicators),
-                    df_scores=get_subset(set(df_train["slide_id"]), df_scores),
+                    df_labels=get_subset(set(df_train["slide_id"]), df_labels),
+                    df_refinement=get_subset(set(df_train["slide_id"]), df_refinement),
                 )
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_annots=get_subset(set(df_val["slide_id"]), df_annots),
-                    df_indicators=get_subset(set(df_val["slide_id"]), df_indicators),
-                    df_scores=get_subset(set(df_val["slide_id"]), df_scores),
+                    df_labels=get_subset(set(df_val["slide_id"]), df_labels),
+                    df_refinement=get_subset(set(df_val["slide_id"]), df_refinement),
                 )
             case "test":
                 metadata = pd.read_parquet(
@@ -96,9 +92,8 @@ class DataModule(LightningDataModule):
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_annots=df_annots,
-                    df_indicators=df_indicators,
-                    df_scores=df_scores,
+                    df_labels=df_labels,
+                    df_refinement=df_refinement,
                 )
             case "predict":
                 keep_cols.append("slide_path")
@@ -108,9 +103,8 @@ class DataModule(LightningDataModule):
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_annots=df_annots,
-                    df_indicators=df_indicators,
-                    df_scores=df_scores,
+                    df_labels=df_labels,
+                    df_refinement=df_refinement,
                 )
 
     def train_dataloader(self) -> Iterable[Sample]:

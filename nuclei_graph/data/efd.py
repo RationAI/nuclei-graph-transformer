@@ -95,7 +95,7 @@ def elliptic_fourier_descriptors(
             each with M points in 2D.
         order: The order of Fourier coefficients to calculate.
     """
-    contour = np.concatenate((contour, contour[:, :1]), axis=1)
+    contour = np.concatenate((contour, contour[:, :1]), axis=1)  # close the contour
 
     dxy = np.diff(contour, axis=1)
     dt = np.linalg.norm(dxy, axis=2)
