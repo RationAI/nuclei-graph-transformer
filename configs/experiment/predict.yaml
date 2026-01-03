@@ -2,7 +2,6 @@
 defaults:
   - /model/models@model.net: pure_self-attn_transformer
   - /data/datasets@data.predict: nuclei_dataset/predict
-  - override /data/transforms@data.predict.transforms: normalize
 
 checkpoint: mlflow-artifacts:/92/6c0c949605b142d28cb260e05df9e42d/artifacts/checkpoints/epoch=65-step=11418/checkpoint.ckpt
 
