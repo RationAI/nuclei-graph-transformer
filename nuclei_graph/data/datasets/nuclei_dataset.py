@@ -27,13 +27,7 @@ type AdjacencyGraph = list[list[Neighbor]]
 
 
 class NucleiDataset(Dataset[Sample | PredictSample]):
-    """Dataset for nuclei point clouds from whole-slide images.
-
-    Possible labeling schemes:
-        a) binary labeling,
-        b) binary refinement of labels using boolean mask,
-        c) soft labeling using float scores.
-    """
+    """Dataset for nuclei point clouds from whole-slide images."""
 
     def __init__(
         self,
@@ -54,11 +48,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                          (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path"
-                         points to parquet files containing nuclei data.
+                         points to parquet files containing nuclei segmentation data.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be
                            determined confidently enough (e.g., using a CAM thresholding). It is expected to contain columns
-                           "slide_id" (str), "id" (str) and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also
+                           "slide_id" (str), "id" (str), and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also
                            "score" (float)).
             use_soft_labels: Whether to use soft labels (e.g., CAM-based scoring) instead of binary labels.
             crop_size: Number of nuclei in a crop (sample) during training.

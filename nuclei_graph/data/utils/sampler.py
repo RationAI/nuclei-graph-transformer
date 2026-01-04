@@ -8,15 +8,13 @@ def compute_slides_positivity(
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling.
 
-    If `label_mask` is provided, a nucleus is only considered positive if it exists
-    within an expert-annotated region and is flagged by the refinement mask.
+    If `label_mask` is provided, a nucleus is only considered positive if it is positively
+    labeled and is also flagged by the refinement mask.
 
     Args:
-        metadata: DataFrame containing slide metadata with a "slide_id" (str) column.
-        labels: DataFrame containing nuclei labels with "slide_id" (str), "id" (str)
-                and "label" (int) columns.
-        label_mask: Optional DataFrame containing label indicator with "slide_id" (str),
-                    "id" (str) and "refinement_mask" (bool) columns.
+        metadata: DataFrame containing a "slide_id" (str) column.
+        labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
+        label_mask: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
@@ -38,7 +36,7 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
     Used for a cropped-based training to ensure that slides have enough nuclei to sample from.
 
     Args:
-        metadata: DataFrame containing slide metadata with a "slide_nuclei_path" (str) column.
+        metadata: DataFrame containing a "slide_nuclei_path" (str) column.
         min_count: Minimum number of nuclei required to retain the slide.
 
     Returns:
