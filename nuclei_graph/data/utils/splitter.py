@@ -8,7 +8,7 @@ def train_val_split(
     """Split metadata into train and validation sets at the patient level.
 
     Args:
-        metadata: pandas DataFrame containing at least columns: "patient_id" (str) and "is_carcinoma" (bool).
+        metadata: pandas DataFrame containing columns "patient_id" (str) and "is_carcinoma" (bool).
         keep_cols: List of columns to keep in the returned DataFrames.
     """
     # patient is considered positive if any of their slides is positive
