@@ -21,7 +21,7 @@ def create_block_mask(
 ) -> BlockMask:
     """Generates a single-item BlockMask from a KDTree and a corresponding point array.
 
-    Padded points are excluded so that they neither attend to nor are attended by any key/value blocks.
+    Padded points (at the end of the array) are excluded so that they neither attend to nor are attended by any key/value blocks.
 
     Args:
         kdtree: KDTree built over the points.
