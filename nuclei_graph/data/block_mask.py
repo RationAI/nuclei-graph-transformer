@@ -77,10 +77,10 @@ def create_block_mask(
     cols = cols[order]
 
     # to fill kv_indices[batch, row, slot] = col, we need a slot index for each connection
-    cum_counts = np.cumsum(kv_counts)  # cumulative count of connections per block
+    cum_counts = np.cumsum(kv_counts)
     shifts = np.zeros_like(cum_counts)  # where each row starts in the flattened list
     shifts[1:] = cum_counts[:-1]  # shift right to get start indices
-    global_idx = np.arange(len(rows))  # position in flattened list
+    global_idx = np.arange(len(rows))
     slot_idx = global_idx - shifts[rows]  # local_idx = global_idx - start_idx_of_row
 
     assert np.all(slot_idx < kv_counts[rows]), (
