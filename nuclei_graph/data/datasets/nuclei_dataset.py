@@ -134,7 +134,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         n = x.size(0)
         remainder = n % self.attn_block_size
-
         if remainder == 0:
             return x, pos, y, y_mask
 

@@ -9,7 +9,7 @@ from torch.nn.attention.flex_attention import BlockMask
 def dummy_mask_mod(
     q_block_idx: Tensor, kv_block_idx: Tensor, q_idx: Tensor, kv_idx: Tensor
 ) -> Tensor:
-    return torch.ones_like(q_block_idx, dtype=torch.bool)  # attend all
+    return torch.ones_like(q_block_idx, dtype=torch.bool)  # attend to all
 
 
 def create_block_mask(
@@ -65,11 +65,16 @@ def create_block_mask(
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)  # (1, num_blocks)
 
     # initialize the indices (-1 for the padding)
-    max_kv_len = kv_counts.max() if kv_counts.size > 0 else 0
-    kv_indices = torch.full((1, num_blocks, max_kv_len), -1, dtype=torch.int32)
+    # NOTE: `BlockMask.from_kv_blocks` implementation expects kv_indices to have a fixed width >= num_blocks
+    kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
 
     # get coordinates of all connections (rows=Q, cols=KV)
     rows, cols = np.nonzero(adj_matrix)
+    # NOTE: the code further below assumes that all entries for a given query block (row) are contiguous
+    #       but `np.nonzero()` does not guarantee row-wise grouping -> explicitly sort by (row, col)
+    order = np.lexsort((cols, rows))
+    rows = rows[order]
+    cols = cols[order]
 
     # to fill kv_indices[batch, row, slot] = col, we need a slot index for each connection
     cum_counts = np.cumsum(kv_counts)  # cumulative count of connections per block
@@ -78,6 +83,9 @@ def create_block_mask(
     global_idx = np.arange(len(rows))  # position in flattened list
     slot_idx = global_idx - shifts[rows]  # local_idx = global_idx - start_idx_of_row
 
+    assert np.all(slot_idx < kv_counts[rows]), (
+        "slot_idx exceeds the number of kv blocks for a query block"
+    )
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
     return BlockMask.from_kv_blocks(
