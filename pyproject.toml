@@ -5,7 +5,7 @@ authors = [
     { name = "Karolína Rusnačková", email = "525276@mail.muni.cz" },
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
 ]
-requires-python = ">=3.11, <3.14"
+requires-python = ">=3.12, <3.14"
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
