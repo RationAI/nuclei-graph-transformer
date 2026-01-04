@@ -101,9 +101,8 @@ def create_block_mask(
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
+    All masks must have the same number of query blocks (sequence length).
     Different neighbor counts (at the block level) are handled by padding.
-
-    Note: All masks must have the same number of query blocks (sequence length).
 
     Args:
         masks: List of BlockMask objects.
