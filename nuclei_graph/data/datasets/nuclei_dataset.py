@@ -135,7 +135,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         n = x.size(0)
         remainder = n % self.attn_block_size
 
-        if not self.full_slide or remainder == 0:
+        if remainder == 0:
             return x, pos, y, y_mask
 
         pad_len = self.attn_block_size - remainder

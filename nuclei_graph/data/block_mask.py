@@ -55,7 +55,8 @@ def create_block_mask(
 
     adj_matrix = np.zeros((num_blocks, num_blocks), dtype=bool)
     # mark blocks as connected if any point in Q attends to any point in K
-    adj_matrix[q_block_ids[:, None][valid_mask], kv_block_ids[valid_mask]] = True
+    q_block_ids_expanded = np.broadcast_to(q_block_ids[:, None], valid_mask.shape)
+    adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
     # 2. Convert to Sparse Format
     # --------------------------------------------
