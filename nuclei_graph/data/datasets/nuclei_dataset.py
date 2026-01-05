@@ -13,7 +13,7 @@ from scipy.spatial import KDTree
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from nuclei_graph.data import create_block_mask
+from nuclei_graph.data import create_block_mask_from_kdtree
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
     normalize_efd_for_rotation,
@@ -230,7 +230,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_y_mask],  # (num_filtered,)
             "target_mask": crop_y_mask,  # (n, 1)
-            "block_mask": create_block_mask(
+            "block_mask": create_block_mask_from_kdtree(
                 kdtree=tree,
                 points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates
                 n_points_unpadded=len(crop_indices),

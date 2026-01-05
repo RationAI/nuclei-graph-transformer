@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -44,5 +46,7 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
     """
     counts = metadata["slide_nuclei_path"].apply(
         lambda path: pd.read_parquet(path, columns=[]).shape[0]
+        if Path(path).exists()
+        else 0
     )
     return metadata[counts >= min_count].reset_index(drop=True)

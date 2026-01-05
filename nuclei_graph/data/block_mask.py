@@ -12,7 +12,7 @@ def dummy_mask_mod(
     return torch.ones_like(q_block_idx, dtype=torch.bool)  # attend to all
 
 
-def create_block_mask(
+def create_block_mask_from_kdtree(
     kdtree: KDTree,
     points: NDArray[np.floating],
     n_points_unpadded: int,
@@ -21,7 +21,7 @@ def create_block_mask(
 ) -> BlockMask:
     """Generates a single-item BlockMask from a KDTree and a corresponding point array.
 
-    Padded points are excluded so that they neither attend to nor are attended by any key/value blocks.
+    Padded points (at the end of the array) are excluded so that they neither attend to nor are attended by any key/value blocks.
 
     Args:
         kdtree: KDTree built over the points.
@@ -63,15 +63,14 @@ def create_block_mask(
     # count how many KV blocks each Q block attends to
     kv_counts = adj_matrix.sum(axis=1)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)  # (1, num_blocks)
-
-    # initialize the indices (-1 for the padding)
-    # NOTE: `BlockMask.from_kv_blocks` implementation expects kv_indices to have a fixed width >= num_blocks
+    # `BlockMask.from_kv_blocks` expects kv_indices to have a fixed width >= max
+    # number of KV blocks per query block -> use num_blocks as an upper bound
     kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
 
     # get coordinates of all connections (rows=Q, cols=KV)
     rows, cols = np.nonzero(adj_matrix)
-    # NOTE: the code further below assumes that all entries for a given query block (row) are contiguous
-    #       but `np.nonzero()` does not guarantee row-wise grouping -> explicitly sort by (row, col)
+    # the code further below assumes that all entries for a given query block (row) are contiguous
+    # but `np.nonzero()` does not guarantee row-wise grouping -> explicitly sort by (row, col)
     order = np.lexsort((cols, rows))
     rows = rows[order]
     cols = cols[order]
@@ -91,8 +90,8 @@ def create_block_mask(
     return BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks,
         kv_indices=kv_indices,
-        full_kv_num_blocks=None,
-        full_kv_indices=None,
+        full_kv_num_blocks=None,  # let PyTorch derive the transposed layout
+        full_kv_indices=None,  # let PyTorch derive the transposed layout
         BLOCK_SIZE=(block_size, block_size),
         mask_mod=dummy_mask_mod,
     )
@@ -121,9 +120,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     block_size = first_mask.BLOCK_SIZE
     mask_mod = first_mask.mask_mod
 
-    # concatenate along the batch dimension
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
-
     kv_indices_list = [m.kv_indices for m in masks]
     max_kv_len = max(t.shape[-1] for t in kv_indices_list)  # maximum neighbor count
 

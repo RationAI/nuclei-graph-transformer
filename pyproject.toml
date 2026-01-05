@@ -31,6 +31,7 @@ dependencies = [
     "rationai-mlkit",
     "rationai-tiling",
     "ratiopath>=1.0.3",
+    "torch-geometric>=2.7.0",
 ]
 
 [tool.uv.sources]
