@@ -26,7 +26,7 @@ def create_block_mask_from_kdtree(
     Args:
         kdtree: KDTree built over the points.
         points: A sorted (n, d) numpy array of positions, n must be divisible by block_size.
-        k: Number of neighbors to query.
+        k: Number of neighbors to query, at least 1.
         n_points_unpadded: Number of points without the padding.
         block_size: Number of points per block.
 
@@ -38,12 +38,13 @@ def create_block_mask_from_kdtree(
         where num_blocks = n_points // block_size, n_points % block_size = 0
     """
     n_points = points.shape[0]
-    assert n_points % block_size == 0
+    assert k >= 1 and n_points % block_size == 0
     num_blocks = n_points // block_size
 
     # 1. Build Block Adjacency Mask (Q-block -> KV-block) from a kNN Query
     # ------------------------------------------------
     _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
+    neighbor_indices = neighbor_indices[:, None] if k == 1 else neighbor_indices
 
     # map each point to its corresponding Q block and KV block
     q_block_ids = np.arange(n_points_unpadded) // block_size
@@ -69,9 +70,9 @@ def create_block_mask_from_kdtree(
 
     # get coordinates of all connections
     rows, cols = np.nonzero(adj_matrix)  # (rows=Q, cols=KV)
-    # sort connections by Q-block (row) and then KV-block (col) to ensure that
-    # slot indices are contiguous within each Q-block (required by BlockMask)
-    order = np.lexsort((cols, rows))
+    # sort connections by Q-block and then KV-block to ensure that slot indices
+    # are contiguous within each Q-block (required by BlockMask)
+    order = np.lexsort((cols, rows))  # sort keys are (secondary, primary)
     rows = rows[order]
     cols = cols[order]
 
