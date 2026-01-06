@@ -28,8 +28,8 @@ def simple_points():
 @pytest.mark.parametrize(
     "block_size, k, n_unpadded, expected_counts",
     [
-        (2, 2, 4, [1, 1]),  # points find neighbors only in their own block
-        (2, 1, 4, [1, 1]),  # single nearest neighbor
+        (2, 2, 4, [1, 1]),
+        (2, 1, 4, [1, 1]),
     ],
 )
 def test_create_block_mask_logic(
@@ -59,21 +59,22 @@ def test_create_block_mask_shape(simple_points):
     assert mask.kv_indices.shape[1] == 2
 
 
-def test_padding_content_validity():
-    """Ensure a close neighbor is ignored if it lies in the padded region."""
-    points = np.array([[0.0], [0.1]], dtype=np.float32)
+def test_padding_validity():
+    """Ensure padded points are ignored even if they are the closest neighbors."""
+    points = np.array([[0.0], [0.1], [1.0], [1.05]], dtype=np.float32)
+    n_unpadded = 3
+    block_size = 1
+    k = 2
     tree = KDTree(points)
-
     mask = create_block_mask_from_kdtree(
-        tree, points, n_points_unpadded=1, k=2, block_size=1
+        tree, points, n_points_unpadded=n_unpadded, k=k, block_size=block_size
     )
+    indices = mask.kv_indices[0, 2]
+    max_valid_block = (n_unpadded // block_size) - 1
 
-    kv_indices = mask.kv_indices[0, 0]
-    num_blocks = mask.kv_num_blocks[0, 0]
-
-    assert num_blocks == 1
-    assert 0 in kv_indices
-    assert 1 not in kv_indices
+    is_valid = (indices <= max_valid_block) | (indices == -1)
+    assert is_valid.all(), f"Found reference to padded block in indices: {indices}"
+    assert 3 not in indices  # block index 3 corresponds to padded point
 
 
 def test_batch_block_masks(simple_points):
@@ -92,21 +93,17 @@ def test_batch_block_masks(simple_points):
 
 def test_batch_padding_logic():
     """Test batching masks with different numbers of KV neighbors."""
-    # sparse mask: 1 neighbor per block
     pts_a = np.array([[0, 0], [10, 10]], dtype=np.float32)
     tree_a = KDTree(pts_a)
     mask_a = create_block_mask_from_kdtree(tree_a, pts_a, 2, k=1, block_size=1)
 
-    # dense mask: 2 neighbors per block
     pts_b = np.array([[0, 0], [0, 0]], dtype=np.float32)
     tree_b = KDTree(pts_b)
     mask_b = create_block_mask_from_kdtree(tree_b, pts_b, 2, k=2, block_size=1)
 
     batched = batch_block_masks([mask_a, mask_b])
-
     assert batched.kv_indices.shape[-1] == 2
 
-    # mask A padded with -1 in the second slot
     indices_a = batched.kv_indices[0, 0, 0]
     assert -1 in indices_a
 
@@ -118,7 +115,6 @@ def test_self_block_attention(simple_points, k):
     mask = create_block_mask_from_kdtree(
         tree, points, n_points_unpadded=4, k=k, block_size=2
     )
-
     for q_block in range(2):
         assert q_block in mask.kv_indices[0, q_block].tolist()
 
