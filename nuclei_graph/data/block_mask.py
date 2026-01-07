@@ -25,7 +25,7 @@ def create_block_mask_from_kdtree(
 
     Args:
         kdtree: KDTree built over the points.
-        points: A sorted (n, d) numpy array of positions, n must be divisible by block_size.
+        points: A sorted (n, d) numpy array of positions, n must be divisible by the `block_size`.
         k: Number of neighbors to query, at least 1.
         n_points_unpadded: Number of points without the padding.
         block_size: Number of points per block.
@@ -42,46 +42,40 @@ def create_block_mask_from_kdtree(
     num_blocks = n_points // block_size
 
     # 1. Build Block Adjacency Mask (Q-block -> KV-block) from a kNN Query
-    # ------------------------------------------------
+    # -----------------------------------------------------------------------
     _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
     neighbor_indices = neighbor_indices[:, None] if k == 1 else neighbor_indices
 
-    # map each point to its corresponding Q block and KV block
     q_block_ids = np.arange(n_points_unpadded) // block_size
     kv_block_ids = neighbor_indices // block_size
 
-    # ignore connections to padded points
-    valid_mask = neighbor_indices < n_points_unpadded
-
     adj_matrix = np.zeros((num_blocks, num_blocks), dtype=bool)
     # mark blocks as connected if any point in Q attends to any point in K
+    valid_mask = neighbor_indices < n_points_unpadded
     q_block_ids_expanded = np.broadcast_to(q_block_ids[:, None], valid_mask.shape)
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
-    # 2. Convert to Sparse Format (Q -> K sparsity):
-    #      - kv_num_blocks[0, q] = number of KV blocks Q-block q attends to
-    #      - kv_indices[0, q, :] = indices of the KV blocks (padded with -1)
-    # Batch dim is 1 since the mask is single-item.
-    # ------------------------------------------------
+    # 2. Convert adjacency to BlockMask format (Q -> K sparsity):
+    # -----------------------------------------------------------------------
     kv_counts = adj_matrix.sum(axis=1)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)
-    # use num_blocks as an upper bound for max neighbors per block
+    # using the actual maximum neighbor counts for the last dimension of kv_indices is not possible,
+    # FlexAttention requires it to be `num_blocks` due to how it computes transposed layouts (K -> Q mapping)
     kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
 
-    # get coordinates of all connections
-    rows, cols = np.nonzero(adj_matrix)  # (rows=Q, cols=KV)
+    rows, cols = np.nonzero(adj_matrix)
     # sort connections by Q-block and then KV-block to ensure that slot indices
     # are contiguous within each Q-block (required by BlockMask)
     order = np.lexsort((cols, rows))  # sort keys are (secondary, primary)
     rows = rows[order]
     cols = cols[order]
 
-    # compute the slot indices for kv_indices[0, Q-block, slot] (slot = valid neighbor index)
+    # compute the slot indices for kv_indices[0, Q-block, slot]
     cum_counts = np.cumsum(kv_counts)
-    shifts = np.zeros_like(cum_counts)  # where each row starts in the flattened list
-    shifts[1:] = cum_counts[:-1]  # shift right to get start indices
+    q_block_offsets = np.zeros_like(cum_counts)
+    q_block_offsets[1:] = cum_counts[:-1]
     global_idx = np.arange(len(rows))
-    slot_idx = global_idx - shifts[rows]
+    slot_idx = global_idx - q_block_offsets[rows]
 
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
@@ -120,7 +114,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
 
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
     kv_indices_list = [m.kv_indices for m in masks]
-    max_kv_len = max(t.shape[-1] for t in kv_indices_list)  # maximum neighbor count
+    max_kv_len = max(t.shape[-1] for t in kv_indices_list)
 
     padded_kv_indices = []
     for kv_tensor in kv_indices_list:
@@ -134,10 +128,9 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     # (batch, num_blocks, max_neighbors_global)
     kv_indices = torch.cat(padded_kv_indices, dim=0)
 
-    # unsqueeze for the heads dimension (B, H, Q, K)
     batched_mask = BlockMask.from_kv_blocks(
-        kv_num_blocks=kv_num_blocks.unsqueeze(1),
-        kv_indices=kv_indices.unsqueeze(1),
+        kv_num_blocks=kv_num_blocks.unsqueeze(1),  # add head dim
+        kv_indices=kv_indices.unsqueeze(1),  # add head dim
         full_kv_num_blocks=None,
         full_kv_indices=None,
         BLOCK_SIZE=block_size,
