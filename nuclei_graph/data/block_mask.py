@@ -107,14 +107,12 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
             num_blocks = n // block_size,
             max_num_blocks = maximum number of KV blocks per query block across the batch.
     """
-    first_mask = masks[0]
-    block_size = first_mask.BLOCK_SIZE
-    mask_mod = first_mask.mask_mod
+    assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
 
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
     kv_indices_list = [m.kv_indices for m in masks]
 
-    max_kv_len = max(t.shape[-1] for t in kv_indices_list)
+    max_kv_len = max(kv.shape[-1] for kv in kv_indices_list)
     padded_kv_indices = [
         torch.nn.functional.pad(kv, (0, max_kv_len - kv.shape[-1]), "constant", -1)
         for kv in kv_indices_list
@@ -126,7 +124,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
         kv_indices=kv_indices.unsqueeze(1),  # add head dim
         full_kv_num_blocks=None,
         full_kv_indices=None,
-        BLOCK_SIZE=block_size,
-        mask_mod=mask_mod,
+        BLOCK_SIZE=masks[0].BLOCK_SIZE,
+        mask_mod=masks[0].mask_mod,
     )
     return batched_mask
