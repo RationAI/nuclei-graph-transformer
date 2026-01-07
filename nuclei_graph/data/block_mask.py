@@ -72,7 +72,7 @@ def create_block_mask_from_kdtree(
     # compute the slot indices for kv_indices[0, Q-block, slot]
     cum_counts = np.cumsum(kv_counts)
     q_block_offsets = np.zeros_like(cum_counts)
-    q_block_offsets[1:] = cum_counts[:-1]  # offset of first neighbor for each Q-block
+    q_block_offsets[1:] = cum_counts[:-1]
     global_idx = np.arange(len(rows))
     slot_idx = global_idx - q_block_offsets[rows]
 
@@ -113,19 +113,13 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
 
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
     kv_indices_list = [m.kv_indices for m in masks]
+
     max_kv_len = max(t.shape[-1] for t in kv_indices_list)
-
-    padded_kv_indices = []
-    for kv_tensor in kv_indices_list:
-        # pad to the maximum neighbor count in the batch
-        pad_len = max_kv_len - kv_tensor.shape[-1]
-        if pad_len > 0:
-            padding = (0, pad_len)
-            kv_tensor = torch.nn.functional.pad(kv_tensor, padding, "constant", -1)
-        padded_kv_indices.append(kv_tensor)
-
-    # (batch, num_blocks, max_neighbors_global)
-    kv_indices = torch.cat(padded_kv_indices, dim=0)
+    padded_kv_indices = [
+        torch.nn.functional.pad(kv, (0, max_kv_len - kv.shape[-1]), "constant", -1)
+        for kv in kv_indices_list
+    ]
+    kv_indices = torch.cat(padded_kv_indices, dim=0)  # (batch, num_blocks, max_kv_len)
 
     batched_mask = BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks.unsqueeze(1),  # add head dim
