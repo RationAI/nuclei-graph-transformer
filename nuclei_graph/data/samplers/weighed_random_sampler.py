@@ -36,15 +36,12 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
         slide_ids = dataset.df_metadata["slide_id"].values
         labels = torch.tensor(
             [
-                1.0 if slides_positivity.get(sid, 0.0) > positivity_threshold else 0.0
-                for sid in slide_ids
+                1.0 if slides_positivity[slide_id] > positivity_threshold else 0.0
+                for slide_id in slide_ids
             ]
         )
         positive = labels.sum()
         negative = len(labels) - positive
-        assert positive > 0 and negative > 0, (
-            "Dataset must have both positive and negative samples"
-        )
         weights = torch.zeros_like(labels)
         weights[labels == 0] = 1.0 / negative
         weights[labels == 1] = 1.0 / positive
