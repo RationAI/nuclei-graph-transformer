@@ -50,22 +50,21 @@ def create_block_mask_from_kdtree(
     kv_block_ids = neighbor_indices // block_size
 
     adj_matrix = np.zeros((num_blocks, num_blocks), dtype=bool)
-    # mark blocks as connected if any point in Q attends to any point in K
     valid_mask = neighbor_indices < n_points_unpadded
     q_block_ids_expanded = np.broadcast_to(q_block_ids[:, None], valid_mask.shape)
+
+    # mark blocks as connected if any point in Q attends to any point in K
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
-    # 2. Convert adjacency to BlockMask format (Q -> K sparsity):
+    # 2. Convert adjacency to BlockMask format (Q -> K mapping):
     # -----------------------------------------------------------------------
     kv_counts = adj_matrix.sum(axis=1)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)
-    # using the actual maximum neighbor counts for the last dimension of kv_indices is not possible,
-    # FlexAttention requires it to be `num_blocks` due to how it computes transposed layouts (K -> Q mapping)
     kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
 
     rows, cols = np.nonzero(adj_matrix)
-    # sort connections by Q-block and then KV-block to ensure that slot indices
-    # are contiguous within each Q-block (required by BlockMask)
+    # sort connections by Q-block and then KV-block to ensure that slot indices are contiguous
+    # within each Q-block (required by BlockMask)
     order = np.lexsort((cols, rows))  # sort keys are (secondary, primary)
     rows = rows[order]
     cols = cols[order]
@@ -73,7 +72,7 @@ def create_block_mask_from_kdtree(
     # compute the slot indices for kv_indices[0, Q-block, slot]
     cum_counts = np.cumsum(kv_counts)
     q_block_offsets = np.zeros_like(cum_counts)
-    q_block_offsets[1:] = cum_counts[:-1]
+    q_block_offsets[1:] = cum_counts[:-1]  # offset of first neighbor for each Q-block
     global_idx = np.arange(len(rows))
     slot_idx = global_idx - q_block_offsets[rows]
 
