@@ -120,7 +120,7 @@ def test_self_block_attention(simple_points, k):
 
 
 def test_cross_block_attention():
-    """Ensure blocks can attend to neighboring blocks if kNN picks points across blocks."""
+    """Blocks can attend to neighboring blocks if kNN picks points across blocks."""
     points = np.array(
         [
             [0.0, 0.0],
@@ -152,3 +152,30 @@ def test_block_deduplication():
 
     indices = mask.kv_indices[0, 0, :2]
     assert torch.equal(indices.sort()[0], torch.tensor([0, 1], dtype=torch.int32))
+
+
+def test_neighbor_coverage(simple_points):
+    """Every true nearest neighbor found by the KDTree should be contained within the active blocks of the mask."""
+    tree, points = simple_points
+    n_points = len(points)
+    block_size = 2
+    k = 2
+
+    mask = create_block_mask_from_kdtree(
+        tree, points, n_points_unpadded=n_points, k=k, block_size=block_size
+    )
+    _, neighbor_indices = tree.query(points, k=k)
+    kv_indices = mask.kv_indices[0]  # (num_blocks, max_neighbors)
+
+    for q_idx in range(n_points):
+        q_block = q_idx // block_size
+
+        allowed_kv_blocks = set(kv_indices[q_block].tolist())
+        allowed_kv_blocks.discard(-1)  # remove padding
+
+        for neighbor_idx in neighbor_indices[q_idx]:
+            target_kv_block = neighbor_idx // block_size
+            assert target_kv_block in allowed_kv_blocks, (
+                f"Point {q_idx} (Block {q_block}) has neighbor {neighbor_idx} "
+                f"(Block {target_kv_block}), but mask only allows blocks {allowed_kv_blocks}"
+            )
