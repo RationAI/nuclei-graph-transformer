@@ -47,26 +47,42 @@ class DataModule(LightningDataModule):
 
         return instantiate(conf, **kwargs)
 
+    def prepare_data(self) -> None:
+        processed_uris = set()
+
+        for mode in self.datasets:
+            conf = self.datasets[mode]
+            if not hasattr(conf, "items"):  # skip non-dict configs (ints, etc.)
+                continue
+            for key, value in conf.items():
+                if (
+                    str(key).endswith("_uri")
+                    and value is not None
+                    and value not in processed_uris
+                ):
+                    download_artifacts(value)
+                    processed_uris.add(value)
+
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.annots_uri))
+        df_labels = pd.read_parquet(download_artifacts(conf.labels_uri))
         df_labels = df_labels.rename(columns={"annot_label": "label"})
-        if conf.get("cam_refinement_uri") is not None:
-            df_refinement = pd.read_parquet(download_artifacts(conf.cam_refinement_uri))
+
+        df_refinement = None
+        if conf.get("refinement_uri") is not None:
+            df_refinement = pd.read_parquet(download_artifacts(conf.refinement_uri))
             df_refinement = df_refinement.rename(
                 columns={"cam_thr_mask": "refinement_mask", "cam_score": "score"}
             )
-        else:
-            df_refinement = None
 
         keep_cols = ["slide_id", "is_carcinoma", "slide_nuclei_path"]
         match stage:
             case "fit" | "validate":
                 keep_cols.append("patient_id")
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
+                    download_artifacts(conf.metadata_uri), columns=keep_cols
                 )
                 df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
                 df_train = pre_crop_filter(df_train, conf.crop_size)
@@ -115,13 +131,14 @@ class DataModule(LightningDataModule):
             if self.sampler_partial is not None
             else None
         )
+
         return DataLoader(
             self.train,
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
             collate_fn=collate_fn,
-            drop_last=True,
+            drop_last=sampler is None,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
         )

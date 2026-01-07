@@ -152,6 +152,48 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return perm_inverse
 
+    def load_targets(
+        self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
+    ):
+        n = len(nuclei_ids)
+        targets = torch.full((n,), 0.0, dtype=torch.float32)  # defaults to negatives
+        target_mask = torch.full((n,), True, dtype=torch.bool)  # defaults to keep all
+        valid_seeds = list(range(n))  # indices of confident labels, defaults to all
+
+        if not slide_is_carcinoma:
+            return targets, target_mask, valid_seeds
+
+        assert self.df_labels is not None
+        labels = torch.from_numpy(
+            self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
+        )
+
+        if self.use_soft_labels:
+            assert self.df_refinement is not None
+            targets = (
+                torch.from_numpy(
+                    self.df_refinement.loc[slide_id].reindex(nuclei_ids)["score"].values
+                )
+                .float()
+                .clamp(min=0.0)
+            )
+            target_mask = labels.bool()  # use soft labels only for positive regions
+            valid_seeds = torch.nonzero(targets > 0.5).squeeze(-1).tolist()
+        else:
+            targets = labels.float()
+            target_mask = (
+                torch.from_numpy(
+                    self.df_refinement.loc[slide_id]
+                    .reindex(nuclei_ids)["refinement_mask"]
+                    .values
+                ).bool()
+                if self.df_refinement is not None
+                else target_mask
+            )
+            valid_seeds = torch.nonzero(target_mask).squeeze(-1).tolist()
+
+        return targets, target_mask, valid_seeds
+
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
         nuclei = pd.read_parquet(nuclei_path).sort_values("id")
@@ -166,37 +208,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         x = np.concatenate([features, scale], axis=-1)
         # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         pos = np.concatenate([centroids, 2.0 * (angle % np.pi)], axis=-1)
-        targets = torch.zeros(len(nuclei), dtype=torch.float32)  # defaults to negatives
-        target_mask = torch.ones(len(nuclei), dtype=torch.bool)  # defaults to keep all
 
         slide_id = self.df_metadata.iloc[idx].slide_id
         slide_is_carcinoma = self.df_metadata.iloc[idx].is_carcinoma
-        valid_seeds = []
+        targets, target_mask, valid_seeds = self.load_targets(
+            slide_id, nuclei["id"], slide_is_carcinoma
+        )
 
-        if slide_is_carcinoma and self.use_soft_labels:
-            assert self.df_refinement is not None
-            targets = torch.from_numpy(
-                self.df_refinement.loc[slide_id].reindex(nuclei["id"])["score"].values
-            ).float()
-            valid_seeds = torch.nonzero(targets > 0.5).squeeze(-1).tolist()
-
-        if slide_is_carcinoma and not self.use_soft_labels:
-            assert self.df_labels is not None
-            targets = torch.from_numpy(
-                self.df_labels.loc[slide_id].reindex(nuclei["id"])["label"].values
-            ).float()
-            target_mask = (
-                torch.from_numpy(
-                    self.df_refinement.loc[slide_id]
-                    .reindex(nuclei["id"])["refinement_mask"]
-                    .values
-                ).bool()
-                if self.df_refinement is not None
-                else target_mask
-            )
-            valid_seeds = torch.nonzero(target_mask).squeeze(-1).tolist()
-
-        # get crop indices
         if self.full_slide:
             crop_indices = torch.arange(len(efd))
         else:
@@ -209,29 +227,28 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 dtype=torch.long,
             )
 
-        # compute permutation w.r.t. the centroids for better data locality
-        perm = KDTree(centroids[crop_indices], leafsize=self.attn_block_size).indices
-        tree = KDTree(centroids[crop_indices][perm], leafsize=self.attn_block_size)
-        perm = torch.from_numpy(perm).long()
+        # permute the crop spatially to optimize block attention locality
+        tree = KDTree(centroids[crop_indices], leafsize=self.attn_block_size)
+        perm = torch.from_numpy(tree.indices).long()
+        sorted_points = centroids[crop_indices][perm]
+        sorted_tree = KDTree(sorted_points, leafsize=self.attn_block_size)
 
-        # get cropped and permuted data
         crop_x = torch.from_numpy(x[crop_indices][perm].astype(np.float32))
         crop_pos = torch.from_numpy(pos[crop_indices][perm].astype(np.float32))
         crop_y = targets[crop_indices][perm]  # (n,)
-        crop_y_mask = target_mask[crop_indices][perm]  # (n,)
+        crop_target_mask = target_mask[crop_indices][perm]  # (n,)
 
-        # pad to block size if needed (full slide mode)
-        crop_x, crop_pos, crop_y, crop_y_mask = self.pad_to_block_size(
-            crop_x, crop_pos, crop_y.unsqueeze(-1), crop_y_mask.unsqueeze(-1)
+        crop_x, crop_pos, crop_y, crop_target_mask = self.pad_to_block_size(
+            crop_x, crop_pos, crop_y.unsqueeze(-1), crop_target_mask.unsqueeze(-1)
         )
 
         sample: Sample = {
             "x": crop_x,  # (n, d)
             "pos": crop_pos,  # (n, 3)
-            "y": crop_y[crop_y_mask],  # (num_filtered,)
-            "target_mask": crop_y_mask,  # (n, 1)
+            "y": crop_y[crop_target_mask],  # (num_filtered,)
+            "target_mask": crop_target_mask,  # (n, 1)
             "block_mask": create_block_mask_from_kdtree(
-                kdtree=tree,
+                kdtree=sorted_tree,
                 points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates
                 n_points_unpadded=len(crop_indices),
                 k=self.k,

@@ -9,21 +9,21 @@ model:
   lr: 1e-4
   net:
     config:
-      node_features: 40
-      dim: 256
-      hidden_dim: 1024
+      node_features: 41
+      dim: 128 #256
+      hidden_dim: 256 #1024
       pos_dim: 3 # (x, y, α)
-      num_heads: 8
-      num_layers: 8
+      num_heads: 2 #8
+      num_layers: 2 #8
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4
 
 data:
-  batch_size: 16
+  batch_size: 2 #16
   crop_size: 4096
   alpha: 0.8
-  k: 128
+  k: 64 #128
   attn_block_size: 128
   efd_order: 10
 

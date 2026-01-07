@@ -20,7 +20,7 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
     def __init__(
         self,
         dataset: NucleiDataset,
-        slides_positivity: dict[int, float],
+        slides_positivity: dict[str, float],
         positivity_threshold: float = 0.0,
         replacement: bool = True,
     ):
@@ -30,13 +30,14 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
     def _get_weights(
         self,
         dataset: NucleiDataset,
-        slides_positivity: dict[int, float],
+        slides_positivity: dict[str, float],
         positivity_threshold: float,
     ) -> Sequence[float]:
+        slide_ids = dataset.df_metadata["slide_id"].values
         labels = torch.tensor(
             [
-                1.0 if slides_positivity[idx] > positivity_threshold else 0.0
-                for idx in range(len(dataset))
+                1.0 if slides_positivity.get(sid, 0.0) > positivity_threshold else 0.0
+                for sid in slide_ids
             ]
         )
         positive = labels.sum()

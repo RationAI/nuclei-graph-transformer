@@ -5,7 +5,7 @@ authors = [
     { name = "Karolína Rusnačková", email = "525276@mail.muni.cz" },
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
 ]
-requires-python = ">=3.11, <3.14"
+requires-python = ">=3.12, <3.14"
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
@@ -21,11 +21,10 @@ dependencies = [
     "einops>=0.8.1",
     "torchvision>=0.24.0",
     "pyefd>=1.6.0",
-    "lightning>=2.4.0",
+    "lightning>=2.6.0",
     "torchmetrics>=1.4.1",
     "scikit-learn>=1.5.2",
     "ipykernel>=6.29.5",
-    "warmup-scheduler>=0.3",
     "degraph",
     "rationai-masks",
     "rationai-mlkit",

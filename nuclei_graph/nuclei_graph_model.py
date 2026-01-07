@@ -5,7 +5,7 @@ from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torchmetrics import Metric, MetricCollection
 from torchmetrics.classification import (
     BinaryAUROC,
@@ -13,7 +13,6 @@ from torchmetrics.classification import (
     BinaryPrecision,
     BinaryRecall,
 )
-from warmup_scheduler import GradualWarmupScheduler
 
 from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
@@ -50,13 +49,14 @@ class NucleiGraphTransformer(LightningModule):
         assert masked_size > 0, "There are no annotated targets to compute loss from"
 
         loss = self.criterion(logits_masked, targets_masked)
-
         self.log(
             "train/loss",
             loss,
             on_step=True,
+            on_epoch=True,
             prog_bar=True,
             sync_dist=True,
+            batch_size=masked_size,
         )
         return loss
 
@@ -82,7 +82,7 @@ class NucleiGraphTransformer(LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
         self.val_metrics.reset()
 
     def test_step(self, batch: Sample) -> None:
@@ -95,7 +95,7 @@ class NucleiGraphTransformer(LightningModule):
 
     def on_test_epoch_end(self) -> None:
         metrics = self.test_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
         self.test_metrics.reset()
 
     def predict_step(self, batch: PredictInput) -> Tensor:
@@ -104,18 +104,12 @@ class NucleiGraphTransformer(LightningModule):
         return logits
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
-        """Groups model parameters into those with weight decay and those without.
-
-        Excludes weight decay for all tagged parameters (layer scale params, RoPE freqs and P matrix),
-        biases and norms.
-        """
         decay_params = []
         no_decay_params = []
 
         for name, param in self.net.named_parameters():
             if not param.requires_grad:
                 continue
-
             if (
                 getattr(param, "_no_weight_decay", False)
                 or name.endswith(".bias")
@@ -131,27 +125,35 @@ class NucleiGraphTransformer(LightningModule):
         ]
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
-        optimizer_grouped_parameters = self._get_optimizer_params()
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.lr)
+        optimizer = AdamW(self._get_optimizer_params(), lr=self.lr)
 
+        total_steps = self.trainer.estimated_stepping_batches
         warmup_epochs = 8
 
-        scheduler_cosine = CosineAnnealingLR(
+        assert self.trainer.max_epochs is not None  # set in config
+        steps_per_epoch = total_steps // self.trainer.max_epochs
+        warmup_steps = max(1, warmup_epochs * steps_per_epoch)
+
+        scheduler = SequentialLR(
             optimizer,
-            T_max=self.trainer.max_epochs - warmup_epochs,
-            eta_min=1.0e-06,
-        )
-        scheduler = GradualWarmupScheduler(
-            optimizer,
-            multiplier=1.0,
-            total_epoch=warmup_epochs,
-            after_scheduler=scheduler_cosine,
+            schedulers=[
+                LinearLR(
+                    optimizer,
+                    start_factor=1e-2,
+                    end_factor=1.0,
+                    total_iters=int(warmup_steps),
+                ),
+                CosineAnnealingLR(
+                    optimizer, T_max=int(total_steps - warmup_steps), eta_min=1e-6
+                ),  # type: ignore[arg-type]
+            ],
+            milestones=[int(warmup_steps)],
         )
 
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "interval": "epoch",
+                "interval": "step",
             },
         }

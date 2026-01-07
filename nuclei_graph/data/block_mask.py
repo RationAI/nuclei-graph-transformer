@@ -26,7 +26,7 @@ def create_block_mask_from_kdtree(
     Args:
         kdtree: KDTree built over the points.
         points: A sorted (n, d) numpy array of positions, n must be divisible by block_size.
-        k: Number of neighbors to query.
+        k: Number of neighbors to query, at least 1.
         n_points_unpadded: Number of points without the padding.
         block_size: Number of points per block.
 
@@ -38,19 +38,19 @@ def create_block_mask_from_kdtree(
         where num_blocks = n_points // block_size, n_points % block_size = 0
     """
     n_points = points.shape[0]
-    assert n_points % block_size == 0
+    assert k >= 1 and n_points % block_size == 0
     num_blocks = n_points // block_size
 
-    # 1. Build Block Adjacency Mask from a kNN Query
-    # --------------------------------------------
-    # query `k` neighbors for every valid (unpadded) point
+    # 1. Build Block Adjacency Mask (Q-block -> KV-block) from a kNN Query
+    # ------------------------------------------------
     _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
+    neighbor_indices = neighbor_indices[:, None] if k == 1 else neighbor_indices
 
-    # convert point indices to block indices
+    # map each point to its corresponding Q block and KV block
     q_block_ids = np.arange(n_points_unpadded) // block_size
     kv_block_ids = neighbor_indices // block_size
 
-    # we have to filter out neighbors that point to the padded region
+    # ignore connections to padded points
     valid_mask = neighbor_indices < n_points_unpadded
 
     adj_matrix = np.zeros((num_blocks, num_blocks), dtype=bool)
@@ -58,40 +58,38 @@ def create_block_mask_from_kdtree(
     q_block_ids_expanded = np.broadcast_to(q_block_ids[:, None], valid_mask.shape)
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
-    # 2. Convert to Sparse Format
-    # --------------------------------------------
-    # count how many KV blocks each Q block attends to
+    # 2. Convert to Sparse Format (Q -> K sparsity):
+    #      - kv_num_blocks[0, q] = number of KV blocks Q-block q attends to
+    #      - kv_indices[0, q, :] = indices of the KV blocks (padded with -1)
+    # Batch dim is 1 since the mask is single-item.
+    # ------------------------------------------------
     kv_counts = adj_matrix.sum(axis=1)
-    kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)  # (1, num_blocks)
-    # `BlockMask.from_kv_blocks` expects kv_indices to have a fixed width >= max
-    # number of KV blocks per query block -> use num_blocks as an upper bound
+    kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)
+    # use num_blocks as an upper bound for max neighbors per block
     kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
 
-    # get coordinates of all connections (rows=Q, cols=KV)
-    rows, cols = np.nonzero(adj_matrix)
-    # the code further below assumes that all entries for a given query block (row) are contiguous
-    # but `np.nonzero()` does not guarantee row-wise grouping -> explicitly sort by (row, col)
-    order = np.lexsort((cols, rows))
+    # get coordinates of all connections
+    rows, cols = np.nonzero(adj_matrix)  # (rows=Q, cols=KV)
+    # sort connections by Q-block and then KV-block to ensure that slot indices
+    # are contiguous within each Q-block (required by BlockMask)
+    order = np.lexsort((cols, rows))  # sort keys are (secondary, primary)
     rows = rows[order]
     cols = cols[order]
 
-    # to fill kv_indices[batch, row, slot] = col, we need a slot index for each connection
+    # compute the slot indices for kv_indices[0, Q-block, slot] (slot = valid neighbor index)
     cum_counts = np.cumsum(kv_counts)
     shifts = np.zeros_like(cum_counts)  # where each row starts in the flattened list
     shifts[1:] = cum_counts[:-1]  # shift right to get start indices
     global_idx = np.arange(len(rows))
-    slot_idx = global_idx - shifts[rows]  # local_idx = global_idx - start_idx_of_row
+    slot_idx = global_idx - shifts[rows]
 
-    assert np.all(slot_idx < kv_counts[rows]), (
-        "slot_idx exceeds the number of kv blocks for a query block"
-    )
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
     return BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks,
         kv_indices=kv_indices,
-        full_kv_num_blocks=None,  # let PyTorch derive the transposed layout
-        full_kv_indices=None,  # let PyTorch derive the transposed layout
+        full_kv_num_blocks=None,  # let PyTorch derive the transposed layout (K -> Q)
+        full_kv_indices=None,  # let PyTorch derive the transposed layout (K -> Q)
         BLOCK_SIZE=(block_size, block_size),
         mask_mod=dummy_mask_mod,
     )
