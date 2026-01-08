@@ -100,6 +100,7 @@ class DataModule(LightningDataModule):
                     df_metadata=df_val,
                     df_labels=get_subset(set(df_val["slide_id"]), df_labels),
                     df_refinement=get_subset(set(df_val["slide_id"]), df_refinement),
+                    full_slide=True,
                 )
             case "test":
                 metadata = pd.read_parquet(
