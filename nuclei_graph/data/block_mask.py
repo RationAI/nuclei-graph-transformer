@@ -6,10 +6,10 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-def dummy_mask_mod(
-    q_block_idx: Tensor, kv_block_idx: Tensor, q_idx: Tensor, kv_idx: Tensor
+def attend_all_mask_mod(
+    batch: Tensor, head: Tensor, q_idx: Tensor, kv_idx: Tensor
 ) -> Tensor:
-    return torch.ones_like(q_block_idx, dtype=torch.bool)  # attend to all
+    return torch.ones_like(batch, dtype=torch.bool)
 
 
 def create_block_mask_from_kdtree(
@@ -84,7 +84,7 @@ def create_block_mask_from_kdtree(
         full_kv_num_blocks=None,  # let PyTorch derive the transposed layout (K -> Q)
         full_kv_indices=None,  # let PyTorch derive the transposed layout (K -> Q)
         BLOCK_SIZE=(block_size, block_size),
-        mask_mod=dummy_mask_mod,
+        mask_mod=attend_all_mask_mod,
     )
 
 
