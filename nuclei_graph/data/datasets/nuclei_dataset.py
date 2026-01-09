@@ -177,6 +177,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 .float()
                 .clamp(min=0.0)
             )
+            assert torch.all((targets >= 0) & (targets <= 1))
             target_mask = labels.bool()  # use soft labels only for positive regions
             valid_seeds = torch.nonzero(targets > 0.5).squeeze(-1).tolist()
         else:
