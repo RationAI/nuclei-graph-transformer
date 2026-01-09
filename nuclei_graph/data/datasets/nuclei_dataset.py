@@ -218,7 +218,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         if self.full_slide:
             crop_indices = torch.arange(len(efd))
         else:
-            graph = build_spatial_graph(centroids)  # Delaunay triangulation graph
+            graph = build_spatial_graph(centroids)
             seed = (
                 choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
             )

@@ -139,7 +139,7 @@ class DataModule(LightningDataModule):
             sampler=sampler,
             shuffle=sampler is None,
             collate_fn=collate_fn,
-            drop_last=sampler is None,
+            drop_last=True,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
         )
