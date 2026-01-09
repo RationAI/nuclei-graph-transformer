@@ -69,12 +69,20 @@ def test_padding_validity():
     mask = create_block_mask_from_kdtree(
         tree, points, n_points_unpadded=n_unpadded, k=k, block_size=block_size
     )
-    indices = mask.kv_indices[0, 2]
-    max_valid_block = (n_unpadded // block_size) - 1
+    # check that no query block references block 3 (the padded block)
+    num_valid_blocks = (n_unpadded + block_size - 1) // block_size
 
-    is_valid = (indices <= max_valid_block) | (indices == -1)
-    assert is_valid.all(), f"Found reference to padded block in indices: {indices}"
-    assert 3 not in indices  # block index 3 corresponds to padded point
+    for q_block in range(num_valid_blocks):
+        indices = mask.kv_indices[0, q_block]
+        valid_indices = indices[indices != -1]
+
+        # all valid indices must be < num_valid_blocks (i.e., blocks 0, 1, 2)
+        assert torch.all(valid_indices < num_valid_blocks), (
+            f"Query block {q_block} references padded block: {indices.tolist()}"
+        )
+        assert 3 not in valid_indices.tolist(), (
+            f"Query block {q_block} should not attend to padded block 3"
+        )
 
 
 def test_batch_block_masks(simple_points):
