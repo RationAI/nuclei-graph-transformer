@@ -12,7 +12,8 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
     It assigns weights to each sample in the dataset based on the inverse of the class frequency.
 
     Arguments:
-        dataset: NucleiDataset dataset
+        dataset: Torch dataset class (NucleiDataset).
+        slides_positivity: Dictionary mapping slide IDs to their positivity scores.
         positivity_threshold: Threshold for considering a graph to be positive in the sampler.
         replacement: If True, samples are drawn with replacement. Default is True.
     """
