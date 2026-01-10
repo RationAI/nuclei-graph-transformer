@@ -10,17 +10,17 @@ model:
   net:
     config:
       node_features: 41
-      dim: 128 #256
-      hidden_dim: 256 #1024
+      dim: 256
+      hidden_dim: 1024
       pos_dim: 3 # (x, y, α)
-      num_heads: 2 #8
-      num_layers: 2 #8
+      num_heads: 8
+      num_layers: 8
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4
 
 data:
-  batch_size: 2 #16
+  batch_size: 16
   crop_size: 4096
   alpha: 0.8
   k: 64 #128
@@ -29,10 +29,10 @@ data:
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: "Pure Self-Attention (256,1024,2,8,8),(16,128,4096)(0.30)"
+  run_name: "Pure Self-Attention (256,1024,3,8,8),(16,64,4096)(0.30)"
   description: "testing run"
   hyperparams:
-    sampler_positivity_threshold: ${data.sampler.positivity_threshold}
+    sampler_positivity_threshold: ${data.sampler.positivity_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.crop_size}
     alpha: ${data.alpha}
