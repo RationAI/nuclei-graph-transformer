@@ -208,7 +208,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         features = rearrange(efd, "n order c -> n (order c)")
         x = np.concatenate([features, scale], axis=-1)
         # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
-        pos = np.concatenate([centroids, 2.0 * (angle % np.pi)], axis=-1)
+        rotation = 2.0 * (angle % np.pi)
+        pos = np.concatenate([centroids, rotation], axis=-1)
 
         slide_id = self.df_metadata.iloc[idx].slide_id
         slide_is_carcinoma = self.df_metadata.iloc[idx].is_carcinoma
