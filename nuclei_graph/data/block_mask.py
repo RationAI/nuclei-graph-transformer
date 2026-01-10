@@ -31,7 +31,7 @@ def create_block_mask_from_kdtree(
         block_size: Number of points per block.
 
     Returns:
-        A BlockMask object with layouts:
+        A BlockMask object with layouts (Batch, Head, ...):
             - kv_num_blocks: (1, 1, num_blocks), number of key/value blocks per query block
             - kv_indices: (1, 1, num_blocks, num_blocks), indices of key/value blocks
             - q_num_blocks: (1, 1, num_blocks), count of query blocks per key/value block (derived).
@@ -44,8 +44,8 @@ def create_block_mask_from_kdtree(
     assert k >= 1 and n_points % block_size == 0
     num_blocks = n_points // block_size
 
-    # 1. Build Block Adjacency Mask (Q-block -> KV-block) from a kNN Query
-    # -----------------------------------------------------------------------
+    # 1. Build Block Adjacency Mask from a kNN Query (Q -> K mapping)
+    # ----------------------------------------------------------------
     _, neighbor_indices = kdtree.query(points[:n_points_unpadded], k=k)
     neighbor_indices = neighbor_indices[:, None] if k == 1 else neighbor_indices
 
@@ -59,8 +59,8 @@ def create_block_mask_from_kdtree(
     # mark blocks as connected if any point in Q attends to any point in K
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
-    # 2. Convert adjacency to BlockMask format (Q -> K mapping):
-    # -----------------------------------------------------------------------
+    # 2. Convert adjacency to BlockMask format:
+    # ----------------------------------------------------------------
     kv_counts = adj_matrix.sum(axis=1)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)
     kv_indices = torch.full((1, num_blocks, num_blocks), -1, dtype=torch.int32)
@@ -101,7 +101,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
         masks: List of BlockMask objects.
 
     Returns:
-        Batched BlockMask object with layouts:
+        Batched BlockMask object with layouts (Batch, Head, ...):
             - kv_num_blocks: (b, 1, num_blocks)
             - kv_indices: (b, 1, num_blocks, max_kv_blocks)
             - q_num_blocks: (b, 1, num_blocks) (derived)
@@ -110,7 +110,6 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
             - shape: (b, 1, n_points, n_points)
         where:
             b = batch size,
-            h = number of heads,
             num_blocks = n_points // block_size,
             max_kv_blocks = maximum number of KV blocks per query block across the batch,
         The "mask_mod" is inherited from the first mask.
