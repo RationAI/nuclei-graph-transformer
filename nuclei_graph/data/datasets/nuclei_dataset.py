@@ -47,14 +47,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
-                         (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path"
-                         points to parquet files containing nuclei segmentation data.
+                (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
+                to parquet files containing nuclei segmentation data.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
-            df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be
-                           determined confidently enough (e.g., using a CAM thresholding). It is expected to contain columns
-                           "slide_id" (str), "id" (str), and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also
-                           "score" (float)).
-            use_soft_labels: Whether to use soft labels (e.g., CAM-based scoring) instead of binary labels.
+            df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
+                confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
+                and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also "score" (float)).
+            use_soft_labels: Whether to use soft labels (e.g., CAM-based scoring) instead of binary labels for positive regions.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
