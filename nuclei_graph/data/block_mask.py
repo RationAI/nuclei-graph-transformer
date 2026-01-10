@@ -37,8 +37,8 @@ def create_block_mask_from_kdtree(
             - q_num_blocks: (1, 1, num_blocks), count of query blocks per key/value block (derived).
             - q_indices: (1, 1, num_blocks, num_blocks), indices of query blocks (derived).
             - BLOCK_SIZE: (block_size, block_size)
-            - shape: (1, 1, num_points, num_points)
-        where num_blocks = n_points // block_size, n_points % block_size = 0
+            - shape: (1, 1, seq_length, seq_length)
+        where num_blocks = seq_length // block_size, seq_length % block_size = 0
     """
     n_points = points.shape[0]
     assert k >= 1 and n_points % block_size == 0
@@ -94,7 +94,7 @@ def create_block_mask_from_kdtree(
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
-    All masks must have the same number of query blocks (sequence length) and block size.
+    All masks must have the same sequence length and block size.
     Different neighbor counts (at the block level) are handled by padding.
 
     Args:
@@ -107,13 +107,14 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
             - q_num_blocks: (b, 1, num_blocks) (derived)
             - q_indices: (b, 1, num_blocks, num_blocks) (derived)
             - BLOCK_SIZE: (block_size, block_size)
-            - shape: (b, 1, n_points, n_points)
-        where:
+            - shape: (b, 1, seq_length, seq_length)
+        where
             b = batch size,
-            num_blocks = n_points // block_size,
+            num_blocks = seq_length // block_size,
             max_kv_blocks = maximum number of KV blocks per query block across the batch,
         The "mask_mod" is inherited from the first mask.
     """
+    assert all(m.shape == masks[0].shape for m in masks)
     assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
 
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
