@@ -32,9 +32,12 @@ def create_block_mask_from_kdtree(
 
     Returns:
         A BlockMask object with layouts:
-            - kv_num_blocks: (1, num_blocks), number of key/value blocks per query block
-            - kv_indices: (1, num_blocks, num_blocks), indices of key/value blocks
+            - kv_num_blocks: (1, 1, num_blocks), number of key/value blocks per query block
+            - kv_indices: (1, 1, num_blocks, num_blocks), indices of key/value blocks
+            - q_num_blocks: (1, 1, num_blocks), count of query blocks per key/value block (derived).
+            - q_indices: (1, 1, num_blocks, num_blocks), indices of query blocks (derived).
             - BLOCK_SIZE: (block_size, block_size)
+            - shape: (1, 1, num_points, num_points)
         where num_blocks = n_points // block_size, n_points % block_size = 0
     """
     n_points = points.shape[0]
@@ -79,8 +82,8 @@ def create_block_mask_from_kdtree(
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
     return BlockMask.from_kv_blocks(
-        kv_num_blocks=kv_num_blocks,
-        kv_indices=kv_indices,
+        kv_num_blocks=kv_num_blocks.unsqueeze(0),  # add head dim
+        kv_indices=kv_indices.unsqueeze(0),  # add head dim
         full_kv_num_blocks=None,  # let PyTorch derive the transposed layout (K -> Q)
         full_kv_indices=None,  # let PyTorch derive the transposed layout (K -> Q)
         BLOCK_SIZE=(block_size, block_size),
@@ -91,7 +94,7 @@ def create_block_mask_from_kdtree(
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
-    All masks must have the same number of query blocks (sequence length).
+    All masks must have the same number of query blocks (sequence length) and block size.
     Different neighbor counts (at the block level) are handled by padding.
 
     Args:
@@ -100,12 +103,17 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     Returns:
         Batched BlockMask object with layouts:
             - kv_num_blocks: (b, 1, num_blocks)
-            - kv_indices: (b, 1, num_blocks, max_num_blocks)
+            - kv_indices: (b, 1, num_blocks, max_kv_blocks)
+            - q_num_blocks: (b, 1, num_blocks) (derived)
+            - q_indices: (b, 1, num_blocks, num_blocks) (derived)
             - BLOCK_SIZE: (block_size, block_size)
+            - shape: (b, 1, n_points, n_points)
         where:
             b = batch size,
-            num_blocks = n // block_size,
-            max_num_blocks = maximum number of KV blocks per query block across the batch.
+            h = number of heads,
+            num_blocks = n_points // block_size,
+            max_kv_blocks = maximum number of KV blocks per query block across the batch,
+        The "mask_mod" is inherited from the first mask.
     """
     assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
 
@@ -117,11 +125,11 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
         torch.nn.functional.pad(kv, (0, max_kv_len - kv.shape[-1]), "constant", -1)
         for kv in kv_indices_list
     ]
-    kv_indices = torch.cat(padded_kv_indices, dim=0)  # (batch, num_blocks, max_kv_len)
+    kv_indices = torch.cat(padded_kv_indices, dim=0)
 
     batched_mask = BlockMask.from_kv_blocks(
-        kv_num_blocks=kv_num_blocks.unsqueeze(1),  # add head dim
-        kv_indices=kv_indices.unsqueeze(1),  # add head dim
+        kv_num_blocks=kv_num_blocks,
+        kv_indices=kv_indices,
         full_kv_num_blocks=None,
         full_kv_indices=None,
         BLOCK_SIZE=masks[0].BLOCK_SIZE,

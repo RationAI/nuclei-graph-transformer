@@ -40,8 +40,8 @@ def test_create_block_mask_logic(
         tree, points, n_points_unpadded=n_unpadded, k=k, block_size=block_size
     )
 
-    kv_counts = mask.kv_num_blocks[0]
-    kv_indices = mask.kv_indices[0]
+    kv_counts = mask.kv_num_blocks[0, 0]
+    kv_indices = mask.kv_indices[0, 0]
 
     # each block should attend to itself only
     for q_block, expected in enumerate(expected_counts):
@@ -54,9 +54,9 @@ def test_create_block_mask_shape(simple_points):
     mask = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
 
     assert isinstance(mask, BlockMask)
-    assert mask.kv_num_blocks.shape == (1, 2)
+    assert mask.kv_num_blocks.shape == (1, 1, 2)
     assert mask.kv_indices.shape[0] == 1
-    assert mask.kv_indices.shape[1] == 2
+    assert mask.kv_indices.shape[1] == 1
 
 
 def test_padding_validity():
@@ -73,7 +73,7 @@ def test_padding_validity():
     num_valid_blocks = (n_unpadded + block_size - 1) // block_size
 
     for q_block in range(num_valid_blocks):
-        indices = mask.kv_indices[0, q_block]
+        indices = mask.kv_indices[0, 0, q_block]
         valid_indices = indices[indices != -1]
 
         # all valid indices must be < num_valid_blocks (i.e., blocks 0, 1, 2)
@@ -95,8 +95,8 @@ def test_batch_block_masks(simple_points):
     assert batched.kv_num_blocks.shape == (2, 1, 2)
     assert batched.kv_indices.shape[0] == 2
 
-    assert torch.equal(batched.kv_num_blocks[0], mask1.kv_num_blocks)
-    assert torch.equal(batched.kv_num_blocks[1], mask2.kv_num_blocks)
+    assert torch.equal(batched.kv_num_blocks[0, 0], mask1.kv_num_blocks[0, 0])
+    assert torch.equal(batched.kv_num_blocks[1, 0], mask2.kv_num_blocks[0, 0])
 
 
 def test_batch_padding_logic():
@@ -124,7 +124,7 @@ def test_self_block_attention(simple_points, k):
         tree, points, n_points_unpadded=4, k=k, block_size=2
     )
     for q_block in range(2):
-        assert q_block in mask.kv_indices[0, q_block].tolist()
+        assert q_block in mask.kv_indices[0, 0, q_block].tolist()
 
 
 def test_cross_block_attention():
@@ -142,10 +142,14 @@ def test_cross_block_attention():
 
     mask = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
 
-    assert 1 in mask.kv_indices[0, 0].tolist()
-    assert 0 in mask.kv_indices[0, 1].tolist()
-    assert mask.kv_num_blocks[0, 0] == len(set(mask.kv_indices[0, 0].tolist()) - {-1})
-    assert mask.kv_num_blocks[0, 1] == len(set(mask.kv_indices[0, 1].tolist()) - {-1})
+    assert 1 in mask.kv_indices[0, 0, 0].tolist()
+    assert 0 in mask.kv_indices[0, 0, 1].tolist()
+    assert mask.kv_num_blocks[0, 0, 0] == len(
+        set(mask.kv_indices[0, 0, 0].tolist()) - {-1}
+    )
+    assert mask.kv_num_blocks[0, 0, 1] == len(
+        set(mask.kv_indices[0, 0, 1].tolist()) - {-1}
+    )
 
 
 def test_block_deduplication():
@@ -156,9 +160,9 @@ def test_block_deduplication():
         tree, points, n_points_unpadded=4, k=4, block_size=2
     )
 
-    assert mask.kv_num_blocks[0, 0] == 2
+    assert mask.kv_num_blocks[0, 0, 0] == 2
 
-    indices = mask.kv_indices[0, 0, :2]
+    indices = mask.kv_indices[0, 0, 0, :2]
     assert torch.equal(indices.sort()[0], torch.tensor([0, 1], dtype=torch.int32))
 
 
@@ -173,7 +177,7 @@ def test_neighbor_coverage(simple_points):
         tree, points, n_points_unpadded=n_points, k=k, block_size=block_size
     )
     _, neighbor_indices = tree.query(points, k=k)
-    kv_indices = mask.kv_indices[0]  # (num_blocks, max_neighbors)
+    kv_indices = mask.kv_indices[0, 0]  # (num_blocks, max_neighbors)
 
     for q_idx in range(n_points):
         q_block = q_idx // block_size
