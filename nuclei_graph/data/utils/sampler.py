@@ -40,9 +40,6 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
     Args:
         metadata: DataFrame containing a "slide_nuclei_path" (str) column.
         min_count: Minimum number of nuclei required to retain the slide.
-
-    Returns:
-        A DataFrame with slides having at least `min_count` nuclei.
     """
     counts = metadata["slide_nuclei_path"].apply(
         lambda path: pd.read_parquet(path, columns=[]).shape[0]
