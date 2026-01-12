@@ -1,4 +1,4 @@
-from nuclei_graph.callbacks.heatmap import NucleiHeatmapCallback
+from nuclei_graph.callbacks.prediction_labels import PredictionsCallback
 from nuclei_graph.callbacks.prediction_metrics import (
     PredictionMetricsBatchCallback,
     PredictionMetricsCallback,
@@ -6,7 +6,7 @@ from nuclei_graph.callbacks.prediction_metrics import (
 
 
 __all__ = [
-    "NucleiHeatmapCallback",
     "PredictionMetricsBatchCallback",
     "PredictionMetricsCallback",
+    "PredictionsCallback",
 ]

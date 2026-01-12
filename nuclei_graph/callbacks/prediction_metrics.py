@@ -1,16 +1,23 @@
-"""Lightning callbacks to save nuclei per-slide and per-dataset metrics."""
-
 from typing import cast
 
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
+from torch import Tensor
 from torchmetrics import MetricCollection
 
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictInput
+from nuclei_graph.nuclei_graph_typing import PredictInput
 
 
 class PredictionMetricsCallback(Callback):
+    """Computes global metrics across the entire dataset."""
+
+    def on_predict_epoch_start(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
+        metrics_module = cast("MetricCollection", pl_module.predict_metrics)
+        metrics_module.reset()
+
     def on_predict_epoch_end(
         self,
         trainer: Trainer,
@@ -20,21 +27,22 @@ class PredictionMetricsCallback(Callback):
         metrics = metrics_module.compute()
         for key, value in metrics.items():
             metric_name = key.split("/")[-1]
-            mlflow.log_metric(f"prediction/{metric_name}", float(value))
+            value = float(value.item()) if isinstance(value, Tensor) else float(value)
+            mlflow.log_metric(f"prediction/{metric_name}", value)
         metrics_module.reset()
 
     def on_predict_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs,
+        outputs: Tensor,
         batch: PredictInput,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
         sample, _ = batch
         targets_masked = sample["y"]
-        logits_masked = outputs[sample["annot_mask"]]
+        logits_masked = outputs[sample["target_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
@@ -42,32 +50,35 @@ class PredictionMetricsCallback(Callback):
 
 
 class PredictionMetricsBatchCallback(Callback):
+    """Computes metrics per batch (i.e., per slide since prediction batch size is assumed to be 1)."""
+
     def on_predict_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs,
+        outputs: Tensor,
         batch: PredictInput,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
         sample, metadata_list = batch
-        metadata = metadata_list[0]
+        metadata = metadata_list[0]  # batch size is 1 during inference
         targets_masked = sample["y"]
-        logits_masked = outputs[sample["annot_mask"]]
+        logits_masked = outputs[sample["target_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
         slide_metrics = metrics_module.clone()
+        slide_metrics.reset()
         slide_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
 
-        slide_id = metadata["slide_id"]
         metrics = slide_metrics.compute()
         for key, value in metrics.items():
             metric_name = key.split("/")[-1]
+            value = float(value.item()) if isinstance(value, Tensor) else float(value)
             mlflow.log_metric(
-                f"prediction/{slide_id}/{metric_name}",
-                float(value),
+                f"prediction/{metadata['slide_id']}/{metric_name}",
+                value,
                 step=pl_module.global_step,
             )
         slide_metrics.reset()

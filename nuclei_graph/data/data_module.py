@@ -113,7 +113,6 @@ class DataModule(LightningDataModule):
                     df_refinement=df_refinement,
                 )
             case "predict":
-                keep_cols.append("slide_path")
                 metadata = pd.read_parquet(
                     Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
                 )

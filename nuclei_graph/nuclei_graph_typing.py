@@ -14,8 +14,7 @@ class Sample(TypedDict):
 
 class Metadata(TypedDict):
     slide_id: str
-    slide_path: str
-    slide_nuclei_path: str
+    nuclei_ids: list[str]
     nuclei_count: int
     perm_inverse: Tensor
 

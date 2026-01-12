@@ -169,15 +169,15 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         if self.use_soft_labels:
             assert self.df_refinement is not None
+            # TODO handle cam scores
             targets = (
                 torch.from_numpy(
                     self.df_refinement.loc[slide_id].reindex(nuclei_ids)["score"].values
-                )
-                .float()
-                .clamp(min=0.0)
+                ).float()
+                / 255.0
             )
             assert torch.all((targets >= 0) & (targets <= 1))
-            target_mask = labels.bool()  # use soft labels only for positive regions
+            target_mask = labels.bool()  # use only for positive regions
             valid_seeds = torch.nonzero(targets > 0.5).squeeze(-1).tolist()
         else:
             targets = labels.float()
@@ -260,8 +260,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             perm_inverse = self.get_inverse_perm(perm)
             metadata: Metadata = {
                 "slide_id": slide_id,
-                "slide_path": self.df_metadata.iloc[idx].slide_path,
-                "slide_nuclei_path": nuclei_path,
+                "nuclei_ids": nuclei.iloc[crop_indices.numpy()]["id"].values.tolist(),  # type: ignore[no-any-return]
                 "nuclei_count": len(crop_indices),
                 "perm_inverse": perm_inverse,
             }
