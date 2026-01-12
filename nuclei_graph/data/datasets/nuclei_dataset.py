@@ -260,7 +260,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             perm_inverse = self.get_inverse_perm(perm)
             metadata: Metadata = {
                 "slide_id": slide_id,
-                "nuclei_ids": nuclei.iloc[crop_indices.numpy()]["id"].values.tolist(),  # type: ignore[no-any-return]
+                "nuclei_ids": nuclei.iloc[crop_indices.numpy()]["id"].values.tolist(),
                 "nuclei_count": len(crop_indices),
                 "perm_inverse": perm_inverse,
             }
