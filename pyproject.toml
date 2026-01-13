@@ -41,3 +41,4 @@ rationai-tiling = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology
 
 [dependency-groups]
 dev = ["mypy", "pre-commit", "ruff"]
+test = ["pytest", "pytest-cov"]
