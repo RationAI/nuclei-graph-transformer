@@ -49,7 +49,7 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
         dropped_slides = metadata.loc[~mask_keep, ["slide_id"]].copy()
         dropped_slides["nuclei_count"] = counts[~mask_keep]
         print(
-            f"[INFO] Dropped slides with < {min_count} nuclei:",
+            f"[INFO] Dropped slides with < {min_count} nuclei:\n",
             dropped_slides.to_string(index=False),
         )
 
