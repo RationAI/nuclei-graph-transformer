@@ -124,7 +124,6 @@ class DataModule(LightningDataModule):
             if self.sampler_partial is not None
             else None
         )
-
         return DataLoader(
             self.train,
             batch_size=self.batch_size,
@@ -139,7 +138,7 @@ class DataModule(LightningDataModule):
     def val_dataloader(self) -> Iterable[Sample]:
         return DataLoader(
             self.val,
-            batch_size=1,  # process full graphs
+            batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
         )
@@ -147,7 +146,7 @@ class DataModule(LightningDataModule):
     def test_dataloader(self) -> Iterable[Sample]:
         return DataLoader(
             self.test,
-            batch_size=1,  # process full graphs
+            batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
         )
@@ -155,7 +154,7 @@ class DataModule(LightningDataModule):
     def predict_dataloader(self) -> Iterable[PredictInput]:
         return DataLoader(
             self.predict,
-            batch_size=1,  # process full graphs
+            batch_size=1,
             num_workers=0,
             collate_fn=collate_fn_predict,
         )
