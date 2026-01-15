@@ -38,41 +38,34 @@ class DataModule(LightningDataModule):
 
     def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
         conf = conf.copy()
-
-        # remove URIs from the config before instantiation
         with open_dict(conf):
-            uri_keys = [key for key in conf if str(key).endswith("_uri")]
-            for uri_key in uri_keys:
-                conf.pop(uri_key, None)
-
+            conf.pop("uris", None)
         return instantiate(conf, **kwargs)
 
     def prepare_data(self) -> None:
-        processed_uris = set()
-
-        for mode in self.datasets:
-            conf = self.datasets[mode]
-            if not hasattr(conf, "items"):  # skip non-dict configs (ints, etc.)
+        uris = set()
+        for conf in self.datasets.values():
+            uris_conf = conf.get("uris")
+            if uris_conf is None:
                 continue
-            for key, value in conf.items():
-                if (
-                    str(key).endswith("_uri")
-                    and value is not None
-                    and value not in processed_uris
-                ):
-                    download_artifacts(value)
-                    processed_uris.add(value)
+            for uri in uris_conf.values():
+                if uri is not None:
+                    uris.add(uri)
+        for uri in uris:
+            download_artifacts(uri)
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.labels_uri))
+        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri))
         df_labels = df_labels.rename(columns={"annot_label": "label"})
 
         df_refinement = None
-        if conf.get("refinement_uri") is not None:
-            df_refinement = pd.read_parquet(download_artifacts(conf.refinement_uri))
+        if conf.uris.get("refinement_uri") is not None:
+            df_refinement = pd.read_parquet(
+                download_artifacts(conf.uris.refinement_uri)
+            )
             df_refinement = df_refinement.rename(
                 columns={"cam_thr_mask": "refinement_mask", "cam_score": "score"}
             )
@@ -82,7 +75,7 @@ class DataModule(LightningDataModule):
             case "fit" | "validate":
                 keep_cols.append("patient_id")
                 metadata = pd.read_parquet(
-                    download_artifacts(conf.metadata_uri), columns=keep_cols
+                    download_artifacts(conf.uris.metadata_uri), columns=keep_cols
                 )
                 df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
                 df_train = pre_crop_filter(df_train, conf.crop_size)
@@ -104,7 +97,7 @@ class DataModule(LightningDataModule):
                 )
             case "test":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
                 )
                 self.test = self._instantiate_dataset(
                     conf,
@@ -114,7 +107,7 @@ class DataModule(LightningDataModule):
                 )
             case "predict":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.metadata_uri)), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
                 )
                 self.predict = self._instantiate_dataset(
                     conf,
