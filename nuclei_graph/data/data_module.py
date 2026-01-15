@@ -75,7 +75,7 @@ class DataModule(LightningDataModule):
             case "fit" | "validate":
                 keep_cols.append("patient_id")
                 metadata = pd.read_parquet(
-                    download_artifacts(conf.uris.metadata_uri), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
                 )
                 df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
                 df_train = pre_crop_filter(df_train, conf.crop_size)
