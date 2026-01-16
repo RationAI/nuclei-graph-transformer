@@ -21,6 +21,17 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
+BASE_METADATA_COLS = [
+    "slide_id",
+    "is_carcinoma",
+    "slide_nuclei_path",
+]
+
+TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id"]
+LABEL_COLS = {"annot_label": "label"}
+REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
+
+
 class DataModule(LightningDataModule):
     def __init__(
         self,
@@ -61,25 +72,24 @@ class DataModule(LightningDataModule):
         conf = self.datasets[mode]
 
         df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri))
-        df_labels = df_labels.rename(columns={"annot_label": "label"})
+        df_labels = df_labels.rename(columns=LABEL_COLS)
 
         df_refinement = None
         if conf.uris.get("refinement_uri") is not None:
             df_refinement = pd.read_parquet(
-                download_artifacts(conf.uris.refinement_uri)
+                Path(download_artifacts(conf.uris.refinement_uri))
             )
-            df_refinement = df_refinement.rename(
-                columns={"cam_thr_mask": "refinement_mask", "cam_score": "score"}
-            )
+            df_refinement = df_refinement.rename(columns=REFINEMENT_COLS)
 
-        keep_cols = ["slide_id", "is_carcinoma", "slide_nuclei_path"]
         match stage:
             case "fit" | "validate":
-                keep_cols.append("patient_id")
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    columns=TRAIN_METADATA_COLS,
                 )
-                df_train, df_val = train_val_split(metadata, keep_cols=keep_cols)
+                df_train, df_val = train_val_split(
+                    metadata, keep_cols=TRAIN_METADATA_COLS
+                )
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
                     df_train, df_labels, df_refinement
@@ -99,7 +109,8 @@ class DataModule(LightningDataModule):
                 )
             case "test":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    columns=BASE_METADATA_COLS,
                 )
                 self.test = self._instantiate_dataset(
                     conf,
@@ -109,7 +120,8 @@ class DataModule(LightningDataModule):
                 )
             case "predict":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)), columns=keep_cols
+                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    columns=BASE_METADATA_COLS,
                 )
                 self.predict = self._instantiate_dataset(
                     conf,
