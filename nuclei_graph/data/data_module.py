@@ -45,6 +45,8 @@ class DataModule(LightningDataModule):
     def prepare_data(self) -> None:
         uris = set()
         for conf in self.datasets.values():
+            if not isinstance(conf, DictConfig):
+                continue
             uris_conf = conf.get("uris")
             if uris_conf is None:
                 continue
