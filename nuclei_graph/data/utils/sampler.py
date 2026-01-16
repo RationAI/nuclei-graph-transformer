@@ -28,7 +28,7 @@ def compute_slides_positivity(
     else:
         positivity_series = labels.groupby("slide_id")["label"].mean()
     positivity_map = metadata["slide_id"].map(positivity_series)
-    positivity_map = positivity_map.fillna(0.0)  # negative slides with no annot labels
+    positivity_map = positivity_map.fillna(0.0)  # negative slides
     return dict(zip(metadata["slide_id"], positivity_map, strict=True))
 
 
