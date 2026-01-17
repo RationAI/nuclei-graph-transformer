@@ -5,8 +5,8 @@ defaults:
   - _self_
 
 # Note: tile sizes need to be consistent across masks to display correctly in xOpat
-mask_tile_width: 256
-mask_tile_height: 256
+mask_tile_width: 512
+mask_tile_height: 512
 level: 2
 max_concurrent: 6
 mlflow_artifact_path: annotation_masks
