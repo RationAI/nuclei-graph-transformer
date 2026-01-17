@@ -7,8 +7,6 @@ defaults:
 # Note: tile sizes need to be consistent across masks to display correctly in xOpat
 mask_tile_width: 512
 mask_tile_height: 512
-labels_uri: mlflow-artifacts:/97/6fbf134f753c4d33870fa6a91ce52d69/artifacts/annotation_labels
-cam_indicators_uri: mlflow-artifacts:/97/3b17fcbafbfd4a78866f3fa645282824/artifacts/cam_label_indicators
 max_concurrent: 1
 nuclei_path: ${output_path}
 mlflow_artifact_path: nuclei_masks
