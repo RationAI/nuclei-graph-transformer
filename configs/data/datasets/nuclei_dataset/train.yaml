@@ -8,10 +8,12 @@ uris:
   metadata_uri: mlflow-artifacts:/97/5c4f69059f014d728d669a16eca68c51/artifacts/tile_level_annotations/slides_mapping.parquet
   labels_uri: mlflow-artifacts:/97/0dd86682089743f9b644e061745c2ae1/artifacts/annotation_labels
   refinement_uri: mlflow-artifacts:/97/98bbfa565d9e4ed48131da8d7ff4c2e1/artifacts/cam_refinement
-use_soft_labels: False
+stats: # train split estimates
+  scale_mean: 2.5326
+  scale_std: 0.2644
+  neighbor_dist_mean: 28.78 # in pixels
 crop_size: ${data.crop_size}
 alpha: ${data.alpha}
 k: ${data.k}
 attn_block_size: ${data.attn_block_size}
 efd_order: ${data.efd_order}
-predict: False

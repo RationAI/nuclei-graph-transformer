@@ -1,9 +1,9 @@
-"""Taken from the Nuclei Foundational Model repository, by Matěj Pekár."""
+"""Adjusted from the Nuclei Foundational Model repository, by Matěj Pekár."""
 
 from typing import Any, cast
 
 import torch
-from einops import rearrange, repeat
+from einops import rearrange
 from torch import Tensor, nn
 from torch.nn.utils.parametrizations import orthogonal
 
@@ -27,8 +27,17 @@ class RoPE(nn.Module):
             theta: The base value for the RoPE frequency calculation.
         """
         super().__init__()
-        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
-        self.freqs = nn.Parameter(repeat(freqs, "d -> p d", p=pos_dim).clone())
+        linear_freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
+        angular_freqs = torch.arange(1, (dim // 2) + 1).float()
+
+        freqs_list = []
+        for i in range(pos_dim):
+            if i < 2:  # coordinate dimensions
+                freqs_list.append(linear_freqs)
+            else:  # rotation dimension
+                freqs_list.append(angular_freqs)
+        self.freqs = nn.Parameter(torch.stack(freqs_list))
+
         self.P = orthogonal(
             nn.Linear(dim, dim, bias=False), orthogonal_map="householder"
         )

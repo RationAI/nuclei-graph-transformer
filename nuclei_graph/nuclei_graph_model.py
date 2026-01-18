@@ -36,7 +36,9 @@ class NucleiGraphTransformer(LightningModule):
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
     def forward(self, batch: Sample) -> Tensor:
-        return self.net(batch["x"], batch["pos"], batch["block_mask"])
+        return self.net(
+            batch["x"], batch["pos"], batch["block_mask"], batch["num_points"]
+        )
 
     def training_step(self, batch: Sample) -> Tensor:
         targets_masked = batch["y"]

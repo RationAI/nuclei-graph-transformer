@@ -10,12 +10,12 @@ class Sample(TypedDict):
     y: Tensor
     target_mask: Tensor
     block_mask: BlockMask
+    num_points: int | Tensor
 
 
 class Metadata(TypedDict):
     slide_id: str
     nuclei_ids: list[str]
-    nuclei_count: int
     perm_inverse: Tensor
 
 

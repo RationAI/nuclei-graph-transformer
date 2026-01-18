@@ -23,21 +23,23 @@ class Layer(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.ffn_dropout = nn.Dropout(config.dropout)
 
-        self.ls1 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
-        self.ls2 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
+        # self.ls1 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
+        # self.ls2 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
 
-        cast("Any", self.ls1)._no_weight_decay = True
-        cast("Any", self.ls2)._no_weight_decay = True
+        # cast("Any", self.ls1)._no_weight_decay = True
+        # cast("Any", self.ls2)._no_weight_decay = True
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         assert pos.shape[-1] >= self.pos_dim
         pos = pos[:, :, : self.pos_dim]
 
         y = self.pre_attn_norm(x)
-        x = x + self.ls1 * self.attn_dropout(self.self_attn(y, pos, block_mask))
+        x = x + self.attn_dropout(self.self_attn(y, pos, block_mask))
+        # self.ls1 * self.attn_dropout(self.self_attn(y, pos, block_mask))
 
         y = self.pre_ffn_norm(x)
-        x = x + self.ls2 * self.ffn_dropout(self.ffn(y))
+        x = x + self.ffn_dropout(self.ffn(y))
+        # self.ls2 * self.ffn_dropout(self.ffn(y))
         return x
 
 
@@ -48,11 +50,13 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
-        self.class_head = nn.Linear(config.dim, config.num_classes)
+        self.class_head = nn.Linear(config.dim * 2, config.num_classes)
         self.num_heads = config.num_heads
         self.pos_dim = config.pos_dim
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+    def forward(
+        self, x: Tensor, pos: Tensor, block_mask: BlockMask, num_points: Tensor
+    ) -> Tensor:
         """Forward pass of the Transformer model.
 
         Args:
@@ -61,6 +65,7 @@ class Transformer(nn.Module):
             block_mask: Batched BlockMask object for sparse attention with layouts
                 - kv_num_blocks of shape (b, 1, num_blocks), num_blocks = n // block_size
                 - kv_indices of shape (b, 1, num_blocks, max_num_blocks)
+            num_points: Tensor of shape (b,) indicating the valid number of points per batch item (to exclude padding).
 
         Returns:
             Tensor of shape (b, n, 1).
@@ -72,4 +77,13 @@ class Transformer(nn.Module):
 
         x = self.final_norm(x)
 
-        return self.class_head(x)
+        # global aggregate
+        B, N, _ = x.shape
+        mask = torch.arange(N, device=x.device).expand(B, N) < num_points.unsqueeze(1)
+        x_masked = x * mask.unsqueeze(-1).type_as(x)
+
+        global_context = x_masked.sum(dim=1) / num_points.unsqueeze(1)  # (B, D)
+        global_context_expanded = global_context.unsqueeze(1).expand(-1, N, -1)
+        x_combined = torch.cat([x, global_context_expanded], dim=-1)
+
+        return self.class_head(x_combined)

@@ -22,11 +22,10 @@ class PredictionsCallback(Callback):
         _, metadata = batch
         logits, metadata = outputs[0], metadata[0]  # batch size is 1 during inference
 
-        nuclei_count = metadata["nuclei_count"]
         perm_inverse = metadata["perm_inverse"]
         nuclei_ids = metadata["nuclei_ids"]
 
-        logits_unpadded = logits[:nuclei_count]
+        logits_unpadded = logits[: len(nuclei_ids)]
         logits_original_order = logits_unpadded[perm_inverse]
         predicted_labels = torch.sigmoid(logits_original_order).cpu().numpy()
         df_predictions = pd.DataFrame({"id": nuclei_ids, "score": predicted_labels})

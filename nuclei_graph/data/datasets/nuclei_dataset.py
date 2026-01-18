@@ -32,9 +32,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __init__(
         self,
         df_metadata: DataFrame,
+        scale_mean: float,
+        scale_std: float,
+        neighbor_dist_mean: float,
         df_labels: DataFrame | None = None,
         df_refinement: DataFrame | None = None,
-        use_soft_labels: bool = False,
         crop_size: int = 4096,
         alpha: float = 0.8,
         k: int = 64,
@@ -49,11 +51,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
                 to parquet files containing nuclei segmentation data.
+            scale_mean: Mean of log nucleus scales estimated from training data for normalization.
+            scale_std: Standard deviation of log nucleus scales estimated from training data for normalization.
+            neighbor_dist_mean: Average distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
                 and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also "score" (float)).
-            use_soft_labels: Whether to use soft labels (e.g., CAM-based scoring) instead of binary labels for positive regions.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -63,12 +67,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
         """
         self.df_metadata = df_metadata
+        self.scale_mean = scale_mean
+        self.scale_std = scale_std
+        self.neighbor_dist_mean = neighbor_dist_mean
         self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
         self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
-        self.use_soft_labels = use_soft_labels
-        assert self.df_labels is not None and (
-            self.df_refinement is not None or not use_soft_labels
-        )
         self.crop_size = crop_size
         self.alpha = alpha
         self.k = k
@@ -163,36 +166,31 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             return targets, target_mask, valid_seeds
 
         assert self.df_labels is not None
-        labels = torch.from_numpy(
+        targets = torch.from_numpy(
             self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
+        ).float()
+
+        target_mask = (
+            torch.from_numpy(
+                self.df_refinement.loc[slide_id]
+                .reindex(nuclei_ids)["refinement_mask"]
+                .values
+            ).bool()
+            if self.df_refinement is not None
+            else target_mask
         )
-
-        if self.use_soft_labels:
-            assert self.df_refinement is not None
-            # TODO handle cam scores
-            targets = (
-                torch.from_numpy(
-                    self.df_refinement.loc[slide_id].reindex(nuclei_ids)["score"].values
-                ).float()
-                / 255.0
-            )
-            assert torch.all((targets >= 0) & (targets <= 1))
-            target_mask = labels.bool()  # use only for positive regions
-            valid_seeds = torch.nonzero(targets > 0.5).squeeze(-1).tolist()
-        else:
-            targets = labels.float()
-            target_mask = (
-                torch.from_numpy(
-                    self.df_refinement.loc[slide_id]
-                    .reindex(nuclei_ids)["refinement_mask"]
-                    .values
-                ).bool()
-                if self.df_refinement is not None
-                else target_mask
-            )
-            valid_seeds = torch.nonzero(target_mask).squeeze(-1).tolist()
-
+        valid_seeds = torch.nonzero(target_mask).squeeze(-1).tolist()
         return targets, target_mask, valid_seeds
+
+    def get_crop_indices(self, centroids: np.ndarray, valid_seeds: list[int]) -> Tensor:
+        if self.full_slide:
+            return torch.arange(len(centroids))
+        graph = build_spatial_graph(centroids)
+        seed = choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
+        return torch.tensor(
+            self.find_component(seed, self.crop_size, graph, centroids),
+            dtype=torch.long,
+        )
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
@@ -200,42 +198,37 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         centroids = np.stack(nuclei["centroid"].tolist())
         contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
 
+        # compute feature vectors
         efd = elliptic_fourier_descriptors(contours, self.efd_order)
-        efd, scale = normalize_efd_for_scale(efd)
-        efd, angle = normalize_efd_for_rotation(efd)
+        efd, scales = normalize_efd_for_scale(efd)
+        efd, angles = normalize_efd_for_rotation(efd)
+        x = rearrange(efd, "n order c -> n (order c)")
+        log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
+        x = np.concatenate([x, log_scales], axis=-1)
 
-        features = rearrange(efd, "n order c -> n (order c)")
-        x = np.concatenate([features, scale], axis=-1)
-        # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
-        rotation = 2.0 * (angle % np.pi)
-        pos = np.concatenate([centroids, rotation], axis=-1)
-
-        slide_id = self.df_metadata.iloc[idx].slide_id
-        slide_is_carcinoma = self.df_metadata.iloc[idx].is_carcinoma
         targets, target_mask, valid_seeds = self.load_targets(
-            slide_id, nuclei["id"], slide_is_carcinoma
+            self.df_metadata.iloc[idx].slide_id,
+            nuclei["id"],
+            self.df_metadata.iloc[idx].is_carcinoma,
         )
 
-        if self.full_slide:
-            crop_indices = torch.arange(len(efd))
-        else:
-            graph = build_spatial_graph(centroids)
-            seed = (
-                choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
-            )
-            crop_indices = torch.tensor(
-                self.find_component(seed, self.crop_size, graph, centroids),
-                dtype=torch.long,
-            )
+        crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
-        # permute the crop spatially to optimize block attention locality
-        tree = KDTree(centroids[crop_indices], leafsize=self.attn_block_size)
+        # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei neighbor
+        # distance computed from training set to convert distances into neighbor units ("cell hops")
+        center = centroids[crop_indices].mean(axis=0, keepdims=True)
+        crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_mean
+        # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
+        rotation = 2.0 * (angles % np.pi)
+        crop_pos = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)
+
+        # compute spatial permutation to optimize block attention locality for the crop
+        tree = KDTree(crop_centroids, leafsize=self.attn_block_size)
         perm = torch.from_numpy(tree.indices).long()
-        sorted_points = centroids[crop_indices][perm]
-        sorted_tree = KDTree(sorted_points, leafsize=self.attn_block_size)
+        sorted_tree = KDTree(crop_centroids[perm], leafsize=self.attn_block_size)
 
         crop_x = torch.from_numpy(x[crop_indices][perm].astype(np.float32))
-        crop_pos = torch.from_numpy(pos[crop_indices][perm].astype(np.float32))
+        crop_pos = torch.from_numpy(crop_pos[perm].astype(np.float32))
         crop_y = targets[crop_indices][perm]  # (n,)
         crop_target_mask = target_mask[crop_indices][perm]  # (n,)
 
@@ -255,13 +248,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 k=self.k,
                 block_size=self.attn_block_size,
             ),
+            "num_points": len(crop_indices),
         }
+
         if self.predict:
             perm_inverse = self.get_inverse_perm(perm)
             metadata: Metadata = {
-                "slide_id": slide_id,
+                "slide_id": self.df_metadata.iloc[idx].slide_id,
                 "nuclei_ids": nuclei.iloc[crop_indices.numpy()]["id"].values.tolist(),
-                "nuclei_count": len(crop_indices),
                 "perm_inverse": perm_inverse,
             }
             return sample, metadata
