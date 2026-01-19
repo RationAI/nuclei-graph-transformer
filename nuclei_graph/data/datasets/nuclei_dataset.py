@@ -196,9 +196,25 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             dtype=torch.long,
         )
 
+    def drop_eps_neighbors(self, df: pd.DataFrame, eps: float = 1e-4) -> pd.DataFrame:
+        """Removes nuclei closer than `eps` to each other.
+
+        One of the close neighbors is removed, the other is kept.
+        This is to prevent Delaunay triangulation from failing due to numerical
+        instabilities when nuclei are very close to each other.
+        """
+        centroids = np.stack(df["centroid"].tolist())
+        quantized = np.round(centroids / eps).astype(np.int64)
+        _, unique_indices = np.unique(quantized, axis=0, return_index=True)
+
+        duplicate_count = len(df) - len(unique_indices)
+        if duplicate_count > 0:
+            df = df.iloc[np.sort(unique_indices)].reset_index(drop=True)
+        return df
+
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
-        nuclei = pd.read_parquet(nuclei_path).sort_values("id")
+        nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
         centroids = np.stack(nuclei["centroid"].tolist())
         contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
 
