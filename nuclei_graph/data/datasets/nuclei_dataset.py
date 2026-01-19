@@ -66,8 +66,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
 
-        NOTE: Due to applied normalizations, it is assumed that all slides have the same mpp (0.25). If not the case,
-              scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
+        NOTE: Due to applied normalizations, it is assumed that all slides have mpp same as the training data (0.25).
+              If not the case, scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
