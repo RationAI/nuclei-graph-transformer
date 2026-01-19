@@ -36,9 +36,9 @@ class RoPE(nn.Module):
 
         freqs_list = []
         for i in range(pos_dim):
-            if i < num_linear_dims:  # coordinate dimensions
+            if i < num_linear_dims:
                 freqs_list.append(linear_freqs)
-            else:  # rotation dimension
+            else:
                 freqs_list.append(angular_freqs)
         self.freqs = nn.Parameter(torch.stack(freqs_list))
 
