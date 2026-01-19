@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - /model/models@model.net: pure_self-attn_transformer
+  - /model/models@model.net: nuclei_transformer
   - /data/datasets@data.train: nuclei_dataset/train
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
@@ -29,7 +29,7 @@ data:
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: "Nuclei Transformer (256,1024,3,8,8),(8,128,4096)(0.30)"
+  run_name: "Nuclei Transformer train [(256,1024,3,8,8),(8,128,4096)(0.30)]"
   description: "testing run"
   hyperparams:
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
