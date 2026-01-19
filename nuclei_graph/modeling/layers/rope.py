@@ -18,13 +18,17 @@ class RoPE(nn.Module):
         - "Rethinking RoPE: A Mathematical Blueprint for N-dimensional Rotary Positional Embedding" (https://arxiv.org/abs/2504.06308)
     """
 
-    def __init__(self, dim: int, pos_dim: int = 2, theta: float = 100.0) -> None:
+    def __init__(
+        self, dim: int, pos_dim: int = 2, theta: float = 100.0, num_linear_dims: int = 2
+    ) -> None:
         """Initialize RoPE module.
 
         Args:
             dim: The feature dimension of the input tensor. Must be even.
             pos_dim: The dimensionality of the position vectors (e.g., 1 for 1D, 2 for 2D).
             theta: The base value for the RoPE frequency calculation.
+            num_linear_dims: Number of leading dimensions to treat as linear/spatial. The remaining (pos_dim - num_linear_dims)
+                             are treated as angular (cyclic). Defaults to 2 (for X, Y spatial + optional Theta).
         """
         super().__init__()
         linear_freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
@@ -32,7 +36,7 @@ class RoPE(nn.Module):
 
         freqs_list = []
         for i in range(pos_dim):
-            if i < 2:  # coordinate dimensions
+            if i < num_linear_dims:  # coordinate dimensions
                 freqs_list.append(linear_freqs)
             else:  # rotation dimension
                 freqs_list.append(angular_freqs)

@@ -51,9 +51,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
                 to parquet files containing nuclei segmentation data.
-            scale_mean: Mean of log nucleus scales estimated from training data for normalization.
-            scale_std: Standard deviation of log nucleus scales estimated from training data for normalization.
-            neighbor_dist_mean: Average distance between neighboring nuclei in pixels for normalization.
+            scale_mean: Mean of log nucleus scales estimated from training data.
+            scale_std: Standard deviation of log nucleus scales estimated from training data.
+            neighbor_dist_mean: Average distance between neighboring nuclei in pixels.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
@@ -65,6 +65,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             efd_order: Order of the elliptic fourier descriptors used for nucleus shape representation.
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
+
+        NOTE: Due to scaling normalization, it is assumed that all slides have the same mpp (0.25). If not the case,
+              normalization must be implemented for physical distances (nuclei size, neighbor distance).
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
