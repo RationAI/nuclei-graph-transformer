@@ -23,7 +23,7 @@ class NucleiWSMetaArch(LightningModule):
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
-        self.criterion = nn.BCEWithLogitsLoss()
+        self.bce = nn.BCEWithLogitsLoss()
 
         metrics: dict[str, Metric | MetricCollection] = {
             "precision": BinaryPrecision(),
@@ -54,7 +54,7 @@ class NucleiWSMetaArch(LightningModule):
 
         # it is assumed training batches do not contain padding!
         loss_sup = (
-            self.criterion(logits_sup, targets_sup)
+            self.bce(logits_sup, targets_sup)
             if logits_sup.numel() > 0
             else torch.tensor(0.0, device=self.device, requires_grad=True)
         )
@@ -92,7 +92,7 @@ class NucleiWSMetaArch(LightningModule):
         if masked_size == 0:  # there are no annotated targets to compute loss from
             return None  # skip this batch
 
-        loss = self.criterion(logits_masked, targets_masked)
+        loss = self.bce(logits_masked, targets_masked)
         self.log(
             "validation/loss",
             loss,
