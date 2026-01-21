@@ -46,9 +46,9 @@ class NucleiWSMetaArch(LightningModule):
         logits_sup = self(batch)[batch["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
-        masked_size = targets_sup.numel()
-        self.log("train/masked_batch_size", float(masked_size), on_step=True)
-        assert masked_size > 0, "There are no annotated targets to compute loss from"
+        sup_size = targets_sup.numel()
+        self.log("train/sup_batch_size", float(sup_size), on_step=True)
+        assert sup_size > 0, "There are no annotated targets to compute loss from"
 
         loss = self.bce(logits_sup, targets_sup)
         self.log(
@@ -58,7 +58,7 @@ class NucleiWSMetaArch(LightningModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
-            batch_size=masked_size,
+            batch_size=sup_size,
         )
         return loss
 
@@ -67,8 +67,8 @@ class NucleiWSMetaArch(LightningModule):
         logits_sup = self(batch)[batch["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
-        masked_size = targets_sup.numel()
-        if masked_size == 0:  # there are no annotated targets to compute loss from
+        sup_size = targets_sup.numel()
+        if sup_size == 0:  # there are no annotated targets to compute loss from
             return None  # skip this batch
 
         loss = self.bce(logits_sup, targets_sup)
@@ -77,7 +77,7 @@ class NucleiWSMetaArch(LightningModule):
             loss,
             on_epoch=True,
             prog_bar=True,
-            batch_size=masked_size,
+            batch_size=sup_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
