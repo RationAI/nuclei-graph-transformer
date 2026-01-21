@@ -41,12 +41,12 @@ class PredictionMetricsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         sample, _ = batch
-        targets_masked = sample["y"]
-        logits_masked = outputs[sample["sup_mask"]]
-        assert targets_masked.shape == logits_masked.shape
+        targets_sup = sample["y"]
+        logits_sup = outputs[sample["sup_mask"]]
+        assert targets_sup.shape == logits_sup.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
-        metrics_module.update(torch.sigmoid(logits_masked), targets_masked.long())
+        metrics_module.update(torch.sigmoid(logits_sup), targets_sup.long())
 
 
 class PredictionMetricsBatchCallback(Callback):
@@ -63,14 +63,14 @@ class PredictionMetricsBatchCallback(Callback):
     ) -> None:
         sample, metadata_list = batch
         metadata = metadata_list[0]  # batch size is 1 during inference
-        targets_masked = sample["y"]
-        logits_masked = outputs[sample["sup_mask"]]
-        assert targets_masked.shape == logits_masked.shape
+        targets_sup = sample["y"]
+        logits_sup = outputs[sample["sup_mask"]]
+        assert targets_sup.shape == logits_sup.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
         slide_metrics = metrics_module.clone()
         slide_metrics.reset()
-        slide_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
+        slide_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
         metrics = slide_metrics.compute()
         for key, value in metrics.items():

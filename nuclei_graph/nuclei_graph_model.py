@@ -50,7 +50,7 @@ class NucleiWSMetaArch(LightningModule):
         targets_sup = batch["y"]  # already filtered
 
         assert logits_sup.numel() == targets_sup.numel()
-        self.log("train/masked_batch_size", float(logits_sup.numel()), on_step=True)
+        self.log("train/sup_batch_size", float(logits_sup.numel()), on_step=True)
 
         # it is assumed training batches do not contain padding!
         loss_sup = (
@@ -83,24 +83,24 @@ class NucleiWSMetaArch(LightningModule):
         return total_loss
 
     def validation_step(self, batch: Sample) -> None:
-        targets_masked = batch["y"]
+        targets_sup = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["sup_mask"]]
-        assert targets_masked.shape == logits_masked.shape
+        logits_sup = logits[batch["sup_mask"]]
+        assert targets_sup.shape == logits_sup.shape
 
-        masked_size = targets_masked.numel()
-        if masked_size == 0:  # there are no annotated targets to compute loss from
+        sup_size = targets_sup.numel()
+        if sup_size == 0:  # there are no annotated targets to compute loss from
             return None  # skip this batch
 
-        loss = self.bce(logits_masked, targets_masked)
+        loss = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
             loss,
             on_epoch=True,
             prog_bar=True,
-            batch_size=masked_size,
+            batch_size=sup_size,
         )
-        self.val_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
+        self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
@@ -108,12 +108,12 @@ class NucleiWSMetaArch(LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, batch: Sample) -> None:
-        targets_masked = batch["y"]
+        targets_sup = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["sup_mask"]]
-        assert targets_masked.shape == logits_masked.shape
+        logits_sup = logits[batch["sup_mask"]]
+        assert targets_sup.shape == logits_sup.shape
 
-        self.test_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
+        self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
         metrics = self.test_metrics.compute()
