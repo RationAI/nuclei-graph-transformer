@@ -163,28 +163,28 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ):
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # defaults to negatives
-        target_mask = torch.full((n,), True, dtype=torch.bool)  # defaults to keep all
+        sup_mask = torch.full((n,), True, dtype=torch.bool)  # defaults to all
         valid_seeds = list(range(n))  # indices of confident labels, defaults to all
 
         if not slide_is_carcinoma:
-            return targets, target_mask, valid_seeds
+            return targets, sup_mask, valid_seeds
 
         assert self.df_labels is not None
         targets = torch.from_numpy(
             self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
         ).float()
 
-        target_mask = (
+        sup_mask = (
             torch.from_numpy(
                 self.df_refinement.loc[slide_id]
                 .reindex(nuclei_ids)["refinement_mask"]
                 .values
             ).bool()
             if self.df_refinement is not None
-            else target_mask
+            else sup_mask
         )
-        valid_seeds = torch.nonzero(target_mask).squeeze(-1).tolist()
-        return targets, target_mask, valid_seeds
+        valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
+        return targets, sup_mask, valid_seeds
 
     def get_crop_indices(self, centroids: np.ndarray, valid_seeds: list[int]) -> Tensor:
         if self.full_slide:
@@ -226,7 +226,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
         x = np.concatenate([x, log_scales], axis=-1)
 
-        targets, target_mask, valid_seeds = self.load_targets(
+        targets, sup_mask, valid_seeds = self.load_targets(
             self.df_metadata.iloc[idx].slide_id,
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
@@ -250,17 +250,17 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_x = torch.from_numpy(x[crop_indices][perm].astype(np.float32))
         crop_pos = torch.from_numpy(crop_pos[perm].astype(np.float32))
         crop_y = targets[crop_indices][perm]  # (n,)
-        crop_target_mask = target_mask[crop_indices][perm]  # (n,)
+        crop_sup_mask = sup_mask[crop_indices][perm]  # (n,)
 
-        crop_x, crop_pos, crop_y, crop_target_mask = self.pad_to_block_size(
-            crop_x, crop_pos, crop_y.unsqueeze(-1), crop_target_mask.unsqueeze(-1)
+        crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
+            crop_x, crop_pos, crop_y.unsqueeze(-1), crop_sup_mask.unsqueeze(-1)
         )
 
         sample: Sample = {
             "x": crop_x,  # (n, d)
             "pos": crop_pos,  # (n, 3)
-            "y": crop_y[crop_target_mask],  # (num_filtered,)
-            "target_mask": crop_target_mask,  # (n, 1)
+            "y": crop_y[crop_sup_mask],  # (num_filtered,)
+            "sup_mask": crop_sup_mask,  # (n, 1)
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,
                 points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates

@@ -45,7 +45,7 @@ class NucleiWSMetaArch(LightningModule):
         logits = self(batch)
         probs = torch.sigmoid(logits)
 
-        sup_mask = batch["target_mask"].bool()
+        sup_mask = batch["sup_mask"].bool()
         logits_sup = logits[sup_mask]
         targets_sup = batch["y"]  # already filtered
 
@@ -85,7 +85,7 @@ class NucleiWSMetaArch(LightningModule):
     def validation_step(self, batch: Sample) -> None:
         targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["target_mask"]]
+        logits_masked = logits[batch["sup_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         masked_size = targets_masked.numel()
@@ -110,7 +110,7 @@ class NucleiWSMetaArch(LightningModule):
     def test_step(self, batch: Sample) -> None:
         targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["target_mask"]]
+        logits_masked = logits[batch["sup_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         self.test_metrics.update(torch.sigmoid(logits_masked), targets_masked.long())
