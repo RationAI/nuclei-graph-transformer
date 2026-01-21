@@ -68,8 +68,8 @@ class WSLMetaArch(LightningModule):
         assert targets_sup.shape == logits_sup.shape
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # there are no annotated targets to compute loss from
-            return None  # skip this batch
+        if sup_size == 0:
+            return None
 
         loss = self.bce(logits_sup, targets_sup)
         self.log(
