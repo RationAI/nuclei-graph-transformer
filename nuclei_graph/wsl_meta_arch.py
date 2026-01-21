@@ -52,7 +52,7 @@ class WSLMetaArch(LightningModule):
         assert logits_sup.numel() == targets_sup.numel()
         self.log("train/sup_batch_size", float(logits_sup.numel()), on_step=True)
 
-        # it is assumed training batches do not contain padding!
+        # it is assumed training batches do not contain padding
         loss_sup = (
             self.bce(logits_sup, targets_sup)
             if logits_sup.numel() > 0
