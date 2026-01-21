@@ -17,7 +17,7 @@ from torchmetrics.classification import (
 from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
 
-class NucleiWSMetaArch(LightningModule):
+class WSLMetaArch(LightningModule):
     def __init__(self, lr: float, warmup_epochs: int, net: nn.Module):
         super().__init__()
         self.lr = lr
