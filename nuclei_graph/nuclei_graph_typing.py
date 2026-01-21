@@ -8,7 +8,7 @@ class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    target_mask: Tensor
+    sup_mask: Tensor
     block_mask: BlockMask
     num_points: int | Tensor
 
