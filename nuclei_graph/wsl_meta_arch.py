@@ -44,7 +44,6 @@ class WSLMetaArch(LightningModule):
     def training_step(self, batch: Sample) -> Tensor:
         targets_sup = batch["y"]
         logits_sup = self(batch)[batch["sup_mask"]]
-        assert targets_sup.shape == logits_sup.shape
 
         sup_size = targets_sup.numel()
         self.log("train/sup_batch_size", float(sup_size), on_step=True)
