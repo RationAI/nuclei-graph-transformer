@@ -65,16 +65,14 @@ class WSLMetaArch(LightningModule):
     def validation_step(self, batch: Sample) -> None:
         targets_sup = batch["y"]
         logits_sup = self(batch)[batch["sup_mask"]]
-        assert targets_sup.shape == logits_sup.shape
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
             return None
 
-        loss = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
-            loss,
+            self.bce(logits_sup, targets_sup),
             on_epoch=True,
             prog_bar=True,
             batch_size=sup_size,
@@ -89,8 +87,6 @@ class WSLMetaArch(LightningModule):
     def test_step(self, batch: Sample) -> None:
         targets_sup = batch["y"]
         logits_sup = self(batch)[batch["sup_mask"]]
-        assert targets_sup.shape == logits_sup.shape
-
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
@@ -100,8 +96,7 @@ class WSLMetaArch(LightningModule):
 
     def predict_step(self, batch: PredictInput) -> Tensor:
         sample, _ = batch
-        logits = self(sample)
-        return logits
+        return self(sample)
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []
