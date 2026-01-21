@@ -42,7 +42,7 @@ class PredictionMetricsCallback(Callback):
     ) -> None:
         sample, _ = batch
         targets_masked = sample["y"]
-        logits_masked = outputs[sample["target_mask"]]
+        logits_masked = outputs[sample["sup_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
@@ -64,7 +64,7 @@ class PredictionMetricsBatchCallback(Callback):
         sample, metadata_list = batch
         metadata = metadata_list[0]  # batch size is 1 during inference
         targets_masked = sample["y"]
-        logits_masked = outputs[sample["target_mask"]]
+        logits_masked = outputs[sample["sup_mask"]]
         assert targets_masked.shape == logits_masked.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
