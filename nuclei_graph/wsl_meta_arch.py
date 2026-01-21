@@ -17,7 +17,7 @@ from torchmetrics.classification import (
 from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
 
-class NucleiWSMetaArch(LightningModule):
+class WSLMetaArch(LightningModule):
     def __init__(self, lr: float, warmup_epochs: int, net: nn.Module):
         super().__init__()
         self.lr = lr
@@ -47,7 +47,7 @@ class NucleiWSMetaArch(LightningModule):
 
         sup_mask = batch["sup_mask"].bool()
         logits_sup = logits[sup_mask]
-        targets_sup = batch["y"]  # already filtered
+        targets_sup = batch["y"]
 
         assert logits_sup.numel() == targets_sup.numel()
         self.log("train/sup_batch_size", float(logits_sup.numel()), on_step=True)
@@ -60,11 +60,12 @@ class NucleiWSMetaArch(LightningModule):
         )
 
         probs_unsup = probs[~sup_mask]
+        entropy = -(
+            probs_unsup * torch.log(probs_unsup + 1e-8)
+            + (1 - probs_unsup) * torch.log(1 - probs_unsup + 1e-8)
+        )
         loss_entropy = (
-            -(
-                probs_unsup * torch.log(probs_unsup + 1e-8)
-                + (1 - probs_unsup) * torch.log(1 - probs_unsup + 1e-8)
-            ).mean()
+            -entropy.mean()
             if probs_unsup.numel() > 0
             else torch.tensor(0.0, device=self.device, requires_grad=True)
         )
@@ -89,8 +90,8 @@ class NucleiWSMetaArch(LightningModule):
         assert targets_sup.shape == logits_sup.shape
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # there are no annotated targets to compute loss from
-            return None  # skip this batch
+        if sup_size == 0:
+            return None
 
         loss = self.bce(logits_sup, targets_sup)
         self.log(
