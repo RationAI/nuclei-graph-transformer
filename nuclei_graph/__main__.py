@@ -9,7 +9,7 @@ from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import Trainer, autolog
 
 from nuclei_graph.data.data_module import DataModule
-from nuclei_graph.nuclei_graph_model import NucleiGraphTransformer
+from nuclei_graph.nuclei_graph_model import NucleiWSMetaArch
 
 
 OmegaConf.register_new_resolver(
@@ -23,7 +23,7 @@ def main(config: DictConfig, logger: Logger) -> None:
     torch.set_float32_matmul_precision("medium")
     seed_everything(config.seed, workers=True)
     data = instantiate(config.data, _recursive_=False, _target_=DataModule)
-    model = instantiate(config.model, _target_=NucleiGraphTransformer)
+    model = instantiate(config.model, _target_=NucleiWSMetaArch)
     trainer = instantiate(config.trainer, _target_=Trainer, logger=logger)
     getattr(trainer, config.mode)(model, datamodule=data, ckpt_path=config.checkpoint)
 
