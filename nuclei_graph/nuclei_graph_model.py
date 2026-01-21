@@ -17,10 +17,11 @@ from torchmetrics.classification import (
 from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
 
-class NucleiGraphTransformer(LightningModule):
-    def __init__(self, lr: float, net: nn.Module):
+class NucleiWSMetaArch(LightningModule):
+    def __init__(self, lr: float, warmup_epochs: int, net: nn.Module):
         super().__init__()
         self.lr = lr
+        self.warmup_epochs = warmup_epochs
         self.net = net
         self.criterion = nn.BCEWithLogitsLoss()
 
@@ -109,14 +110,10 @@ class NucleiGraphTransformer(LightningModule):
         decay_params = []
         no_decay_params = []
 
-        for name, param in self.net.named_parameters():
+        for param in self.net.parameters():
             if not param.requires_grad:
                 continue
-            if (
-                getattr(param, "_no_weight_decay", False)
-                or name.endswith(".bias")
-                or "norm" in name
-            ):
+            if getattr(param, "_no_weight_decay", False) or param.ndim <= 1:
                 no_decay_params.append(param)
             else:
                 decay_params.append(param)
@@ -130,11 +127,9 @@ class NucleiGraphTransformer(LightningModule):
         optimizer = AdamW(self._get_optimizer_params(), lr=self.lr)
 
         total_steps = self.trainer.estimated_stepping_batches
-        warmup_epochs = 8
-
         assert self.trainer.max_epochs is not None  # set in config
         steps_per_epoch = total_steps // self.trainer.max_epochs
-        warmup_steps = max(1, warmup_epochs * steps_per_epoch)
+        warmup_steps = max(1, self.warmup_epochs * steps_per_epoch)
 
         scheduler = SequentialLR(
             optimizer,

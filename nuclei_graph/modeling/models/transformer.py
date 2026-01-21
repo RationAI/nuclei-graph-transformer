@@ -1,5 +1,3 @@
-from typing import Any, cast
-
 import torch
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
@@ -25,9 +23,6 @@ class Layer(nn.Module):
 
         self.ls1 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
         self.ls2 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
-
-        cast("Any", self.ls1)._no_weight_decay = True
-        cast("Any", self.ls2)._no_weight_decay = True
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         assert pos.shape[-1] >= self.pos_dim
