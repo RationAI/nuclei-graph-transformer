@@ -23,7 +23,7 @@ class NucleiWSMetaArch(LightningModule):
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
-        self.criterion = nn.BCEWithLogitsLoss()
+        self.bce = nn.BCEWithLogitsLoss()
 
         metrics: dict[str, Metric | MetricCollection] = {
             "precision": BinaryPrecision(),
@@ -51,7 +51,7 @@ class NucleiWSMetaArch(LightningModule):
         self.log("train/masked_batch_size", float(masked_size), on_step=True)
         assert masked_size > 0, "There are no annotated targets to compute loss from"
 
-        loss = self.criterion(logits_masked, targets_masked)
+        loss = self.bce(logits_masked, targets_masked)
         self.log(
             "train/loss",
             loss,
@@ -73,7 +73,7 @@ class NucleiWSMetaArch(LightningModule):
         if masked_size == 0:  # there are no annotated targets to compute loss from
             return None  # skip this batch
 
-        loss = self.criterion(logits_masked, targets_masked)
+        loss = self.bce(logits_masked, targets_masked)
         self.log(
             "validation/loss",
             loss,
