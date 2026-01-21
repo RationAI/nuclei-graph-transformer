@@ -44,8 +44,6 @@ class Transformer(nn.Module):
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim * 2, config.num_classes)
-        self.num_heads = config.num_heads
-        self.pos_dim = config.pos_dim
 
     def forward(
         self, x: Tensor, pos: Tensor, block_mask: BlockMask, num_points: Tensor
