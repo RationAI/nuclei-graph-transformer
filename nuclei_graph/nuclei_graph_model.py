@@ -41,26 +41,44 @@ class NucleiGraphTransformer(LightningModule):
         )
 
     def training_step(self, batch: Sample) -> Tensor:
-        targets_masked = batch["y"]
         logits = self(batch)
-        logits_masked = logits[batch["target_mask"]]
-        assert targets_masked.shape == logits_masked.shape
+        probs = torch.sigmoid(logits)
 
-        masked_size = targets_masked.numel()
-        self.log("train/masked_batch_size", float(masked_size), on_step=True)
-        assert masked_size > 0, "There are no annotated targets to compute loss from"
+        sup_mask = batch["target_mask"].bool()
+        logits_sup = logits[sup_mask]
+        targets_sup = batch["y"]  # already filtered
 
-        loss = self.criterion(logits_masked, targets_masked)
+        assert logits_sup.numel() == targets_sup.numel()
+        self.log("train/masked_batch_size", float(logits_sup.numel()), on_step=True)
+
+        loss_sup = (
+            self.criterion(logits_sup, targets_sup)
+            if logits_sup.numel() > 0
+            else torch.tensor(0.0, device=self.device, requires_grad=True)
+        )
+
+        probs_unsup = probs[~sup_mask]
+        loss_entropy = (
+            -(
+                probs_unsup * torch.log(probs_unsup + 1e-8)
+                + (1 - probs_unsup) * torch.log(1 - probs_unsup + 1e-8)
+            ).mean()
+            if probs_unsup.numel() > 0
+            else torch.tensor(0.0, device=self.device, requires_grad=True)
+        )
+        total_loss = loss_sup + 0.1 * loss_entropy
+
+        self.log("train/loss_sup", loss_sup, on_step=True, prog_bar=True)
+        self.log("train/loss_ent", loss_entropy, on_step=True, prog_bar=True)
         self.log(
             "train/loss",
-            loss,
+            total_loss,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
-            batch_size=masked_size,
         )
-        return loss
+        return total_loss
 
     def validation_step(self, batch: Sample) -> None:
         targets_masked = batch["y"]
