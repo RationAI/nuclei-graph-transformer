@@ -45,7 +45,7 @@ class WSLMetaArch(LightningModule):
         logits = self(batch)
         probs = torch.sigmoid(logits)
 
-        sup_mask = batch["sup_mask"].bool()
+        sup_mask = batch["sup_mask"]
         logits_sup = logits[sup_mask]
         targets_sup = batch["y"]
 
