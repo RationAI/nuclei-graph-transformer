@@ -28,7 +28,10 @@ class PredictionsCallback(Callback):
         logits_unpadded = logits[: len(nuclei_ids)]
         logits_original_order = logits_unpadded[perm_inverse]
         predicted_labels = torch.sigmoid(logits_original_order).cpu().numpy()
-        df_predictions = pd.DataFrame({"id": nuclei_ids, "score": predicted_labels})
+
+        df_predictions = pd.DataFrame(
+            {"id": nuclei_ids, "prediction": predicted_labels}
+        )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = f"{tmp_dir}/{metadata['slide_id']}.parquet"
