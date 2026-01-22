@@ -100,8 +100,7 @@ class DataModule(LightningDataModule):
                 scale_std = conf.stats.scale_std
                 if scale_mean is None or scale_std is None:
                     scale_mean, scale_std = compute_scale_stats(
-                        df_train,
-                        efd_order=conf.efd_order,
+                        df_train, conf.efd_order
                     )
                 neighbor_dist_mean = conf.stats.neighbor_dist_mean
                 if neighbor_dist_mean is None:
