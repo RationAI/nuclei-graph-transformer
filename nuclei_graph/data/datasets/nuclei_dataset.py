@@ -149,10 +149,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         pad_len = self.attn_block_size - remainder
         return [
-            F.pad(
-                t.unsqueeze(-1) if t.dim() == 1 else t,  # unsqueeze 1D tensors
-                (0, 0, 0, pad_len),
-            )
+            F.pad(t, (0, pad_len))
+            if t.dim() == 1
+            else F.pad(t, (0, 0) * (t.dim() - 1) + (0, pad_len))
             for t in tensors
         ]
 
@@ -173,7 +172,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Returns:
             targets: Float labels (1.0 inside annotation, 0.0 outside).
             sup_mask: Boolean mask; True = confident label.
-            ignore_mask: Boolean mask; True = exclude from all loss.
+            ignore_mask: Boolean mask; True = exclude from loss.
             valid_seeds: List of indices valid for growing a component (crop).
         """
         n = len(nuclei_ids)
@@ -279,7 +278,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         sample: Sample = {
             "x": crop_x,  # (n, d)
             "pos": crop_pos,  # (n, 3)
-            "y": crop_y[crop_sup_mask],  # (num_filtered,)
+            "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_filtered, 1)
             "sup_mask": crop_sup_mask,  # (n, 1)
             "ignore_mask": crop_ignore_mask,  # (n, 1)
             "num_points": len(crop_indices),
