@@ -18,11 +18,14 @@ from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
 
 
 class WSLMetaArch(LightningModule):
-    def __init__(self, lr: float, warmup_epochs: int, net: nn.Module):
+    def __init__(
+        self, lr: float, warmup_epochs: int, net: nn.Module, criterion: nn.Module
+    ):
         super().__init__()
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
+        self.criterion = criterion
         self.bce = nn.BCEWithLogitsLoss()
 
         metrics: dict[str, Metric | MetricCollection] = {
@@ -31,7 +34,6 @@ class WSLMetaArch(LightningModule):
             "AUROC": BinaryAUROC(),
             "AUPRC": BinaryAveragePrecision(),
         }
-
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
@@ -42,38 +44,13 @@ class WSLMetaArch(LightningModule):
         )
 
     def training_step(self, batch: Sample) -> Tensor:
-        logits = self(batch)
-        probs = torch.sigmoid(logits)
-
-        sup_mask = batch["sup_mask"]
-        logits_sup = logits[sup_mask]
-        targets_sup = batch["y"]
-
-        sup_size = targets_sup.numel()
-        self.log("train/sup_batch_size", float(sup_size), on_step=True)
-
-        # it is assumed training batches do not contain padding
-        loss_sup = (
-            self.bce(logits_sup, targets_sup)
-            if sup_size > 0
-            else torch.tensor(0.0, device=self.device, requires_grad=True)
+        total_loss, logs = self.criterion(
+            logits=self(batch),
+            targets=batch["y"],
+            sup_mask=batch["sup_mask"],
+            ignore_mask=batch["ignore_mask"],
         )
-
-        probs_uncertain = probs[~batch["ignore_mask"] & ~sup_mask]
-        entropy = -(
-            probs_uncertain * torch.log(probs_uncertain + 1e-8)
-            + (1 - probs_uncertain) * torch.log(1 - probs_uncertain + 1e-8)
-        )
-        loss_entropy = (
-            entropy.mean()
-            if probs_uncertain.numel() > 0
-            else torch.tensor(0.0, device=self.device, requires_grad=True)
-        )
-
-        total_loss = loss_sup + 0.1 * loss_entropy
-
-        self.log("train/loss_sup", loss_sup, on_step=True, prog_bar=True)
-        self.log("train/loss_ent", loss_entropy, on_step=True, prog_bar=True)
+        self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(
             "train/loss",
             total_loss,
@@ -92,9 +69,10 @@ class WSLMetaArch(LightningModule):
         if sup_size == 0:
             return None
 
+        loss = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
-            self.bce(logits_sup, targets_sup),
+            loss,
             on_epoch=True,
             prog_bar=True,
             batch_size=sup_size,

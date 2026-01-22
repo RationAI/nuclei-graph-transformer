@@ -48,6 +48,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> None:
         """Initializes the dataset.
 
+        Due to applied normalizations, it is assumed that all slides have mpp same as the training data (0.25).
+        If not the case, scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
+
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
@@ -66,9 +69,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             efd_order: Order of the elliptic fourier descriptors used for nucleus shape representation.
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
-
-        NOTE: Due to applied normalizations, it is assumed that all slides have mpp same as the training data (0.25).
-              If not the case, scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
