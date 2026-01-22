@@ -48,8 +48,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> None:
         """Initializes the dataset.
 
-        Due to applied normalizations, it is assumed that all slides have mpp same as the training data (0.25).
-        If not the case, scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
+        It is assumed that all slides have mpp same as the training data (0.25). If not the case,
+        scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
 
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
@@ -61,7 +61,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
-                and "refinement_mask" (bool) (if `use_soft_labels` is `True` then also "score" (float)).
+                and "refinement_mask" (bool).
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -137,7 +137,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         return component_indices
 
     def pad_to_block_size(self, tensors: Iterable[Tensor]) -> list[Tensor]:
-        """Pads tensors along dim-0 so size is divisible by attn_block_size."""
+        """Pads tensors along dim-0 so that their size is divisible by `attn_block_size`.
+
+        Padding is applied at the end and preserves all other dimensions.
+        """
         tensors = list(tensors)
 
         n = tensors[0].size(0)
@@ -167,13 +170,18 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def load_targets(
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
     ):
-        """Loads labels and masks for Weakly Supervised Learning.
+        """Load nucleus-level targets and supervision masks for weakly supervised learning.
+
+        For negative slides, all nuclei are treated as confidently negative.
+        For positive slides, only nuclei inside annotations (and passing refinement, if any)
+        are considered confidently labeled; the rest are marked as uncertain (inside annotations
+        and outside the refinement mask) or ignored (outside annotations).
 
         Returns:
-            targets: Float labels (1.0 inside annotation, 0.0 outside).
-            sup_mask: Boolean mask; True = confident label.
-            ignore_mask: Boolean mask; True = exclude from loss.
-            valid_seeds: List of indices valid for growing a component (crop).
+            targets: Float tensor of shape (n,). Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
+            sup_mask: Boolean tensor of shape (n,). True for nuclei with confident labels.
+            ignore_mask: Boolean tensor of shape (n,). True for nuclei excluded from all losses.
+            valid_seeds: List of nuclei indices eligible as seeds for crop/component sampling.
         """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)
@@ -215,9 +223,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def drop_eps_neighbors(self, df: pd.DataFrame, eps: float = 1e-4) -> pd.DataFrame:
         """Removes nuclei closer than `eps` to each other.
 
-        One of the close neighbors is removed, the other is kept.
-        This is to prevent Delaunay triangulation from failing due to numerical
-        instabilities when nuclei are very close to each other.
+        One of the close neighbors is removed, the other is kept. This is to prevent Delaunay triangulation
+        from failing due to numerical instabilities when nuclei are too close to each other.
         """
         centroids = np.stack(df["centroid"].tolist())
         quantized = np.round(centroids / eps).astype(np.int64)
@@ -247,8 +254,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
         )
-        crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
+        crop_indices = self.get_crop_indices(centroids, valid_seeds)
         # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei neighbor
         # distance computed from training set to convert distances into neighbor units ("cell hops")
         center = centroids[crop_indices].mean(axis=0, keepdims=True)
@@ -273,12 +280,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 [crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask]
             )
         )
+
         sample: Sample = {
-            "x": crop_x,  # (n, d)
+            "x": crop_x,  # (n, efd_order * 4 + 1)
             "pos": crop_pos,  # (n, 3)
-            "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_filtered, 1)
-            "sup_mask": crop_sup_mask,  # (n, 1)
-            "ignore_mask": crop_ignore_mask,  # (n, 1)
+            "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_supervised, 1)
+            "sup_mask": crop_sup_mask,  # (n,)
+            "ignore_mask": crop_ignore_mask,  # (n,)
             "num_points": len(crop_indices),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,
