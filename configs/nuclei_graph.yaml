@@ -8,6 +8,13 @@ checkpoint: null
 
 trainer: {}
 
-data: {}
+data:
+  batch_size: ???
+  num_workers: 10
+  crop_size: ???
+  stats:
+    scale_mean: ???
+    scale_std: ???
+    neighbor_dist_median: ???
 
 model: {}
