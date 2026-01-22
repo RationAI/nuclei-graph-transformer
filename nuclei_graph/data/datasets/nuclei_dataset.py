@@ -242,7 +242,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         # compute feature vectors
         efd = elliptic_fourier_descriptors(contours, self.efd_order)
-        _, angles = normalize_efd_for_rotation(efd)
+        efd, angles = normalize_efd_for_rotation(efd)
         efd, scales = normalize_efd_for_scale(efd)
         x = rearrange(efd, "n order c -> n (order c)")
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
