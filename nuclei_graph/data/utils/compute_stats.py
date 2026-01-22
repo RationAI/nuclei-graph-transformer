@@ -31,10 +31,10 @@ def compute_scale_stats(df: pd.DataFrame, efd_order: int) -> tuple[float, float]
     return scale_mean, scale_std
 
 
-def compute_average_neighbor_distance(df: pd.DataFrame) -> float:
+def compute_median_neighbor_distance(df: pd.DataFrame) -> float:
     all_neighbor_dists = []
 
-    print("Computing average neighbor distance...")
+    print("Computing median neighbor distance...")
     for nuclei_path in tqdm(df["slide_nuclei_path"]):
         nuclei = pd.read_parquet(nuclei_path, columns=["centroid"])
         coords = np.stack(nuclei["centroid"].tolist())
@@ -49,6 +49,6 @@ def compute_average_neighbor_distance(df: pd.DataFrame) -> float:
 
     combined_dists = np.concatenate(all_neighbor_dists)
     median_dist = float(np.median(combined_dists))
-    print("Computed average neighbor distance:", median_dist)
+    print("Computed median neighbor distance:", median_dist)
 
     return median_dist

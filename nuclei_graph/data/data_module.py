@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
 from nuclei_graph.data.utils.compute_stats import (
-    compute_average_neighbor_distance,
+    compute_median_neighbor_distance,
     compute_scale_stats,
 )
 from nuclei_graph.data.utils.sampler import (
@@ -105,7 +105,7 @@ class DataModule(LightningDataModule):
                     )
                 neighbor_dist_mean = conf.stats.neighbor_dist_mean
                 if neighbor_dist_mean is None:
-                    neighbor_dist_mean = compute_average_neighbor_distance(df_train)
+                    neighbor_dist_mean = compute_median_neighbor_distance(df_train)
 
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(df_train, df_labels)
