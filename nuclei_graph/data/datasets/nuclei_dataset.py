@@ -180,11 +180,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Returns:
             targets: Float tensor of shape (n,). Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
             sup_mask: Boolean tensor of shape (n,). True for nuclei with confident labels.
-            ignore_mask: Boolean tensor of shape (n,). True for nuclei excluded from all losses.
+            ignore_mask: Boolean tensor of shape (n,). True if nuclei should be excluded from all losses.
             valid_seeds: List of nuclei indices eligible as seeds for crop/component sampling.
         """
         n = len(nuclei_ids)
-        targets = torch.full((n,), 0.0, dtype=torch.float32)
+        targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
         sup_mask = torch.full((n,), True, dtype=torch.bool)
         ignore_mask = torch.full((n,), False, dtype=torch.bool)
         valid_seeds = list(range(n))
@@ -192,7 +192,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         if not slide_is_carcinoma:
             return targets, sup_mask, ignore_mask, valid_seeds
 
-        assert self.df_labels is not None
+        assert self.df_labels is not None  # must be provided for positive slides
         targets = torch.from_numpy(
             self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
         ).float()
