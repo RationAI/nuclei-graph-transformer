@@ -168,6 +168,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def load_targets(
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
     ):
+        """Loads labels and masks for Weakly Supervised Learning.
+
+        Returns:
+            targets: Float labels (1.0 inside annotation, 0.0 outside).
+            sup_mask: Boolean mask; True = confident label.
+            ignore_mask: Boolean mask; True = exclude from all loss.
+            valid_seeds: List of indices valid for growing a component (crop).
+        """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)
         sup_mask = torch.full((n,), True, dtype=torch.bool)
@@ -258,9 +266,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         crop_x = torch.from_numpy(x[crop_indices][perm].astype(np.float32))
         crop_pos = torch.from_numpy(crop_pos[perm].astype(np.float32))
-        crop_y = targets[crop_indices][perm]  # (n,)
-        crop_sup_mask = sup_mask[crop_indices][perm]  # (n,)
-        crop_ignore_mask = ignore_mask[crop_indices][perm]  # (n,)
+        crop_y = targets[crop_indices][perm]
+        crop_sup_mask = sup_mask[crop_indices][perm]
+        crop_ignore_mask = ignore_mask[crop_indices][perm]
 
         crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
             self.pad_to_block_size(
@@ -274,6 +282,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "y": crop_y[crop_sup_mask],  # (num_filtered,)
             "sup_mask": crop_sup_mask,  # (n, 1)
             "ignore_mask": crop_ignore_mask,  # (n, 1)
+            "num_points": len(crop_indices),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,
                 points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates
@@ -281,7 +290,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 k=self.k,
                 block_size=self.attn_block_size,
             ),
-            "num_points": len(crop_indices),
         }
 
         if self.predict:

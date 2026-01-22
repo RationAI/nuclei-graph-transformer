@@ -10,8 +10,8 @@ class Sample(TypedDict):
     y: Tensor
     sup_mask: Tensor
     ignore_mask: Tensor
-    block_mask: BlockMask
     num_points: int | Tensor
+    block_mask: BlockMask
 
 
 class Metadata(TypedDict):
