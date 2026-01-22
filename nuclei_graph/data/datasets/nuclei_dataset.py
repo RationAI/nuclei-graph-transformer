@@ -280,7 +280,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 [crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask]
             )
         )
-
         sample: Sample = {
             "x": crop_x,  # (n, efd_order * 4 + 1)
             "pos": crop_pos,  # (n, 3)
@@ -297,12 +296,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             ),
         }
         if self.predict:
-            perm_inverse = self.get_inverse_perm(perm)
             metadata: Metadata = {
                 "slide_id": self.df_metadata.iloc[idx].slide_id,
                 "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
                 "nuclei_ids": list(map(str, nuclei.iloc[crop_indices.numpy()]["id"])),
-                "perm_inverse": perm_inverse,
+                "perm_inverse": self.get_inverse_perm(perm),
             }
             return sample, metadata
         return sample
