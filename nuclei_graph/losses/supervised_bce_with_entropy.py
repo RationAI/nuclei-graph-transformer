@@ -10,7 +10,7 @@ class SupervisedBCEWithEntropy(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, logits: Tensor, targets: Tensor, sup_mask: Tensor, ignore_mask: Tensor
+        self, logits: Tensor, targets_sup: Tensor, sup_mask: Tensor, ignore_mask: Tensor
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes total loss as a combination: BCE(Supervised) + entropy_weight * Mean(Entropy(Uncertain)).
 
@@ -18,7 +18,7 @@ class SupervisedBCEWithEntropy(nn.Module):
 
         Args:
             logits: Raw model outputs.
-            targets: Target labels (e.g., rough annotations).
+            targets_sup: Target labels (e.g., rough annotations), already masked by `sup_mask`.
             sup_mask: Boolean mask; True for high-confidence labels (e.g., CAM-based supervision).
             ignore_mask: Boolean mask; True for regions to ignore (e.g., nuclei in positive slides outside annotations).
 
@@ -27,8 +27,6 @@ class SupervisedBCEWithEntropy(nn.Module):
             logs: Dictionary containing detached scalar components.
         """
         logits_sup = logits[sup_mask]
-        targets_sup = targets[sup_mask]
-
         sup_size = targets_sup.numel()
 
         # it is assumed training batches do not contain padding

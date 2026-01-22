@@ -46,7 +46,7 @@ class WSLMetaArch(LightningModule):
     def training_step(self, batch: Sample) -> Tensor:
         total_loss, logs = self.criterion(
             logits=self(batch),
-            targets=batch["y"],
+            targets_sup=batch["y"],
             sup_mask=batch["sup_mask"],
             ignore_mask=batch["ignore_mask"],
         )
