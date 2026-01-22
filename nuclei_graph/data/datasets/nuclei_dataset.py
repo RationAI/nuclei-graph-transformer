@@ -1,4 +1,5 @@
 import heapq
+from collections.abc import Iterable
 from random import choice, randint
 
 import numpy as np
@@ -135,19 +136,25 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                     heapq.heappush(pq, (cost, n_idx))
         return component_indices
 
-    def pad_to_block_size(
-        self, x: torch.Tensor, pos: torch.Tensor, y: torch.Tensor, y_mask: torch.Tensor
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
-        n = x.size(0)
+    def pad_to_block_size(self, tensors: Iterable[Tensor]) -> list[Tensor]:
+        """Pads tensors along dim-0 so size is divisible by attn_block_size."""
+        tensors = list(tensors)
+
+        n = tensors[0].size(0)
+        assert all(t.size(0) == n for t in tensors)
+
         remainder = n % self.attn_block_size
         if remainder == 0:
-            return x, pos, y, y_mask
+            return tensors
 
         pad_len = self.attn_block_size - remainder
-        p_x, p_pos, p_y, p_y_mask = [
-            F.pad(t, (0, 0, 0, pad_len)) for t in (x, pos, y, y_mask)
+        return [
+            F.pad(
+                t.unsqueeze(-1) if t.dim() == 1 else t,  # unsqueeze 1D tensors
+                (0, 0, 0, pad_len),
+            )
+            for t in tensors
         ]
-        return p_x, p_pos, p_y, p_y_mask
 
     def get_inverse_perm(self, perm: Tensor) -> Tensor:
         assert perm.dim() == 1
@@ -162,12 +169,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
     ):
         n = len(nuclei_ids)
-        targets = torch.full((n,), 0.0, dtype=torch.float32)  # defaults to negatives
-        sup_mask = torch.full((n,), True, dtype=torch.bool)  # defaults to all
-        valid_seeds = list(range(n))  # indices of confident labels, defaults to all
+        targets = torch.full((n,), 0.0, dtype=torch.float32)
+        sup_mask = torch.full((n,), True, dtype=torch.bool)
+        ignore_mask = torch.full((n,), False, dtype=torch.bool)
+        valid_seeds = list(range(n))
 
         if not slide_is_carcinoma:
-            return targets, sup_mask, valid_seeds
+            return targets, sup_mask, ignore_mask, valid_seeds
 
         assert self.df_labels is not None
         targets = torch.from_numpy(
@@ -183,8 +191,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             if self.df_refinement is not None
             else sup_mask
         )
-        valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
-        return targets, sup_mask, valid_seeds
+        ignore_mask = targets == 0.0  # nuclei outside annotations (in positive slides)
+        valid_seeds = torch.nonzero(~ignore_mask).squeeze(-1).tolist()
+        return targets, sup_mask, ignore_mask, valid_seeds
 
     def get_crop_indices(self, centroids: np.ndarray, valid_seeds: list[int]) -> Tensor:
         if self.full_slide:
@@ -226,7 +235,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
         x = np.concatenate([x, log_scales], axis=-1)
 
-        targets, sup_mask, valid_seeds = self.load_targets(
+        targets, sup_mask, ignore_mask, valid_seeds = self.load_targets(
             self.df_metadata.iloc[idx].slide_id,
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
@@ -251,9 +260,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_pos = torch.from_numpy(crop_pos[perm].astype(np.float32))
         crop_y = targets[crop_indices][perm]  # (n,)
         crop_sup_mask = sup_mask[crop_indices][perm]  # (n,)
+        crop_ignore_mask = ignore_mask[crop_indices][perm]  # (n,)
 
-        crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
-            crop_x, crop_pos, crop_y.unsqueeze(-1), crop_sup_mask.unsqueeze(-1)
+        crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
+            self.pad_to_block_size(
+                [crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask]
+            )
         )
 
         sample: Sample = {
@@ -261,6 +273,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask],  # (num_filtered,)
             "sup_mask": crop_sup_mask,  # (n, 1)
+            "ignore_mask": crop_ignore_mask,  # (n, 1)
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,
                 points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates

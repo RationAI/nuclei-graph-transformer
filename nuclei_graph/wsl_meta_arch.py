@@ -59,14 +59,14 @@ class WSLMetaArch(LightningModule):
             else torch.tensor(0.0, device=self.device, requires_grad=True)
         )
 
-        probs_unsup = probs[~sup_mask]
+        probs_uncertain = probs[~batch["ignore_mask"] & ~sup_mask]
         entropy = -(
-            probs_unsup * torch.log(probs_unsup + 1e-8)
-            + (1 - probs_unsup) * torch.log(1 - probs_unsup + 1e-8)
+            probs_uncertain * torch.log(probs_uncertain + 1e-8)
+            + (1 - probs_uncertain) * torch.log(1 - probs_uncertain + 1e-8)
         )
         loss_entropy = (
-            -entropy.mean()
-            if probs_unsup.numel() > 0
+            entropy.mean()
+            if probs_uncertain.numel() > 0
             else torch.tensor(0.0, device=self.device, requires_grad=True)
         )
 
