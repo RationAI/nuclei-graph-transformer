@@ -42,6 +42,8 @@ metadata:
     attn_block_size: ${data.attn_block_size}
     efd_order: ${data.efd_order}
     lr: ${model.lr}
+    warmup_epochs: ${model.warmup_epochs}
+    criterion: ${model.criterion._target_}
     dim: ${model.net.config.dim}
     hidden_dim: ${model.net.config.hidden_dim}
     pos_dim: ${model.net.config.pos_dim}
