@@ -102,9 +102,11 @@ class DataModule(LightningDataModule):
                     scale_mean, scale_std = compute_scale_stats(
                         df_train, conf.efd_order
                     )
-                neighbor_dist_median = conf.stats.neighbor_dist_median
-                if neighbor_dist_median is None:
-                    neighbor_dist_median = compute_median_neighbor_distance(df_train)
+                neighbor_dist_median = (
+                    conf.stats.neighbor_dist_median
+                    if conf.stats.neighbor_dist_median is not None
+                    else compute_median_neighbor_distance(df_train)
+                )
 
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(df_train, df_labels)
