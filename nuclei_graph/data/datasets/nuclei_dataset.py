@@ -180,12 +180,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Returns:
             targets: Float tensor of shape (n,). Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
             sup_mask: Boolean tensor of shape (n,). True for nuclei with confident labels.
-            ignore_mask: Boolean tensor of shape (n,). True if nuclei should be excluded from all losses.
+            ignore_mask: Boolean tensor of shape (n,). True for nuclei that should be excluded from all losses.
             valid_seeds: List of nuclei indices eligible as seeds for crop/component sampling.
         """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
-        sup_mask = torch.full((n,), True, dtype=torch.bool)
+        sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: no refinement
         ignore_mask = torch.full((n,), False, dtype=torch.bool)
         valid_seeds = list(range(n))
 
