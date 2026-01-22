@@ -108,9 +108,7 @@ class DataModule(LightningDataModule):
                     neighbor_dist_mean = compute_average_neighbor_distance(df_train)
 
                 df_train = pre_crop_filter(df_train, conf.crop_size)
-                self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement
-                )
+                self.positivity = compute_slides_positivity(df_train, df_labels)
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,

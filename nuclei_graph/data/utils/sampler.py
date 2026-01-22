@@ -4,7 +4,7 @@ import pandas as pd
 def compute_slides_positivity(
     metadata: pd.DataFrame,
     labels: pd.DataFrame,
-    label_mask: pd.DataFrame | None,
+    label_mask: pd.DataFrame | None = None,
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling.
 
