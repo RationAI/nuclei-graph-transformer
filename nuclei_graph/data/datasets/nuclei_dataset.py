@@ -230,9 +230,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         quantized = np.round(centroids / eps).astype(np.int64)
         _, unique_indices = np.unique(quantized, axis=0, return_index=True)
 
-        duplicate_count = len(df) - len(unique_indices)
-        if duplicate_count > 0:
-            df = df.iloc[np.sort(unique_indices)].reset_index(drop=True)
+        if len(df) - len(unique_indices) > 0:
+            return df.iloc[np.sort(unique_indices)].reset_index(drop=True)
         return df
 
     def __getitem__(self, idx: int) -> Sample | PredictSample:
