@@ -1,24 +1,24 @@
 # @package _global_
 defaults:
-  - /model/models@model.net: pure_self-attn_transformer
-  - /losses@model.criterion: supervised_bce_with_entropy
+  - /model/models@model.net: nuclei_transformer
+  - /losses@model.criterion: supervised_bce
   - /data/datasets@data.predict: nuclei_dataset/predict
 
-checkpoint: mlflow-artifacts:/92/6c0c949605b142d28cb260e05df9e42d/artifacts/checkpoints/epoch=65-step=11418/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/c0816966120143749023da14237dd540/artifacts/checkpoints/epoch=38-step=897
 
 model:
   lr: 1e-4
   net:
     config:
-      node_features: 40
-      dim: 512
-      hidden_dim: 2048
-      pos_dim: 2
-      num_heads: 16
-      num_layers: 16
+      node_features: 41
+      dim: 256
+      hidden_dim: 1024
+      pos_dim: 3
+      num_heads: 8
+      num_layers: 8
       num_classes: 1
       dropout: 0.1
-      layer_scale_init: 1e-04
+      layer_scale_init: 1e-4
 
 data:
   batch_size: 1
@@ -29,6 +29,6 @@ data:
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: 📊 Predictions[test] (512,2048,2,16,16),(4,128,4096)(0.40)
-  description: Prediction Metrics for the run [6c0c949605b142d28cb260e05df9e42d](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/92/runs/6c0c949605b142d28cb260e05df9e42d).
+  run_name: 📊 Predictions[test]
+  description: Prediction Metrics for the run [c0816966120143749023da14237dd540](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/c0816966120143749023da14237dd540).
   hyperparams: {}

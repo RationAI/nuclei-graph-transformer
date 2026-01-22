@@ -247,7 +247,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
         )
-
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
         # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei neighbor
@@ -274,7 +273,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 [crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask]
             )
         )
-
         sample: Sample = {
             "x": crop_x,  # (n, d)
             "pos": crop_pos,  # (n, 3)
@@ -290,11 +288,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 block_size=self.attn_block_size,
             ),
         }
-
         if self.predict:
             perm_inverse = self.get_inverse_perm(perm)
             metadata: Metadata = {
                 "slide_id": self.df_metadata.iloc[idx].slide_id,
+                "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
                 "nuclei_ids": list(map(str, nuclei.iloc[crop_indices.numpy()]["id"])),
                 "perm_inverse": perm_inverse,
             }
