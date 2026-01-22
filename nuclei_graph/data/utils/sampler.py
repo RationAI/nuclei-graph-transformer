@@ -14,6 +14,7 @@ def compute_slides_positivity(
     Args:
         metadata: DataFrame containing a "slide_id" (str) column.
         labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
+            These exist only for the positive slides, negative slides are implicitly considered all-negative.
         label_mask: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
 
     Returns:
@@ -52,5 +53,4 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
             f"[INFO] Dropped slides with < {min_count} nuclei:\n",
             dropped_slides.to_string(index=False),
         )
-
     return metadata[mask_keep].reset_index(drop=True)
