@@ -102,9 +102,9 @@ class DataModule(LightningDataModule):
                     scale_mean, scale_std = compute_scale_stats(
                         df_train, conf.efd_order
                     )
-                neighbor_dist_mean = conf.stats.neighbor_dist_mean
-                if neighbor_dist_mean is None:
-                    neighbor_dist_mean = compute_median_neighbor_distance(df_train)
+                neighbor_dist_median = conf.stats.neighbor_dist_median
+                if neighbor_dist_median is None:
+                    neighbor_dist_median = compute_median_neighbor_distance(df_train)
 
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(df_train, df_labels)
@@ -115,7 +115,7 @@ class DataModule(LightningDataModule):
                     df_refinement=get_subset(set(df_train["slide_id"]), df_refinement),
                     scale_mean=scale_mean,
                     scale_std=scale_std,
-                    neighbor_dist_mean=neighbor_dist_mean,
+                    neighbor_dist_median=neighbor_dist_median,
                 )
                 self.val = self._instantiate_dataset(
                     conf,
@@ -124,7 +124,7 @@ class DataModule(LightningDataModule):
                     df_refinement=get_subset(set(df_val["slide_id"]), df_refinement),
                     scale_mean=scale_mean,
                     scale_std=scale_std,
-                    neighbor_dist_mean=neighbor_dist_mean,
+                    neighbor_dist_median=neighbor_dist_median,
                     full_slide=True,
                 )
             case "test":
@@ -139,7 +139,7 @@ class DataModule(LightningDataModule):
                     df_refinement=df_refinement,
                     scale_mean=conf.stats.scale_mean,
                     scale_std=conf.stats.scale_std,
-                    neighbor_dist_mean=conf.stats.neighbor_dist_mean,
+                    neighbor_dist_median=conf.stats.neighbor_dist_median,
                 )
             case "predict":
                 metadata = pd.read_parquet(
@@ -153,7 +153,7 @@ class DataModule(LightningDataModule):
                     df_refinement=df_refinement,
                     scale_mean=conf.stats.scale_mean,
                     scale_std=conf.stats.scale_std,
-                    neighbor_dist_mean=conf.stats.neighbor_dist_mean,
+                    neighbor_dist_median=conf.stats.neighbor_dist_median,
                 )
 
     def train_dataloader(self) -> Iterable[Sample]:

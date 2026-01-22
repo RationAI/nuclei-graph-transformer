@@ -35,7 +35,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         df_metadata: DataFrame,
         scale_mean: float,
         scale_std: float,
-        neighbor_dist_mean: float,
+        neighbor_dist_median: float,
         df_labels: DataFrame | None = None,
         df_refinement: DataFrame | None = None,
         crop_size: int = 4096,
@@ -57,7 +57,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 to parquet files containing nuclei segmentation data.
             scale_mean: Mean of log nucleus scales estimated from training data for normalization.
             scale_std: Standard deviation of log nucleus scales estimated from training data for normalization.
-            neighbor_dist_mean: Average distance between neighboring nuclei in pixels for normalization.
+            neighbor_dist_median: Median distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
@@ -73,7 +73,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
         self.scale_std = scale_std
-        self.neighbor_dist_mean = neighbor_dist_mean
+        self.neighbor_dist_median = neighbor_dist_median
         self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
         self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
         self.crop_size = crop_size
@@ -258,7 +258,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei neighbor
         # distance computed from training set to convert distances into neighbor units ("cell hops")
         center = centroids[crop_indices].mean(axis=0, keepdims=True)
-        crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_mean
+        crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_median
         # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotation = 2.0 * (angles % np.pi)
         crop_pos = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)

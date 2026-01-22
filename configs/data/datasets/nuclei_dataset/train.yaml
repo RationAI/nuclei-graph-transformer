@@ -11,7 +11,7 @@ uris:
 stats: # train split estimates
   scale_mean: 2.5326
   scale_std: 0.2644
-  neighbor_dist_mean: 28.78 # in pixels
+  neighbor_dist_median: 28.78 # in pixels
 crop_size: ${data.crop_size}
 alpha: ${data.alpha}
 k: ${data.k}
