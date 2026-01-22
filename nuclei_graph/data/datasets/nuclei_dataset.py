@@ -167,7 +167,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return perm_inverse
 
-    def load_targets(
+    def load_targets_and_masks(
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
     ):
         """Load nucleus-level targets and supervision masks for weakly supervised learning.
@@ -249,7 +249,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
         x = np.concatenate([x, log_scales], axis=-1)
 
-        targets, sup_mask, ignore_mask, valid_seeds = self.load_targets(
+        targets, sup_mask, ignore_mask, valid_seeds = self.load_targets_and_masks(
             self.df_metadata.iloc[idx].slide_id,
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
