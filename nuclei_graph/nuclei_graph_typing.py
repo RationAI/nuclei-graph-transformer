@@ -21,6 +21,11 @@ class Metadata(TypedDict):
     perm_inverse: Tensor
 
 
-type PredictInput = tuple[Sample, list[Metadata]]
+class PredictSample(TypedDict):
+    item: Sample
+    metadata: Metadata
 
-type PredictSample = tuple[Sample, Metadata]
+
+class PredictInput(TypedDict):
+    item: Sample
+    metadata: list[Metadata]

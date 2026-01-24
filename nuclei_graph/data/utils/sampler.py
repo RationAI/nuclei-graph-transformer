@@ -1,4 +1,5 @@
 import pandas as pd
+import pyarrow.parquet as pq
 
 
 def compute_slides_positivity(
@@ -36,14 +37,12 @@ def compute_slides_positivity(
 def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
     """Filters out slides that have nuclei count less than `min_count`.
 
-    Used for a cropped-based training to ensure that slides have enough nuclei to sample from.
-
     Args:
         metadata: DataFrame containing a "slide_nuclei_path" (str) column.
         min_count: Minimum number of nuclei required to retain the slide.
     """
     counts = metadata["slide_nuclei_path"].apply(
-        lambda path: pd.read_parquet(path, columns=[]).shape[0]
+        lambda path: pq.read_metadata(path).num_rows
     )
     mask_keep = counts >= min_count
     if not mask_keep.all():
