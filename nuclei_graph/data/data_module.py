@@ -139,7 +139,7 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    **conf.stats,
+                    **conf.stats,  # must be provided in the config
                 )
             case "predict":
                 metadata = pd.read_parquet(
@@ -151,7 +151,7 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    **conf.stats,
+                    **conf.stats,  # must be provided in the config
                 )
 
     def train_dataloader(self) -> Iterable[Sample]:
