@@ -21,8 +21,8 @@ class PredictionsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        _, metadata = batch
-        logits, metadata = outputs[0], metadata[0]  # batch size is 1 during inference
+        metadata = batch["metadata"][0]  # batch size is 1
+        logits = outputs[0]  # batch size is 1
 
         slide_id = metadata["slide_id"]
         perm_inverse = metadata["perm_inverse"]
@@ -40,8 +40,8 @@ class PredictionsCallback(Callback):
         )
         nuclei_preds = nuclei.merge(df_predictions, on="id", how="left")
 
-        # some nuclei may not have predictions (nuclei that have a very close neighbor (< eps) are removed due to
-        # assumptions in graph construction); we use nearest neighbor interpolation to fill in the missing predictions
+        # some nuclei may not have predictions (nuclei that have a very close neighbor (< eps) are removed in NucleiDataset
+        # due to assumptions in graph construction); we use nearest neighbor interpolation to fill in the missing predictions
         if nuclei_preds["prediction"].isna().any():
             valid = nuclei_preds.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())

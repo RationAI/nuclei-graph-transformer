@@ -25,6 +25,7 @@ class PredictionMetricsCallback(Callback):
     ) -> None:
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
         metrics = metrics_module.compute()
+
         for key, value in metrics.items():
             metric_name = key.split("/")[-1]
             value = float(value.item()) if isinstance(value, Tensor) else float(value)
