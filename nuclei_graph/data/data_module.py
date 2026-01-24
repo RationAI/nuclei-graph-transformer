@@ -111,7 +111,9 @@ class DataModule(LightningDataModule):
                     metadata, keep_cols=TRAIN_METADATA_COLS, random_state=self.seed
                 )
                 df_train = pre_crop_filter(df_train, conf.crop_size)
-                self.positivity = compute_slides_positivity(df_train, df_labels)
+                self.positivity = compute_slides_positivity(
+                    df_train, df_labels, df_refinement
+                )
                 stats = self._get_stats(conf, df_train)
 
                 train_slides_ids = set(df_train["slide_id"])
