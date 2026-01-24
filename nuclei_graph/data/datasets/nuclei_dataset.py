@@ -301,5 +301,5 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 "nuclei_ids": list(map(str, nuclei.iloc[crop_indices.numpy()]["id"])),
                 "perm_inverse": self.get_inverse_perm(perm),
             }
-            return sample, metadata
+            return PredictSample(item=sample, metadata=metadata)
         return sample

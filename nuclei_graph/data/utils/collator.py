@@ -18,4 +18,4 @@ def collate_fn(batch: list[Sample]) -> Sample:
 
 def collate_fn_predict(batch: list[PredictSample]) -> PredictInput:
     items, metadata = zip(*batch, strict=True)
-    return collate_fn(list(items)), list(metadata)
+    return PredictInput(item=collate_fn(list(items)), metadata=list(metadata))

@@ -40,7 +40,7 @@ class PredictionMetricsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        sample, _ = batch
+        sample = batch["item"]
         targets_sup = sample["y"]
         logits_sup = outputs[sample["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
@@ -61,8 +61,8 @@ class PredictionMetricsBatchCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        sample, metadata_list = batch
-        metadata = metadata_list[0]  # batch size is 1 during inference
+        sample, metadata = batch["item"], batch["metadata"][0]  # batch size is 1
+
         targets_sup = sample["y"]
         logits_sup = outputs[sample["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape

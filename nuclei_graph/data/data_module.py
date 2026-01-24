@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from pathlib import Path
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -39,12 +38,14 @@ REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 class DataModule(LightningDataModule):
     def __init__(
         self,
+        seed: int,
         batch_size: int,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
+        self.seed = seed
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.datasets = datasets
@@ -59,18 +60,31 @@ class DataModule(LightningDataModule):
         return instantiate(conf, **kwargs)
 
     def prepare_data(self) -> None:
-        uris = set()
-        for conf in self.datasets.values():
-            if not isinstance(conf, DictConfig):
-                continue
-            uris_conf = conf.get("uris")
-            if uris_conf is None:
-                continue
-            for uri in uris_conf.values():
-                if uri is not None:
-                    uris.add(uri)
+        uris = {
+            uri
+            for conf in self.datasets.values()
+            if isinstance(conf, DictConfig) and conf.get("uris") is not None
+            for uri in conf.uris.values()
+            if uri is not None
+        }
         for uri in uris:
             download_artifacts(uri)
+
+    def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
+        scale_mean = conf.stats.scale_mean
+        scale_std = conf.stats.scale_std
+        neighbor_dist_median = conf.stats.neighbor_dist_median
+
+        if scale_mean is None or scale_std is None:
+            scale_mean, scale_std = compute_scale_stats(df_train, conf.efd_order)
+        if neighbor_dist_median is None:
+            neighbor_dist_median = compute_median_neighbor_distance(df_train)
+
+        return {
+            "scale_mean": scale_mean,
+            "scale_std": scale_std,
+            "neighbor_dist_median": neighbor_dist_median,
+        }
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
@@ -78,60 +92,46 @@ class DataModule(LightningDataModule):
 
         df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri))
         df_labels = df_labels.rename(columns=LABEL_COLS)
-
         df_refinement = None
         if conf.uris.get("refinement_uri") is not None:
             df_refinement = pd.read_parquet(
-                Path(download_artifacts(conf.uris.refinement_uri))
+                download_artifacts(conf.uris.refinement_uri)
             )
             df_refinement = df_refinement.rename(columns=REFINEMENT_COLS)
 
         match stage:
             case "fit" | "validate":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=TRAIN_METADATA_COLS,
                 )
                 df_train, df_val = train_val_split(
-                    metadata, keep_cols=TRAIN_METADATA_COLS
+                    metadata, keep_cols=TRAIN_METADATA_COLS, random_state=self.seed
                 )
-
-                scale_mean = conf.stats.scale_mean
-                scale_std = conf.stats.scale_std
-                if scale_mean is None or scale_std is None:
-                    scale_mean, scale_std = compute_scale_stats(
-                        df_train, conf.efd_order
-                    )
-                neighbor_dist_median = (
-                    conf.stats.neighbor_dist_median
-                    if conf.stats.neighbor_dist_median is not None
-                    else compute_median_neighbor_distance(df_train)
-                )
-
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(df_train, df_labels)
+                stats = self._get_stats(conf, df_train)
+
+                train_slides_ids = set(df_train["slide_id"])
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(set(df_train["slide_id"]), df_labels),
-                    df_refinement=get_subset(set(df_train["slide_id"]), df_refinement),
-                    scale_mean=scale_mean,
-                    scale_std=scale_std,
-                    neighbor_dist_median=neighbor_dist_median,
+                    df_labels=get_subset(train_slides_ids, df_labels),
+                    df_refinement=get_subset(train_slides_ids, df_refinement),
+                    **stats,
                 )
+                val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(set(df_val["slide_id"]), df_labels),
-                    df_refinement=get_subset(set(df_val["slide_id"]), df_refinement),
-                    scale_mean=scale_mean,
-                    scale_std=scale_std,
-                    neighbor_dist_median=neighbor_dist_median,
+                    df_labels=get_subset(val_slides_ids, df_labels),
+                    df_refinement=get_subset(val_slides_ids, df_refinement),
+                    **stats,
                     full_slide=True,
                 )
             case "test":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=BASE_METADATA_COLS,
                 )
                 self.test = self._instantiate_dataset(
@@ -139,13 +139,11 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    scale_mean=conf.stats.scale_mean,
-                    scale_std=conf.stats.scale_std,
-                    neighbor_dist_median=conf.stats.neighbor_dist_median,
+                    **conf.stats,
                 )
             case "predict":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=BASE_METADATA_COLS,
                 )
                 self.predict = self._instantiate_dataset(
@@ -153,9 +151,7 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    scale_mean=conf.stats.scale_mean,
-                    scale_std=conf.stats.scale_std,
-                    neighbor_dist_median=conf.stats.neighbor_dist_median,
+                    **conf.stats,
                 )
 
     def train_dataloader(self) -> Iterable[Sample]:
