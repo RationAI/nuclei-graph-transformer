@@ -90,14 +90,16 @@ class DataModule(LightningDataModule):
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri))
-        df_labels = df_labels.rename(columns=LABEL_COLS)
-        df_refinement = None
-        if conf.uris.get("refinement_uri") is not None:
-            df_refinement = pd.read_parquet(
-                download_artifacts(conf.uris.refinement_uri)
+        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri)).rename(
+            columns=LABEL_COLS
+        )
+        df_refinement = (
+            pd.read_parquet(download_artifacts(conf.uris.refinement_uri)).rename(
+                columns=REFINEMENT_COLS
             )
-            df_refinement = df_refinement.rename(columns=REFINEMENT_COLS)
+            if conf.uris.get("refinement_uri") is not None
+            else None
+        )
 
         match stage:
             case "fit" | "validate":
