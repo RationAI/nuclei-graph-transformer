@@ -42,7 +42,9 @@ def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
         min_count: Minimum number of nuclei required to retain the slide.
     """
     counts = metadata["slide_nuclei_path"].apply(
-        lambda path: pq.read_metadata(path).num_rows
+        lambda path: sum(
+            fragment.metadata.num_rows for fragment in pq.ParquetDataset(path).fragments
+        )
     )
     mask_keep = counts >= min_count
     if not mask_keep.all():
