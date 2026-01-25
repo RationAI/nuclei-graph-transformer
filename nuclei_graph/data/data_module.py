@@ -62,7 +62,7 @@ class DataModule(LightningDataModule):
             if uri is not None
         }
         for uri in uris:
-            download_artifacts(uri)
+            download_artifacts(uri)  # pre-fetch to local cache
 
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean

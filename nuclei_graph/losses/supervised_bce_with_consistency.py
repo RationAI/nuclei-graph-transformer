@@ -36,6 +36,7 @@ class WSLConsistencyLoss(nn.Module):
         preds_orig = torch.sigmoid(criterion_input["logits"][~masks["ignore_mask"]])
         assert criterion_input["logits_aug"] is not None
         preds_aug = torch.sigmoid(criterion_input["logits_aug"][~masks["ignore_mask"]])
+
         loss_consist = F.mse_loss(preds_orig, preds_aug)
         total_loss = loss_sup + (self.consistency_weight * loss_consist)
 
