@@ -4,13 +4,26 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
+class WSLMasks(TypedDict):
+    sup_mask: Tensor
+    ignore_mask: Tensor
+
+
 class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    sup_mask: Tensor
-    ignore_mask: Tensor
-    num_points: int | Tensor
+    masks: WSLMasks
+    num_points: int
+    block_mask: BlockMask
+
+
+class Batch(TypedDict):
+    x: Tensor
+    pos: Tensor
+    y: Tensor
+    masks: WSLMasks
+    num_points: Tensor
     block_mask: BlockMask
 
 
@@ -26,6 +39,11 @@ class PredictSample(TypedDict):
     metadata: Metadata
 
 
-class PredictInput(TypedDict):
-    item: Sample
+class PredictBatch(TypedDict):
+    items: Batch
     metadata: list[Metadata]
+
+
+class CriterionInput(TypedDict):
+    logits: Tensor
+    logits_aug: Tensor | None

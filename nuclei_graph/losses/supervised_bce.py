@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
+
 
 class SupervisedBCE(nn.Module):
     def __init__(self):
@@ -9,13 +11,20 @@ class SupervisedBCE(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, logits: Tensor, targets_sup: Tensor, sup_mask: Tensor, ignore_mask: Tensor
+        self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes BCE loss on confident nuclei only (e.g., CAM-based supervision).
 
-        Ignores uncertain nuclei completely (hard masking).
+        Ignores uncertain nuclei (outside the supervision mask) completely (hard masking).
+
+        Args:
+            criterion_input: Dictionary containing model outputs.
+            targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
+            masks: Dictionary containing boolean masks for weakly supervised learning.
         """
-        logits_sup = logits[sup_mask]
+        logits = criterion_input["logits"]
+        logits_sup = logits[masks["sup_mask"]]
+
         sup_size = targets_sup.numel()
         loss = (
             self.bce(logits_sup, targets_sup)

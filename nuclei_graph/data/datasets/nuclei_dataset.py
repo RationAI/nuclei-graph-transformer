@@ -20,7 +20,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from nuclei_graph.nuclei_graph_typing import Metadata, PredictSample, Sample
+from nuclei_graph.nuclei_graph_typing import Metadata, PredictSample, Sample, WSLMasks
 
 
 type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
@@ -283,8 +283,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_x,  # (n, efd_order * 4 + 1)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_supervised, 1)
-            "sup_mask": crop_sup_mask,  # (n,)
-            "ignore_mask": crop_ignore_mask,  # (n,)
+            "masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),
             "num_points": len(crop_indices),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,

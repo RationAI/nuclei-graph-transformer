@@ -8,7 +8,7 @@ from lightning import Callback, LightningModule, Trainer
 from scipy.interpolate import NearestNDInterpolator
 from torch import Tensor
 
-from nuclei_graph.nuclei_graph_typing import PredictInput
+from nuclei_graph.nuclei_graph_typing import PredictBatch
 
 
 class PredictionsCallback(Callback):
@@ -17,7 +17,7 @@ class PredictionsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Tensor,
-        batch: PredictInput,
+        batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:

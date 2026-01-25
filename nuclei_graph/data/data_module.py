@@ -1,5 +1,3 @@
-from collections.abc import Iterable
-
 import pandas as pd
 from hydra.utils import instantiate
 from lightning import LightningDataModule
@@ -18,10 +16,6 @@ from nuclei_graph.data.utils.sampler import (
     pre_crop_filter,
 )
 from nuclei_graph.data.utils.splitter import get_subset, train_val_split
-from nuclei_graph.nuclei_graph_typing import (
-    PredictInput,
-    Sample,
-)
 
 
 BASE_METADATA_COLS = [
@@ -158,7 +152,7 @@ class DataModule(LightningDataModule):
                     **conf.stats,  # must be provided in the config
                 )
 
-    def train_dataloader(self) -> Iterable[Sample]:
+    def train_dataloader(self) -> DataLoader:
         sampler = (
             instantiate(self.sampler_partial, slides_positivity=self.positivity)(
                 dataset=self.train
@@ -177,7 +171,7 @@ class DataModule(LightningDataModule):
             persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> Iterable[Sample]:
+    def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.val,
             batch_size=1,
@@ -185,7 +179,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def test_dataloader(self) -> Iterable[Sample]:
+    def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.test,
             batch_size=1,
@@ -193,7 +187,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def predict_dataloader(self) -> Iterable[PredictInput]:
+    def predict_dataloader(self) -> DataLoader:
         return DataLoader(
             self.predict,
             batch_size=1,

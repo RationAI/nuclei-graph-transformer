@@ -6,7 +6,7 @@ from lightning import Callback, LightningModule, Trainer
 from torch import Tensor
 from torchmetrics import MetricCollection
 
-from nuclei_graph.nuclei_graph_typing import PredictInput
+from nuclei_graph.nuclei_graph_typing import PredictBatch
 
 
 class PredictionMetricsCallback(Callback):
@@ -37,11 +37,11 @@ class PredictionMetricsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Tensor,
-        batch: PredictInput,
+        batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        sample = batch["item"]
+        sample = batch["items"]
         targets_sup = sample["y"]
         logits_sup = outputs[sample["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
@@ -58,12 +58,11 @@ class PredictionMetricsBatchCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Tensor,
-        batch: PredictInput,
+        batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        sample, metadata = batch["item"], batch["metadata"][0]  # batch size is 1
-
+        sample, metadata = batch["items"], batch["metadata"][0]  # batch size is 1
         targets_sup = sample["y"]
         logits_sup = outputs[sample["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape

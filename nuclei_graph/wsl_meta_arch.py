@@ -14,7 +14,13 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
+from nuclei_graph.data.augmentations.geom_augs import apply_augmentations
+from nuclei_graph.nuclei_graph_typing import (
+    Batch,
+    CriterionInput,
+    PredictBatch,
+    WSLMasks,
+)
 
 
 class WSLMetaArch(LightningModule):
@@ -38,32 +44,38 @@ class WSLMetaArch(LightningModule):
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
-    def forward(self, batch: Sample) -> Tensor:
+    def forward(self, batch: Batch) -> Tensor:
         return self.net(
             batch["x"], batch["pos"], batch["block_mask"], batch["num_points"]
         )
 
-    def training_step(self, batch: Sample) -> Tensor:
-        total_loss, logs = self.criterion(
-            logits=self(batch),
+    def training_step(self, batch: Batch) -> Tensor:
+        batch_aug = apply_augmentations(batch)
+        criterion_input = CriterionInput(logits=self(batch), logits_aug=self(batch_aug))
+        masks = WSLMasks(
+            sup_mask=batch["masks"]["sup_mask"],
+            ignore_mask=batch["masks"]["ignore_mask"],
+        )
+
+        loss, logs = self.criterion(
+            criterion_input=criterion_input,
             targets_sup=batch["y"],
-            sup_mask=batch["sup_mask"],
-            ignore_mask=batch["ignore_mask"],
+            masks=masks,
         )
         self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(
             "train/loss",
-            total_loss,
+            loss,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
         )
-        return total_loss
+        return loss
 
-    def validation_step(self, batch: Sample) -> None:
+    def validation_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["sup_mask"]]
+        logits_sup = self(batch)[batch["masks"]["sup_mask"]]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
@@ -84,9 +96,9 @@ class WSLMetaArch(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
         self.val_metrics.reset()
 
-    def test_step(self, batch: Sample) -> None:
+    def test_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["sup_mask"]]
+        logits_sup = self(batch)[batch["masks"]["sup_mask"]]
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
@@ -94,9 +106,8 @@ class WSLMetaArch(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictInput) -> Tensor:
-        sample, _ = batch
-        return self(sample)
+    def predict_step(self, batch: PredictBatch) -> Tensor:
+        return self(batch["items"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []
