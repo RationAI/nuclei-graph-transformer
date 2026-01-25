@@ -25,13 +25,19 @@ from nuclei_graph.nuclei_graph_typing import (
 
 class WSLMetaArch(LightningModule):
     def __init__(
-        self, lr: float, warmup_epochs: int, net: nn.Module, criterion: nn.Module
+        self,
+        lr: float,
+        warmup_epochs: int,
+        net: nn.Module,
+        criterion: nn.Module,
+        use_augmentations: bool = False,
     ):
         super().__init__()
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
         self.criterion = criterion
+        self.use_augmentations = use_augmentations
         self.bce = nn.BCEWithLogitsLoss()
 
         metrics: dict[str, Metric | MetricCollection] = {
@@ -50,8 +56,10 @@ class WSLMetaArch(LightningModule):
         )
 
     def training_step(self, batch: Batch) -> Tensor:
-        batch_aug = apply_augmentations(batch)
-        criterion_input = CriterionInput(logits=self(batch), logits_aug=self(batch_aug))
+        logits_aug = (
+            self(apply_augmentations(batch)) if self.use_augmentations else None
+        )
+        criterion_input = CriterionInput(logits=self(batch), logits_aug=logits_aug)
         masks = WSLMasks(
             sup_mask=batch["masks"]["sup_mask"],
             ignore_mask=batch["masks"]["ignore_mask"],

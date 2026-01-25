@@ -20,6 +20,7 @@ model:
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4
+  use_augmentations: ${model.criterion.use_augmentations}
 
 data:
   batch_size: 8
