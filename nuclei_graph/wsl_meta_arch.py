@@ -19,7 +19,6 @@ from nuclei_graph.nuclei_graph_typing import (
     Batch,
     CriterionInput,
     PredictBatch,
-    WSLMasks,
 )
 
 
@@ -59,16 +58,10 @@ class WSLMetaArch(LightningModule):
         logits_aug = (
             self(apply_augmentations(batch)) if self.use_augmentations else None
         )
-        criterion_input = CriterionInput(logits=self(batch), logits_aug=logits_aug)
-        masks = WSLMasks(
-            sup_mask=batch["masks"]["sup_mask"],
-            ignore_mask=batch["masks"]["ignore_mask"],
-        )
-
         loss, logs = self.criterion(
-            criterion_input=criterion_input,
+            criterion_input=CriterionInput(logits=self(batch), logits_aug=logits_aug),
             targets_sup=batch["y"],
-            masks=masks,
+            masks=batch["masks"],
         )
         self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(
