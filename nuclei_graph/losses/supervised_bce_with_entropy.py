@@ -16,14 +16,20 @@ class SupervisedBCEWithEntropy(nn.Module):
     def forward(
         self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
-        """Computes total loss as a combination: BCE(Supervised) + entropy_weight * Mean(Entropy(Uncertain)).
+        """Computes total loss as a combination of a supervised BCE and an entropy regularization term.
 
-        Nuclei marked by `ignore_mask=True` are excluded from all losses.
+        The loss is computed as: BCE(Supervised) + entropy_weight * Mean(Entropy(Uncertain)) where:
+          - "Supervised" is a set of predictions for nuclei marked by `masks["sup_mask"]`,
+          - "Uncertain" is a set of predictions for nuclei outside `masks["ignore_mask"]` and `masks["sup_mask"]`.
 
         Args:
-            criterion_input: Dictionary containing model outputs.
-            targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean masks ("sup_mask" and "ignore_mask") for weakly supervised learning.
+            criterion_input: Dictionary containing model outputs with keys:
+                - "logits": Logits from the original input.
+                - "logits_aug": (Optional) Logits from an augmented view of the same input.
+            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
+            masks: Dictionary of boolean masks with keys:
+                - "sup_mask": Selects nuclei for supervised loss.
+                - "ignore_mask": Selects nuclei to exclude from the entropy loss.
 
         Returns:
             total_loss: Combined loss tensor.

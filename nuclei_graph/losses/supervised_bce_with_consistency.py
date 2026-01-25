@@ -17,12 +17,20 @@ class SupervisedBCEWithConsistency(nn.Module):
     def forward(
         self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
-        """Computes BCE on high-confidence labels + Consistency on all nuclei marked as False by the provided ignore mask.
+        """Computes combined loss from the supervised BCE and consistency loss between original and augmented predictions.
+
+        The loss consists of two parts:
+          1. supervised loss: BCE computed only on nuclei marked by `masks["sup_mask"]`,
+          2. consistency loss: MSE between probabilities of the original and augmented logits; computed on nuclei outside `masks["ignore_mask"]`.
 
         Args:
-            criterion_input: Dictionary containing logits from the standard and augmented views.
-            targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean masks ("sup_mask" and "ignore_mask") for weakly supervised learning.
+            criterion_input: Dictionary containing model outputs with keys:
+                - "logits": Logits from the original input.
+                - "logits_aug": (Optional) Logits from an augmented view of the same input.
+            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
+            masks: Dictionary of boolean masks with keys:
+                - "sup_mask": Selects nuclei for supervised loss.
+                - "ignore_mask": Selects nuclei to exclude from the consistency loss.
 
         Returns:
             total_loss: Combined loss tensor.

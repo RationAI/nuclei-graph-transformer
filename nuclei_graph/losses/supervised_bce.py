@@ -15,14 +15,16 @@ class SupervisedBCE(nn.Module):
     def forward(
         self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
-        """Computes BCE loss on confident nuclei only (e.g., CAM-based supervision).
+        """Computes BCE loss on confident nuclei only.
 
-        Ignores uncertain nuclei (outside the supervision mask) completely (hard masking).
+        Nuclei outside the supervision mask are ignored (hard masking).
 
         Args:
-            criterion_input: Dictionary containing model outputs.
-            targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean masks ("sup_mask") for weakly supervised learning.
+            criterion_input: Dictionary containing model outputs with keys:
+                - "logits": Logits from the original input.
+                - "logits_aug": (Optional) Logits from an augmented view of the same input.
+            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
+            masks: Dictionary containing boolean mask ("sup_mask") that selects nuclei for supervised loss.
 
         Returns:
             loss: Computed BCE loss tensor.
