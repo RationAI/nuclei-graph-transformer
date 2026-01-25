@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from nuclei_graph.nuclei_graph_typing import WSLMasks
+from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
 
 
 class WSLConsistencyLoss(nn.Module):
@@ -13,29 +13,29 @@ class WSLConsistencyLoss(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, logits: Tensor, logits_aug: Tensor, targets_sup: Tensor, masks: WSLMasks
+        self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes BCE on high-confidence labels + Consistency on all nuclei marked as `ignore_mask==False`.
 
         Args:
-            logits: Outputs from the standard view.
-            logits_aug: Outputs from the augmented view.
+            criterion_input: Dictionary containing logits from the standard and augmented views.
             targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
             masks: Dictionary containing boolean masks for weakly supervised learning.
         """
-        logits_sup = logits[masks["sup_mask"]]
+        logits_sup = criterion_input["logits"][masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         # it is assumed training batches do not contain padding
         loss_sup = (
             self.bce(logits_sup, targets_sup)
             if sup_size > 0
-            else torch.tensor(0.0, device=logits.device, requires_grad=True)
+            else torch.tensor(
+                0.0, device=criterion_input["logits"].device, requires_grad=True
+            )
         )
-
-        preds_orig = torch.sigmoid(logits[~masks["ignore_mask"]])
-        preds_aug = torch.sigmoid(logits_aug[~masks["ignore_mask"]])
-
+        preds_orig = torch.sigmoid(criterion_input["logits"][~masks["ignore_mask"]])
+        assert criterion_input["logits_aug"] is not None
+        preds_aug = torch.sigmoid(criterion_input["logits_aug"][~masks["ignore_mask"]])
         loss_consist = F.mse_loss(preds_orig, preds_aug)
         total_loss = loss_sup + (self.consistency_weight * loss_consist)
 
