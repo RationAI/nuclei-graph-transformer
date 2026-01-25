@@ -1,2 +1,3 @@
 # @package _global_
 _target_: nuclei_graph.losses.supervised_bce.SupervisedBCE
+use_refinement_in_sampler: true

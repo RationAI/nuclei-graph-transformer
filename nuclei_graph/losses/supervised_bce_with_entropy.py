@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -6,7 +8,7 @@ from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
 
 
 class SupervisedBCEWithEntropy(nn.Module):
-    def __init__(self, entropy_weight: float = 0.1):
+    def __init__(self, entropy_weight: float = 0.1, **kwargs: Any) -> None:
         super().__init__()
         self.entropy_weight = entropy_weight
         self.bce = nn.BCEWithLogitsLoss()
@@ -21,11 +23,11 @@ class SupervisedBCEWithEntropy(nn.Module):
         Args:
             criterion_input: Dictionary containing model outputs.
             targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean masks for weakly supervised learning.
+            masks: Dictionary containing boolean masks ("sup_mask" and "ignore_mask") for weakly supervised learning.
 
         Returns:
             total_loss: Combined loss tensor.
-            logs: Dictionary containing detached scalar components.
+            logs: Dictionary containing detached loss components and the size of the supervised set.
         """
         logits = criterion_input["logits"]
         logits_sup = logits[masks["sup_mask"]]

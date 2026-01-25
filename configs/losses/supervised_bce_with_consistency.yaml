@@ -1,0 +1,4 @@
+# @package _global_
+_target_: nuclei_graph.losses.supervised_bce_with_consistency.SupervisedBCEWithConsistency
+consistency_weight: 0.5
+use_refinement_in_sampler: false

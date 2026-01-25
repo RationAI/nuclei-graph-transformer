@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,8 +8,8 @@ from torch import Tensor
 from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
 
 
-class WSLConsistencyLoss(nn.Module):
-    def __init__(self, consistency_weight: float = 0.5):
+class SupervisedBCEWithConsistency(nn.Module):
+    def __init__(self, consistency_weight: float = 0.5, **kwargs: Any) -> None:
         super().__init__()
         self.consistency_weight = consistency_weight
         self.bce = nn.BCEWithLogitsLoss()
@@ -15,12 +17,16 @@ class WSLConsistencyLoss(nn.Module):
     def forward(
         self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
     ) -> tuple[Tensor, dict[str, float]]:
-        """Computes BCE on high-confidence labels + Consistency on all nuclei marked as `ignore_mask==False`.
+        """Computes BCE on high-confidence labels + Consistency on all nuclei marked as False by the provided ignore mask.
 
         Args:
             criterion_input: Dictionary containing logits from the standard and augmented views.
             targets_sup: Target labels, only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean masks for weakly supervised learning.
+            masks: Dictionary containing boolean masks ("sup_mask" and "ignore_mask") for weakly supervised learning.
+
+        Returns:
+            total_loss: Combined loss tensor.
+            logs: Dictionary containing detached loss components and the size of the supervised set.
         """
         logits_sup = criterion_input["logits"][masks["sup_mask"]]
         sup_size = targets_sup.numel()
