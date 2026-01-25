@@ -20,11 +20,9 @@ class SupervisedBCE(nn.Module):
         Nuclei outside the supervision mask are ignored (hard masking).
 
         Args:
-            criterion_input: Dictionary containing model outputs with keys:
-                - "logits": Logits from the original input.
-                - "logits_aug": (Optional) Logits from an augmented view of the same input.
+            criterion_input: Dictionary with model outputs (contains the key "logits").
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean mask ("sup_mask") that selects nuclei for supervised loss.
+            masks: Dictionary containing boolean mask that selects nuclei for supervised loss ("sup_mask").
 
         Returns:
             loss: Computed BCE loss tensor.
