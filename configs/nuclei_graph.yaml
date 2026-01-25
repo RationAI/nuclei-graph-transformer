@@ -26,7 +26,6 @@ trainer:
       patience: 12
 
 data:
-  seed: ${seed}
   batch_size: ???
   num_workers: 10
   crop_size: ???

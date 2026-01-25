@@ -32,14 +32,12 @@ REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 class DataModule(LightningDataModule):
     def __init__(
         self,
-        seed: int,
         batch_size: int,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
-        self.seed = seed
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.datasets = datasets
@@ -62,7 +60,7 @@ class DataModule(LightningDataModule):
             if uri is not None
         }
         for uri in uris:
-            download_artifacts(uri)  # pre-fetch to local cache
+            download_artifacts(uri)  # download to local cache
 
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean
@@ -102,7 +100,7 @@ class DataModule(LightningDataModule):
                     columns=TRAIN_METADATA_COLS,
                 )
                 df_train, df_val = train_val_split(
-                    metadata, keep_cols=TRAIN_METADATA_COLS, random_state=self.seed
+                    metadata, keep_cols=TRAIN_METADATA_COLS
                 )
                 df_train = pre_crop_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
