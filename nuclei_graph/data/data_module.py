@@ -156,6 +156,8 @@ class DataModule(LightningDataModule):
                     df_labels=df_labels,
                     df_refinement=df_refinement,
                     **conf.stats,  # must be provided in the config
+                    full_slide=True,
+                    predict=True,
                 )
 
     def train_dataloader(self) -> Iterable[Batch]:
