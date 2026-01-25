@@ -23,9 +23,7 @@ class SupervisedBCEWithEntropy(nn.Module):
           - "Uncertain" is a set of predictions for nuclei outside `masks["ignore_mask"]` and `masks["sup_mask"]`.
 
         Args:
-            criterion_input: Dictionary containing model outputs with keys:
-                - "logits": Logits from the original input.
-                - "logits_aug": (Optional) Logits from an augmented view of the same input.
+            criterion_input: Dictionary with model outputs (contains the key "logits").
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
             masks: Dictionary of boolean masks with keys:
                 - "sup_mask": Selects nuclei for supervised loss.
