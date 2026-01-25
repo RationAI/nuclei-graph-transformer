@@ -71,12 +71,14 @@ class WSLMetaArch(LightningModule):
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
+            batch_size=logs["sup_size"],
         )
         return loss
 
     def validation_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["masks"]["sup_mask"]]
+        sup_mask = batch["masks"]["sup_mask"]
+        logits_sup = self(batch)[sup_mask]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
@@ -94,17 +96,23 @@ class WSLMetaArch(LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.val_metrics.reset()
 
     def test_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["masks"]["sup_mask"]]
+        sup_mask = batch["masks"]["sup_mask"]
+        logits_sup = self(batch)[sup_mask]
+
+        sup_size = targets_sup.numel()
+        if sup_size == 0:
+            return None
+
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
         metrics = self.test_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Tensor:
