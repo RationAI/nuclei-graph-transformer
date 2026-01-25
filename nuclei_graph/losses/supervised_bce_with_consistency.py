@@ -28,22 +28,27 @@ class SupervisedBCEWithConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits_sup = criterion_input["logits"][masks["sup_mask"]]
+        logits = criterion_input["logits"]
+        logits_sup = logits[masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         # it is assumed training batches do not contain padding
         loss_sup = (
             self.bce(logits_sup, targets_sup)
             if sup_size > 0
-            else torch.tensor(
-                0.0, device=criterion_input["logits"].device, requires_grad=True
-            )
+            else torch.tensor(0.0, device=logits.device, requires_grad=True)
         )
-        preds_orig = torch.sigmoid(criterion_input["logits"][~masks["ignore_mask"]])
-        assert criterion_input["logits_aug"] is not None
-        preds_aug = torch.sigmoid(criterion_input["logits_aug"][~masks["ignore_mask"]])
+        loss_consist = torch.tensor(0.0, device=logits.device, requires_grad=True)
 
-        loss_consist = F.mse_loss(preds_orig, preds_aug)
+        logits_aug = criterion_input.get("logits_aug")
+        uncertain_mask = ~masks["ignore_mask"]
+
+        if logits_aug is not None and uncertain_mask.any():
+            loss_consist = F.mse_loss(
+                torch.sigmoid(logits[uncertain_mask]),
+                torch.sigmoid(logits_aug[uncertain_mask]),
+            )
+
         total_loss = loss_sup + (self.consistency_weight * loss_consist)
 
         logs = {
@@ -51,5 +56,4 @@ class SupervisedBCEWithConsistency(nn.Module):
             "loss_consist": loss_consist.detach(),
             "sup_size": sup_size,
         }
-
         return total_loss, logs
