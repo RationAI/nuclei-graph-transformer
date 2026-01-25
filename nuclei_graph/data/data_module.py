@@ -15,13 +15,10 @@ from nuclei_graph.data.utils.compute_stats import (
 )
 from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
-    pre_crop_filter,
+    min_count_filter,
 )
 from nuclei_graph.data.utils.splitter import get_subset, train_val_split
-from nuclei_graph.nuclei_graph_typing import (
-    PredictInput,
-    Sample,
-)
+from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
 BASE_METADATA_COLS = [
@@ -38,18 +35,21 @@ REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 class DataModule(LightningDataModule):
     def __init__(
         self,
-        seed: int,
         batch_size: int,
         num_workers: int = 0,
+        use_refinement_in_sampler: bool | None = False,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
-        self.seed = seed
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.datasets = datasets
+        self.use_refinement_in_sampler = use_refinement_in_sampler
+        assert not (use_refinement_in_sampler is True and sampler is None), (
+            "`use_refinement_in_sampler` can be True only if a sampler is provided."
+        )
         self.sampler_partial = sampler
+        self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
     def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
@@ -68,7 +68,7 @@ class DataModule(LightningDataModule):
             if uri is not None
         }
         for uri in uris:
-            download_artifacts(uri)
+            download_artifacts(uri)  # download to local cache
 
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean
@@ -108,11 +108,11 @@ class DataModule(LightningDataModule):
                     columns=TRAIN_METADATA_COLS,
                 )
                 df_train, df_val = train_val_split(
-                    metadata, keep_cols=TRAIN_METADATA_COLS, random_state=self.seed
+                    metadata, keep_cols=TRAIN_METADATA_COLS
                 )
-                df_train = pre_crop_filter(df_train, conf.crop_size)
+                df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement
+                    df_train, df_labels, df_refinement, self.use_refinement_in_sampler
                 )
                 stats = self._get_stats(conf, df_train)
 
@@ -158,7 +158,7 @@ class DataModule(LightningDataModule):
                     **conf.stats,  # must be provided in the config
                 )
 
-    def train_dataloader(self) -> Iterable[Sample]:
+    def train_dataloader(self) -> Iterable[Batch]:
         sampler = (
             instantiate(self.sampler_partial, slides_positivity=self.positivity)(
                 dataset=self.train
@@ -177,7 +177,7 @@ class DataModule(LightningDataModule):
             persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> Iterable[Sample]:
+    def val_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
             self.val,
             batch_size=1,
@@ -185,7 +185,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def test_dataloader(self) -> Iterable[Sample]:
+    def test_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
             self.test,
             batch_size=1,
@@ -193,7 +193,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def predict_dataloader(self) -> Iterable[PredictInput]:
+    def predict_dataloader(self) -> Iterable[PredictBatch]:
         return DataLoader(
             self.predict,
             batch_size=1,

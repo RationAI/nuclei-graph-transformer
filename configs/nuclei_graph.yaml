@@ -9,7 +9,6 @@ checkpoint: null
 trainer: {}
 
 data:
-  seed: ${seed}
   batch_size: ???
   num_workers: 10
   crop_size: ???
