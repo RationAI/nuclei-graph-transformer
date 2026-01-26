@@ -25,7 +25,8 @@ class SupervisedBCEWithConsistency(nn.Module):
 
         The loss consists of two parts:
           1. supervised loss: BCE computed only on nuclei marked by `masks["sup_mask"]`,
-          2. consistency loss: MSE between probabilities of the original and augmented logits; computed on nuclei outside `masks["ignore_mask"]`.
+          2. consistency loss: MSE between probabilities of the original and augmented logits;
+                computed on nuclei outside `masks["ignore_mask"]` and outside masks["sup_mask"].
 
         Args:
             criterion_input: Dictionary containing model outputs with keys:
