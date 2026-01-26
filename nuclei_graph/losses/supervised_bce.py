@@ -13,7 +13,11 @@ class SupervisedBCE(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
+        self,
+        criterion_input: CriterionInput,
+        targets_sup: Tensor,
+        masks: WSLMasks,
+        **kwargs: Any,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes BCE loss on confident nuclei only.
 
@@ -23,6 +27,7 @@ class SupervisedBCE(nn.Module):
             criterion_input: Dictionary with model outputs (contains the key "logits").
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
             masks: Dictionary containing boolean mask that selects nuclei for supervised loss ("sup_mask").
+            kwargs: Additional keyword arguments.
 
         Returns:
             loss: Computed BCE loss tensor.

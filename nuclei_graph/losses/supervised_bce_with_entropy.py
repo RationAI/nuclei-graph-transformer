@@ -14,7 +14,11 @@ class SupervisedBCEWithEntropy(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
+        self,
+        criterion_input: CriterionInput,
+        targets_sup: Tensor,
+        masks: WSLMasks,
+        **kwargs: Any,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes total loss as a combination of a supervised BCE and an entropy regularization term.
 
@@ -28,6 +32,7 @@ class SupervisedBCEWithEntropy(nn.Module):
             masks: Dictionary of boolean masks with keys:
                 - "sup_mask": Selects nuclei for supervised loss.
                 - "ignore_mask": Selects nuclei to exclude from the entropy loss.
+            kwargs: Additional keyword arguments.
 
         Returns:
             total_loss: Combined loss tensor.

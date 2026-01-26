@@ -15,7 +15,11 @@ class SupervisedBCEWithConsistency(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def forward(
-        self, criterion_input: CriterionInput, targets_sup: Tensor, masks: WSLMasks
+        self,
+        criterion_input: CriterionInput,
+        targets_sup: Tensor,
+        masks: WSLMasks,
+        weight_factor: float = 1.0,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes combined loss from the supervised BCE and consistency loss between original and augmented predictions.
 
@@ -31,6 +35,7 @@ class SupervisedBCEWithConsistency(nn.Module):
             masks: Dictionary of boolean masks with keys:
                 - "sup_mask": Selects nuclei for supervised loss.
                 - "ignore_mask": Selects nuclei to exclude from the consistency loss.
+            weight_factor: Weight factor to scale the consistency loss.
 
         Returns:
             total_loss: Combined loss tensor.
@@ -57,7 +62,7 @@ class SupervisedBCEWithConsistency(nn.Module):
                 torch.sigmoid(logits_aug[uncertain_mask]),
             )
 
-        total_loss = loss_sup + (self.consistency_weight * loss_consist)
+        total_loss = loss_sup + (self.consistency_weight * weight_factor * loss_consist)
 
         logs = {
             "loss_sup": loss_sup.detach() if isinstance(loss_sup, Tensor) else 0.0,

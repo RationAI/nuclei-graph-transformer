@@ -55,6 +55,9 @@ class WSLMetaArch(LightningModule):
         )
 
     def training_step(self, batch: Batch) -> Tensor:
+        rampup_epochs = 10
+        current_weight_factor = min(1.0, self.current_epoch / rampup_epochs)
+
         logits_aug = (
             self(apply_augmentations(batch)) if self.use_augmentations else None
         )
@@ -62,6 +65,7 @@ class WSLMetaArch(LightningModule):
             criterion_input=CriterionInput(logits=self(batch), logits_aug=logits_aug),
             targets_sup=batch["y"],
             masks=batch["masks"],
+            weight_factor=current_weight_factor,
         )
         self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(
