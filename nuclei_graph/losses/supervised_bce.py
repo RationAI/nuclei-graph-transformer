@@ -37,9 +37,9 @@ class SupervisedBCE(nn.Module):
         logits_sup = logits[masks["sup_mask"]]
 
         sup_size = targets_sup.numel()
-        loss = (
+        loss_sup = (
             self.bce(logits_sup, targets_sup)
             if sup_size > 0
             else torch.tensor(0.0, device=logits.device, requires_grad=True)
         )
-        return loss, {"sup_size": sup_size}
+        return loss_sup, {"sup_size": sup_size}

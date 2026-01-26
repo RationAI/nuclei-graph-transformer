@@ -52,22 +52,22 @@ class SupervisedBCEWithConsistency(nn.Module):
             if sup_size > 0
             else torch.tensor(0.0, device=logits.device, requires_grad=True)
         )
-        loss_consist = torch.tensor(0.0, device=logits.device, requires_grad=True)
+        loss_cons = torch.tensor(0.0, device=logits.device, requires_grad=True)
 
         logits_aug = criterion_input.get("logits_aug")
         uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
 
         if logits_aug is not None and uncertain_mask.any():
-            loss_consist = F.mse_loss(
+            loss_cons = F.mse_loss(
                 torch.sigmoid(logits[uncertain_mask]),
                 torch.sigmoid(logits_aug[uncertain_mask]),
             )
 
-        total_loss = loss_sup + (self.consistency_weight * weight_factor * loss_consist)
+        total_loss = loss_sup + (self.consistency_weight * weight_factor * loss_cons)
 
         logs = {
             "loss_sup": loss_sup.detach() if isinstance(loss_sup, Tensor) else 0.0,
-            "loss_consist": loss_consist.detach(),
+            "loss_cons": loss_cons.detach(),
             "sup_size": sup_size,
         }
         return total_loss, logs

@@ -56,17 +56,17 @@ class SupervisedBCEWithEntropy(nn.Module):
             probs_uncertain * torch.log(probs_uncertain + 1e-8)
             + (1 - probs_uncertain) * torch.log(1 - probs_uncertain + 1e-8)
         )
-        loss_entropy = (
+        loss_ent = (
             entropy.mean()
             if probs_uncertain.numel() > 0
             else torch.tensor(0.0, device=logits.device, requires_grad=True)
         )
 
-        total_loss = loss_sup + self.entropy_weight * loss_entropy
+        total_loss = loss_sup + self.entropy_weight * loss_ent
 
         logs = {
             "loss_sup": loss_sup.detach(),
-            "loss_ent": loss_entropy.detach(),
+            "loss_ent": loss_ent.detach(),
             "sup_size": sup_size,
         }
         return total_loss, logs
