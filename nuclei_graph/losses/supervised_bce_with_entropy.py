@@ -31,7 +31,7 @@ class SupervisedBCEWithEntropy(nn.Module):
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
             masks: Dictionary of boolean masks with keys:
                 - "sup_mask": Selects nuclei for supervised loss.
-                - "ignore_mask": Selects nuclei to exclude from the entropy loss.
+                - "ignore_mask": Selects nuclei to exclude from all losses.
             kwargs: Additional keyword arguments.
 
         Returns:

@@ -34,7 +34,7 @@ class SupervisedBCEWithConsistency(nn.Module):
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
             masks: Dictionary of boolean masks with keys:
                 - "sup_mask": Selects nuclei for supervised loss.
-                - "ignore_mask": Selects nuclei to exclude from the consistency loss.
+                - "ignore_mask": Selects nuclei to exclude from all losses.
             weight_factor: Weight factor to scale the consistency loss.
 
         Returns:
@@ -54,7 +54,7 @@ class SupervisedBCEWithConsistency(nn.Module):
         loss_consist = torch.tensor(0.0, device=logits.device, requires_grad=True)
 
         logits_aug = criterion_input.get("logits_aug")
-        uncertain_mask = ~masks["ignore_mask"]
+        uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
 
         if logits_aug is not None and uncertain_mask.any():
             loss_consist = F.mse_loss(
