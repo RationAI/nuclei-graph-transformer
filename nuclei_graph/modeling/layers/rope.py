@@ -49,7 +49,7 @@ class RoPE(nn.Module):
         cast("Any", self.P).parametrizations.weight.original._no_weight_decay = True
         cast("Any", self.freqs)._no_weight_decay = True
 
-    @torch.autocast("cuda", enabled=False)  # type: ignore[misc]
+    @torch.autocast("cuda", enabled=False)  # type: ignore[untyped-decorator]
     def forward(self, x: Tensor, positions: Tensor) -> Tensor:
         """Apply RoPE positional encoding.
 

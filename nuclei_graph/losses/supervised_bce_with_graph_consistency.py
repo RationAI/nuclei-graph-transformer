@@ -2,8 +2,8 @@ from typing import Any
 
 import torch
 from torch import Tensor, nn
+from torch.nn.attention.flex_attention import BlockMask
 
-from nuclei_graph.data.block_mask import BlockMask
 from nuclei_graph.nuclei_graph_typing import WSLMasks
 
 
@@ -79,7 +79,7 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
         masks: WSLMasks,
         block_mask: BlockMask,
         **kwargs: Any,
-    ):
+    ) -> tuple[Tensor, dict[str, Any]]:
         """Computes combined loss from the supervised BCE and graph smoothness consistency.
 
         The loss consists of two parts:

@@ -158,7 +158,7 @@ class WSLMetaArch(LightningModule):
                 ),
                 CosineAnnealingLR(
                     optimizer, T_max=int(total_steps - warmup_steps), eta_min=1e-6
-                ),  # type: ignore[arg-type]
+                ),
             ],
             milestones=[int(warmup_steps)],
         )

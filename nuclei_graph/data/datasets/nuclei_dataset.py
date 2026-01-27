@@ -23,6 +23,7 @@ from nuclei_graph.data.efd import (
 from nuclei_graph.nuclei_graph_typing import Metadata, PredictSample, Sample, WSLMasks
 
 
+type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
 type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
 type AdjacencyGraph = list[list[Neighbor]]
 
@@ -93,32 +94,32 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
     def find_component(
         self,
-        idx: int,
+        seed_idx: int,
         k: int,
         graph: AdjacencyGraph,
         centroids: NDArray[np.float32],
-        indices: NDArray[np.int64] | None = None,
+        allowed_indices: NDArray[np.int64] | None = None,
     ) -> list[int]:
         """Grows a connected component of up to `k` nuclei starting from a seed index.
 
         Args:
-            idx: seed nucleus index
+            seed_idx: seed nucleus index
             k: maximum number of nuclei to include in the component.
             graph: adjacency list of the nuclei graph.
             centroids: array of nucleus coordinates.
-            indices: optional array of allowed nucleus indices
+            allowed_indices: optional array of allowed nucleus indices
 
         Returns:
             list[int]: Indices of nuclei in the component.
 
         Taken from the Nuclei Foundational Model repository.
         """
-        component_indices = []
+        component_indices: list[int] = []
         visited = np.zeros(len(centroids), dtype=bool)
 
-        pq = []
-        heapq.heappush(pq, (0, idx))
-        start_point_coords = centroids[idx]
+        pq: list[PriorityQueueItem] = []
+        heapq.heappush(pq, (0.0, seed_idx))
+        start_point_coords = centroids[seed_idx]
 
         while pq and len(component_indices) < k:
             _, current_idx = heapq.heappop(pq)
@@ -129,10 +130,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             component_indices.append(current_idx)
 
             for n_idx, edge_dist in graph[current_idx]:
-                if not visited[n_idx] and (indices is None or n_idx in indices):
+                if not visited[n_idx] and (
+                    allowed_indices is None or n_idx in allowed_indices
+                ):
                     start_dist = np.linalg.norm(centroids[n_idx] - start_point_coords)
                     cost = self.alpha * edge_dist + (1 - self.alpha) * start_dist
-                    heapq.heappush(pq, (cost, n_idx))
+                    heapq.heappush(pq, (cost, n_idx))  # type: ignore[misc]
         return component_indices
 
     def pad_to_block_size(self, tensors: Iterable[Tensor]) -> list[Tensor]:
@@ -142,10 +145,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         tensors = list(tensors)
 
-        n = tensors[0].size(0)
-        assert all(t.size(0) == n for t in tensors)
+        t_size = tensors[0].size(0)
+        assert all(t.size(0) == t_size for t in tensors)
 
-        remainder = n % self.attn_block_size
+        remainder = t_size % self.attn_block_size
         if remainder == 0:
             return tensors
 
@@ -168,7 +171,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
     def load_targets_and_masks(
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
-    ):
+    ) -> tuple[Tensor, Tensor, Tensor, list[int]]:
         """Load nucleus-level targets and supervision masks for weakly supervised learning.
 
         For negative slides, all nuclei are treated as confidently negative.
@@ -177,10 +180,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         and outside the refinement mask) or ignored (outside annotations).
 
         Returns:
-            targets: Float tensor of shape (n,). Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
-            sup_mask: Boolean tensor of shape (n,). True for nuclei with confident labels.
-            ignore_mask: Boolean tensor of shape (n,). True for nuclei that should be excluded from all losses.
-            valid_seeds: List of nuclei indices eligible as seeds for crop/component sampling.
+            targets (tensor[float], shape (n,)): Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
+            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels.
+            ignore_mask (tensor[bool], shape (n,)): True for nuclei that should be excluded from all losses.
+            valid_seeds (list[int]): Nuclei indices eligible as seeds for crop/component sampling.
         """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
@@ -209,15 +212,28 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         valid_seeds = torch.nonzero(~ignore_mask).squeeze(-1).tolist()
         return targets, sup_mask, ignore_mask, valid_seeds
 
-    def get_crop_indices(self, centroids: np.ndarray, valid_seeds: list[int]) -> Tensor:
+    def get_crop_indices(
+        self, centroids: NDArray[np.float32], valid_seeds: list[int]
+    ) -> NDArray[np.int64]:
+        """Selects nuclei indices for a crop by growing a connected component on the spatial graph.
+
+        If `full_slide` is True, returns all nuclei indices. Otherwise, a random valid seed is chosen
+        and a component of nuclei is grown based on the spatial graph.
+
+        Args:
+            centroids (np.ndarray[float], shape (n, 2)): Nucleus coordinates.
+            valid_seeds (list[int]): Indices eligible as seeds for component sampling.
+
+        Returns:
+            np.ndarray: Selected nucleus indices for the crop.
+        """
         if self.full_slide:
-            return torch.arange(len(centroids))
+            return np.arange(len(centroids), dtype=int)
         graph = build_spatial_graph(centroids)
-        seed = choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
-        return torch.tensor(
-            self.find_component(seed, self.crop_size, graph, centroids),
-            dtype=torch.long,
+        seed_idx = (
+            choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
         )
+        return np.array(self.find_component(seed_idx, self.crop_size, graph, centroids))
 
     def drop_eps_neighbors(self, df: pd.DataFrame, eps: float = 1e-4) -> pd.DataFrame:
         """Removes nuclei closer than `eps` to each other.
@@ -236,14 +252,18 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __getitem__(self, idx: int) -> Sample | PredictSample:
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
         nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
-        centroids = np.stack(nuclei["centroid"].tolist())
-        contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
 
-        # compute feature vectors
+        centroids = np.stack(nuclei["centroid"].tolist())
+        contours = np.asarray(
+            rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2),
+        )
+
+        # compute feature vectors "x"
         efd = elliptic_fourier_descriptors(contours, self.efd_order)
         efd, angles = normalize_efd_for_rotation(efd)
         efd, scales = normalize_efd_for_scale(efd)
         x = rearrange(efd, "n order c -> n (order c)")
+        # cell nuclei scales have roughly log-normal distribution
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
         x = np.concatenate([x, log_scales], axis=-1)
 
@@ -252,26 +272,29 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
         )
-
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
-        # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei
-        # neighbor distance computed from training set to convert distances into neighbor units
+
+        # center to crop mean and divide by a fixed average nuclei neighbor distance computed
+        # from training set to convert distances into neighbor units for numerical stability (RoPE)
         center = centroids[crop_indices].mean(axis=0, keepdims=True)
         crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_median
-        # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
+
+        # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotation = 2.0 * (angles % np.pi)
-        crop_pos = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)
+        crop_pos_np = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)
 
-        # compute spatial permutation to optimize block attention locality for the crop
-        tree = KDTree(crop_centroids, leafsize=self.attn_block_size)
-        perm = torch.from_numpy(tree.indices).long()
-        sorted_tree = KDTree(crop_centroids[perm], leafsize=self.attn_block_size)
+        # compute KDTree permutation to improve block attention locality
+        perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
+        sorted_tree = KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size)
 
-        crop_x = torch.from_numpy(x[crop_indices][perm].astype(np.float32))
-        crop_pos = torch.from_numpy(crop_pos[perm].astype(np.float32))
-        crop_y = targets[crop_indices][perm]
-        crop_sup_mask = sup_mask[crop_indices][perm]
-        crop_ignore_mask = ignore_mask[crop_indices][perm]
+        crop_indices_t = torch.from_numpy(crop_indices).long()
+        perm_t = torch.from_numpy(perm_np).long()
+
+        crop_x = torch.from_numpy(x[crop_indices][perm_np].astype(np.float32))
+        crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
+        crop_y = targets[crop_indices_t][perm_t]
+        crop_sup_mask = sup_mask[crop_indices_t][perm_t]
+        crop_ignore_mask = ignore_mask[crop_indices_t][perm_t]
 
         crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
             self.pad_to_block_size(
@@ -286,7 +309,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "num_points": len(crop_indices),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=sorted_tree,
-                points=crop_pos[:, :2].numpy(),  # only pass spatial coordinates
+                points=crop_pos[:, :2].cpu().numpy(),  # only pass spatial coordinates
                 n_points_unpadded=len(crop_indices),
                 k=self.k,
                 block_size=self.attn_block_size,
@@ -296,8 +319,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             metadata: Metadata = {
                 "slide_id": self.df_metadata.iloc[idx].slide_id,
                 "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
-                "nuclei_ids": list(map(str, nuclei.iloc[crop_indices.numpy()]["id"])),
-                "perm_inverse": self.get_inverse_perm(perm),
+                "nuclei_ids": nuclei.iloc[crop_indices.tolist()]["id"],
+                "perm_inverse": self.get_inverse_perm(perm_t),
             }
             return PredictSample(item=sample, metadata=metadata)
         return sample

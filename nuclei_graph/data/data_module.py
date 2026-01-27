@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from typing import Any
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -47,7 +48,7 @@ class DataModule(LightningDataModule):
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("uris", None)
