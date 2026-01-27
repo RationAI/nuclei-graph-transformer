@@ -309,7 +309,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "num_points": len(crop_indices_np),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
-                points=crop_pos_np[perm_np][:, :2],  # only pass spatial coordinates
+                points=crop_pos[:, :2].cpu().numpy(),  # only pass spatial coordinates
                 n_points_unpadded=len(crop_indices_np),
                 k=self.k,
                 block_size=self.attn_block_size,
