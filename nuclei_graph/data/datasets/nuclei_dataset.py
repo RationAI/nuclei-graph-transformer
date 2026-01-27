@@ -221,11 +221,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         and a component of nuclei is grown based on the spatial graph.
 
         Args:
-            centroids (np.ndarray[float], shape (n, 2)): Nucleus coordinates.
+            centroids (np.ndarray[float], shape (n, 2)): Nuclei coordinates.
             valid_seeds (list[int]): Indices eligible as seeds for component sampling.
 
         Returns:
-            np.ndarray: Selected nucleus indices for the crop.
+            np.ndarray: Selected nuclei indices for the crop.
         """
         if self.full_slide:
             return np.arange(len(centroids), dtype=int)
