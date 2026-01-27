@@ -10,8 +10,11 @@ from nuclei_graph.data.block_mask import (
 )
 
 
+PointsFixture = tuple[KDTree, np.ndarray]
+
+
 @pytest.fixture
-def simple_points():
+def simple_points() -> PointsFixture:
     points = np.array(
         [
             [0.0, 0.0],
@@ -33,8 +36,12 @@ def simple_points():
     ],
 )
 def test_create_block_mask_logic(
-    simple_points, block_size, k, n_unpadded, expected_counts
-):
+    simple_points: PointsFixture,
+    block_size: int,
+    k: int,
+    n_unpadded: int,
+    expected_counts: list[int],
+) -> None:
     tree, points = simple_points
     mask = create_block_mask_from_kdtree(
         tree, points, n_points_unpadded=n_unpadded, k=k, block_size=block_size
@@ -49,7 +56,7 @@ def test_create_block_mask_logic(
         assert q_block in kv_indices[q_block].tolist()
 
 
-def test_create_block_mask_shape(simple_points):
+def test_create_block_mask_shape(simple_points: PointsFixture) -> None:
     tree, points = simple_points
     mask = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
 
@@ -59,7 +66,7 @@ def test_create_block_mask_shape(simple_points):
     assert mask.kv_indices.shape[1] == 1
 
 
-def test_padding_validity():
+def test_padding_validity() -> None:
     """Ensure padded points are ignored even if they are the closest neighbors."""
     points = np.array([[0.0], [0.1], [1.0], [1.05]], dtype=np.float32)
     n_unpadded = 3
@@ -85,7 +92,7 @@ def test_padding_validity():
         )
 
 
-def test_batch_block_masks(simple_points):
+def test_batch_block_masks(simple_points: PointsFixture) -> None:
     tree, points = simple_points
 
     mask1 = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
@@ -99,7 +106,7 @@ def test_batch_block_masks(simple_points):
     assert torch.equal(batched.kv_num_blocks[1, 0], mask2.kv_num_blocks[0, 0])
 
 
-def test_batch_padding_logic():
+def test_batch_padding_logic() -> None:
     """Test batching masks with different numbers of KV neighbors."""
     pts_a = np.array([[0, 0], [10, 10]], dtype=np.float32)
     tree_a = KDTree(pts_a)
@@ -117,7 +124,7 @@ def test_batch_padding_logic():
 
 
 @pytest.mark.parametrize("k", [1, 2])
-def test_self_block_attention(simple_points, k):
+def test_self_block_attention(simple_points: PointsFixture, k: int) -> None:
     """Each block should attend to itself at minimum."""
     tree, points = simple_points
     mask = create_block_mask_from_kdtree(
@@ -127,7 +134,7 @@ def test_self_block_attention(simple_points, k):
         assert q_block in mask.kv_indices[0, 0, q_block].tolist()
 
 
-def test_cross_block_attention():
+def test_cross_block_attention() -> None:
     """Blocks can attend to neighboring blocks if kNN picks points across blocks."""
     points = np.array(
         [
@@ -152,7 +159,7 @@ def test_cross_block_attention():
     )
 
 
-def test_block_deduplication():
+def test_block_deduplication() -> None:
     """Multiple point-to-point connections between blocks should result in a single block connection."""
     points = np.zeros((4, 2), dtype=np.float32)
     tree = KDTree(points)
@@ -166,7 +173,7 @@ def test_block_deduplication():
     assert torch.equal(indices.sort()[0], torch.tensor([0, 1], dtype=torch.int32))
 
 
-def test_neighbor_coverage(simple_points):
+def test_neighbor_coverage(simple_points: PointsFixture) -> None:
     """Every true nearest neighbor found by the KDTree should be contained within the active blocks of the mask."""
     tree, points = simple_points
     n_points = len(points)
@@ -177,6 +184,7 @@ def test_neighbor_coverage(simple_points):
         tree, points, n_points_unpadded=n_points, k=k, block_size=block_size
     )
     _, neighbor_indices = tree.query(points, k=k)
+    neighbor_indices = np.asarray(neighbor_indices)
     kv_indices = mask.kv_indices[0, 0]  # (num_blocks, max_neighbors)
 
     for q_idx in range(n_points):
