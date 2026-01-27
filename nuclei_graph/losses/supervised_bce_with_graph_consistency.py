@@ -8,12 +8,12 @@ from nuclei_graph.nuclei_graph_typing import WSLMasks
 
 
 def graph_smoothness_loss_blockwise(
-    logits: Tensor,  # (N, 1)
+    logits: Tensor,
     wsl_masks: WSLMasks,
     block_mask: BlockMask,
 ) -> Tensor:
+    probs = torch.sigmoid(logits.squeeze(-1))
     device = logits.device
-    p = torch.sigmoid(logits.squeeze(-1))  # (N,)
 
     sup_mask = wsl_masks["sup_mask"]
     ignore_mask = wsl_masks["ignore_mask"]
@@ -22,48 +22,60 @@ def graph_smoothness_loss_blockwise(
     if not uncertain_mask.any():
         return logits.new_tensor(0.0)
 
+    kv_indices = block_mask.kv_indices.squeeze(1)
+    kv_num_blocks = block_mask.kv_num_blocks.squeeze(1)  # (batch, num_blocks)
+
     BLOCK_SIZE = block_mask.BLOCK_SIZE[0]
-    num_blocks = block_mask.kv_num_blocks.shape[-1]
+    batch_size, num_blocks = kv_num_blocks.shape
 
-    kv_indices = block_mask.kv_indices[0, 0]  # (num_blocks, max_kv_blocks)
-    kv_num_blocks = block_mask.kv_num_blocks[0, 0]  # (num_blocks,)
+    total_loss = logits.new_tensor(0.0)
+    valid_batches = 0
 
-    loss = logits.new_tensor(0.0)
-    count = 0
+    for batch_i in range(batch_size):
+        probs_b = probs[batch_i]  # (seq_length,)
+        uncertain_b = uncertain_mask[batch_i]  # (seq_length,)
+        ignore_b = ignore_mask[batch_i]  # (seq_length,)
 
-    for qb in range(num_blocks):
-        q_nodes = torch.arange(
-            qb * BLOCK_SIZE,
-            (qb + 1) * BLOCK_SIZE,
-            device=device,
-        )
+        kv_ind_b = kv_indices[batch_i]  # (num_blocks, max_neighbors)
+        kv_num_b = kv_num_blocks[batch_i]  # (num_blocks,)
 
-        q_nodes = q_nodes[uncertain_mask[q_nodes]]
-        if q_nodes.numel() == 0:
-            continue
+        loss_b = logits.new_tensor(0.0)
+        count_b = 0
 
-        kv_blocks = kv_indices[qb, : kv_num_blocks[qb]]
+        for qb in range(num_blocks):
+            q_start = qb * BLOCK_SIZE
+            q_end = (qb + 1) * BLOCK_SIZE
+            q_nodes = torch.arange(q_start, q_end, device=device)
+            q_nodes = q_nodes[uncertain_b[q_nodes]]
 
-        neigh_nodes = torch.cat(
-            [
-                torch.arange(
-                    kb * BLOCK_SIZE,
-                    (kb + 1) * BLOCK_SIZE,
-                    device=device,
-                )
-                for kb in kv_blocks.tolist()
+            if q_nodes.numel() == 0:
+                continue
+
+            num_k = kv_num_b[qb].item()
+            if num_k == 0:
+                continue
+
+            k_blocks = kv_ind_b[qb, :num_k]
+
+            neigh_nodes_list = [
+                torch.arange(kb * BLOCK_SIZE, (kb + 1) * BLOCK_SIZE, device=device)
+                for kb in k_blocks
             ]
-        )
+            neigh_nodes = torch.cat(neigh_nodes_list)
+            neigh_nodes = neigh_nodes[~ignore_b[neigh_nodes]]
 
-        neigh_nodes = neigh_nodes[~ignore_mask[neigh_nodes]]
-        if neigh_nodes.numel() == 0:
-            continue
+            if neigh_nodes.numel() == 0:
+                continue
+            neigh_mean = probs_b[neigh_nodes].mean()
 
-        neigh_mean = p[neigh_nodes].mean()
-        loss += (p[q_nodes] - neigh_mean).pow(2).mean()
-        count += 1
+            loss_b += (probs_b[q_nodes] - neigh_mean).pow(2).sum()
+            count_b += q_nodes.numel()
 
-    return loss / max(count, 1)
+        if count_b > 0:
+            total_loss += loss_b / count_b
+            valid_batches += 1
+
+    return total_loss / max(valid_batches, 1)
 
 
 class SupervisedBCEWithGraphConsistency(nn.Module):

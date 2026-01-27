@@ -293,8 +293,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_y = targets[crop_indices_t][perm_t]
         crop_sup_mask = sup_mask[crop_indices_t][perm_t]
         crop_ignore_mask = ignore_mask[crop_indices_t][perm_t]
-        crop_x = torch.from_numpy(x[crop_indices_np][perm_np].astype(np.float32))
         crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
+        crop_x = torch.from_numpy(x[crop_indices_np][perm_np].astype(np.float32))
 
         crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
             self.pad_to_block_size(
