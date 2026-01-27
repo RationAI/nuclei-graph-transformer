@@ -57,7 +57,7 @@ class WSLMetaArch(LightningModule):
         loss, logs = self.criterion(
             logits=self(batch),
             targets_sup=batch["y"],
-            masks=batch["masks"],
+            wsl_masks=batch["wsl_masks"],
             # ----- loss specific args -----
             block_mask=batch["block_mask"],
             weight_factor=min(
@@ -81,7 +81,7 @@ class WSLMetaArch(LightningModule):
 
     def validation_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        sup_mask = batch["masks"]["sup_mask"]
+        sup_mask = batch["wsl_masks"]["sup_mask"]
         logits_sup = self(batch)[sup_mask]
 
         sup_size = targets_sup.numel()
@@ -105,7 +105,7 @@ class WSLMetaArch(LightningModule):
 
     def test_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
-        sup_mask = batch["masks"]["sup_mask"]
+        sup_mask = batch["wsl_masks"]["sup_mask"]
         logits_sup = self(batch)[sup_mask]
 
         sup_size = targets_sup.numel()

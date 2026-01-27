@@ -37,8 +37,8 @@ def compute_median_neighbor_distance(df: pd.DataFrame) -> float:
     print("Computing median neighbor distance...")
     for nuclei_path in tqdm(df["slide_nuclei_path"]):
         nuclei_df = pd.read_parquet(nuclei_path, columns=["centroid"])
-        coords = np.stack(nuclei_df["centroid"].tolist())
 
+        coords = np.stack(nuclei_df["centroid"].tolist())
         dists, _ = KDTree(coords).query(coords, k=2)
         nn_dists = dists[:, 1]  # first column is distance to self
 

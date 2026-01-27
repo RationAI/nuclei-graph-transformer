@@ -17,21 +17,21 @@ class SupervisedBCEWithEntropy(nn.Module):
         self,
         logits: Tensor,
         targets_sup: Tensor,
-        masks: WSLMasks,
+        wsl_masks: WSLMasks,
         **kwargs: Any,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes total loss as a combination of a supervised BCE and an entropy regularization term.
 
         The loss is computed as: BCE(Supervised) + entropy_weight * Mean(Entropy(Uncertain)) where:
-          - "Supervised" is a set of predictions for nuclei marked by `masks["sup_mask"]`,
-          - "Uncertain" is a set of predictions for nuclei outside `masks["ignore_mask"]` and `masks["sup_mask"]`.
+          - "Supervised" is a set of predictions for nuclei marked by `wsl_masks["sup_mask"]`,
+          - "Uncertain" is a set of predictions for nuclei outside `wsl_masks["ignore_mask"]` and `wsl_masks["sup_mask"]`.
 
         It is assumed that training batches do not contain padding.
 
         Args:
             logits: Logits from the model.
             targets_sup: Target labels; only for the supervised set of nuclei.
-            masks: Dictionary of masks with keys:
+            wsl_masks: Dictionary of masks with keys:
                 - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
                 - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
             kwargs: Additional keyword arguments.
@@ -40,14 +40,14 @@ class SupervisedBCEWithEntropy(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits_sup = logits[masks["sup_mask"]]
+        logits_sup = logits[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         loss_sup = (
             self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
 
-        uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
+        uncertain_mask = (~wsl_masks["ignore_mask"]) & (~wsl_masks["sup_mask"])
         probs_uncertain = torch.sigmoid(logits[uncertain_mask])
 
         entropy = -(

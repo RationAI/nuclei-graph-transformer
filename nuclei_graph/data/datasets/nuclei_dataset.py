@@ -283,18 +283,17 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         rotation = 2.0 * (angles % np.pi)
         crop_pos_np = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)
 
-        # compute KDTree permutation to improve block attention locality
+        # compute KDTree permutation to improve block neighborhood attention locality (optimization)
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
-        sorted_tree = KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size)
 
-        crop_indices_t = torch.from_numpy(crop_indices).long()
         perm_t = torch.from_numpy(perm_np).long()
+        crop_indices_t = torch.from_numpy(crop_indices).long()
 
-        crop_x = torch.from_numpy(x[crop_indices][perm_np].astype(np.float32))
-        crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
         crop_y = targets[crop_indices_t][perm_t]
         crop_sup_mask = sup_mask[crop_indices_t][perm_t]
         crop_ignore_mask = ignore_mask[crop_indices_t][perm_t]
+        crop_x = torch.from_numpy(x[crop_indices][perm_np].astype(np.float32))
+        crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
 
         crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
             self.pad_to_block_size(
@@ -305,10 +304,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_x,  # (n, efd_order * 4 + 1)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_supervised, 1)
-            "masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),
+            "wsl_masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),
             "num_points": len(crop_indices),
             "block_mask": create_block_mask_from_kdtree(
-                kdtree=sorted_tree,
+                kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
                 points=crop_pos[:, :2].cpu().numpy(),  # only pass spatial coordinates
                 n_points_unpadded=len(crop_indices),
                 k=self.k,

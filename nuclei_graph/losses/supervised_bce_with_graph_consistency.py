@@ -9,14 +9,14 @@ from nuclei_graph.nuclei_graph_typing import WSLMasks
 
 def graph_smoothness_loss_blockwise(
     logits: Tensor,  # (N, 1)
-    masks: WSLMasks,
+    wsl_masks: WSLMasks,
     block_mask: BlockMask,
 ) -> Tensor:
     device = logits.device
     p = torch.sigmoid(logits.squeeze(-1))  # (N,)
 
-    sup_mask = masks["sup_mask"]
-    ignore_mask = masks["ignore_mask"]
+    sup_mask = wsl_masks["sup_mask"]
+    ignore_mask = wsl_masks["ignore_mask"]
     uncertain_mask = (~ignore_mask) & (~sup_mask)
 
     if not uncertain_mask.any():
@@ -76,14 +76,14 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
         self,
         logits: Tensor,
         targets_sup: Tensor,
-        masks: WSLMasks,
+        wsl_masks: WSLMasks,
         block_mask: BlockMask,
         **kwargs: Any,
     ) -> tuple[Tensor, dict[str, Any]]:
         """Computes combined loss from the supervised BCE and graph smoothness consistency.
 
         The loss consists of two parts:
-          1. supervised loss: BCE computed only on nuclei marked by `masks["sup_mask"]`,
+          1. supervised loss: BCE computed only on nuclei marked by `wsl_masks["sup_mask"]`,
           2. graph consistency loss: Encourages logits of uncertain nuclei to be similar to the average of
                 their neighbors, as defined by the sparse neighborhood structure in `block_mask`.
 
@@ -92,7 +92,7 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
         Args:
             logits: Logits from the model.
             targets_sup: Target labels; only for the supervised set of nuclei.
-            masks: Dictionary of masks with keys:
+            wsl_masks: Dictionary of masks with keys:
                 - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
                 - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
             block_mask: BlockMask object for sparse attention specifying the neighborhood structure.
@@ -102,13 +102,13 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits_sup = logits[masks["sup_mask"]]
+        logits_sup = logits[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         loss_sup = (
             self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
-        loss_graph = graph_smoothness_loss_blockwise(logits, masks, block_mask)
+        loss_graph = graph_smoothness_loss_blockwise(logits, wsl_masks, block_mask)
 
         total_loss = loss_sup + self.graph_weight * loss_graph
         logs = {

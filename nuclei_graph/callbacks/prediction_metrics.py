@@ -43,7 +43,7 @@ class PredictionMetricsCallback(Callback):
     ) -> None:
         sample = batch["items"]
         targets_sup = sample["y"]
-        logits_sup = outputs[sample["masks"]["sup_mask"]]
+        logits_sup = outputs[sample["wsl_masks"]["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)
@@ -64,7 +64,7 @@ class PredictionMetricsBatchCallback(Callback):
     ) -> None:
         sample, metadata = batch["items"], batch["metadata"][0]  # batch size is 1
         targets_sup = sample["y"]
-        logits_sup = outputs[sample["masks"]["sup_mask"]]
+        logits_sup = outputs[sample["wsl_masks"]["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
         metrics_module = cast("MetricCollection", pl_module.predict_metrics)

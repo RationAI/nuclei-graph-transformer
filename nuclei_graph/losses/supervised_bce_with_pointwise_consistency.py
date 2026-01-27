@@ -18,7 +18,7 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         self,
         logits: Tensor,
         targets_sup: Tensor,
-        masks: WSLMasks,
+        wsl_masks: WSLMasks,
         logits_aug: Tensor,
         weight_factor: float = 1.0,
         **kwargs: Any,
@@ -26,16 +26,16 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         """Computes combined loss from the supervised BCE and consistency loss between original and augmented views.
 
         The loss consists of two parts:
-          1. supervised loss: BCE computed only on nuclei marked by `masks["sup_mask"]`,
+          1. supervised loss: BCE computed only on nuclei marked by `wsl_masks["sup_mask"]`,
           2. consistency loss: MSE between probabilities of the original and augmented views;
-                computed on nuclei outside `masks["ignore_mask"]` and outside masks["sup_mask"].
+                computed on nuclei outside `wsl_masks["ignore_mask"]` and outside `wsl_masks["sup_mask"]`.
 
         It is assumed that training batches do not contain padding.
 
         Args:
             logits: Logits from the model (on the original input).
             targets_sup: Target labels; only for the supervised set of nuclei.
-            masks: Dictionary of masks with keys:
+            wsl_masks: Dictionary of masks with keys:
                 - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
                 - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
             logits_aug: Logits from the model (on the augmented input).
@@ -46,7 +46,7 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits_sup = logits[masks["sup_mask"]]
+        logits_sup = logits[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         loss_sup = (
@@ -54,7 +54,7 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         )
         loss_cons = logits.sum() * 0.0
 
-        uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
+        uncertain_mask = (~wsl_masks["ignore_mask"]) & (~wsl_masks["sup_mask"])
 
         if uncertain_mask.any():
             loss_cons = F.mse_loss(

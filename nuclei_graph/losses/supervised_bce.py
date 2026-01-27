@@ -15,7 +15,7 @@ class SupervisedBCE(nn.Module):
         self,
         logits: Tensor,
         targets_sup: Tensor,
-        masks: WSLMasks,
+        wsl_masks: WSLMasks,
         **kwargs: Any,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes BCE loss on confident nuclei only.
@@ -26,14 +26,14 @@ class SupervisedBCE(nn.Module):
         Args:
             logits: Logits from the model.
             targets_sup: Target labels; only for the supervised set of nuclei.
-            masks: Dictionary containing mask that selects nuclei for supervised loss ("sup_mask" (tensor[bool])).
+            wsl_masks: Dictionary containing mask that selects nuclei for supervised loss ("sup_mask" (tensor[bool])).
             kwargs: Additional keyword arguments.
 
         Returns:
             loss: Computed BCE loss tensor.
             logs: Dictionary containing the size of the supervised set.
         """
-        logits_sup = logits[masks["sup_mask"]]
+        logits_sup = logits[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
         loss_sup = (
             self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
