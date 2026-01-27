@@ -20,6 +20,7 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         targets_sup: Tensor,
         masks: WSLMasks,
         weight_factor: float = 1.0,
+        **kwargs: Any,
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes combined loss from the supervised BCE and consistency loss between original and augmented views.
 
@@ -32,13 +33,14 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
 
         Args:
             criterion_input: Dictionary containing model outputs with keys:
-                - "logits": Logits from the original input.
-                - "logits_aug": (Optional) Logits from an augmented view of the same input.
-            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary of boolean masks with keys:
-                - "sup_mask": Selects nuclei for supervised loss.
-                - "ignore_mask": Selects nuclei to exclude from all losses.
+                - "logits" (tensor): Logits from the original input.
+                - "logits_aug" (tensor; optional): Logits from an augmented view of the same input.
+            targets_sup: Target labels; only for the supervised set of nuclei.
+            masks: Dictionary of masks with keys:
+                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
+                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
             weight_factor: Weight factor to scale the consistency loss.
+            kwargs: Additional keyword arguments.
 
         Returns:
             total_loss: Combined loss tensor.
@@ -63,7 +65,6 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
             )
 
         total_loss = loss_sup + (self.consistency_weight * weight_factor * loss_cons)
-
         logs = {
             "loss_sup": loss_sup.detach().item(),
             "loss_cons": loss_cons.detach().item(),
