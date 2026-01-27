@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 import torch
@@ -14,10 +15,8 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.data.augmentations.geom_augs import apply_augmentations
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
-    CriterionInput,
     PredictBatch,
 )
 
@@ -29,14 +28,14 @@ class WSLMetaArch(LightningModule):
         warmup_epochs: int,
         net: nn.Module,
         criterion: nn.Module,
-        use_augmentations: bool = False,
+        augmentations: Callable[[Batch], Batch] | None = None,
     ):
         super().__init__()
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
         self.criterion = criterion
-        self.use_augmentations = use_augmentations
+        self.augmentations = augmentations
         self.bce = nn.BCEWithLogitsLoss()
 
         metrics: dict[str, Metric | MetricCollection] = {
@@ -56,13 +55,14 @@ class WSLMetaArch(LightningModule):
 
     def training_step(self, batch: Batch) -> Tensor:
         logits_aug = (
-            self(apply_augmentations(batch)) if self.use_augmentations else None
+            None if self.augmentations is None else self(self.augmentations(batch))
         )
         loss, logs = self.criterion(
-            criterion_input=CriterionInput(logits=self(batch), logits_aug=logits_aug),
+            logits=self(batch),
             targets_sup=batch["y"],
             masks=batch["masks"],
             block_mask=batch["block_mask"],
+            logits_aug=logits_aug,
             weight_factor=min(
                 1.0, self.current_epoch / 10
             ),  # divide by the number of rampup epochs

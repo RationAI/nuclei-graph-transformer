@@ -4,7 +4,7 @@ import torch
 from torch import Tensor, nn
 
 from nuclei_graph.data.block_mask import BlockMask
-from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
+from nuclei_graph.nuclei_graph_typing import WSLMasks
 
 
 def graph_smoothness_loss_blockwise(
@@ -74,7 +74,7 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
 
     def forward(
         self,
-        criterion_input: CriterionInput,
+        logits: Tensor,
         targets_sup: Tensor,
         masks: WSLMasks,
         block_mask: BlockMask,
@@ -90,9 +90,7 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
         It is assumed that training batches do not contain padding.
 
         Args:
-            criterion_input: Dictionary containing model outputs with keys:
-                - "logits" (tensor): Logits from the original input.
-                - "logits_aug" (tensor; optional): Logits from an augmented view of the same input.
+            logits: Logits from the model.
             targets_sup: Target labels; only for the supervised set of nuclei.
             masks: Dictionary of masks with keys:
                 - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
@@ -104,7 +102,6 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits = criterion_input["logits"]
         logits_sup = logits[masks["sup_mask"]]
         sup_size = targets_sup.numel()
 

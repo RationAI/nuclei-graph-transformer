@@ -42,8 +42,3 @@ class PredictSample(TypedDict):
 class PredictBatch(TypedDict):
     items: Batch
     metadata: list[Metadata]
-
-
-class CriterionInput(TypedDict):
-    logits: Tensor
-    logits_aug: Tensor | None

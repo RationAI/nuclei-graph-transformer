@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
+from nuclei_graph.nuclei_graph_typing import WSLMasks
 
 
 class SupervisedBCEWithEntropy(nn.Module):
@@ -15,7 +15,7 @@ class SupervisedBCEWithEntropy(nn.Module):
 
     def forward(
         self,
-        criterion_input: CriterionInput,
+        logits: Tensor,
         targets_sup: Tensor,
         masks: WSLMasks,
         **kwargs: Any,
@@ -29,7 +29,7 @@ class SupervisedBCEWithEntropy(nn.Module):
         It is assumed that training batches do not contain padding.
 
         Args:
-            criterion_input: Dictionary with model outputs (contains the key "logits" (tensor)).
+            logits: Logits from the model.
             targets_sup: Target labels; only for the supervised set of nuclei.
             masks: Dictionary of masks with keys:
                 - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
@@ -40,7 +40,6 @@ class SupervisedBCEWithEntropy(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits = criterion_input["logits"]
         logits_sup = logits[masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
