@@ -54,19 +54,18 @@ class WSLMetaArch(LightningModule):
         )
 
     def training_step(self, batch: Batch) -> Tensor:
-        logits_aug = (
-            None if self.augmentations is None else self(self.augmentations(batch))
-        )
         loss, logs = self.criterion(
             logits=self(batch),
             targets_sup=batch["y"],
             masks=batch["masks"],
             # ----- loss specific args -----
             block_mask=batch["block_mask"],
-            logits_aug=logits_aug,
             weight_factor=min(
                 1.0, self.current_epoch / 10
             ),  # divide by the number of rampup epochs
+            logits_aug=None
+            if self.augmentations is None
+            else self(self.augmentations(batch)),
         )
         self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(

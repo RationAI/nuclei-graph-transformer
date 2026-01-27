@@ -3,3 +3,4 @@ _target_: nuclei_graph.losses.supervised_bce_with_pointwise_consistency.Supervis
 consistency_weight: 2.0
 augmentations:
   _target_: nuclei_graph.data.augmentations.geom_augs.apply_augmentations
+  _partial_: true

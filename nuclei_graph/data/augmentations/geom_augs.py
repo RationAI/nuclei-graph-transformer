@@ -3,7 +3,7 @@ import torch
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
-def apply_jitter(batch: Batch, jitter_std: float = 0.02) -> Batch:
+def apply_jitter(batch: Batch, jitter_std: float = 0.03) -> Batch:
     batch = batch.copy()
     batch["pos"][:, :2] += torch.randn_like(batch["pos"][:, :2]) * jitter_std
     return batch
@@ -16,7 +16,7 @@ def apply_rotation(batch: Batch) -> Batch:
     return batch
 
 
-def apply_feature_noise(batch: Batch, noise_std: float = 0.01) -> Batch:
+def apply_feature_noise(batch: Batch, noise_std: float = 0.02) -> Batch:
     batch = batch.copy()
     batch["x"] += torch.randn_like(batch["x"]) * noise_std
     return batch
