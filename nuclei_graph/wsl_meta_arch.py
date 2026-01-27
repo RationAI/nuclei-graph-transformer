@@ -61,6 +61,7 @@ class WSLMetaArch(LightningModule):
             logits=self(batch),
             targets_sup=batch["y"],
             masks=batch["masks"],
+            # ----- loss specific args -----
             block_mask=batch["block_mask"],
             logits_aug=logits_aug,
             weight_factor=min(
