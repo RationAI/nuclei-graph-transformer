@@ -32,31 +32,31 @@ def graph_smoothness_loss_blockwise(
     total_loss = logits.new_tensor(0.0)
     valid_batches = 0
 
-    for b_i in range(batch_size):
-        probs_b = probs[b_i]  # (Seq,)
-        uncertain_b = uncertain_mask[b_i]  # (Seq,)
-        ignore_b = ignore_mask[b_i]  # (Seq,)
+    for b_idx in range(batch_size):
+        probs_b = probs[b_idx]  # (Seq,)
+        uncertain_b = uncertain_mask[b_idx]  # (Seq,)
+        ignore_b = ignore_mask[b_idx]  # (Seq,)
 
-        kv_ind_b = kv_indices[b_i]  # (num_blocks, max_neighbors)
-        kv_num_b = kv_num_blocks[b_i]  # (num_blocks,)
+        kv_blocks_b = kv_indices[b_idx]  # (num_blocks, max_neighbors)
+        kv_num_b = kv_num_blocks[b_idx]  # (num_blocks,)
 
-        loss_b = logits.new_tensor(0.0)
-        num_uncertain_nodes = 0
+        loss_graph_b = logits.new_tensor(0.0)
+        num_uncertain_q = 0
 
-        for qb in range(num_blocks):
+        for q_block in range(num_blocks):
             # identify uncertain query nodes in the current block (graph)
-            q_start = qb * block_size
+            q_start = q_block * block_size
             q_nodes = block_offsets + q_start
             q_nodes = q_nodes[uncertain_b[q_nodes]]
             if q_nodes.numel() == 0:
                 continue
 
             # get neighbor blocks for the current query block
-            num_k = kv_num_b[qb].item()
+            num_k = kv_num_b[q_block].item()
             if num_k == 0:
                 continue
 
-            neighbor_blocks = kv_ind_b[qb, :num_k]
+            neighbor_blocks = kv_blocks_b[q_block, :num_k]
             neighbor_nodes = (
                 neighbor_blocks[:, None] * block_size + block_offsets[None, :]
             ).flatten()
@@ -67,12 +67,11 @@ def graph_smoothness_loss_blockwise(
                 continue
             neighbor_mean = probs_b[neighbor_nodes].mean()
 
-            # MSE: (prediction - average_of_neighbors)^2
-            loss_b += (probs_b[q_nodes] - neighbor_mean).pow(2).sum()
-            num_uncertain_nodes += q_nodes.numel()
+            loss_graph_b += (probs_b[q_nodes] - neighbor_mean).pow(2).sum()
+            num_uncertain_q += q_nodes.numel()
 
-        if num_uncertain_nodes > 0:
-            total_loss += loss_b / num_uncertain_nodes
+        if num_uncertain_q > 0:
+            total_loss += loss_graph_b / num_uncertain_q
             valid_batches += 1
 
     return total_loss / max(valid_batches, 1)
