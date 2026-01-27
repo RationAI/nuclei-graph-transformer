@@ -37,17 +37,12 @@ class DataModule(LightningDataModule):
         self,
         batch_size: int,
         num_workers: int = 0,
-        use_refinement_in_sampler: bool | None = False,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.use_refinement_in_sampler = use_refinement_in_sampler
-        assert not (use_refinement_in_sampler is True and sampler is None), (
-            "`use_refinement_in_sampler` can be True only if a sampler is provided."
-        )
         self.sampler_partial = sampler
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
@@ -112,7 +107,7 @@ class DataModule(LightningDataModule):
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement, self.use_refinement_in_sampler
+                    df_train, df_labels, df_refinement
                 )
                 stats = self._get_stats(conf, df_train)
 

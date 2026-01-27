@@ -8,7 +8,7 @@ from torch import Tensor
 from nuclei_graph.nuclei_graph_typing import CriterionInput, WSLMasks
 
 
-class SupervisedBCEWithConsistency(nn.Module):
+class SupervisedBCEWithPointwiseConsistency(nn.Module):
     def __init__(self, consistency_weight: float = 0.5, **kwargs: Any) -> None:
         super().__init__()
         self.consistency_weight = consistency_weight
@@ -21,12 +21,14 @@ class SupervisedBCEWithConsistency(nn.Module):
         masks: WSLMasks,
         weight_factor: float = 1.0,
     ) -> tuple[Tensor, dict[str, float]]:
-        """Computes combined loss from the supervised BCE and consistency loss between original and augmented predictions.
+        """Computes combined loss from the supervised BCE and consistency loss between original and augmented views.
 
         The loss consists of two parts:
           1. supervised loss: BCE computed only on nuclei marked by `masks["sup_mask"]`,
-          2. consistency loss: MSE between probabilities of the original and augmented logits;
+          2. consistency loss: MSE between probabilities of the original and augmented views;
                 computed on nuclei outside `masks["ignore_mask"]` and outside masks["sup_mask"].
+
+        It is assumed that training batches do not contain padding.
 
         Args:
             criterion_input: Dictionary containing model outputs with keys:
@@ -46,13 +48,10 @@ class SupervisedBCEWithConsistency(nn.Module):
         logits_sup = logits[masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
-        # it is assumed training batches do not contain padding
         loss_sup = (
-            self.bce(logits_sup, targets_sup)
-            if sup_size > 0
-            else torch.tensor(0.0, device=logits.device, requires_grad=True)
+            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
-        loss_cons = torch.tensor(0.0, device=logits.device, requires_grad=True)
+        loss_cons = logits.sum() * 0.0
 
         logits_aug = criterion_input.get("logits_aug")
         uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
@@ -66,8 +65,8 @@ class SupervisedBCEWithConsistency(nn.Module):
         total_loss = loss_sup + (self.consistency_weight * weight_factor * loss_cons)
 
         logs = {
-            "loss_sup": loss_sup.detach() if isinstance(loss_sup, Tensor) else 0.0,
-            "loss_cons": loss_cons.detach(),
+            "loss_sup": loss_sup.detach().item(),
+            "loss_cons": loss_cons.detach().item(),
             "sup_size": sup_size,
         }
         return total_loss, logs

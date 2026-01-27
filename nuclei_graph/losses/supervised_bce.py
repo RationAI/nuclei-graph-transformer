@@ -1,6 +1,5 @@
 from typing import Any
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -21,7 +20,8 @@ class SupervisedBCE(nn.Module):
     ) -> tuple[Tensor, dict[str, float]]:
         """Computes BCE loss on confident nuclei only.
 
-        Nuclei outside the supervision mask are ignored (hard masking).
+        Nuclei outside the supervision mask are ignored (hard masking) and it is assumed that
+        training batches do not contain padding.
 
         Args:
             criterion_input: Dictionary with model outputs (contains the key "logits").
@@ -38,8 +38,6 @@ class SupervisedBCE(nn.Module):
 
         sup_size = targets_sup.numel()
         loss_sup = (
-            self.bce(logits_sup, targets_sup)
-            if sup_size > 0
-            else torch.tensor(0.0, device=logits.device, requires_grad=True)
+            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
         return loss_sup, {"sup_size": sup_size}

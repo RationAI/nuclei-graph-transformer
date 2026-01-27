@@ -2,4 +2,3 @@
 _target_: nuclei_graph.losses.supervised_bce_with_entropy.SupervisedBCEWithEntropy
 entropy_weight: 0.1
 use_augmentations: false
-use_refinement_in_sampler: false

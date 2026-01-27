@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - /model/models@model.net: nuclei_transformer
-  - /losses@model.criterion: supervised_bce_with_consistency
+  - /losses@model.criterion: supervised_bce_with_graph_consistency
   - /data/datasets@data.train: nuclei_dataset/train
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
@@ -24,7 +24,6 @@ model:
 
 data:
   batch_size: 8
-  use_refinement_in_sampler: ${model.criterion.use_refinement_in_sampler}
   crop_size: 4096
   alpha: 0.8
   k: 128
@@ -36,7 +35,6 @@ metadata:
   run_name: "Nuclei Transformer train [(256,1024,3,8,8),(8,128,4096)(0.30)]"
   description: "testing run"
   hyperparams:
-    use_refinement_in_sampler: ${data.use_refinement_in_sampler}
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.crop_size}

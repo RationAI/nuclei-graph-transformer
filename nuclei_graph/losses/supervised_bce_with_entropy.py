@@ -26,6 +26,8 @@ class SupervisedBCEWithEntropy(nn.Module):
           - "Supervised" is a set of predictions for nuclei marked by `masks["sup_mask"]`,
           - "Uncertain" is a set of predictions for nuclei outside `masks["ignore_mask"]` and `masks["sup_mask"]`.
 
+        It is assumed that training batches do not contain padding.
+
         Args:
             criterion_input: Dictionary with model outputs (contains the key "logits").
             targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
@@ -42,11 +44,8 @@ class SupervisedBCEWithEntropy(nn.Module):
         logits_sup = logits[masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
-        # it is assumed training batches do not contain padding
         loss_sup = (
-            self.bce(logits_sup, targets_sup)
-            if sup_size > 0
-            else torch.tensor(0.0, device=logits.device, requires_grad=True)
+            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
 
         uncertain_mask = (~masks["ignore_mask"]) & (~masks["sup_mask"])
@@ -56,17 +55,13 @@ class SupervisedBCEWithEntropy(nn.Module):
             probs_uncertain * torch.log(probs_uncertain + 1e-8)
             + (1 - probs_uncertain) * torch.log(1 - probs_uncertain + 1e-8)
         )
-        loss_ent = (
-            entropy.mean()
-            if probs_uncertain.numel() > 0
-            else torch.tensor(0.0, device=logits.device, requires_grad=True)
-        )
+        loss_ent = entropy.mean() if probs_uncertain.numel() > 0 else logits.sum() * 0.0
 
         total_loss = loss_sup + self.entropy_weight * loss_ent
 
         logs = {
-            "loss_sup": loss_sup.detach(),
-            "loss_ent": loss_ent.detach(),
+            "loss_sup": loss_sup.detach().item(),
+            "loss_ent": loss_ent.detach().item(),
             "sup_size": sup_size,
         }
         return total_loss, logs
