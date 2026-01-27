@@ -263,7 +263,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         efd, angles = normalize_efd_for_rotation(efd)
         efd, scales = normalize_efd_for_scale(efd)
         x = rearrange(efd, "n order c -> n (order c)")
-        # cell nuclei scales have roughly log-normal distribution
+        # nuclei scales have roughly log-normal distribution
         log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
         x = np.concatenate([x, log_scales], axis=-1)
 
@@ -284,7 +284,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_rotations = rotations[crop_indices_np]
         crop_pos_np = np.concatenate([crop_centroids, crop_rotations], axis=-1)
 
-        # permute points via KDTree to improve locality for block-sparse attention(optimization)
+        # permute points via KDTree to improve locality for block-sparse attention (optimization)
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
 
         perm_t = torch.from_numpy(perm_np).long()
