@@ -63,9 +63,9 @@ class WSLMetaArch(LightningModule):
             weight_factor=min(
                 1.0, self.current_epoch / 10
             ),  # divide by the number of rampup epochs
-            logits_aug=None
-            if self.augmentations is None
-            else self(self.augmentations(batch)),
+            logits_aug=self(self.augmentations(batch))
+            if self.augmentations is not None
+            else None,
         )
         self.log_dict({f"train/{k}": v for k, v in logs.items()}, on_step=True)
         self.log(
