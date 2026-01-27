@@ -13,7 +13,6 @@ def graph_smoothness_loss_blockwise(
     block_mask: BlockMask,
 ) -> Tensor:
     probs = torch.sigmoid(logits.squeeze(-1))
-    device = logits.device
 
     sup_mask = wsl_masks["sup_mask"]
     ignore_mask = wsl_masks["ignore_mask"]
@@ -22,57 +21,58 @@ def graph_smoothness_loss_blockwise(
     if not uncertain_mask.any():
         return logits.new_tensor(0.0)
 
+    # squeeze head dimension as we assume 1 head for graph structure
     kv_indices = block_mask.kv_indices.squeeze(1)
-    kv_num_blocks = block_mask.kv_num_blocks.squeeze(1)  # (batch, num_blocks)
+    kv_num_blocks = block_mask.kv_num_blocks.squeeze(1)
 
-    BLOCK_SIZE = block_mask.BLOCK_SIZE[0]
+    block_size = block_mask.BLOCK_SIZE[0]
     batch_size, num_blocks = kv_num_blocks.shape
+    block_offsets = torch.arange(block_size, device=logits.device)
 
     total_loss = logits.new_tensor(0.0)
     valid_batches = 0
 
-    for batch_i in range(batch_size):
-        probs_b = probs[batch_i]  # (seq_length,)
-        uncertain_b = uncertain_mask[batch_i]  # (seq_length,)
-        ignore_b = ignore_mask[batch_i]  # (seq_length,)
+    for b_i in range(batch_size):
+        probs_b = probs[b_i]  # (Seq,)
+        uncertain_b = uncertain_mask[b_i]  # (Seq,)
+        ignore_b = ignore_mask[b_i]  # (Seq,)
 
-        kv_ind_b = kv_indices[batch_i]  # (num_blocks, max_neighbors)
-        kv_num_b = kv_num_blocks[batch_i]  # (num_blocks,)
+        kv_ind_b = kv_indices[b_i]  # (num_blocks, max_neighbors)
+        kv_num_b = kv_num_blocks[b_i]  # (num_blocks,)
 
         loss_b = logits.new_tensor(0.0)
-        count_b = 0
+        num_uncertain_nodes = 0
 
         for qb in range(num_blocks):
-            q_start = qb * BLOCK_SIZE
-            q_end = (qb + 1) * BLOCK_SIZE
-            q_nodes = torch.arange(q_start, q_end, device=device)
+            # identify uncertain query nodes in the current block (graph)
+            q_start = qb * block_size
+            q_nodes = block_offsets + q_start
             q_nodes = q_nodes[uncertain_b[q_nodes]]
-
             if q_nodes.numel() == 0:
                 continue
 
+            # get neighbor blocks for the current query block
             num_k = kv_num_b[qb].item()
             if num_k == 0:
                 continue
 
-            k_blocks = kv_ind_b[qb, :num_k]
+            neighbor_blocks = kv_ind_b[qb, :num_k]
+            neighbor_nodes = (
+                neighbor_blocks[:, None] * block_size + block_offsets[None, :]
+            ).flatten()
 
-            neigh_nodes_list = [
-                torch.arange(kb * BLOCK_SIZE, (kb + 1) * BLOCK_SIZE, device=device)
-                for kb in k_blocks
-            ]
-            neigh_nodes = torch.cat(neigh_nodes_list)
-            neigh_nodes = neigh_nodes[~ignore_b[neigh_nodes]]
-
-            if neigh_nodes.numel() == 0:
+            # exclude ignored nodes from the neighbor average
+            neighbor_nodes = neighbor_nodes[~ignore_b[neighbor_nodes]]
+            if neighbor_nodes.numel() == 0:
                 continue
-            neigh_mean = probs_b[neigh_nodes].mean()
+            neighbor_mean = probs_b[neighbor_nodes].mean()
 
-            loss_b += (probs_b[q_nodes] - neigh_mean).pow(2).sum()
-            count_b += q_nodes.numel()
+            # MSE: (prediction - average_of_neighbors)^2
+            loss_b += (probs_b[q_nodes] - neighbor_mean).pow(2).sum()
+            num_uncertain_nodes += q_nodes.numel()
 
-        if count_b > 0:
-            total_loss += loss_b / count_b
+        if num_uncertain_nodes > 0:
+            total_loss += loss_b / num_uncertain_nodes
             valid_batches += 1
 
     return total_loss / max(valid_batches, 1)
