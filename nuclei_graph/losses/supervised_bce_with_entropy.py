@@ -29,11 +29,11 @@ class SupervisedBCEWithEntropy(nn.Module):
         It is assumed that training batches do not contain padding.
 
         Args:
-            criterion_input: Dictionary with model outputs (contains the key "logits").
-            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary of boolean masks with keys:
-                - "sup_mask": Selects nuclei for supervised loss.
-                - "ignore_mask": Selects nuclei to exclude from all losses.
+            criterion_input: Dictionary with model outputs (contains the key "logits" (tensor)).
+            targets_sup: Target labels; only for the supervised set of nuclei.
+            masks: Dictionary of masks with keys:
+                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
+                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
             kwargs: Additional keyword arguments.
 
         Returns:

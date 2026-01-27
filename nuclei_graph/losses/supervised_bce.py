@@ -24,9 +24,9 @@ class SupervisedBCE(nn.Module):
         training batches do not contain padding.
 
         Args:
-            criterion_input: Dictionary with model outputs (contains the key "logits").
-            targets_sup: Target labels; only for the supervised (confidently labeled) set of nuclei.
-            masks: Dictionary containing boolean mask that selects nuclei for supervised loss ("sup_mask").
+            criterion_input: Dictionary with model outputs (contains the key "logits" (tensor)).
+            targets_sup: Target labels; only for the supervised set of nuclei.
+            masks: Dictionary containing mask that selects nuclei for supervised loss ("sup_mask" (tensor[bool])).
             kwargs: Additional keyword arguments.
 
         Returns:

@@ -1,4 +1,4 @@
 # @package _global_
 _target_: nuclei_graph.losses.supervised_bce_with_pointwise_consistency.SupervisedBCEWithPointwiseConsistency
-consistency_weight: 5.0
+consistency_weight: 2.0
 use_augmentations: true

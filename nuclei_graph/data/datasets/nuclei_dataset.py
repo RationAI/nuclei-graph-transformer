@@ -60,8 +60,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             neighbor_dist_median: Median distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
-                confidently enough (e.g., using a CAM thresholding). It is expected to contain columns "slide_id" (str), "id" (str),
-                and "refinement_mask" (bool).
+                confidently enough. It is expected to contain columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -255,8 +254,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
 
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
-        # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei neighbor
-        # distance computed from training set to convert distances into neighbor units ("cell hops")
+        # center to crop mean for numerical stability (RoPE) and divide by fixed average nuclei
+        # neighbor distance computed from training set to convert distances into neighbor units
         center = centroids[crop_indices].mean(axis=0, keepdims=True)
         crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_median
         # take modulo π to account for the 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
