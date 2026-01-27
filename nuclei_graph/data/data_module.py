@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from typing import Any
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -37,22 +38,17 @@ class DataModule(LightningDataModule):
         self,
         batch_size: int,
         num_workers: int = 0,
-        use_refinement_in_sampler: bool | None = False,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.use_refinement_in_sampler = use_refinement_in_sampler
-        assert not (use_refinement_in_sampler is True and sampler is None), (
-            "`use_refinement_in_sampler` can be True only if a sampler is provided."
-        )
         self.sampler_partial = sampler
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("uris", None)
@@ -73,17 +69,17 @@ class DataModule(LightningDataModule):
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean
         scale_std = conf.stats.scale_std
-        neighbor_dist_median = conf.stats.neighbor_dist_median
+        dist_median = conf.stats.dist_median
 
         if scale_mean is None or scale_std is None:
             scale_mean, scale_std = compute_scale_stats(df_train, conf.efd_order)
-        if neighbor_dist_median is None:
-            neighbor_dist_median = compute_median_neighbor_distance(df_train)
+        if dist_median is None:
+            dist_median = compute_median_neighbor_distance(df_train)
 
         return {
             "scale_mean": scale_mean,
             "scale_std": scale_std,
-            "neighbor_dist_median": neighbor_dist_median,
+            "dist_median": dist_median,
         }
 
     def setup(self, stage: str) -> None:
@@ -112,7 +108,7 @@ class DataModule(LightningDataModule):
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement, self.use_refinement_in_sampler
+                    df_train, df_labels, df_refinement
                 )
                 stats = self._get_stats(conf, df_train)
 

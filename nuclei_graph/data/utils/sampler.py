@@ -6,24 +6,22 @@ def compute_slides_positivity(
     df_metadata: pd.DataFrame,
     df_labels: pd.DataFrame,
     df_refinement: pd.DataFrame | None = None,
-    use_refinement: bool | None = False,
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling.
 
     If "df_refinement" is provided, a nucleus is only considered positive if it is positively
-    labeled and is also flagged by the refinement mask specified in "df_refinement".
+    labeled and is also flagged by the refinement mask (specified in "df_refinement").
 
     Args:
         df_metadata: DataFrame containing a "slide_id" (str) column.
         df_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
             These exist only for the positive slides, negative slides are implicitly considered all-negative.
         df_refinement: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
-        use_refinement: Whether to restrict to the refinement mask when computing positivity. Defaults to False.
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
     """
-    if use_refinement and df_refinement is not None:
+    if df_refinement is not None:
         merged = df_labels.merge(df_refinement, on=["slide_id", "id"], how="inner")
         merged["pos_score"] = (merged["label"] * merged["refinement_mask"]).astype(
             "uint8"

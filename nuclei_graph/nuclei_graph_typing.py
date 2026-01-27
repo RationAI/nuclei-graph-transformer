@@ -13,7 +13,7 @@ class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    masks: WSLMasks
+    wsl_masks: WSLMasks
     num_points: int
     block_mask: BlockMask
 
@@ -22,7 +22,7 @@ class Batch(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    masks: WSLMasks
+    wsl_masks: WSLMasks
     num_points: Tensor
     block_mask: BlockMask
 
@@ -42,8 +42,3 @@ class PredictSample(TypedDict):
 class PredictBatch(TypedDict):
     items: Batch
     metadata: list[Metadata]
-
-
-class CriterionInput(TypedDict):
-    logits: Tensor
-    logits_aug: Tensor | None

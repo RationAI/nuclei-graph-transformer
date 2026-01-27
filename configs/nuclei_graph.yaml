@@ -15,6 +15,6 @@ data:
   stats:
     scale_mean: ???
     scale_std: ???
-    neighbor_dist_median: ???
+    dist_median: ???
 
 model: {}
