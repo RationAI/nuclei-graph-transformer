@@ -69,17 +69,17 @@ class DataModule(LightningDataModule):
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean
         scale_std = conf.stats.scale_std
-        neighbor_dist_median = conf.stats.neighbor_dist_median
+        dist_median = conf.stats.dist_median
 
         if scale_mean is None or scale_std is None:
             scale_mean, scale_std = compute_scale_stats(df_train, conf.efd_order)
-        if neighbor_dist_median is None:
-            neighbor_dist_median = compute_median_neighbor_distance(df_train)
+        if dist_median is None:
+            dist_median = compute_median_neighbor_distance(df_train)
 
         return {
             "scale_mean": scale_mean,
             "scale_std": scale_std,
-            "neighbor_dist_median": neighbor_dist_median,
+            "dist_median": dist_median,
         }
 
     def setup(self, stage: str) -> None:

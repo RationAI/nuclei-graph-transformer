@@ -36,7 +36,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         df_metadata: DataFrame,
         scale_mean: float,
         scale_std: float,
-        neighbor_dist_median: float,
+        dist_median: float,
         df_labels: DataFrame | None = None,
         df_refinement: DataFrame | None = None,
         crop_size: int = 4096,
@@ -56,9 +56,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
                 to parquet files containing nuclei segmentation data.
-            scale_mean: Mean of log nucleus scales estimated from training data for normalization.
-            scale_std: Standard deviation of log nucleus scales estimated from training data for normalization.
-            neighbor_dist_median: Median distance between neighboring nuclei in pixels for normalization.
+            scale_mean: Mean of log nuclei scales estimated from training data for normalization.
+            scale_std: Standard deviation of log nuclei scales estimated from training data for normalization.
+            dist_median: Median distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough. It is expected to contain columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
@@ -66,14 +66,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
             attn_block_size: Block size for sparse attention. It must hold that `crop_size` mod `attn_block_size` is 0.
-            efd_order: Order of the elliptic fourier descriptors used for nucleus shape representation.
+            efd_order: Order of the elliptic fourier descriptors used for nuclei shape representation.
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
         self.scale_std = scale_std
-        self.neighbor_dist_median = neighbor_dist_median
+        self.dist_median = dist_median
         self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
         self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
         self.crop_size = crop_size
@@ -106,8 +106,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             seed_idx: seed nucleus index
             k: maximum number of nuclei to include in the component.
             graph: adjacency list of the nuclei graph.
-            centroids: array of nucleus coordinates.
-            allowed_indices: optional array of allowed nucleus indices
+            centroids: array of nuclei coordinates.
+            allowed_indices: optional array of allowed nuclei indices
 
         Returns:
             list[int]: Indices of nuclei in the component.
@@ -272,27 +272,28 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
         )
-        crop_indices = self.get_crop_indices(centroids, valid_seeds)
+        crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
 
         # center to crop mean and divide by a fixed average nuclei neighbor distance computed
         # from training set to convert distances into neighbor units for numerical stability (RoPE)
-        center = centroids[crop_indices].mean(axis=0, keepdims=True)
-        crop_centroids = (centroids[crop_indices] - center) / self.neighbor_dist_median
+        center = centroids[crop_indices_np].mean(axis=0, keepdims=True)
+        crop_centroids = (centroids[crop_indices_np] - center) / self.dist_median
 
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
-        rotation = 2.0 * (angles % np.pi)
-        crop_pos_np = np.concatenate([crop_centroids, rotation[crop_indices]], axis=-1)
+        rotations = 2.0 * (angles % np.pi)
+        crop_rotations = rotations[crop_indices_np]
+        crop_pos_np = np.concatenate([crop_centroids, crop_rotations], axis=-1)
 
-        # compute KDTree permutation to improve block neighborhood attention locality (optimization)
+        # permute points via KDTree to improve locality for block-sparse attention(optimization)
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
 
         perm_t = torch.from_numpy(perm_np).long()
-        crop_indices_t = torch.from_numpy(crop_indices).long()
+        crop_indices_t = torch.from_numpy(crop_indices_np).long()
 
         crop_y = targets[crop_indices_t][perm_t]
         crop_sup_mask = sup_mask[crop_indices_t][perm_t]
         crop_ignore_mask = ignore_mask[crop_indices_t][perm_t]
-        crop_x = torch.from_numpy(x[crop_indices][perm_np].astype(np.float32))
+        crop_x = torch.from_numpy(x[crop_indices_np][perm_np].astype(np.float32))
         crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
 
         crop_x, crop_pos, crop_y, crop_sup_mask, crop_ignore_mask = (
@@ -305,11 +306,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_supervised, 1)
             "wsl_masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),
-            "num_points": len(crop_indices),
+            "num_points": len(crop_indices_np),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
                 points=crop_pos[:, :2].cpu().numpy(),  # only pass spatial coordinates
-                n_points_unpadded=len(crop_indices),
+                n_points_unpadded=len(crop_indices_np),
                 k=self.k,
                 block_size=self.attn_block_size,
             ),
@@ -318,7 +319,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             metadata: Metadata = {
                 "slide_id": self.df_metadata.iloc[idx].slide_id,
                 "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
-                "nuclei_ids": nuclei.iloc[crop_indices.tolist()]["id"],
+                "nuclei_ids": nuclei.iloc[crop_indices_np.tolist()]["id"],
                 "perm_inverse": self.get_inverse_perm(perm_t),
             }
             return PredictSample(item=sample, metadata=metadata)
