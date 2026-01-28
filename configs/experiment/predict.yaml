@@ -15,6 +15,7 @@ trainer:
 
 model:
   lr: 1e-4
+  warmup_epochs: 8
   net:
     config:
       node_features: 41
