@@ -2,7 +2,7 @@
 defaults:
   - /model/models@model.net: nuclei_transformer
   - /losses@model.criterion: supervised_bce
-  - /data/datasets@data.predict: nuclei_dataset/predict
+  - /data/datasets@data.predict: nuclei_dataset/test
   - override /mode: predict
 
 checkpoint: mlflow-artifacts:/97/c15d7b533feb4fc596816553ac302ea3/artifacts/checkpoints/epoch=53-step=1242/checkpoint.ckpt
