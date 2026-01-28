@@ -5,7 +5,8 @@ defaults:
   - /data/datasets@data.train: nuclei_dataset/train
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
-  - override /mode: fit
+
+mode: fit
 
 trainer:
   gradient_clip_val: 0.8
