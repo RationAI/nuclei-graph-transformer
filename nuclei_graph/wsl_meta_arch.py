@@ -60,6 +60,7 @@ class WSLMetaArch(LightningModule):
             wsl_masks=batch["wsl_masks"],
             # ----- loss specific args -----
             block_mask=batch["block_mask"],
+            pos=batch["pos"],
             weight_factor=min(
                 1.0, self.current_epoch / 10
             ),  # divide by the number of rampup epochs

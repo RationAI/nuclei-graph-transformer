@@ -1,3 +1,3 @@
 # @package _global_
 _target_: nuclei_graph.losses.supervised_bce_with_graph_consistency.SupervisedBCEWithGraphConsistency
-graph_weight: 0.5
+graph_weight: 20.0
