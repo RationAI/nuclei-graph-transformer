@@ -19,6 +19,7 @@ model:
       num_classes: 1
       dropout: 0.1
       layer_scale_init: 1e-4
+  augmentations: null
 
 data:
   batch_size: 1

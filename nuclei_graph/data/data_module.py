@@ -28,7 +28,7 @@ BASE_METADATA_COLS = [
     "slide_nuclei_path",
 ]
 
-TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id"]
+TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
 LABEL_COLS = {"annot_label": "label"}
 REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 
