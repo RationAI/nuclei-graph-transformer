@@ -1,5 +1,4 @@
 import pandas as pd
-import pyarrow.parquet as pq
 
 
 def compute_slides_positivity(
@@ -38,18 +37,12 @@ def min_count_filter(df: pd.DataFrame, min_count: int) -> pd.DataFrame:
     """Filter rows in the provided dataframe based on a minimum count of nuclei located at "slide_nuclei_path".
 
     Args:
-        df: Input DataFrame with a "slide_nuclei_path" (str) and "slide_id" (str) columns.
+        df: Input DataFrame with a "slide_nuclei_path" (str), "slide_id" (str), and "nuclei_count" (int) columns.
         min_count: Minimum number of nuclei required to retain the slide.
     """
-    counts = df["slide_nuclei_path"].apply(
-        lambda path: sum(
-            fragment.metadata.num_rows for fragment in pq.ParquetDataset(path).fragments
-        )
-    )
-    mask_keep = counts >= min_count
+    mask_keep = df["nuclei_count"] >= min_count
     if not mask_keep.all():
-        dropped_slides = df.loc[~mask_keep, ["slide_id"]].copy()
-        dropped_slides["nuclei_count"] = counts[~mask_keep]
+        dropped_slides = df.loc[~mask_keep, ["slide_id", "nuclei_count"]].copy()
         print(
             f"[INFO] Dropped slides with < {min_count} nuclei:\n",
             dropped_slides.to_string(index=False),
