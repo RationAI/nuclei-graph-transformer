@@ -5,6 +5,20 @@ defaults:
   - /data/datasets@data.train: nuclei_dataset/train
   - /data/datasets@data.test: nuclei_dataset/test
   - /data/samplers@data.sampler: weighted_random_sampler
+  - override /mode: fit
+
+trainer:
+  gradient_clip_val: 0.8
+  accumulate_grad_batches: 4
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      save_top_k: 1
+      monitor: validation/loss
+      mode: min
+    - _target_: lightning.pytorch.callbacks.EarlyStopping
+      monitor: validation/loss
+      mode: min
+      patience: 12
 
 model:
   lr: 1e-4

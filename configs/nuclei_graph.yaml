@@ -8,22 +8,9 @@ mode: ???
 checkpoint: null
 
 trainer:
-  gradient_clip_val: 0.8
-  accumulate_grad_batches: 4
   enable_checkpointing: True
   max_epochs: 80
   log_every_n_steps: 5
-  callbacks:
-    #- _target_: nuclei_graph.callbacks.PredictionsCallback
-    #- _target_: nuclei_graph.callbacks.PredictionMetricsCallback
-    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
-      save_top_k: 1
-      monitor: validation/loss
-      mode: min
-    - _target_: lightning.pytorch.callbacks.EarlyStopping
-      monitor: validation/loss
-      mode: min
-      patience: 12
 
 data:
   batch_size: ???
