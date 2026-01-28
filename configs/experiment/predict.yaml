@@ -4,7 +4,7 @@ defaults:
   - /losses@model.criterion: supervised_bce
   - /data/datasets@data.predict: nuclei_dataset/predict
 
-checkpoint: mlflow-artifacts:/97/c0816966120143749023da14237dd540/artifacts/checkpoints/epoch=38-step=897
+checkpoint: mlflow-artifacts:/97/c15d7b533feb4fc596816553ac302ea3/artifacts/checkpoints/epoch=53-step=1242/checkpoint.ckpt
 
 model:
   lr: 1e-4
@@ -31,5 +31,5 @@ data:
 metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: 📊 Predictions[test]
-  description: Prediction Metrics for the run [c0816966120143749023da14237dd540](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/c0816966120143749023da14237dd540).
+  description: Prediction Metrics for the run [c15d7b533feb4fc596816553ac302ea3](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/c15d7b533feb4fc596816553ac302ea3).
   hyperparams: {}
