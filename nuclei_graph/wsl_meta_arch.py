@@ -83,7 +83,7 @@ class WSLMetaArch(LightningModule):
     def validation_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
         sup_mask = batch["wsl_masks"]["sup_mask"]
-        logits_sup = self(batch)[sup_mask]
+        logits_sup = self(batch).squeeze(-1)[sup_mask]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
@@ -107,7 +107,7 @@ class WSLMetaArch(LightningModule):
     def test_step(self, batch: Batch) -> None:
         targets_sup = batch["y"]
         sup_mask = batch["wsl_masks"]["sup_mask"]
-        logits_sup = self(batch)[sup_mask]
+        logits_sup = self(batch).squeeze(-1)[sup_mask]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:

@@ -33,12 +33,12 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         It is assumed that training batches do not contain padding.
 
         Args:
-            logits: Logits from the model (on the original input).
-            targets_sup: Target labels; only for the supervised set of nuclei.
+            logits: Logits from the model (on the original input), shape (b, n, 1).
+            targets_sup: Target labels; only for the supervised set of nuclei, shape (num_supervised, ).
             wsl_masks: Dictionary of masks with keys:
-                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
-                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
-            logits_aug: Logits from the model (on the augmented input).
+                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss, shape (b, n, ).
+                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses, shape (b, n, ).
+            logits_aug: Logits from the model (on the augmented input), shape (b, n, 1).
             weight_factor: Weight factor to scale the consistency loss.
             kwargs: Additional keyword arguments.
 
@@ -46,6 +46,9 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
+        logits = logits.squeeze(-1)
+        logits_aug = logits_aug.squeeze(-1)
+
         logits_sup = logits[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
 

@@ -22,7 +22,7 @@ class PredictionsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        logits = outputs[0]  # batch size is 1
+        logits = outputs[0].squeeze(-1)  # (n,)
 
         slide_id = metadata["slide_id"]
         perm_inverse = metadata["perm_inverse"]

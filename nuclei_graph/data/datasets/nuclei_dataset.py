@@ -304,7 +304,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         sample: Sample = {
             "x": crop_x,  # (n, efd_order * 4 + 1)
             "pos": crop_pos,  # (n, 3)
-            "y": crop_y[crop_sup_mask].unsqueeze(-1),  # (num_supervised, 1)
+            "y": crop_y[crop_sup_mask],  # (num_supervised, )
             "wsl_masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),
             "num_points": len(crop_indices_np),
             "block_mask": create_block_mask_from_kdtree(

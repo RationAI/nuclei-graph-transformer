@@ -122,11 +122,11 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
         It is assumed that training batches do not contain padding.
 
         Args:
-            logits: Logits from the model.
-            targets_sup: Target labels; only for the supervised set of nuclei.
+            logits: Logits from the model, shape (b, n, 1).
+            targets_sup: Target labels; only for the supervised set of nuclei, shape (num_supervised, ).
             wsl_masks: Dictionary of masks with keys:
-                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss.
-                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses.
+                - "sup_mask" (tensor[bool]): Selects nuclei for supervised loss, shape (b, n, ).
+                - "ignore_mask" (tensor[bool]): Selects nuclei to exclude from all losses, shape (b, n, ).
             block_mask: BlockMask object for sparse attention specifying the neighborhood structure.
             pos: Positions of nuclei; used for distance weighting in graph consistency loss.
             kwargs: Additional keyword arguments.
@@ -135,7 +135,7 @@ class SupervisedBCEWithGraphConsistency(nn.Module):
             total_loss: Combined loss tensor.
             logs: Dictionary containing detached loss components and the size of the supervised set.
         """
-        logits_sup = logits[wsl_masks["sup_mask"]]
+        logits_sup = logits.squeeze(-1)[wsl_masks["sup_mask"]]
         sup_size = targets_sup.numel()
 
         loss_sup = (
