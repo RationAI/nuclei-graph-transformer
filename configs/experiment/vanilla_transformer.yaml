@@ -47,7 +47,7 @@ data:
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: Nuclei Transformer [(${model.net.dim},${model.net.hidden_dim},${model.net.pos_dim},${model.net.num_heads},${model.net.num_layers}),(${data.batch_size},${data.k},${data.crop_size})(${data.sampler.positivity_thr})]"
+  run_name: Nuclei Transformer [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.k},${data.crop_size})(${data.sampler.positivity_thr})]"
   description: "testing run"
   hyperparams:
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
