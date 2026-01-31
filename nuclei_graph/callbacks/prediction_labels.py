@@ -22,15 +22,15 @@ class PredictionsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        logits = outputs[0].squeeze(-1)  # (n,)
-
         slide_id = metadata["slide_id"]
         perm_inverse = metadata["perm_inverse"]
         nuclei_ids = metadata["nuclei_ids"]
 
+        logits = outputs[0].squeeze(-1)  # (n,)
         logits_unpadded = logits[: len(nuclei_ids)]
-        logits_original_order = logits_unpadded[perm_inverse]
-        predicted_labels = torch.sigmoid(logits_original_order).cpu().numpy().flatten()
+        logits_ordered = logits_unpadded[perm_inverse]
+
+        predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
 
         df_predictions = pd.DataFrame(
             {"id": nuclei_ids, "prediction": predicted_labels}
@@ -46,12 +46,13 @@ class PredictionsCallback(Callback):
         if nuclei_preds["prediction"].isna().any():
             valid = nuclei_preds.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())
-            vals = valid["prediction"].values
-            interp = NearestNDInterpolator(coords, vals)
+            interp = NearestNDInterpolator(coords, valid["prediction"].values)
+
             missing_mask = nuclei_preds["prediction"].isna()
             missing_coords = np.stack(
                 nuclei_preds.loc[missing_mask, "centroid"].tolist()
             )
+
             nuclei_preds.loc[missing_mask, "prediction"] = interp(missing_coords)
 
         final_df = nuclei_preds[["id", "prediction"]]

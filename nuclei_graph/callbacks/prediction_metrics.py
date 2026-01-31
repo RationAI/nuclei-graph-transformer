@@ -50,8 +50,8 @@ class PredictionMetricsCallback(Callback):
         metrics_module.update(torch.sigmoid(logits_sup), targets_sup.long())
 
 
-class PredictionMetricsBatchCallback(Callback):
-    """Computes metrics per batch (i.e., per slide since prediction batch size is assumed to be 1)."""
+class PredictionSlideMetricsCallback(Callback):
+    """Computes metrics per slide (prediction batch size is assumed to be 1)."""
 
     def on_predict_batch_end(
         self,
