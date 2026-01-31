@@ -48,7 +48,7 @@ model:
 metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: Train [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.k},${data.crop_size})(${data.sampler.positivity_thr})]
-  description: "testing run"
+  description: ""
   hyperparams:
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
     batch_size: ${data.batch_size}
