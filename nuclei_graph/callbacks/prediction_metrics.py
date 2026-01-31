@@ -1,10 +1,7 @@
-from typing import cast
-
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
 from torch import Tensor
-from torchmetrics import MetricCollection
 
 from nuclei_graph.nuclei_graph_typing import PredictBatch
 
@@ -12,25 +9,19 @@ from nuclei_graph.nuclei_graph_typing import PredictBatch
 class PredictionMetricsCallback(Callback):
     """Computes global metrics across the entire dataset."""
 
-    def on_predict_epoch_start(
-        self, trainer: Trainer, pl_module: LightningModule
-    ) -> None:
-        metrics_module = cast("MetricCollection", pl_module.predict_metrics)
-        metrics_module.reset()
-
     def on_predict_epoch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
     ) -> None:
-        metrics_module = cast("MetricCollection", pl_module.predict_metrics)
-        metrics = metrics_module.compute()
+        computed_metrics = pl_module.predict_metrics.compute()
 
-        for key, value in metrics.items():
+        for key, value in computed_metrics.items():
             metric_name = key.split("/")[-1]
-            value = float(value.item()) if isinstance(value, Tensor) else float(value)
+            value = float(value)
             mlflow.log_metric(f"prediction/{metric_name}", value)
-        metrics_module.reset()
+
+        pl_module.predict_metrics.reset()
 
     def on_predict_batch_end(
         self,
@@ -46,8 +37,8 @@ class PredictionMetricsCallback(Callback):
         logits_sup = outputs.squeeze(-1)[sup_mask]
         assert targets_sup.shape == logits_sup.shape
 
-        metrics_module = cast("MetricCollection", pl_module.predict_metrics)
-        metrics_module.update(torch.sigmoid(logits_sup), targets_sup.long())
+        preds_sup = torch.sigmoid(logits_sup)
+        pl_module.predict_metrics.update(preds_sup, targets_sup.long())
 
 
 class PredictionSlideMetricsCallback(Callback):
@@ -68,18 +59,16 @@ class PredictionSlideMetricsCallback(Callback):
         logits_sup = outputs.squeeze(-1)[sup_mask]
         assert targets_sup.shape == logits_sup.shape
 
-        metrics_module = cast("MetricCollection", pl_module.predict_metrics)
-        slide_metrics = metrics_module.clone()
-        slide_metrics.reset()
-        slide_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        metrics = pl_module.predict_metrics
+        metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        computed_metrics = metrics.compute()
 
-        metrics = slide_metrics.compute()
-        for key, value in metrics.items():
+        for key, value in computed_metrics.items():
             metric_name = key.split("/")[-1]
-            value = float(value.item()) if isinstance(value, Tensor) else float(value)
             mlflow.log_metric(
                 f"prediction/{metadata['slide_id']}/{metric_name}",
-                value,
+                float(value),
                 step=pl_module.global_step,
             )
-        slide_metrics.reset()
+
+        metrics.reset()

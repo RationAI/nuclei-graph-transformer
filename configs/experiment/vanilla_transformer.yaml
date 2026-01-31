@@ -10,7 +10,7 @@ mode: fit
 
 trainer:
   gradient_clip_val: 0.8
-  accumulate_grad_batches: 4
+  #accumulate_grad_batches: 4
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -38,7 +38,7 @@ model:
   augmentations: ${oc.select:model.criterion.augmentations, null}
 
 data:
-  batch_size: 8
+  batch_size: 16
   crop_size: 4096
   alpha: 0.8
   k: 128
