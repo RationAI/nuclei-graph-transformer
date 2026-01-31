@@ -26,6 +26,6 @@ def collate_fn(batch: Iterable[Sample]) -> Batch:
 def collate_fn_predict(batch: Iterable[PredictSample]) -> PredictBatch:
     batch = list(batch)
     return {
-        "items": collate_fn([b["item"] for b in batch]),
+        "batch": collate_fn([b["sample"] for b in batch]),
         "metadata": [b["metadata"] for b in batch],
     }

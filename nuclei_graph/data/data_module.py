@@ -10,10 +10,7 @@ from omegaconf import DictConfig, open_dict
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
-from nuclei_graph.data.utils.compute_stats import (
-    compute_median_neighbor_distance,
-    compute_scale_stats,
-)
+from nuclei_graph.data.utils.compute_stats import compute_scale_mean
 from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
     min_count_filter,
@@ -66,22 +63,6 @@ class DataModule(LightningDataModule):
         for uri in uris:
             download_artifacts(uri)  # download to local cache
 
-    def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
-        scale_mean = conf.stats.scale_mean
-        scale_std = conf.stats.scale_std
-        dist_median = conf.stats.dist_median
-
-        if scale_mean is None or scale_std is None:
-            scale_mean, scale_std = compute_scale_stats(df_train, conf.efd_order)
-        if dist_median is None:
-            dist_median = compute_median_neighbor_distance(df_train)
-
-        return {
-            "scale_mean": scale_mean,
-            "scale_std": scale_std,
-            "dist_median": dist_median,
-        }
-
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
@@ -110,7 +91,11 @@ class DataModule(LightningDataModule):
                 self.positivity = compute_slides_positivity(
                     df_train, df_labels, df_refinement
                 )
-                stats = self._get_stats(conf, df_train)
+                scale_mean = (
+                    conf.scale_mean
+                    if conf.get("scale_mean") is not None
+                    else compute_scale_mean(df_train, conf.efd_order)
+                )
 
                 train_slides_ids = set(df_train["slide_id"])
                 self.train = self._instantiate_dataset(
@@ -118,7 +103,7 @@ class DataModule(LightningDataModule):
                     df_metadata=df_train,
                     df_labels=get_subset(train_slides_ids, df_labels),
                     df_refinement=get_subset(train_slides_ids, df_refinement),
-                    **stats,
+                    scale_mean=scale_mean,
                 )
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
@@ -126,7 +111,7 @@ class DataModule(LightningDataModule):
                     df_metadata=df_val,
                     df_labels=get_subset(val_slides_ids, df_labels),
                     df_refinement=get_subset(val_slides_ids, df_refinement),
-                    **stats,
+                    scale_mean=scale_mean,
                     full_slide=True,
                 )
             case "test":
@@ -139,7 +124,7 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    **conf.stats,  # must be provided in the config
+                    scale_mean=conf.scale_mean,  # must be provided in the config
                 )
             case "predict":
                 metadata = pd.read_parquet(
@@ -151,7 +136,7 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    **conf.stats,  # must be provided in the config
+                    scale_mean=conf.scale_mean,  # must be provided in the config
                     predict=True,
                 )
 
