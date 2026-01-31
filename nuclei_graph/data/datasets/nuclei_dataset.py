@@ -46,9 +46,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> None:
         """Initializes the dataset.
 
-        It is assumed that all slides have mpp same as the training data (0.25). If not the case,
-        scaling normalization must be implemented for physical distances (nuclei size, neighbor distance).
-
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
