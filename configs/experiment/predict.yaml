@@ -13,12 +13,20 @@ trainer:
     - _target_: nuclei_graph.callbacks.PredictionsCallback
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
+data:
+  batch_size: 1
+  alpha: 0.8
+  k: 128
+  attn_block_size: 128
+  efd_order: 10
+  crop_size: 4096
+
 model:
   lr: 1e-4
   warmup_epochs: 8
   net:
     config:
-      node_features: 41
+      node_features: ${mul:4,${data.efd_order}}
       dim: 256
       hidden_dim: 1024
       pos_dim: 3
@@ -28,14 +36,6 @@ model:
       dropout: 0.1
       layer_scale_init: 1e-4
   augmentations: null
-
-data:
-  batch_size: 1
-  alpha: 0.8
-  k: 128
-  attn_block_size: 128
-  efd_order: 10
-  crop_size: 4096
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
