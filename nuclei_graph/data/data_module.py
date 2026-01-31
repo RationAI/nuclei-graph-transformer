@@ -92,8 +92,8 @@ class DataModule(LightningDataModule):
                     df_train, df_labels, df_refinement
                 )
                 scale_mean = (
-                    conf.stats.scale_mean
-                    if conf.stats.get("scale_mean") is not None
+                    conf.scale_mean
+                    if conf.get("scale_mean") is not None
                     else compute_scale_mean(df_train, conf.efd_order)
                 )
 
