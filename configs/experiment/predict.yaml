@@ -6,7 +6,7 @@ defaults:
 
 mode: predict
 
-checkpoint: mlflow-artifacts:/97/c15d7b533feb4fc596816553ac302ea3/artifacts/checkpoints/epoch=53-step=1242/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/d29604c6c99f435c8df61e1e8a3c22c4/artifacts/checkpoints/epoch=7-step=184/checkpoint.ckpt
 
 trainer:
   callbacks:
@@ -39,6 +39,6 @@ data:
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: 📊 Predictions[test]
-  description: Prediction Metrics for the run [c15d7b533feb4fc596816553ac302ea3](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/c15d7b533feb4fc596816553ac302ea3).
+  run_name: 📊 Predictions
+  description: "Prediction Metrics: [MLflow training run](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/d29604c6c99f435c8df61e1e8a3c22c4)"
   hyperparams: {}
