@@ -35,10 +35,10 @@ class Metadata(TypedDict):
 
 
 class PredictSample(TypedDict):
-    item: Sample
+    sample: Sample
     metadata: Metadata
 
 
 class PredictBatch(TypedDict):
-    items: Batch
+    batch: Batch
     metadata: list[Metadata]

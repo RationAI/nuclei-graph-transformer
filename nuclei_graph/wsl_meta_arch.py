@@ -81,9 +81,11 @@ class WSLMetaArch(LightningModule):
         return loss
 
     def validation_step(self, batch: Batch) -> None:
-        targets_sup = batch["y"]
+        logits = self(batch).squeeze(-1)
         sup_mask = batch["wsl_masks"]["sup_mask"]
-        logits_sup = self(batch).squeeze(-1)[sup_mask]
+        logits_sup = logits[sup_mask]
+
+        targets_sup = batch["y"]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
@@ -105,9 +107,11 @@ class WSLMetaArch(LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, batch: Batch) -> None:
-        targets_sup = batch["y"]
+        logits = self(batch).squeeze(-1)
         sup_mask = batch["wsl_masks"]["sup_mask"]
-        logits_sup = self(batch).squeeze(-1)[sup_mask]
+        logits_sup = logits[sup_mask]
+
+        targets_sup = batch["y"]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
@@ -121,7 +125,7 @@ class WSLMetaArch(LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Tensor:
-        return self(batch["items"])
+        return self(batch["batch"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []

@@ -40,8 +40,9 @@ class PredictionsCallback(Callback):
         )
         nuclei_preds = nuclei.merge(df_predictions, on="id", how="left")
 
-        # some nuclei may not have predictions (nuclei that have a very close neighbor (< eps) are removed in NucleiDataset
-        # due to assumptions in graph construction); we use nearest neighbor interpolation to fill in the missing predictions
+        # some nuclei may not have predictions (nuclei that have a very close neighbor (< eps)
+        # are removed in NucleiDataset due to assumptions in graph construction);
+        # we use nearest neighbor interpolation to fill in the missing predictions
         if nuclei_preds["prediction"].isna().any():
             valid = nuclei_preds.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())

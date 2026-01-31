@@ -48,8 +48,8 @@ class SupervisedBCEWithPointwiseConsistency(nn.Module):
         """
         logits = logits.squeeze(-1)
         logits_aug = logits_aug.squeeze(-1)
-
         logits_sup = logits[wsl_masks["sup_mask"]]
+
         sup_size = targets_sup.numel()
 
         loss_sup = (
