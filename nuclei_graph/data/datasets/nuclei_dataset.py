@@ -245,7 +245,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
 
         # --- Extract EFD features and normalize ---
-        contours = (rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2),)
+        contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
         efd = elliptic_fourier_descriptors(np.asarray(contours), self.efd_order)
         efd, angles = normalize_efd_for_rotation(efd)
         x = rearrange(efd, "n order c -> n (order c)")
