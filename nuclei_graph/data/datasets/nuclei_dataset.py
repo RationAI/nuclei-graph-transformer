@@ -34,7 +34,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self,
         df_metadata: DataFrame,
         scale_mean: float,
-        dist_median: float,
         df_labels: DataFrame | None = None,
         df_refinement: DataFrame | None = None,
         crop_size: int = 4096,
@@ -55,7 +54,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
                 to parquet files containing nuclei segmentation data.
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
-            dist_median: Median distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
                 confidently enough. It is expected to contain columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
@@ -69,7 +67,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
-        self.dist_median = dist_median
         self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
         self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
         self.crop_size = crop_size
@@ -263,9 +260,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
 
         # --- Prepare positional encodings ---
-        # center and convert distances into neighbor units
-        center = centroids[crop_indices_np].mean(axis=0, keepdims=True)
-        crop_centroids = (centroids[crop_indices_np] - center) / self.dist_median
+        crop_centroids = centroids[crop_indices_np]
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotations = 2.0 * (angles % np.pi)
         crop_rotations = rotations[crop_indices_np]
