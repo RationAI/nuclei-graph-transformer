@@ -21,12 +21,20 @@ trainer:
       mode: min
       patience: 15
 
+data:
+  batch_size: 16
+  crop_size: 4096
+  alpha: 0.8
+  k: 128
+  attn_block_size: 128
+  efd_order: 10
+
 model:
   lr: 1e-4
   warmup_epochs: 8
   net:
     config:
-      node_features: 40 # 4 * EFD_order
+      node_features: ${eval:4 * ${data.efd_order}}
       dim: 256
       hidden_dim: 1024
       pos_dim: 2 # (x, y, α)
@@ -36,14 +44,6 @@ model:
       dropout: 0.10
       layer_scale_init: 1e-4
   augmentations: ${oc.select:model.criterion.augmentations, null}
-
-data:
-  batch_size: 16
-  crop_size: 4096
-  alpha: 0.8
-  k: 128
-  attn_block_size: 128
-  efd_order: 10
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
