@@ -12,7 +12,7 @@ from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
 from nuclei_graph.data.utils.compute_stats import (
     compute_median_neighbor_distance,
-    compute_scale_stats,
+    compute_scale_mean,
 )
 from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
@@ -68,17 +68,15 @@ class DataModule(LightningDataModule):
 
     def _get_stats(self, conf: DictConfig, df_train: pd.DataFrame) -> dict[str, float]:
         scale_mean = conf.stats.scale_mean
-        scale_std = conf.stats.scale_std
         dist_median = conf.stats.dist_median
 
-        if scale_mean is None or scale_std is None:
-            scale_mean, scale_std = compute_scale_stats(df_train, conf.efd_order)
+        if scale_mean is None:
+            scale_mean = compute_scale_mean(df_train, conf.efd_order)
         if dist_median is None:
             dist_median = compute_median_neighbor_distance(df_train)
 
         return {
             "scale_mean": scale_mean,
-            "scale_std": scale_std,
             "dist_median": dist_median,
         }
 

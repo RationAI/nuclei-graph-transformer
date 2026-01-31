@@ -10,7 +10,7 @@ mode: fit
 
 trainer:
   gradient_clip_val: 0.8
-  #accumulate_grad_batches: 4
+  accumulate_grad_batches: 4
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -26,12 +26,12 @@ model:
   warmup_epochs: 8
   net:
     config:
-      node_features: 41 # 4 * EFD_order + 1 (scale)
-      dim: 512
-      hidden_dim: 2048
+      node_features: 40 # 4 * EFD_order
+      dim: 256
+      hidden_dim: 1024
       pos_dim: 2 # (x, y, α)
-      num_heads: 16
-      num_layers: 16
+      num_heads: 8
+      num_layers: 8
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4

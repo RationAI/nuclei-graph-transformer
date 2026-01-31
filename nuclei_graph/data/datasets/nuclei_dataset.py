@@ -18,7 +18,6 @@ from nuclei_graph.data import create_block_mask_from_kdtree
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
     normalize_efd_for_rotation,
-    normalize_efd_for_scale,
 )
 from nuclei_graph.nuclei_graph_typing import Metadata, PredictSample, Sample, WSLMasks
 
@@ -35,7 +34,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self,
         df_metadata: DataFrame,
         scale_mean: float,
-        scale_std: float,
         dist_median: float,
         df_labels: DataFrame | None = None,
         df_refinement: DataFrame | None = None,
@@ -56,8 +54,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
                 to parquet files containing nuclei segmentation data.
-            scale_mean: Mean of log nuclei scales estimated from training data for normalization.
-            scale_std: Standard deviation of log nuclei scales estimated from training data for normalization.
+            scale_mean: Mean of nuclei scales estimated from training data for normalization.
             dist_median: Median distance between neighboring nuclei in pixels for normalization.
             df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
             df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
@@ -72,7 +69,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
-        self.scale_std = scale_std
         self.dist_median = dist_median
         self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
         self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
@@ -174,14 +170,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> tuple[Tensor, Tensor, Tensor, list[int]]:
         """Load nucleus-level targets and supervision masks for weakly supervised learning.
 
-        For negative slides, all nuclei are treated as confidently negative.
-        For positive slides, only nuclei inside annotations (and passing refinement, if any)
-        are considered confidently labeled; the rest are marked as uncertain (inside annotations
-        and outside the refinement mask) or ignored (outside annotations).
-
         Returns:
             targets (tensor[float], shape (n,)): Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
-            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels.
+            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, specified by the refinement mask if available.
             ignore_mask (tensor[bool], shape (n,)): True for nuclei that should be excluded from all losses.
             valid_seeds (list[int]): Nuclei indices eligible as seeds for crop/component sampling.
         """
@@ -194,7 +185,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         if not slide_is_carcinoma:
             return targets, sup_mask, ignore_mask, valid_seeds
 
-        assert self.df_labels is not None  # must be provided for positive slides
+        assert self.df_labels is not None, "Labels are required for positive slides."
         targets = torch.from_numpy(
             self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
         ).float()
@@ -208,7 +199,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             if self.df_refinement is not None
             else sup_mask
         )
-        ignore_mask = targets == 0.0  # nuclei outside annotations (in positive slides)
+        ignore_mask = targets == 0.0  # nuclei in positive slides outside annotation roi
         valid_seeds = torch.nonzero(~ignore_mask).squeeze(-1).tolist()
         return targets, sup_mask, ignore_mask, valid_seeds
 
@@ -253,38 +244,34 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
         nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
 
-        centroids = np.stack(nuclei["centroid"].tolist())
-        contours = np.asarray(
-            rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2),
-        )
-
-        # compute feature vectors "x"
-        efd = elliptic_fourier_descriptors(contours, self.efd_order)
+        # --- Extract EFD features and normalize ---
+        contours = (rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2),)
+        efd = elliptic_fourier_descriptors(np.asarray(contours), self.efd_order)
         efd, angles = normalize_efd_for_rotation(efd)
-        efd, scales = normalize_efd_for_scale(efd)
         x = rearrange(efd, "n order c -> n (order c)")
-        # nuclei scales have roughly log-normal distribution
-        log_scales = (np.log(scales + 1e-8) - self.scale_mean) / self.scale_std
-        x = np.concatenate([x, log_scales], axis=-1)
+        x = x / self.scale_mean
 
+        # --- Load targets and supervision masks ---
         targets, sup_mask, ignore_mask, valid_seeds = self.load_targets_and_masks(
             self.df_metadata.iloc[idx].slide_id,
             nuclei["id"],
             self.df_metadata.iloc[idx].is_carcinoma,
         )
+
+        # --- Create a crop out of the nuclei graph ---
+        centroids = np.stack(nuclei["centroid"].tolist())
         crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
 
-        # center to crop mean and divide by a fixed average nuclei neighbor distance computed
-        # from training set to convert distances into neighbor units for numerical stability (RoPE)
+        # --- Prepare positional encodings ---
+        # center and convert distances into neighbor units
         center = centroids[crop_indices_np].mean(axis=0, keepdims=True)
         crop_centroids = (centroids[crop_indices_np] - center) / self.dist_median
-
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotations = 2.0 * (angles % np.pi)
         crop_rotations = rotations[crop_indices_np]
         crop_pos_np = np.concatenate([crop_centroids, crop_rotations], axis=-1)
 
-        # permute points via KDTree to improve locality for block-sparse attention (optimization)
+        # --- Optimize data layout for block-sparse attention ---
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
 
         perm_t = torch.from_numpy(perm_np).long()
@@ -302,7 +289,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             )
         )
         sample: Sample = {
-            "x": crop_x,  # (n, efd_order * 4 + 1)
+            "x": crop_x,  # (n, efd_order * 4)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
             "wsl_masks": WSLMasks(sup_mask=crop_sup_mask, ignore_mask=crop_ignore_mask),

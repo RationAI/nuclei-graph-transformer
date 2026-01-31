@@ -10,8 +10,9 @@ from nuclei_graph.data.efd import (
 )
 
 
-def compute_scale_stats(df: pd.DataFrame, efd_order: int) -> tuple[float, float]:
-    log_scales: list[np.ndarray] = []
+def compute_scale_mean(df: pd.DataFrame, efd_order: int) -> float:
+    total_sum = 0.0
+    total_count = 0
 
     print("Computing scale statistics...")
     for nuclei_path in tqdm(df["slide_nuclei_path"]):
@@ -19,16 +20,18 @@ def compute_scale_stats(df: pd.DataFrame, efd_order: int) -> tuple[float, float]
 
         contours = rearrange(nuclei_df["polygon"].tolist(), "b (v c) -> b v c", c=2)
         efd = elliptic_fourier_descriptors(contours, efd_order)
-
         _, scales = normalize_efd_for_scale(efd)
-        log_scales.append(np.log(np.maximum(scales, 1e-8)))
 
-    scales_combined = np.concatenate(log_scales)
-    scale_mean = float(scales_combined.mean())
-    scale_std = float(scales_combined.std())
-    print(f"Computed scale mean: {scale_mean}, scale std: {scale_std}")
+        total_sum += np.sum(scales)
+        total_count += len(scales)
 
-    return scale_mean, scale_std
+    if total_count == 0:
+        return 0.0
+
+    scale_mean = float(total_sum / total_count)
+    print(f"Computed scale mean: {scale_mean:.4f}")
+
+    return scale_mean
 
 
 def compute_median_neighbor_distance(df: pd.DataFrame) -> float:
@@ -48,6 +51,6 @@ def compute_median_neighbor_distance(df: pd.DataFrame) -> float:
 
     combined_dists = np.concatenate(all_neighbor_dists)
     median_dist = float(np.median(combined_dists))
-    print("Computed median neighbor distance:", median_dist)
+    print(f"Computed median neighbor distance: {median_dist:.4f}")
 
     return median_dist

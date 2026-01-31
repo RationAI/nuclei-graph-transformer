@@ -8,9 +8,8 @@ uris:
   metadata_uri: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet
   labels_uri: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
   refinement_uri: mlflow-artifacts:/97/98bbfa565d9e4ed48131da8d7ff4c2e1/artifacts/cam_refinement
-stats: # train split estimates
-  scale_mean: 2.5326
-  scale_std: 0.2644
+stats: # train set estimates
+  scale_mean: 13.0332
   dist_median: 28.78 # in pixels
 crop_size: ${data.crop_size}
 alpha: ${data.alpha}
