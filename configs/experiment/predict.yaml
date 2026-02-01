@@ -1,33 +1,41 @@
 # @package _global_
 defaults:
-  - /model/models@model.net: pure_self-attn_transformer
-  - /data/datasets@data.predict: nuclei_dataset/predict
+  - /model/models@model.net: nuclei_transformer
+  - /data/datasets@data.predict: nuclei_dataset/test
 
-checkpoint: mlflow-artifacts:/92/6c0c949605b142d28cb260e05df9e42d/artifacts/checkpoints/epoch=65-step=11418/checkpoint.ckpt
+mode: predict
+checkpoint: mlflow-artifacts:/97/21bf8f212a9746d3931447e73b76bfd0/artifacts/checkpoints/epoch=26-step=1215/checkpoint.ckpt
 
-model:
-  lr: 1e-4
-  net:
-    config:
-      node_features: 40
-      dim: 512
-      hidden_dim: 2048
-      pos_dim: 2
-      num_heads: 16
-      num_layers: 16
-      num_classes: 1
-      dropout: 0.1
-      layer_scale_init: 1e-04
+trainer:
+  callbacks:
+    - _target_: nuclei_graph.callbacks.PredictionsCallback
+    - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
 data:
   batch_size: 1
+  alpha: 0.8
   k: 128
   attn_block_size: 128
   efd_order: 10
   crop_size: 4096
 
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      node_features: ${mul:4,${data.efd_order}}
+      dim: 256
+      hidden_dim: 1024
+      pos_dim: 2
+      num_heads: 8
+      num_layers: 8
+      num_classes: 1
+      dropout: 0.1
+      layer_scale_init: 1e-4
+
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: 📊 Predictions[test] (512,2048,2,16,16),(4,128,4096)(0.40)
-  description: Prediction Metrics for the run [6c0c949605b142d28cb260e05df9e42d](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/92/runs/6c0c949605b142d28cb260e05df9e42d).
+  run_name: 📊 Predictions
+  description: "Prediction Metrics: [MLflow training run](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/3e097f07d08c41549788a62c95eb4f3e)"
   hyperparams: {}

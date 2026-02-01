@@ -2,55 +2,49 @@ import pandas as pd
 
 
 def compute_slides_positivity(
-    metadata: pd.DataFrame,
-    labels: pd.DataFrame,
-    label_mask: pd.DataFrame | None,
+    df_metadata: pd.DataFrame,
+    df_labels: pd.DataFrame,
+    df_refinement: pd.DataFrame | None = None,
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling.
 
-    If `label_mask` is provided, a nucleus is only considered positive if it is positively
-    labeled and is also flagged by the refinement mask.
+    If "df_refinement" is provided, a nucleus is only considered positive if it is positively
+    labeled and is also flagged by the refinement mask (specified in "df_refinement").
 
     Args:
-        metadata: DataFrame containing a "slide_id" (str) column.
-        labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
-        label_mask: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
+        df_metadata: DataFrame containing a "slide_id" (str) column.
+        df_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
+            These exist only for the positive slides, negative slides are implicitly considered all-negative.
+        df_refinement: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
     """
-    if label_mask is not None:
-        merged = labels.merge(label_mask, on=["slide_id", "id"], how="inner")
+    if df_refinement is not None:
+        merged = df_labels.merge(df_refinement, on=["slide_id", "id"], how="inner")
         merged["pos_score"] = (merged["label"] * merged["refinement_mask"]).astype(
             "uint8"
         )
         positivity_series = merged.groupby("slide_id")["pos_score"].mean()
     else:
-        positivity_series = labels.groupby("slide_id")["label"].mean()
-    positivity_map = metadata["slide_id"].map(positivity_series)
+        positivity_series = df_labels.groupby("slide_id")["label"].mean()
+    positivity_map = df_metadata["slide_id"].map(positivity_series)
     positivity_map = positivity_map.fillna(0.0)  # negative slides
-    return dict(zip(metadata["slide_id"], positivity_map, strict=True))
+    return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))
 
 
-def pre_crop_filter(metadata: pd.DataFrame, min_count: int) -> pd.DataFrame:
-    """Filters out slides that have nuclei count less than `min_count`.
-
-    Used for a cropped-based training to ensure that slides have enough nuclei to sample from.
+def min_count_filter(df: pd.DataFrame, min_count: int) -> pd.DataFrame:
+    """Filter rows in the provided dataframe based on a minimum count of nuclei located at "slide_nuclei_path".
 
     Args:
-        metadata: DataFrame containing a "slide_nuclei_path" (str) column.
+        df: Input DataFrame with a "slide_nuclei_path" (str), "slide_id" (str), and "nuclei_count" (int) columns.
         min_count: Minimum number of nuclei required to retain the slide.
     """
-    counts = metadata["slide_nuclei_path"].apply(
-        lambda path: pd.read_parquet(path, columns=[]).shape[0]
-    )
-    mask_keep = counts >= min_count
+    mask_keep = df["nuclei_count"] >= min_count
     if not mask_keep.all():
-        dropped_slides = metadata.loc[~mask_keep, ["slide_id"]].copy()
-        dropped_slides["nuclei_count"] = counts[~mask_keep]
+        dropped_slides = df.loc[~mask_keep, ["slide_id", "nuclei_count"]].copy()
         print(
             f"[INFO] Dropped slides with < {min_count} nuclei:\n",
             dropped_slides.to_string(index=False),
         )
-
-    return metadata[mask_keep].reset_index(drop=True)
+    return df[mask_keep].reset_index(drop=True)

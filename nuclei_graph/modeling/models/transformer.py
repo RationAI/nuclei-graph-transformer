@@ -43,7 +43,7 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
-        self.class_head = nn.Linear(config.dim * 2, config.num_classes)
+        self.class_head = nn.Linear(config.dim, config.num_classes)
 
     def forward(
         self, x: Tensor, pos: Tensor, block_mask: BlockMask, num_points: Tensor
@@ -67,14 +67,4 @@ class Transformer(nn.Module):
             x = layer(x, pos, block_mask)
 
         x = self.final_norm(x)
-
-        # global aggregate
-        B, N, _ = x.shape
-        mask = torch.arange(N, device=x.device).expand(B, N) < num_points.unsqueeze(1)
-        x_masked = x * mask.unsqueeze(-1).type_as(x)
-
-        global_context = x_masked.sum(dim=1) / num_points.unsqueeze(1)  # (B, D)
-        global_context_expanded = global_context.unsqueeze(1).expand(-1, N, -1)
-        x_combined = torch.cat([x, global_context_expanded], dim=-1)
-
-        return self.class_head(x_combined)
+        return self.class_head(x)

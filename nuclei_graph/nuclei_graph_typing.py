@@ -4,21 +4,41 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
+class WSLMasks(TypedDict):
+    sup_mask: Tensor
+    ignore_mask: Tensor
+
+
 class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
     sup_mask: Tensor
+    num_points: int
     block_mask: BlockMask
-    num_points: int | Tensor
+
+
+class Batch(TypedDict):
+    x: Tensor
+    pos: Tensor
+    y: Tensor
+    sup_mask: Tensor
+    num_points: Tensor
+    block_mask: BlockMask
 
 
 class Metadata(TypedDict):
     slide_id: str
+    slide_nuclei_path: str
     nuclei_ids: list[str]
     perm_inverse: Tensor
 
 
-type PredictInput = tuple[Sample, list[Metadata]]
+class PredictSample(TypedDict):
+    sample: Sample
+    metadata: Metadata
 
-type PredictSample = tuple[Sample, Metadata]
+
+class PredictBatch(TypedDict):
+    batch: Batch
+    metadata: list[Metadata]

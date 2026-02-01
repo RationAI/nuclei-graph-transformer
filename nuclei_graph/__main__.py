@@ -15,6 +15,7 @@ from nuclei_graph.wsl_meta_arch import WSLMetaArch
 OmegaConf.register_new_resolver(
     "random_seed", lambda: randint(0, 2**31), use_cache=True
 )
+OmegaConf.register_new_resolver("mul", lambda a, b: a * b)
 
 
 @hydra.main(config_path="../configs", config_name="nuclei_graph", version_base=None)

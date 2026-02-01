@@ -20,7 +20,6 @@ dependencies = [
     "transformers>=4.57.1",
     "einops>=0.8.1",
     "torchvision>=0.24.0",
-    "pyefd>=1.6.0",
     "lightning>=2.6.0",
     "torchmetrics>=1.4.1",
     "scikit-learn>=1.5.2",
@@ -30,7 +29,6 @@ dependencies = [
     "rationai-mlkit",
     "rationai-tiling",
     "ratiopath>=1.0.3",
-    "torch-geometric>=2.7.0",
 ]
 
 [tool.uv.sources]

@@ -3,9 +3,9 @@ from sklearn.model_selection import train_test_split
 
 
 def train_val_split(
-    metadata: pd.DataFrame, keep_cols: list
+    metadata: pd.DataFrame, keep_cols: list[str]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split metadata into train and validation sets at the patient level.
+    """Splits metadata into train and validation sets at the patient level.
 
     Args:
         metadata: pandas DataFrame containing columns "patient_id" (str) and "is_carcinoma" (bool).

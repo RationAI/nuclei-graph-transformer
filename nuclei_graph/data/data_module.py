@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -10,19 +10,13 @@ from torch.utils.data import DataLoader
 
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
-from nuclei_graph.data.utils.compute_stats import (
-    compute_average_neighbor_distance,
-    compute_scale_stats,
-)
+from nuclei_graph.data.utils.compute_stats import compute_scale_mean
 from nuclei_graph.data.utils.sampler import (
     compute_slides_positivity,
-    pre_crop_filter,
+    min_count_filter,
 )
 from nuclei_graph.data.utils.splitter import get_subset, train_val_split
-from nuclei_graph.nuclei_graph_typing import (
-    PredictInput,
-    Sample,
-)
+from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
 BASE_METADATA_COLS = [
@@ -31,7 +25,7 @@ BASE_METADATA_COLS = [
     "slide_nuclei_path",
 ]
 
-TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id"]
+TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
 LABEL_COLS = {"annot_label": "label"}
 REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 
@@ -47,11 +41,11 @@ class DataModule(LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.datasets = datasets
         self.sampler_partial = sampler
+        self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("uris", None)
@@ -59,80 +53,70 @@ class DataModule(LightningDataModule):
         return instantiate(conf, **kwargs)
 
     def prepare_data(self) -> None:
-        uris = set()
-        for conf in self.datasets.values():
-            if not isinstance(conf, DictConfig):
-                continue
-            uris_conf = conf.get("uris")
-            if uris_conf is None:
-                continue
-            for uri in uris_conf.values():
-                if uri is not None:
-                    uris.add(uri)
+        uris = {
+            uri
+            for conf in self.datasets.values()
+            if isinstance(conf, DictConfig) and conf.get("uris") is not None
+            for uri in conf.uris.values()
+            if uri is not None
+        }
         for uri in uris:
-            download_artifacts(uri)
+            download_artifacts(uri)  # download to local cache
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri))
-        df_labels = df_labels.rename(columns=LABEL_COLS)
-
-        df_refinement = None
-        if conf.uris.get("refinement_uri") is not None:
-            df_refinement = pd.read_parquet(
-                Path(download_artifacts(conf.uris.refinement_uri))
+        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri)).rename(
+            columns=LABEL_COLS
+        )
+        df_refinement = (
+            pd.read_parquet(download_artifacts(conf.uris.refinement_uri)).rename(
+                columns=REFINEMENT_COLS
             )
-            df_refinement = df_refinement.rename(columns=REFINEMENT_COLS)
+            if conf.uris.get("refinement_uri") is not None
+            else None
+        )
 
         match stage:
             case "fit" | "validate":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=TRAIN_METADATA_COLS,
                 )
                 df_train, df_val = train_val_split(
                     metadata, keep_cols=TRAIN_METADATA_COLS
                 )
-
-                scale_mean = conf.stats.scale_mean
-                scale_std = conf.stats.scale_std
-                if scale_mean is None or scale_std is None:
-                    scale_mean, scale_std = compute_scale_stats(
-                        df_train,
-                        efd_order=conf.efd_order,
-                    )
-                neighbor_dist_mean = conf.stats.neighbor_dist_mean
-                if neighbor_dist_mean is None:
-                    neighbor_dist_mean = compute_average_neighbor_distance(df_train)
-
-                df_train = pre_crop_filter(df_train, conf.crop_size)
+                df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
                     df_train, df_labels, df_refinement
                 )
+                scale_mean = (
+                    conf.scale_mean
+                    if conf.get("scale_mean") is not None
+                    else compute_scale_mean(df_train, conf.efd_order)
+                )
+
+                train_slides_ids = set(df_train["slide_id"])
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(set(df_train["slide_id"]), df_labels),
-                    df_refinement=get_subset(set(df_train["slide_id"]), df_refinement),
+                    df_labels=get_subset(train_slides_ids, df_labels),
+                    df_refinement=get_subset(train_slides_ids, df_refinement),
                     scale_mean=scale_mean,
-                    scale_std=scale_std,
-                    neighbor_dist_mean=neighbor_dist_mean,
                 )
+                val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(set(df_val["slide_id"]), df_labels),
-                    df_refinement=get_subset(set(df_val["slide_id"]), df_refinement),
+                    df_labels=get_subset(val_slides_ids, df_labels),
+                    df_refinement=get_subset(val_slides_ids, df_refinement),
                     scale_mean=scale_mean,
-                    scale_std=scale_std,
-                    neighbor_dist_mean=neighbor_dist_mean,
                     full_slide=True,
                 )
             case "test":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=BASE_METADATA_COLS,
                 )
                 self.test = self._instantiate_dataset(
@@ -140,13 +124,11 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    scale_mean=conf.stats.scale_mean,
-                    scale_std=conf.stats.scale_std,
-                    neighbor_dist_mean=conf.stats.neighbor_dist_mean,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
                 )
             case "predict":
                 metadata = pd.read_parquet(
-                    Path(download_artifacts(conf.uris.metadata_uri)),
+                    download_artifacts(conf.uris.metadata_uri),
                     columns=BASE_METADATA_COLS,
                 )
                 self.predict = self._instantiate_dataset(
@@ -154,12 +136,11 @@ class DataModule(LightningDataModule):
                     df_metadata=metadata,
                     df_labels=df_labels,
                     df_refinement=df_refinement,
-                    scale_mean=conf.stats.scale_mean,
-                    scale_std=conf.stats.scale_std,
-                    neighbor_dist_mean=conf.stats.neighbor_dist_mean,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    predict=True,
                 )
 
-    def train_dataloader(self) -> Iterable[Sample]:
+    def train_dataloader(self) -> Iterable[Batch]:
         sampler = (
             instantiate(self.sampler_partial, slides_positivity=self.positivity)(
                 dataset=self.train
@@ -178,7 +159,7 @@ class DataModule(LightningDataModule):
             persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> Iterable[Sample]:
+    def val_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
             self.val,
             batch_size=1,
@@ -186,7 +167,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def test_dataloader(self) -> Iterable[Sample]:
+    def test_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
             self.test,
             batch_size=1,
@@ -194,7 +175,7 @@ class DataModule(LightningDataModule):
             collate_fn=collate_fn,
         )
 
-    def predict_dataloader(self) -> Iterable[PredictInput]:
+    def predict_dataloader(self) -> Iterable[PredictBatch]:
         return DataLoader(
             self.predict,
             batch_size=1,

@@ -14,11 +14,14 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.nuclei_graph_typing import PredictInput, Sample
+from nuclei_graph.nuclei_graph_typing import (
+    Batch,
+    PredictBatch,
+)
 
 
 class WSLMetaArch(LightningModule):
-    def __init__(self, lr: float, warmup_epochs: int, net: nn.Module):
+    def __init__(self, lr: float, warmup_epochs: int, net: nn.Module) -> None:
         super().__init__()
         self.lr = lr
         self.warmup_epochs = warmup_epochs
@@ -31,47 +34,51 @@ class WSLMetaArch(LightningModule):
             "AUROC": BinaryAUROC(),
             "AUPRC": BinaryAveragePrecision(),
         }
-
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
-    def forward(self, batch: Sample) -> Tensor:
+    def forward(self, batch: Batch) -> Tensor:
         return self.net(
             batch["x"], batch["pos"], batch["block_mask"], batch["num_points"]
         )
 
-    def training_step(self, batch: Sample) -> Tensor:
+    def training_step(self, batch: Batch) -> Tensor:
+        logits = self(batch).squeeze(-1)
+        logits_sup = logits[batch["sup_mask"]]
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["sup_mask"]]
-
         sup_size = targets_sup.numel()
-        self.log("train/sup_batch_size", float(sup_size), on_step=True)
-        assert sup_size > 0, "There are no annotated targets to compute loss from"
 
-        loss = self.bce(logits_sup, targets_sup)
+        loss_sup = (
+            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
+        )
+        self.log_dict({"train/sup_size": sup_size}, on_step=True)
         self.log(
             "train/loss",
-            loss,
+            loss_sup,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
             batch_size=sup_size,
         )
-        return loss
+        return loss_sup
 
-    def validation_step(self, batch: Sample) -> None:
+    def validation_step(self, batch: Batch) -> None:
+        logits = self(batch).squeeze(-1)
+        sup_mask = batch["sup_mask"]
+        logits_sup = logits[sup_mask]
+
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["sup_mask"]]
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
             return None
 
+        loss = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
-            self.bce(logits_sup, targets_sup),
+            loss,
             on_epoch=True,
             prog_bar=True,
             batch_size=sup_size,
@@ -80,22 +87,29 @@ class WSLMetaArch(LightningModule):
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.val_metrics.reset()
 
-    def test_step(self, batch: Sample) -> None:
+    def test_step(self, batch: Batch) -> None:
+        logits = self(batch).squeeze(-1)
+        sup_mask = batch["sup_mask"]
+        logits_sup = logits[sup_mask]
+
         targets_sup = batch["y"]
-        logits_sup = self(batch)[batch["sup_mask"]]
+
+        sup_size = targets_sup.numel()
+        if sup_size == 0:
+            return None
+
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
         metrics = self.test_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictInput) -> Tensor:
-        sample, _ = batch
-        return self(sample)
+    def predict_step(self, batch: PredictBatch) -> Tensor:
+        return self(batch["batch"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []
@@ -110,7 +124,7 @@ class WSLMetaArch(LightningModule):
                 decay_params.append(param)
 
         return [
-            {"params": decay_params, "weight_decay": 1e-3},
+            {"params": decay_params, "weight_decay": 1e-4},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
@@ -133,7 +147,7 @@ class WSLMetaArch(LightningModule):
                 ),
                 CosineAnnealingLR(
                     optimizer, T_max=int(total_steps - warmup_steps), eta_min=1e-6
-                ),  # type: ignore[arg-type]
+                ),
             ],
             milestones=[int(warmup_steps)],
         )
