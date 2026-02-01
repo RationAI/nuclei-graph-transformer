@@ -4,11 +4,6 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-class WSLMasks(TypedDict):
-    sup_mask: Tensor
-    ignore_mask: Tensor
-
-
 class Sample(TypedDict):
     x: Tensor
     pos: Tensor
