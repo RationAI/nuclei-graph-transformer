@@ -201,11 +201,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 targets = torch.from_numpy(annot).float()
             case "cam":
                 targets = torch.from_numpy(cam).float()
-                sup_mask = torch.from_numpy(cam != -1).bool()
+                sup_mask = torch.from_numpy(cam != -1).bool()  # -1 indicates uncertain
             case "agreement":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
-        assert torch.all(targets[sup_mask] != -1.0)
+        assert torch.all(targets[sup_mask] != -1.0)  # supervised targets must be valid
 
         valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
         return targets, sup_mask, valid_seeds
