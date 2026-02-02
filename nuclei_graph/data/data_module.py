@@ -47,7 +47,7 @@ class DataModule(LightningDataModule):
             batch_size: Number of samples per batch.
             num_workers: Number of DataLoader workers.
             sampler: Optional DictConfig for the sampler to use during training.
-            datasets: DictConfigs for datasets for each stage (fit, val, test, predict).
+            datasets: DictConfigs for datasets for each stage.
 
         Supervision Modes Summary:
         ---------------------------------------------------------------------------------------------------------
