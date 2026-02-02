@@ -201,10 +201,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             if self.df_cam_labels is not None
             else None
         )
-        assert annot is not None or cam is not None, (
-            "Labels are required for positive slides."
-        )
-
         if annot is not None and cam is not None:
             targets = torch.from_numpy(annot).float()
             sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
