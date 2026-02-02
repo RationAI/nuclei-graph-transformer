@@ -49,16 +49,19 @@ class DataModule(LightningDataModule):
             sampler: Optional DictConfig for the sampler to use during training.
             datasets: DictConfigs for datasets for each stage (fit, val, test, predict).
 
-            Supervision Modes Summary (for positive slides):
-            ---------------------------------------------------------------------------------------------------------
-            Mode              | Mask Logic
-            ---------------------------------------------------------------------------------------------------------
-            annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
-            cam               | Only confident CAM-labeled nuclei are supervised; uncertain (-1) ignored.
-            agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
-            agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
-            ---------------------------------------------------------------------------------------------------------
-            Negative slides supervise all nuclei as negative in all modes.
+        Supervision Modes Summary:
+        ---------------------------------------------------------------------------------------------------------
+        Mode              | Mask Logic
+        ---------------------------------------------------------------------------------------------------------
+        annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
+        cam               | Only confident CAM-labeled nuclei are supervised; uncertain (-1) ignored.
+        agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
+        agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
+        ---------------------------------------------------------------------------------------------------------
+        Negative slides supervise all nuclei as negative in all modes.
+
+        The choice of supervision mode only affects positive slides during the training. For validation, testing,
+        and prediction, the "agreement-strict" mode is used by default.
         """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
@@ -71,7 +74,7 @@ class DataModule(LightningDataModule):
         self.positivity: dict[str, float] = {}
 
         rank_zero_info(
-            f"[INFO] Initializing DataModule in '{self.supervision_mode}' supervision mode."
+            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode."
         )
 
     def prepare_data(self) -> None:
@@ -89,7 +92,6 @@ class DataModule(LightningDataModule):
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("uris", None)
-            conf.pop("stats", None)
         return instantiate(conf, **kwargs)
 
     def _get_supervision_labels(
@@ -143,17 +145,19 @@ class DataModule(LightningDataModule):
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
+                    scale_mean=scale_mean,
+                    supervision_mode=self.supervision_mode,
                     df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
                     df_cam_labels=get_subset(train_slides_ids, df_cam_labels),
-                    scale_mean=scale_mean,
                 )
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
+                    scale_mean=scale_mean,
+                    supervision_mode="agreement-strict",
                     df_annot_labels=get_subset(val_slides_ids, df_annot_labels),
                     df_cam_labels=get_subset(val_slides_ids, df_cam_labels),
-                    scale_mean=scale_mean,
                     full_slide=True,
                 )
             case "test":
@@ -164,9 +168,10 @@ class DataModule(LightningDataModule):
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
                     df_annot_labels=df_annot_labels,
                     df_cam_labels=df_cam_labels,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
                 )
             case "predict":
                 metadata = pd.read_parquet(
@@ -176,9 +181,10 @@ class DataModule(LightningDataModule):
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
                     df_annot_labels=df_annot_labels,
                     df_cam_labels=df_cam_labels,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
                     predict=True,
                 )
 
