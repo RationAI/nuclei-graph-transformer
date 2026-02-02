@@ -75,6 +75,9 @@ class DataModule(LightningDataModule):
             if conf.uris.get("cam_labels_uri") is not None
             else None
         )
+        assert df_annot_labels is not None or df_cam_labels is not None, (
+            "At least one of 'annot_labels_uri' or 'cam_labels_uri' must be provided."
+        )
 
         match stage:
             case "fit" | "validate":

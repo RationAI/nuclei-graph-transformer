@@ -46,6 +46,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> None:
         """Initializes the dataset.
 
+        At least one of annotation-based labels (`df_annot_labels`) or CAM-based labels (`df_cam_labels`) must be provided.
+
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet
@@ -63,6 +65,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
         """
+        assert df_annot_labels is not None or df_cam_labels is not None, (
+            "At least one of 'df_annot_labels' or 'df_cam_labels' must be provided."
+        )
+        assert crop_size % attn_block_size == 0, (
+            "`crop_size` must be divisible by `attn_block_size`."
+        )
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
         self.df_annot_labels = self._build_index(df_annot_labels, ["slide_id", "id"])
@@ -71,7 +79,6 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self.alpha = alpha
         self.k = k
         self.attn_block_size = attn_block_size
-        assert self.crop_size % self.attn_block_size == 0
         self.efd_order = efd_order
         self.full_slide = full_slide
         self.predict = predict
