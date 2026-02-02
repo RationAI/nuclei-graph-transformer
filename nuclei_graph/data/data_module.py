@@ -26,8 +26,6 @@ BASE_METADATA_COLS = [
 ]
 
 TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
-LABEL_COLS = {"annot_label": "label"}
-REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 
 
 class DataModule(LightningDataModule):
@@ -67,14 +65,14 @@ class DataModule(LightningDataModule):
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri)).rename(
-            columns=LABEL_COLS
+        df_annot_labels = (
+            pd.read_parquet(download_artifacts(conf.uris.annot_labels_uri))
+            if conf.uris.get("annot_labels_uri") is not None
+            else None
         )
-        df_refinement = (
-            pd.read_parquet(download_artifacts(conf.uris.refinement_uri)).rename(
-                columns=REFINEMENT_COLS
-            )
-            if conf.uris.get("refinement_uri") is not None
+        df_cam_labels = (
+            pd.read_parquet(download_artifacts(conf.uris.cam_labels_uri))
+            if conf.uris.get("cam_labels_uri") is not None
             else None
         )
 
@@ -89,7 +87,7 @@ class DataModule(LightningDataModule):
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement
+                    df_train, df_annot_labels, df_cam_labels
                 )
                 scale_mean = (
                     conf.scale_mean
@@ -101,16 +99,16 @@ class DataModule(LightningDataModule):
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(train_slides_ids, df_labels),
-                    df_refinement=get_subset(train_slides_ids, df_refinement),
+                    df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
+                    df_cam_labels=get_subset(train_slides_ids, df_cam_labels),
                     scale_mean=scale_mean,
                 )
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(val_slides_ids, df_labels),
-                    df_refinement=get_subset(val_slides_ids, df_refinement),
+                    df_annot_labels=get_subset(val_slides_ids, df_annot_labels),
+                    df_cam_labels=get_subset(val_slides_ids, df_cam_labels),
                     scale_mean=scale_mean,
                     full_slide=True,
                 )
@@ -122,8 +120,8 @@ class DataModule(LightningDataModule):
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
-                    df_refinement=df_refinement,
+                    df_annot_labels=df_annot_labels,
+                    df_cam_labels=df_cam_labels,
                     scale_mean=conf.scale_mean,  # must be provided in the config
                 )
             case "predict":
@@ -134,8 +132,8 @@ class DataModule(LightningDataModule):
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
-                    df_refinement=df_refinement,
+                    df_annot_labels=df_annot_labels,
+                    df_cam_labels=df_cam_labels,
                     scale_mean=conf.scale_mean,  # must be provided in the config
                     predict=True,
                 )

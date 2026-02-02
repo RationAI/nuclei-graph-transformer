@@ -34,8 +34,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self,
         df_metadata: DataFrame,
         scale_mean: float,
-        df_labels: DataFrame | None = None,
-        df_refinement: DataFrame | None = None,
+        df_annot_labels: DataFrame | None = None,
+        df_cam_labels: DataFrame | None = None,
         crop_size: int = 4096,
         alpha: float = 0.8,
         k: int = 64,
@@ -48,12 +48,13 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
-                (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points
-                to parquet files containing nuclei segmentation data.
+                (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet
+                files containing nuclei segmentation data.
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
-            df_labels: Optional DataFrame containing nuclei labels with columns "slide_id" (str), "id" (str) and "label" (int; 0/1).
-            df_refinement: Optional DataFrame containing a boolean filter that masks-out nuclei whose label cannot be determined
-                confidently enough. It is expected to contain columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
+            df_annot_labels: Optional DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str),
+                and "annot_label" (int; 0/1).
+            df_cam_labels: Optional DataFrame containing CAM-based nuclei labels with columns "slide_id" (str), "id" (str),
+                and "cam_label" (int; 0/1/-1). Label -1 indicates uncertain nuclei.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -64,8 +65,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """
         self.df_metadata = df_metadata
         self.scale_mean = scale_mean
-        self.df_labels = self._build_index(df_labels, ["slide_id", "id"])
-        self.df_refinement = self._build_index(df_refinement, ["slide_id", "id"])
+        self.df_annot_labels = self._build_index(df_annot_labels, ["slide_id", "id"])
+        self.df_cam_labels = self._build_index(df_cam_labels, ["slide_id", "id"])
         self.crop_size = crop_size
         self.alpha = alpha
         self.k = k
@@ -164,34 +165,49 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> tuple[Tensor, Tensor, list[int]]:
         """Load nucleus-level targets and supervision mask for weakly supervised learning.
 
+        Supports three supervision modes:
+        1) Both annotation-based and CAM-based labels: nuclei are considered positive only if both labels agree,
+            the same for negative labels; nuclei where the labels disagree are considered uncertain (masked out).
+        2) Annotation-based labels only: nuclei with "annot_label"=1 are positive, all others negative.
+        3) CAM-based labels only: nuclei with "cam_label"=1 are positive, "cam_label"=0 negative, "cam_label"=-1 uncertain (masked out).
+
         Returns:
-            targets (tensor[float], shape (n,)): Values are 1.0 for positively annotated nuclei and 0.0 otherwise.
-            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, specified by the refinement mask if available.
+            targets (tensor[float], shape (n,)): Labels for each nucleus (0.0/1.0).
+            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, False for uncertain.
             valid_seeds (list[int]): Nuclei indices eligible as seeds for crop/component sampling.
         """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
-        sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: no refinement
+        sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: all supervised
         valid_seeds = list(range(n))
 
         if not slide_is_carcinoma:
             return targets, sup_mask, valid_seeds
 
-        assert self.df_labels is not None, "Labels are required for positive slides."
-        targets = torch.from_numpy(
-            self.df_labels.loc[slide_id].reindex(nuclei_ids)["label"].values
-        ).float()
-
-        sup_mask = (
-            torch.from_numpy(
-                self.df_refinement.loc[slide_id]
-                .reindex(nuclei_ids)["refinement_mask"]
-                .values
-            ).bool()
-            if self.df_refinement is not None
-            else sup_mask
+        annot = (
+            self.df_annot_labels.loc[slide_id].reindex(nuclei_ids)["annot_label"].values
+            if self.df_annot_labels is not None
+            else None
         )
-        valid_seeds = torch.nonzero(~sup_mask).squeeze(-1).tolist()
+        cam = (
+            self.df_cam_labels.loc[slide_id].reindex(nuclei_ids)["cam_label"].values
+            if self.df_cam_labels is not None
+            else None
+        )
+        assert annot is not None or cam is not None, (
+            "Labels are required for positive slides."
+        )
+
+        if annot is not None and cam is not None:
+            targets = torch.from_numpy(annot).float()
+            sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
+        elif annot is not None:
+            targets = torch.from_numpy(annot).float()
+        elif cam is not None:
+            targets = torch.from_numpy(cam == 1).float()
+            sup_mask = torch.from_numpy(cam != -1).bool()
+
+        valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
         return targets, sup_mask, valid_seeds
 
     def get_crop_indices(
@@ -279,7 +295,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "x": crop_x,  # (n, efd_order * 4)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
-            "sup_mask": crop_sup_mask,
+            "sup_mask": crop_sup_mask.bool(),  # (n, )
             "num_points": len(crop_indices_np),
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
