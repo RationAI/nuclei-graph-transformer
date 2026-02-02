@@ -42,14 +42,9 @@ class DataModule(LightningDataModule):
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
-        Args:
-            supervision_mode: One of ["annotation", "cam", "agreement", "agreement-strict"].
-            batch_size: Number of samples per batch.
-            num_workers: Number of DataLoader workers.
-            sampler: Optional DictConfig for the sampler to use during training.
-            datasets: DictConfigs for datasets for each stage.
+        Supports multiple supervision modes for training based on annotation ROIs and CAM labels.
 
-        Supervision Modes Summary:
+        Summary:
         ---------------------------------------------------------------------------------------------------------
         Mode              | Mask Logic
         ---------------------------------------------------------------------------------------------------------
