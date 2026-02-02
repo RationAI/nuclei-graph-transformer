@@ -4,6 +4,7 @@ from typing import Any
 import pandas as pd
 from hydra.utils import instantiate
 from lightning import LightningDataModule
+from lightning.pytorch.utilities import rank_zero_info
 from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig, open_dict
 from torch.utils.data import DataLoader
@@ -48,7 +49,9 @@ class DataModule(LightningDataModule):
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-        print(f"Initializing DataModule in '{self.supervision_mode}' supervision mode.")
+        rank_zero_info(
+            f"[INFO] Initializing DataModule in '{self.supervision_mode}' supervision mode."
+        )
 
     def prepare_data(self) -> None:
         uris = {
