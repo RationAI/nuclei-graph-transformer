@@ -194,27 +194,27 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         annot = load_df(self.df_annot_labels, "annot_label")
         cam = load_df(self.df_cam_labels, "cam_label")
-        valid_seeds = torch.tensor(range(n), dtype=torch.int64)
+        valid_seeds = np.arange(n)
 
         match self.supervision_mode:
             case "annotation":
                 targets = torch.from_numpy(annot).float()
-                valid_seeds = torch.nonzero(targets)
+                valid_seeds = np.nonzero(annot == 1)[0]  # nonzero returns (indices,)
             case "cam":
                 targets = torch.from_numpy(cam).float()
                 sup_mask = torch.from_numpy(cam != -1).bool()  # -1 indicates uncertain
-                valid_seeds = torch.nonzero(targets == 1)
+                valid_seeds = np.nonzero(cam == 1)[0]
             case "agreement":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy(annot == cam).bool()
-                valid_seeds = torch.nonzero((annot == 1) & (cam == 1))
+                valid_seeds = np.nonzero((annot == 1) & (cam == 1))[0]
             case "agreement-strict":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy((annot == 1) & (cam == 1)).bool()
-                valid_seeds = torch.nonzero((annot == 1) & (cam == 1))
+                valid_seeds = np.nonzero((annot == 1) & (cam == 1))[0]
 
         assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
-        return targets, sup_mask, valid_seeds.squeeze(-1).tolist()
+        return targets, sup_mask, valid_seeds.tolist()
 
     def get_crop_indices(
         self, centroids: NDArray[np.float32], valid_seeds: list[int]
