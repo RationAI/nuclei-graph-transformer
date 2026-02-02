@@ -254,7 +254,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
         nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
 
-        # --- Extract EFD features and normalize ---
+        # --- Extract EFD features ---
         contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
         efd = elliptic_fourier_descriptors(np.asarray(contours), self.efd_order)
         efd, angles = normalize_efd_for_rotation(efd)
@@ -268,7 +268,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             self.df_metadata.iloc[idx].is_carcinoma,
         )
 
-        # --- Create a crop out of the nuclei graph ---
+        # --- Create a crop ---
         centroids = np.stack(nuclei["centroid"].tolist())
         crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
 
