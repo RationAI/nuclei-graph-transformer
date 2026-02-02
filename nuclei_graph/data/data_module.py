@@ -20,7 +20,8 @@ from nuclei_graph.data.utils.splitter import get_subset, train_val_split
 from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
-SUPERVISION_MODES = {"annotation", "cam", "agreement"}
+SUPERVISION_MODES = {"annotation", "cam", "agreement", "agreement-strict"}
+
 BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
@@ -39,6 +40,25 @@ class DataModule(LightningDataModule):
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
+        """Lightning DataModule for nuclei point cloud datasets with weak supervision.
+
+        Args:
+            supervision_mode: One of ["annotation", "cam", "agreement", "agreement-strict"].
+            batch_size: Number of samples per batch.
+            num_workers: Number of DataLoader workers.
+            sampler: Optional DictConfig for the sampler to use during training.
+            datasets: DictConfigs for datasets for each stage (fit, val, test, predict).
+
+            Supervision Modes Summary:
+            ---------------------------------------------------------------------------------------------------------
+            Mode              | Mask Logic
+            ---------------------------------------------------------------------------------------------------------
+            annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
+            cam               | Only confident CAM-labeled nuclei are supervised; uncertain (-1) ignored.
+            agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
+            agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
+            ---------------------------------------------------------------------------------------------------------
+        """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
 
@@ -88,7 +108,7 @@ class DataModule(LightningDataModule):
             case "cam":
                 assert df_cam_labels is not None
                 return None, df_cam_labels
-            case "agreement":
+            case "agreement" | "agreement-strict":
                 assert df_annot_labels is not None and df_cam_labels is not None
                 return df_annot_labels, df_cam_labels
             case _:

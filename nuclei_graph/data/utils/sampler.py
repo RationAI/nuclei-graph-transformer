@@ -9,9 +9,11 @@ def compute_slides_positivity(
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling based on supervision labels.
 
+    The positivity ratio is defined as the fraction of nuclei labeled as positive over the total number of nuclei.
+
     Args:
         df_metadata: DataFrame containing a "slide_id" (str) column.
-        supervision_mode: One of "annotation", "cam", or "agreement".
+        supervision_mode: One of "annotation", "cam", "agreement", "agreement-strict".
         df_annot_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
         df_cam_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
 
@@ -34,19 +36,17 @@ def compute_slides_positivity(
 
         case "cam":
             assert df_cam_labels is not None
-            confident = df_cam_labels[df_cam_labels["cam_label"] != -1].copy()
-            positivity_series = confident.groupby("slide_id")["cam_label"].mean()
-
-        case "agreement":  # positive if both agree on positive
+            temp_labels = df_cam_labels["cam_label"].replace(-1, 0)
+            positivity_series = temp_labels.groupby(df_cam_labels["slide_id"]).mean()
+        case "agreement" | "agreement-strict":  # positive if both agree on positive
             assert df_annot_labels is not None and df_cam_labels is not None
             merged = df_annot_labels.merge(
                 df_cam_labels, on=["slide_id", "id"], how="inner"
             )
-            confident = merged[merged["cam_label"] != -1].copy()
-            confident["pos_score"] = (
-                (confident["annot_label"] == 1) & (confident["cam_label"] == 1)
+            merged["is_positive"] = (
+                (merged["annot_label"] == 1) & (merged["cam_label"] == 1)
             ).astype(float)
-            positivity_series = confident.groupby("slide_id")["pos_score"].mean()
+            positivity_series = merged.groupby("slide_id")["is_positive"].mean()
 
     positivity_map = df_metadata["slide_id"].map(positivity_series).fillna(0.0)
     return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))

@@ -13,7 +13,7 @@ trainer:
   log_every_n_steps: 5
 
 data:
-  supervision_mode: ??? # "annotation", "cam", "agreement"
+  supervision_mode: ??? # "annotation", "cam", "agreement" or "agreement-strict"
   batch_size: ???
   num_workers: 10
   crop_size: ???

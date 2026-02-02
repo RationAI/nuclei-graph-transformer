@@ -51,7 +51,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet
                 files containing nuclei segmentation data.
-            supervision_mode: Supervision mode for weakly supervised learning (one of "annotation", "cam", "agreement").
+            supervision_mode: Supervision mode for weakly supervised learning (one of "annotation", "cam", "agreement", "agreement-strict").
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
             df_annot_labels: Optional DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str),
                 and "annot_label" (int; 0/1).
@@ -204,7 +204,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
                 sup_mask = torch.from_numpy(cam != -1).bool()  # -1 indicates uncertain
             case "agreement":
                 targets = torch.from_numpy(annot).float()
-                sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
+                sup_mask = torch.from_numpy(annot == cam).bool()
+            case "agreement-strict":
+                targets = torch.from_numpy(annot).float()
+                sup_mask = torch.from_numpy((annot == 1) & (cam == 1)).bool()
         assert torch.all(targets[sup_mask] != -1.0)  # supervised targets must be valid
 
         valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
