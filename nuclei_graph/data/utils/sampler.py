@@ -3,33 +3,54 @@ import pandas as pd
 
 def compute_slides_positivity(
     df_metadata: pd.DataFrame,
-    df_labels: pd.DataFrame,
-    df_refinement: pd.DataFrame | None = None,
+    supervision_mode: str,
+    df_annot_labels: pd.DataFrame | None = None,
+    df_cam_labels: pd.DataFrame | None = None,
 ) -> dict[str, float]:
-    """Calculates the carcinoma positivity ratio per slide for weighted sampling.
+    """Calculates the carcinoma positivity ratio per slide for weighted sampling based on supervision labels.
 
-    If "df_refinement" is provided, a nucleus is only considered positive if it is positively
-    labeled and is also flagged by the refinement mask (specified in "df_refinement").
+    The positivity ratio is defined as the fraction of nuclei labeled as positive over the total number of nuclei.
 
     Args:
         df_metadata: DataFrame containing a "slide_id" (str) column.
-        df_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "label" (int).
-            These exist only for the positive slides, negative slides are implicitly considered all-negative.
-        df_refinement: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "refinement_mask" (bool).
+        supervision_mode: One of "annotation", "cam", "agreement", "agreement-strict".
+        df_annot_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
+        df_cam_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
+
+    The `df_annot_labels` and `df_cam_labels` contain only positive slides, negative slides are implicitly considered all-negative.
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
     """
-    if df_refinement is not None:
-        merged = df_labels.merge(df_refinement, on=["slide_id", "id"], how="inner")
-        merged["pos_score"] = (merged["label"] * merged["refinement_mask"]).astype(
-            "uint8"
-        )
-        positivity_series = merged.groupby("slide_id")["pos_score"].mean()
-    else:
-        positivity_series = df_labels.groupby("slide_id")["label"].mean()
-    positivity_map = df_metadata["slide_id"].map(positivity_series)
-    positivity_map = positivity_map.fillna(0.0)  # negative slides
+    assert df_annot_labels is not None or df_cam_labels is not None, (
+        "At least one of 'df_annot_labels' or 'df_cam_labels' must be provided."
+    )
+    positivity_series = pd.Series(dtype=float)
+
+    match supervision_mode:
+        case "annotation":
+            assert df_annot_labels is not None
+            positivity_series = df_annot_labels.groupby("slide_id")[
+                "annot_label"
+            ].mean()
+
+        case "cam":
+            assert df_cam_labels is not None
+            tmp_cam_labels = df_cam_labels["cam_label"].replace(-1, 0)
+            positivity_series = tmp_cam_labels.groupby(df_cam_labels["slide_id"]).mean()
+
+        case "agreement" | "agreement-strict":  # positive if both agree on positive
+            assert df_annot_labels is not None and df_cam_labels is not None
+            tmp_cam_labels = df_cam_labels["cam_label"].replace(-1, 0)
+            merged = df_annot_labels.merge(
+                tmp_cam_labels, on=["slide_id", "id"], how="inner"
+            )
+            merged["is_positive"] = (
+                (merged["annot_label"] == 1) & (merged["cam_label"] == 1)
+            ).astype(float)
+            positivity_series = merged.groupby("slide_id")["is_positive"].mean()
+
+    positivity_map = df_metadata["slide_id"].map(positivity_series).fillna(0.0)
     return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))
 
 

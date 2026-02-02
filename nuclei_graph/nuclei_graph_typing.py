@@ -4,16 +4,11 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-class WSLMasks(TypedDict):
-    sup_mask: Tensor
-    ignore_mask: Tensor
-
-
 class Sample(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    wsl_masks: WSLMasks
+    sup_mask: Tensor
     num_points: int
     block_mask: BlockMask
 
@@ -22,7 +17,7 @@ class Batch(TypedDict):
     x: Tensor
     pos: Tensor
     y: Tensor
-    wsl_masks: WSLMasks
+    sup_mask: Tensor
     num_points: Tensor
     block_mask: BlockMask
 

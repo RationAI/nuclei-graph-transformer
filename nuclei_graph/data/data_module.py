@@ -4,6 +4,7 @@ from typing import Any
 import pandas as pd
 from hydra.utils import instantiate
 from lightning import LightningDataModule
+from lightning.pytorch.utilities import rank_zero_info
 from mlflow.artifacts import download_artifacts
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from omegaconf import DictConfig, open_dict
@@ -19,6 +20,8 @@ from nuclei_graph.data.utils.splitter import get_subset, train_val_split
 from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
+SUPERVISION_MODES = {"annotation", "cam", "agreement", "agreement-strict"}
+
 BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
@@ -26,31 +29,53 @@ BASE_METADATA_COLS = [
 ]
 
 TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
-LABEL_COLS = {"annot_label": "label"}
-REFINEMENT_COLS = {"cam_thr_mask": "refinement_mask", "cam_score": "score"}
 
 
 class DataModule(LightningDataModule):
     def __init__(
         self,
+        supervision_mode: str,
         batch_size: int,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
+        """Lightning DataModule for nuclei point cloud datasets with weak supervision.
+
+        Args:
+            supervision_mode: One of ["annotation", "cam", "agreement", "agreement-strict"].
+            batch_size: Number of samples per batch.
+            num_workers: Number of DataLoader workers.
+            sampler: Optional DictConfig for the sampler to use during training.
+            datasets: DictConfigs for datasets for each stage (fit, val, test, predict).
+
+        Supervision Modes Summary:
+        ---------------------------------------------------------------------------------------------------------
+        Mode              | Mask Logic
+        ---------------------------------------------------------------------------------------------------------
+        annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
+        cam               | Only confident CAM-labeled nuclei are supervised; uncertain (-1) ignored.
+        agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
+        agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
+        ---------------------------------------------------------------------------------------------------------
+        Negative slides supervise all nuclei as negative in all modes.
+
+        The choice of supervision mode only affects positive slides during the training. For validation, testing,
+        and prediction, the "agreement-strict" mode is used by default.
+        """
         super().__init__()
+        assert supervision_mode in SUPERVISION_MODES
+
+        self.supervision_mode = supervision_mode
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
-        conf = conf.copy()
-        with open_dict(conf):
-            conf.pop("uris", None)
-            conf.pop("stats", None)
-        return instantiate(conf, **kwargs)
+        rank_zero_info(
+            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode."
+        )
 
     def prepare_data(self) -> None:
         uris = {
@@ -63,20 +88,39 @@ class DataModule(LightningDataModule):
         for uri in uris:
             download_artifacts(uri)  # download to local cache
 
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
+        conf = conf.copy()
+        with open_dict(conf):
+            conf.pop("uris", None)
+        return instantiate(conf, **kwargs)
+
+    def _get_supervision_labels(
+        self, conf: DictConfig
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+        def load_df(uri_key):
+            uri = conf.uris.get(uri_key)
+            return pd.read_parquet(download_artifacts(uri)) if uri else None
+
+        df_annot_labels = load_df("annot_labels_uri")
+        df_cam_labels = load_df("cam_labels_uri")
+
+        match self.supervision_mode:
+            case "annotation":
+                assert df_annot_labels is not None
+                return df_annot_labels, None
+            case "cam":
+                assert df_cam_labels is not None
+                return None, df_cam_labels
+            case "agreement" | "agreement-strict":
+                assert df_annot_labels is not None and df_cam_labels is not None
+                return df_annot_labels, df_cam_labels
+            case _:
+                raise ValueError(f"Invalid supervision mode: {self.supervision_mode}")
+
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
-
-        df_labels = pd.read_parquet(download_artifacts(conf.uris.labels_uri)).rename(
-            columns=LABEL_COLS
-        )
-        df_refinement = (
-            pd.read_parquet(download_artifacts(conf.uris.refinement_uri)).rename(
-                columns=REFINEMENT_COLS
-            )
-            if conf.uris.get("refinement_uri") is not None
-            else None
-        )
+        df_annot_labels, df_cam_labels = self._get_supervision_labels(conf)
 
         match stage:
             case "fit" | "validate":
@@ -89,7 +133,7 @@ class DataModule(LightningDataModule):
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_labels, df_refinement
+                    df_train, self.supervision_mode, df_annot_labels, df_cam_labels
                 )
                 scale_mean = (
                     conf.scale_mean
@@ -101,17 +145,19 @@ class DataModule(LightningDataModule):
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    df_labels=get_subset(train_slides_ids, df_labels),
-                    df_refinement=get_subset(train_slides_ids, df_refinement),
                     scale_mean=scale_mean,
+                    supervision_mode=self.supervision_mode,
+                    df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
+                    df_cam_labels=get_subset(train_slides_ids, df_cam_labels),
                 )
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    df_labels=get_subset(val_slides_ids, df_labels),
-                    df_refinement=get_subset(val_slides_ids, df_refinement),
                     scale_mean=scale_mean,
+                    supervision_mode="agreement-strict",
+                    df_annot_labels=get_subset(val_slides_ids, df_annot_labels),
+                    df_cam_labels=get_subset(val_slides_ids, df_cam_labels),
                     full_slide=True,
                 )
             case "test":
@@ -122,9 +168,10 @@ class DataModule(LightningDataModule):
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
-                    df_refinement=df_refinement,
                     scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
+                    df_annot_labels=df_annot_labels,
+                    df_cam_labels=df_cam_labels,
                 )
             case "predict":
                 metadata = pd.read_parquet(
@@ -134,9 +181,10 @@ class DataModule(LightningDataModule):
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    df_labels=df_labels,
-                    df_refinement=df_refinement,
                     scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
+                    df_annot_labels=df_annot_labels,
+                    df_cam_labels=df_cam_labels,
                     predict=True,
                 )
 

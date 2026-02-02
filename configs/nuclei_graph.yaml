@@ -5,11 +5,12 @@ defaults:
 
 seed: ${random_seed:}
 mode: ???
-checkpoint: null
+checkpoint: ???
 
 trainer: {}
 
 data:
+  supervision_mode: ??? # "annotation", "cam", "agreement" or "agreement-strict"
   batch_size: ???
   num_workers: 10
   crop_size: ???
