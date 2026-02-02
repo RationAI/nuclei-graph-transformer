@@ -208,7 +208,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             case "agreement-strict":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy((annot == 1) & (cam == 1)).bool()
-        assert torch.all(targets[sup_mask] != -1.0)  # supervised targets must be valid
+        assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
 
         valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
         return targets, sup_mask, valid_seeds
