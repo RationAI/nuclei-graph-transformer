@@ -49,7 +49,7 @@ class DataModule(LightningDataModule):
             sampler: Optional DictConfig for the sampler to use during training.
             datasets: DictConfigs for datasets for each stage (fit, val, test, predict).
 
-            Supervision Modes Summary:
+            Supervision Modes Summary (for positive slides):
             ---------------------------------------------------------------------------------------------------------
             Mode              | Mask Logic
             ---------------------------------------------------------------------------------------------------------
@@ -58,6 +58,7 @@ class DataModule(LightningDataModule):
             agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
             agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
             ---------------------------------------------------------------------------------------------------------
+            Negative slides supervise all nuclei as negative in all modes.
         """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
