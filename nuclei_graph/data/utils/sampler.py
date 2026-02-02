@@ -41,7 +41,8 @@ def compute_slides_positivity(
 
         case "agreement" | "agreement-strict":  # positive if both agree on positive
             assert df_annot_labels is not None and df_cam_labels is not None
-            tmp_cam_labels = df_cam_labels["cam_label"].replace(-1, 0)
+            tmp_cam_labels = df_cam_labels.copy()
+            tmp_cam_labels["cam_label"] = tmp_cam_labels["cam_label"].replace(-1, 0)
             merged = df_annot_labels.merge(
                 tmp_cam_labels, on=["slide_id", "id"], how="inner"
             )
