@@ -33,6 +33,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __init__(
         self,
         df_metadata: DataFrame,
+        supervision_mode: str,
         scale_mean: float,
         df_annot_labels: DataFrame | None = None,
         df_cam_labels: DataFrame | None = None,
@@ -46,12 +47,11 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     ) -> None:
         """Initializes the dataset.
 
-        At least one of annotation-based labels (`df_annot_labels`) or CAM-based labels (`df_cam_labels`) must be provided.
-
         Args:
             df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
                 (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet
                 files containing nuclei segmentation data.
+            supervision_mode: Supervision mode for weakly supervised learning (one of "annotation", "cam", "agreement").
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
             df_annot_labels: Optional DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str),
                 and "annot_label" (int; 0/1).
@@ -72,6 +72,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             "`crop_size` must be divisible by `attn_block_size`."
         )
         self.df_metadata = df_metadata
+        self.supervision_mode = supervision_mode
         self.scale_mean = scale_mean
         self.df_annot_labels = self._build_index(df_annot_labels, ["slide_id", "id"])
         self.df_cam_labels = self._build_index(df_cam_labels, ["slide_id", "id"])
@@ -170,16 +171,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def load_targets_and_masks(
         self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
     ) -> tuple[Tensor, Tensor, list[int]]:
-        """Load nucleus-level targets and supervision mask for weakly supervised learning.
-
-        Supports three supervision modes:
-        1) Both annotation-based and CAM-based labels: nuclei are considered positive only if both labels agree,
-            the same for negative labels; nuclei where the labels disagree are considered uncertain (masked out).
-        2) Annotation-based labels only: nuclei with "annot_label"=1 are positive, all others negative.
-        3) CAM-based labels only: nuclei with "cam_label"=1 are positive, "cam_label"=0 negative, "cam_label"=-1 uncertain (masked out).
+        """Load nucleus-level targets and a supervision mask for weakly supervised learning.
 
         Returns:
-            targets (tensor[float], shape (n,)): Labels for each nucleus (0.0/1.0).
+            targets (tensor[float], shape (n,)): Labels for each nucleus.
             sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, False for uncertain.
             valid_seeds (list[int]): Nuclei indices eligible as seeds for crop/component sampling.
         """
@@ -191,24 +186,26 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         if not slide_is_carcinoma:
             return targets, sup_mask, valid_seeds
 
-        annot = (
-            self.df_annot_labels.loc[slide_id].reindex(nuclei_ids)["annot_label"].values
-            if self.df_annot_labels is not None
-            else None
-        )
-        cam = (
-            self.df_cam_labels.loc[slide_id].reindex(nuclei_ids)["cam_label"].values
-            if self.df_cam_labels is not None
-            else None
-        )
-        if annot is not None and cam is not None:
-            targets = torch.from_numpy(annot).float()
-            sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
-        elif annot is not None:
-            targets = torch.from_numpy(annot).float()
-        elif cam is not None:
-            targets = torch.from_numpy(cam == 1).float()
-            sup_mask = torch.from_numpy(cam != -1).bool()
+        def load_df(df: pd.DataFrame | None, column: str) -> np.ndarray | None:
+            return (
+                df.loc[slide_id].reindex(nuclei_ids)[column].to_numpy(dtype=np.float32)
+                if df is not None
+                else None
+            )
+
+        annot = load_df(self.df_annot_labels, "annot_label")
+        cam = load_df(self.df_cam_labels, "cam_label")
+
+        match self.supervision_mode:
+            case "annotation":
+                targets = torch.from_numpy(annot).float()
+            case "cam":
+                targets = torch.from_numpy(cam).float()
+                sup_mask = torch.from_numpy(cam != -1).bool()
+            case "agreement":
+                targets = torch.from_numpy(annot).float()
+                sup_mask = torch.from_numpy((cam != -1) & (annot == cam)).bool()
+        assert torch.all(targets[sup_mask] != -1.0)
 
         valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
         return targets, sup_mask, valid_seeds

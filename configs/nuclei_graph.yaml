@@ -8,11 +8,12 @@ mode: ???
 checkpoint: ???
 
 trainer:
-  enable_checkpointing: True
+  enable_checkpointing: true
   max_epochs: 100
   log_every_n_steps: 5
 
 data:
+  supervision_mode: ??? # "annotation", "cam", "agreement"
   batch_size: ???
   num_workers: 10
   crop_size: ???

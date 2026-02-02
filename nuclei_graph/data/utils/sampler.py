@@ -3,18 +3,15 @@ import pandas as pd
 
 def compute_slides_positivity(
     df_metadata: pd.DataFrame,
+    supervision_mode: str,
     df_annot_labels: pd.DataFrame | None = None,
     df_cam_labels: pd.DataFrame | None = None,
 ) -> dict[str, float]:
-    """Calculates the carcinoma positivity ratio per slide for weighted sampling.
-
-    Supports three modes:
-    1. Both Annotation Labels and CAM Labels are provided: A nucleus is considered positive only if both labels agree.
-    2. Only Annotation Labels are provided: The positivity ratio is computed directly from the annotation labels.
-    3. Only CAM Labels are provided: The positivity ratio is computed directly from the CAM labels.
+    """Calculates the carcinoma positivity ratio per slide for weighted sampling based on supervision labels.
 
     Args:
         df_metadata: DataFrame containing a "slide_id" (str) column.
+        supervision_mode: One of "annotation", "cam", or "agreement".
         df_annot_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
         df_cam_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
 
@@ -28,22 +25,28 @@ def compute_slides_positivity(
     )
     positivity_series = pd.Series(dtype=float)
 
-    if df_annot_labels is not None and df_cam_labels is not None:
-        merged = df_annot_labels.merge(
-            df_cam_labels, on=["slide_id", "id"], how="inner"
-        )
-        confident = merged[merged["cam_label"] != -1].copy()
-        confident["pos_score"] = (
-            (confident["annot_label"] == 1) & (confident["cam_label"] == 1)
-        ).astype(float)
-        positivity_series = confident.groupby("slide_id")["pos_score"].mean()
+    match supervision_mode:
+        case "annotation":
+            assert df_annot_labels is not None
+            positivity_series = df_annot_labels.groupby("slide_id")[
+                "annot_label"
+            ].mean()
 
-    elif df_annot_labels is not None:
-        positivity_series = df_annot_labels.groupby("slide_id")["annot_label"].mean()
+        case "cam":
+            assert df_cam_labels is not None
+            confident = df_cam_labels[df_cam_labels["cam_label"] != -1].copy()
+            positivity_series = confident.groupby("slide_id")["cam_label"].mean()
 
-    elif df_cam_labels is not None:
-        confident = df_cam_labels[df_cam_labels["cam_label"] != -1].copy()
-        positivity_series = confident.groupby("slide_id")["cam_label"].mean()
+        case "agreement":  # positive if both agree on positive
+            assert df_annot_labels is not None and df_cam_labels is not None
+            merged = df_annot_labels.merge(
+                df_cam_labels, on=["slide_id", "id"], how="inner"
+            )
+            confident = merged[merged["cam_label"] != -1].copy()
+            confident["pos_score"] = (
+                (confident["annot_label"] == 1) & (confident["cam_label"] == 1)
+            ).astype(float)
+            positivity_series = confident.groupby("slide_id")["pos_score"].mean()
 
     positivity_map = df_metadata["slide_id"].map(positivity_series).fillna(0.0)
     return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))

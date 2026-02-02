@@ -12,6 +12,7 @@ trainer:
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
 data:
+  supervision_mode: "agreement" # "annotation", "cam", "agreement"
   batch_size: 1
   alpha: 0.8
   k: 128
@@ -38,4 +39,5 @@ metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: 📊 Predictions
   description: "Prediction Metrics: [MLflow training run](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/3e097f07d08c41549788a62c95eb4f3e)"
-  hyperparams: {}
+  hyperparams:
+    checkpoint: ${checkpoint}

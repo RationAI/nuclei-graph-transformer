@@ -19,6 +19,7 @@ from nuclei_graph.data.utils.splitter import get_subset, train_val_split
 from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
+SUPERVISION_MODES = {"annotation", "cam", "agreement"}
 BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
@@ -31,24 +32,23 @@ TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
 class DataModule(LightningDataModule):
     def __init__(
         self,
+        supervision_mode: str,
         batch_size: int,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         super().__init__()
+        assert supervision_mode in SUPERVISION_MODES
+
+        self.supervision_mode = supervision_mode
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
         self.datasets = datasets
         self.positivity: dict[str, float] = {}
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
-        conf = conf.copy()
-        with open_dict(conf):
-            conf.pop("uris", None)
-            conf.pop("stats", None)
-        return instantiate(conf, **kwargs)
+        print(f"Initializing DataModule in '{self.supervision_mode}' supervision mode.")
 
     def prepare_data(self) -> None:
         uris = {
@@ -61,23 +61,40 @@ class DataModule(LightningDataModule):
         for uri in uris:
             download_artifacts(uri)  # download to local cache
 
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
+        conf = conf.copy()
+        with open_dict(conf):
+            conf.pop("uris", None)
+            conf.pop("stats", None)
+        return instantiate(conf, **kwargs)
+
+    def _get_supervision_labels(
+        self, conf: DictConfig
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+        def load_df(uri_key):
+            uri = conf.uris.get(uri_key)
+            return pd.read_parquet(download_artifacts(uri)) if uri else None
+
+        df_annot_labels = load_df("annot_labels_uri")
+        df_cam_labels = load_df("cam_labels_uri")
+
+        match self.supervision_mode:
+            case "annotation":
+                assert df_annot_labels is not None
+                return df_annot_labels, None
+            case "cam":
+                assert df_cam_labels is not None
+                return None, df_cam_labels
+            case "agreement":
+                assert df_annot_labels is not None and df_cam_labels is not None
+                return df_annot_labels, df_cam_labels
+            case _:
+                raise ValueError(f"Invalid supervision mode: {self.supervision_mode}")
+
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
-
-        df_annot_labels = (
-            pd.read_parquet(download_artifacts(conf.uris.annot_labels_uri))
-            if conf.uris.get("annot_labels_uri") is not None
-            else None
-        )
-        df_cam_labels = (
-            pd.read_parquet(download_artifacts(conf.uris.cam_labels_uri))
-            if conf.uris.get("cam_labels_uri") is not None
-            else None
-        )
-        assert df_annot_labels is not None or df_cam_labels is not None, (
-            "At least one of 'annot_labels_uri' or 'cam_labels_uri' must be provided."
-        )
+        df_annot_labels, df_cam_labels = self._get_supervision_labels(conf)
 
         match stage:
             case "fit" | "validate":
@@ -90,7 +107,7 @@ class DataModule(LightningDataModule):
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
                 self.positivity = compute_slides_positivity(
-                    df_train, df_annot_labels, df_cam_labels
+                    df_train, self.supervision_mode, df_annot_labels, df_cam_labels
                 )
                 scale_mean = (
                     conf.scale_mean
