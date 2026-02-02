@@ -38,10 +38,12 @@ def compute_slides_positivity(
             assert df_cam_labels is not None
             temp_labels = df_cam_labels["cam_label"].replace(-1, 0)
             positivity_series = temp_labels.groupby(df_cam_labels["slide_id"]).mean()
+
         case "agreement" | "agreement-strict":  # positive if both agree on positive
             assert df_annot_labels is not None and df_cam_labels is not None
+            temp_labels = df_cam_labels["cam_label"].replace(-1, 0)
             merged = df_annot_labels.merge(
-                df_cam_labels, on=["slide_id", "id"], how="inner"
+                temp_labels, on=["slide_id", "id"], how="inner"
             )
             merged["is_positive"] = (
                 (merged["annot_label"] == 1) & (merged["cam_label"] == 1)
