@@ -42,7 +42,7 @@ class DataModule(LightningDataModule):
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
-        Supports multiple supervision modes for training based on annotation ROIs and CAM labels.
+        Supports multiple supervision modes based on annotation ROIs and CAM labels.
 
         Summary:
         ---------------------------------------------------------------------------------------------------------
