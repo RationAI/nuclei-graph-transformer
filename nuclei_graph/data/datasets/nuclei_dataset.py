@@ -176,15 +176,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         Returns:
             targets (tensor[float], shape (n,)): Labels for each nucleus.
             sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, False for uncertain.
-            valid_seeds (list[int]): Nuclei indices eligible as seeds for crop/component sampling.
+            valid_seeds (list[int]): Nuclei indices eligible as seeds for crop generation; i.e. supervised positive nuclei.
         """
         n = len(nuclei_ids)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
         sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: all supervised
-        valid_seeds = list(range(n))
 
         if not slide_is_carcinoma:
-            return targets, sup_mask, valid_seeds
+            return targets, sup_mask, list(range(n))
 
         def load_df(df: pd.DataFrame | None, column: str) -> np.ndarray | None:
             return (
@@ -195,23 +194,27 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
 
         annot = load_df(self.df_annot_labels, "annot_label")
         cam = load_df(self.df_cam_labels, "cam_label")
+        valid_seeds = torch.tensor(range(n), dtype=torch.int64)
 
         match self.supervision_mode:
             case "annotation":
                 targets = torch.from_numpy(annot).float()
+                valid_seeds = torch.nonzero(targets)
             case "cam":
                 targets = torch.from_numpy(cam).float()
                 sup_mask = torch.from_numpy(cam != -1).bool()  # -1 indicates uncertain
+                valid_seeds = torch.nonzero(targets == 1)
             case "agreement":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy(annot == cam).bool()
+                valid_seeds = torch.nonzero((annot == 1) & (cam == 1))
             case "agreement-strict":
                 targets = torch.from_numpy(annot).float()
                 sup_mask = torch.from_numpy((annot == 1) & (cam == 1)).bool()
-        assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
+                valid_seeds = torch.nonzero((annot == 1) & (cam == 1))
 
-        valid_seeds = torch.nonzero(sup_mask).squeeze(-1).tolist()
-        return targets, sup_mask, valid_seeds
+        assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
+        return targets, sup_mask, valid_seeds.squeeze(-1).tolist()
 
     def get_crop_indices(
         self, centroids: NDArray[np.float32], valid_seeds: list[int]
