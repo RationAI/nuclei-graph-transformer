@@ -21,7 +21,7 @@ trainer:
       patience: 15
 
 data:
-  supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
+  supervision_mode: "cam" # "annotation", "cam", "agreement", "agreement-strict"
   batch_size: 8
   crop_size: 4096
   alpha: 0.8
@@ -37,7 +37,7 @@ model:
       node_features: ${mul:4,${data.efd_order}}
       dim: 256
       hidden_dim: 1024
-      pos_dim: 3 # (x, y, α)
+      pos_dim: 2 # (x, y, α)
       num_heads: 8
       num_layers: 8
       num_classes: 1
@@ -47,7 +47,7 @@ model:
 metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: Train, ${data.supervision_mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.k},${data.crop_size})(${data.sampler.positivity_thr})]
-  description: "added rotation"
+  description: ""
   hyperparams:
     supervision_mode: ${data.supervision_mode}
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
