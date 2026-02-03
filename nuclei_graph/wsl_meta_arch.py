@@ -39,9 +39,7 @@ class WSLMetaArch(LightningModule):
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
     def forward(self, batch: Batch) -> Tensor:
-        return self.net(
-            batch["x"], batch["pos"], batch["block_mask"], batch["num_points"]
-        )
+        return self.net(batch["x"], batch["pos"], batch["block_mask"])
 
     def training_step(self, batch: Batch) -> Tensor:
         logits = self(batch).squeeze(-1)

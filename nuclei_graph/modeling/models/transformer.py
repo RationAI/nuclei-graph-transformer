@@ -45,9 +45,7 @@ class Transformer(nn.Module):
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
-    def forward(
-        self, x: Tensor, pos: Tensor, block_mask: BlockMask, num_points: Tensor
-    ) -> Tensor:
+    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         """Forward pass of the Transformer model.
 
         Args:
@@ -56,7 +54,6 @@ class Transformer(nn.Module):
             block_mask: Batched BlockMask object for sparse attention with layouts
                 - kv_num_blocks of shape (b, 1, num_blocks), num_blocks = n // block_size
                 - kv_indices of shape (b, 1, num_blocks, max_num_blocks)
-            num_points: Tensor of shape (b,) indicating the valid number of points per batch item (to exclude padding).
 
         Returns:
             Tensor of shape (b, n, 1).
