@@ -33,10 +33,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __init__(
         self,
         df_metadata: DataFrame,
+        df_annot_labels: DataFrame,
+        df_cam_labels: DataFrame,
         scale_mean: float,
         supervision_mode: str = "agreement-strict",
-        df_annot_labels: DataFrame | None = None,
-        df_cam_labels: DataFrame | None = None,
         crop_size: int = 4096,
         alpha: float = 0.8,
         k: int = 64,
@@ -48,15 +48,12 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """Initializes the dataset.
 
         Args:
-            df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str)
-                (if the predict mode is set to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet
-                files containing nuclei segmentation data.
+            df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
+                to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
+            df_annot_labels: DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str), and "annot_label" (int; 0/1).
+            df_cam_labels: DataFrame containing CAM-based nuclei labels with columns "slide_id" (str), "id" (str), and "cam_label" (int; 0/1/-1).
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
             supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
-            df_annot_labels: Optional DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str),
-                and "annot_label" (int; 0/1).
-            df_cam_labels: Optional DataFrame containing CAM-based nuclei labels with columns "slide_id" (str), "id" (str),
-                and "cam_label" (int; 0/1/-1). Label -1 indicates uncertain nuclei.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -65,17 +62,14 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
         """
-        assert df_annot_labels is not None or df_cam_labels is not None, (
-            "At least one of 'df_annot_labels' or 'df_cam_labels' must be provided."
-        )
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
         )
         self.df_metadata = df_metadata
-        self.scale_mean = scale_mean
-        self.supervision_mode = supervision_mode
         self.df_annot_labels = self._build_index(df_annot_labels, ["slide_id", "id"])
         self.df_cam_labels = self._build_index(df_cam_labels, ["slide_id", "id"])
+        self.scale_mean = scale_mean
+        self.supervision_mode = supervision_mode
         self.crop_size = crop_size
         self.alpha = alpha
         self.k = k
@@ -87,9 +81,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
     def __len__(self) -> int:
         return len(self.df_metadata)
 
-    def _build_index(self, df: DataFrame | None, cols: list[str]) -> DataFrame | None:
+    def _build_index(self, df: DataFrame, cols: list[str]) -> DataFrame:
         """Pre-build and sort a multi-index for fast lookup."""
-        return df.set_index(cols).sort_index() if df is not None else None
+        return df.set_index(cols).sort_index()
 
     def find_component(
         self,
@@ -185,11 +179,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         if not slide_is_carcinoma:
             return targets, sup_mask, list(range(n))
 
-        def load_df(df: pd.DataFrame | None, column: str) -> np.ndarray | None:
+        def load_df(df: pd.DataFrame, column: str) -> np.ndarray:
             return (
                 df.loc[slide_id].reindex(nuclei_ids)[column].to_numpy(dtype=np.float32)
-                if df is not None
-                else None
             )
 
         annot = load_df(self.df_annot_labels, "annot_label")

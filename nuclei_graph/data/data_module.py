@@ -55,8 +55,8 @@ class DataModule(LightningDataModule):
         ---------------------------------------------------------------------------------------------------------
         Negative slides supervise all nuclei as negative in all modes.
 
-        The choice of supervision mode only affects positive slides during the training. For validation, testing,
-        and prediction, the "agreement-strict" mode is used by default.
+        The choice of supervision mode only affects positive slides during the training.
+        For validation, testing, and prediction, the "agreement-strict" mode is used by default.
         """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
@@ -89,40 +89,22 @@ class DataModule(LightningDataModule):
             conf.pop("uris", None)
         return instantiate(conf, **kwargs)
 
-    def _get_supervision_labels(
-        self, conf: DictConfig
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
-        def load_df(uri_key):
-            uri = conf.uris.get(uri_key)
-            return pd.read_parquet(download_artifacts(uri)) if uri else None
-
-        df_annot_labels = load_df("annot_labels_uri")
-        df_cam_labels = load_df("cam_labels_uri")
-
-        match self.supervision_mode:
-            case "annotation":
-                assert df_annot_labels is not None
-                return df_annot_labels, None
-            case "cam":
-                assert df_cam_labels is not None
-                return None, df_cam_labels
-            case "agreement" | "agreement-strict":
-                assert df_annot_labels is not None and df_cam_labels is not None
-                return df_annot_labels, df_cam_labels
-            case _:
-                raise ValueError(f"Invalid supervision mode: {self.supervision_mode}")
+    def _load_df(self, uri: str, columns: list[str] | None = None) -> pd.DataFrame:
+        return pd.read_parquet(
+            download_artifacts(uri),
+            columns=columns,
+        )
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
-        df_annot_labels, df_cam_labels = self._get_supervision_labels(conf)
+
+        df_annot_labels = self._load_df(conf.uris.annot_labels_uri)
+        df_cam_labels = self._load_df(conf.uris.cam_labels_uri)
 
         match stage:
             case "fit" | "validate":
-                metadata = pd.read_parquet(
-                    download_artifacts(conf.uris.metadata_uri),
-                    columns=TRAIN_METADATA_COLS,
-                )
+                metadata = self._load_df(conf.uris.metadata_uri, TRAIN_METADATA_COLS)
                 df_train, df_val = train_val_split(
                     metadata, keep_cols=TRAIN_METADATA_COLS
                 )
@@ -140,46 +122,40 @@ class DataModule(LightningDataModule):
                 self.train = self._instantiate_dataset(
                     conf,
                     df_metadata=df_train,
-                    scale_mean=scale_mean,
-                    supervision_mode=self.supervision_mode,
                     df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
                     df_cam_labels=get_subset(train_slides_ids, df_cam_labels),
+                    scale_mean=scale_mean,
+                    supervision_mode=self.supervision_mode,
                 )
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
                     df_metadata=df_val,
-                    scale_mean=scale_mean,
-                    supervision_mode="agreement-strict",
                     df_annot_labels=get_subset(val_slides_ids, df_annot_labels),
                     df_cam_labels=get_subset(val_slides_ids, df_cam_labels),
+                    scale_mean=scale_mean,
+                    supervision_mode="agreement-strict",
                     full_slide=True,
                 )
             case "test":
-                metadata = pd.read_parquet(
-                    download_artifacts(conf.uris.metadata_uri),
-                    columns=BASE_METADATA_COLS,
-                )
+                metadata = self._load_df(conf.uris.metadata_uri, BASE_METADATA_COLS)
                 self.test = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
-                    supervision_mode="agreement-strict",
                     df_annot_labels=df_annot_labels,
                     df_cam_labels=df_cam_labels,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
                 )
             case "predict":
-                metadata = pd.read_parquet(
-                    download_artifacts(conf.uris.metadata_uri),
-                    columns=BASE_METADATA_COLS,
-                )
+                metadata = self._load_df(conf.uris.metadata_uri, BASE_METADATA_COLS)
                 self.predict = self._instantiate_dataset(
                     conf,
                     df_metadata=metadata,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
-                    supervision_mode="agreement-strict",
                     df_annot_labels=df_annot_labels,
                     df_cam_labels=df_cam_labels,
+                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    supervision_mode="agreement-strict",
                     predict=True,
                 )
 

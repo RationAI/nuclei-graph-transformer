@@ -4,8 +4,8 @@ import pandas as pd
 def compute_slides_positivity(
     df_metadata: pd.DataFrame,
     supervision_mode: str,
-    df_annot_labels: pd.DataFrame | None = None,
-    df_cam_labels: pd.DataFrame | None = None,
+    df_annot_labels: pd.DataFrame,
+    df_cam_labels: pd.DataFrame,
 ) -> dict[str, float]:
     """Calculates the carcinoma positivity ratio per slide for weighted sampling based on supervision labels.
 
@@ -14,33 +14,27 @@ def compute_slides_positivity(
     Args:
         df_metadata: DataFrame containing a "slide_id" (str) column.
         supervision_mode: One of "annotation", "cam", "agreement", "agreement-strict".
-        df_annot_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
-        df_cam_labels: Optional DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
+        df_annot_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
+        df_cam_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
 
     The `df_annot_labels` and `df_cam_labels` contain only positive slides, negative slides are implicitly considered all-negative.
 
     Returns:
         A dictionary mapping each slide ID to its fraction of positive nuclei [0, 1].
     """
-    assert df_annot_labels is not None or df_cam_labels is not None, (
-        "At least one of 'df_annot_labels' or 'df_cam_labels' must be provided."
-    )
     positivity_series = pd.Series(dtype=float)
 
     match supervision_mode:
         case "annotation":
-            assert df_annot_labels is not None
             positivity_series = df_annot_labels.groupby("slide_id")[
                 "annot_label"
             ].mean()
 
         case "cam":
-            assert df_cam_labels is not None
             tmp_cam_labels = df_cam_labels["cam_label"].replace(-1, 0)
             positivity_series = tmp_cam_labels.groupby(df_cam_labels["slide_id"]).mean()
 
         case "agreement" | "agreement-strict":  # positive if both agree on positive
-            assert df_annot_labels is not None and df_cam_labels is not None
             tmp_cam_labels = df_cam_labels.copy()
             tmp_cam_labels["cam_label"] = tmp_cam_labels["cam_label"].replace(-1, 0)
             merged = df_annot_labels.merge(
