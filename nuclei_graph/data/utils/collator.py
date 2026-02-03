@@ -13,7 +13,6 @@ def collate_fn(batch: Iterable[Sample]) -> Batch:
         "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
         "sup_mask": torch.stack([b["sup_mask"] for b in batch], dim=0),
-        "num_points": torch.tensor([b["num_points"] for b in batch], dtype=torch.long),
         "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
     }
 

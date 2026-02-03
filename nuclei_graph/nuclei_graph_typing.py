@@ -9,7 +9,6 @@ class Sample(TypedDict):
     pos: Tensor
     y: Tensor
     sup_mask: Tensor
-    num_points: int
     block_mask: BlockMask
 
 
@@ -18,7 +17,6 @@ class Batch(TypedDict):
     pos: Tensor
     y: Tensor
     sup_mask: Tensor
-    num_points: Tensor
     block_mask: BlockMask
 
 
