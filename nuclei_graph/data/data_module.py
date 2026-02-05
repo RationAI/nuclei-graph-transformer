@@ -6,10 +6,10 @@ from hydra.utils import instantiate
 from lightning import LightningDataModule
 from lightning.pytorch.utilities import rank_zero_info
 from mlflow.artifacts import download_artifacts
+from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from omegaconf import DictConfig, open_dict
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
 from nuclei_graph.data.utils.compute_stats import compute_scale_mean
 from nuclei_graph.data.utils.sampler import (
@@ -21,6 +21,7 @@ from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
 
 
 SUPERVISION_MODES = {"annotation", "cam", "agreement", "agreement-strict"}
+CAM_THRESHOLD_TYPES = {"annot_restricted_thr", "default_thr"}
 
 BASE_METADATA_COLS = [
     "slide_id",
@@ -35,6 +36,7 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         supervision_mode: str,
+        cam_thr_type: str,
         batch_size: int,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
@@ -42,26 +44,36 @@ class DataModule(LightningDataModule):
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
-        Supports multiple supervision modes based on annotation ROIs and CAM labels.
+        Args:
+            supervision_mode (str): Supervision mode to use for positive slides. One of "annotation", "cam", "agreement", "agreement-strict".
+            cam_thr_type (str): CAM threshold type to use for positive slides. One of "annot_restricted_thr", "default_thr":
+                "annot_restricted_thr" — should be paired with a supervision mode that restricts to annotated regions.
+                "default_thr" — more strict (higher), doesn't assume any restrictions.
+            batch_size (int): Batch size for training.
+            num_workers (int, optional): Number of workers for data loading. Defaults to 0.
+            sampler (DictConfig | None, optional): Sampler configuration for training data loader. Defaults to None.
+            **datasets (DictConfig): Dataset configurations for different stages.
 
-        Summary:
+        Supervision Modes Summary:
         ---------------------------------------------------------------------------------------------------------
         Mode              | Mask Logic
         ---------------------------------------------------------------------------------------------------------
         annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
-        cam               | Only confident CAM-labeled nuclei are supervised; uncertain (-1) ignored.
+        cam               | Only confident CAM-labeled nuclei are supervised (positive/negative); uncertain (-1) ignored.
         agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
-        agreement-strict  | Only nuclei positive in both annotation ROI and CAM are supervised; ignore the rest.
+        agreement-strict  | Only positive nuclei inside both annotation ROI and CAM ROI are supervised; ignore the rest.
         ---------------------------------------------------------------------------------------------------------
         Negative slides supervise all nuclei as negative in all modes.
+        The choice of supervision mode only affects positive slides during the training (fit stage).
 
-        The choice of supervision mode only affects positive slides during the training.
-        For validation, testing, and prediction, the "agreement-strict" mode is used by default.
+        For validation, testing, and prediction the default is "agreement-strict" supervision mode and "annot_restricted_thr" CAM threshold type.
         """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
+        assert cam_thr_type in CAM_THRESHOLD_TYPES
 
         self.supervision_mode = supervision_mode
+        self.cam_thr_type = cam_thr_type
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
@@ -69,15 +81,22 @@ class DataModule(LightningDataModule):
         self.positivity: dict[str, float] = {}
 
         rank_zero_info(
-            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode."
+            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode and '{self.cam_thr_type}' CAM threshold type."
         )
 
     def prepare_data(self) -> None:
+        def flatten_uris(d: DictConfig):
+            for value in d.values():
+                if isinstance(value, DictConfig):
+                    yield from flatten_uris(value)
+                elif value is not None:
+                    yield str(value)
+
         uris = {
             uri
             for conf in self.datasets.values()
             if isinstance(conf, DictConfig) and conf.get("uris") is not None
-            for uri in conf.uris.values()
+            for uri in flatten_uris(conf.uris)
             if uri is not None
         }
         for uri in uris:
@@ -99,8 +118,9 @@ class DataModule(LightningDataModule):
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
+        cam_label_uris = conf.uris.cam_label_uris
+        df_cam_labels = self._load_df(cam_label_uris.annot_restricted_thr)
         df_annot_labels = self._load_df(conf.uris.annot_labels_uri)
-        df_cam_labels = self._load_df(conf.uris.cam_labels_uri)
 
         match stage:
             case "fit" | "validate":
@@ -109,8 +129,12 @@ class DataModule(LightningDataModule):
                     metadata, keep_cols=TRAIN_METADATA_COLS
                 )
                 df_train = min_count_filter(df_train, conf.crop_size)
+                df_cam_labels_train = self._load_df(cam_label_uris[self.cam_thr_type])
                 self.positivity = compute_slides_positivity(
-                    df_train, self.supervision_mode, df_annot_labels, df_cam_labels
+                    df_train,
+                    self.supervision_mode,
+                    df_annot_labels,
+                    df_cam_labels_train,
                 )
                 scale_mean = (
                     conf.scale_mean
@@ -123,10 +147,11 @@ class DataModule(LightningDataModule):
                     conf,
                     df_metadata=df_train,
                     df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
-                    df_cam_labels=get_subset(train_slides_ids, df_cam_labels),
+                    df_cam_labels=get_subset(train_slides_ids, df_cam_labels_train),
                     scale_mean=scale_mean,
                     supervision_mode=self.supervision_mode,
                 )
+
                 val_slides_ids = set(df_val["slide_id"])
                 self.val = self._instantiate_dataset(
                     conf,
