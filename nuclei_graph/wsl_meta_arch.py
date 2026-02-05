@@ -38,6 +38,9 @@ class WSLMetaArch(LightningModule):
         self.test_metrics = MetricCollection(metrics, prefix="test/")
         self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
+        self.best_val_loss = float("inf")
+        self.best_val_metrics: dict[str, Tensor] = {}
+
     def forward(self, batch: Batch) -> Tensor:
         return self.net(batch["x"], batch["pos"], batch["block_mask"])
 
@@ -87,6 +90,23 @@ class WSLMetaArch(LightningModule):
         metrics = self.val_metrics.compute()
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.val_metrics.reset()
+
+        val_loss = self.trainer.callback_metrics.get("validation/loss")
+        if val_loss is None:
+            return
+        val_loss = val_loss.detach().item()
+
+        if val_loss < self.best_val_loss:
+            self.best_val_loss = val_loss
+            best_metrics = {
+                "best/validation/loss": val_loss,
+                "best/epoch": torch.tensor(self.current_epoch),
+            }
+            for k, v in metrics.items():
+                best_metrics[f"best/validation/{k}"] = v
+
+            self.best_val_metrics = best_metrics
+            self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
         logits = self(batch).squeeze(-1)
