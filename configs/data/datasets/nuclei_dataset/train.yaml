@@ -11,7 +11,7 @@ uris:
   # source: `preprocessing/cam_labels.py`
   cam_label_uris:
     annot_restricted_thr: mlflow-artifacts:/97/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
-    default_thr: null
+    default_thr: mlflow-artifacts:/97/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
 scale_mean: 13.0332 # train data estimate
 crop_size: ${data.crop_size}
 alpha: ${data.alpha}
