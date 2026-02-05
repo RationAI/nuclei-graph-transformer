@@ -14,6 +14,7 @@ trainer:
 
 data:
   supervision_mode: ??? # "annotation", "cam", "agreement" or "agreement-strict"
+  cam_thr_type: ??? # "annot_restricted_thr" or "default_thr"
   batch_size: ???
   num_workers: 10
   crop_size: ???

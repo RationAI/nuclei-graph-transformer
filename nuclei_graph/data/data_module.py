@@ -66,7 +66,7 @@ class DataModule(LightningDataModule):
         Negative slides supervise all nuclei as negative in all modes.
         The choice of supervision mode only affects positive slides during the training (fit stage).
 
-        For validation, testing, and prediction the default is "agreement-strict" supervision mode and "default_thr" CAM threshold type.
+        For validation, testing, and prediction the default is "agreement-strict" supervision mode and "annot_restricted_thr" CAM threshold type.
         """
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
@@ -85,11 +85,18 @@ class DataModule(LightningDataModule):
         )
 
     def prepare_data(self) -> None:
+        def flatten_uris(d: DictConfig):
+            for value in d.values():
+                if isinstance(value, DictConfig):
+                    yield from flatten_uris(value)
+                elif value is not None:
+                    yield str(value)
+
         uris = {
             uri
             for conf in self.datasets.values()
             if isinstance(conf, DictConfig) and conf.get("uris") is not None
-            for uri in conf.uris.values()
+            for uri in flatten_uris(conf.uris)
             if uri is not None
         }
         for uri in uris:
@@ -112,7 +119,7 @@ class DataModule(LightningDataModule):
         conf = self.datasets[mode]
 
         cam_label_uris = conf.uris.cam_label_uris
-        df_cam_labels = self._load_df(cam_label_uris.default_thr)
+        df_cam_labels = self._load_df(cam_label_uris.annot_restricted_thr)
         df_annot_labels = self._load_df(conf.uris.annot_labels_uri)
 
         match stage:
