@@ -81,7 +81,7 @@ class DataModule(LightningDataModule):
         self.positivity: dict[str, float] = {}
 
         rank_zero_info(
-            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode."
+            f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode and '{self.cam_thr_type}' CAM threshold type."
         )
 
     def prepare_data(self) -> None:
