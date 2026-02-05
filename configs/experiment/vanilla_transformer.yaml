@@ -22,6 +22,7 @@ trainer:
 
 data:
   supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
+  cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
   batch_size: 4
   crop_size: 4096
   alpha: 0.8
@@ -50,6 +51,7 @@ metadata:
   description: "increase model capacity"
   hyperparams:
     supervision_mode: ${data.supervision_mode}
+    cam_thr_type: ${data.cam_thr_type}
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.crop_size}
