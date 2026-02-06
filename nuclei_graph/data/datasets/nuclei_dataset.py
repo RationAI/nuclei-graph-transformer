@@ -19,7 +19,12 @@ from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
     normalize_efd_for_rotation,
 )
-from nuclei_graph.nuclei_graph_typing import Metadata, PredictSample, Sample
+from nuclei_graph.nuclei_graph_typing import (
+    Crop,
+    DatasetSupervision,
+    Metadata,
+    PredictSlide,
+)
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
@@ -27,15 +32,14 @@ type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
 type AdjacencyGraph = list[list[Neighbor]]
 
 
-class NucleiDataset(Dataset[Sample | PredictSample]):
+class NucleiDataset(Dataset[Crop | PredictSlide]):
     """Dataset for nuclei point clouds from whole-slide images."""
 
     def __init__(
         self,
-        df_metadata: DataFrame,
-        df_annot_labels: DataFrame,
-        df_cam_labels: DataFrame,
+        metadata: DataFrame,
         scale_mean: float,
+        supervision: DatasetSupervision,
         supervision_mode: str = "agreement-strict",
         crop_size: int = 4096,
         alpha: float = 0.8,
@@ -48,11 +52,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         """Initializes the dataset.
 
         Args:
-            df_metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
+            metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
-            df_annot_labels: DataFrame containing annotation-based nuclei labels with columns "slide_id" (str), "id" (str), and "annot_label" (int; 0/1).
-            df_cam_labels: DataFrame containing CAM-based nuclei labels with columns "slide_id" (str), "id" (str), and "cam_label" (int; 0/1/-1).
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
+            supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
@@ -65,10 +68,9 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
         )
-        self.df_metadata = df_metadata
-        self.df_annot_labels = self._build_index(df_annot_labels, ["slide_id", "id"])
-        self.df_cam_labels = self._build_index(df_cam_labels, ["slide_id", "id"])
+        self.metadata = metadata
         self.scale_mean = scale_mean
+        self.supervision = supervision
         self.supervision_mode = supervision_mode
         self.crop_size = crop_size
         self.alpha = alpha
@@ -79,11 +81,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         self.predict = predict
 
     def __len__(self) -> int:
-        return len(self.df_metadata)
-
-    def _build_index(self, df: DataFrame, cols: list[str]) -> DataFrame:
-        """Pre-build and sort a multi-index for fast lookup."""
-        return df.set_index(cols).sort_index()
+        return len(self.metadata)
 
     def find_component(
         self,
@@ -162,51 +160,52 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return perm_inverse
 
-    def load_targets_and_masks(
-        self, slide_id: str, nuclei_ids: pd.Series, slide_is_carcinoma: bool
+    def load_supervision(
+        self,
+        slide_id: str,
+        keep: Tensor,
     ) -> tuple[Tensor, Tensor, list[int]]:
         """Load nucleus-level targets and a supervision mask for weakly supervised learning.
 
         Returns:
-            targets (tensor[float], shape (n,)): Labels for each nucleus.
-            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels, False for uncertain.
+            targets (tensor[float], shape (n,)): Ground truth for each nucleus (can also be uncertain, represented by -1).
+            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels.
             valid_seeds (list[int]): Nuclei indices eligible as seeds for crop generation; i.e. supervised positive nuclei.
         """
-        n = len(nuclei_ids)
+        n = len(keep)
         targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
         sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: all supervised
 
-        if not slide_is_carcinoma:
+        slide_sup = self.supervision.sup_map[slide_id]
+
+        if slide_sup.slide_label == 0:
             return targets, sup_mask, list(range(n))
 
-        def load_df(df: pd.DataFrame, column: str) -> np.ndarray:
-            return (
-                df.loc[slide_id].reindex(nuclei_ids)[column].to_numpy(dtype=np.float32)
-            )
-
-        annot = load_df(self.df_annot_labels, "annot_label")
-        cam = load_df(self.df_cam_labels, "cam_label")
-        valid_seeds = np.arange(n)
+        assert slide_sup.annot_labels is not None and slide_sup.cam_labels is not None
+        annot = slide_sup.annot_labels[keep]
+        cam = slide_sup.cam_labels[keep]
+        seed_mask = torch.ones(n, dtype=torch.bool)
 
         match self.supervision_mode:
             case "annotation":
-                targets = torch.from_numpy(annot).float()
-                valid_seeds = np.nonzero(annot == 1)[0]  # nonzero returns (indices,)
+                targets = annot
+                seed_mask = annot == 1
             case "cam":
-                targets = torch.from_numpy(cam).float()
-                sup_mask = torch.from_numpy(cam != -1).bool()  # -1 indicates uncertain
-                valid_seeds = np.nonzero(cam == 1)[0]
+                targets = cam
+                sup_mask = cam != -1
+                seed_mask = cam == 1
             case "agreement":
-                targets = torch.from_numpy(annot).float()
-                sup_mask = torch.from_numpy(annot == cam).bool()
-                valid_seeds = np.nonzero((annot == 1) & (cam == 1))[0]
+                targets = annot
+                sup_mask = annot == cam
+                seed_mask = (annot == 1) & (cam == 1)
             case "agreement-strict":
-                targets = torch.from_numpy(annot).float()
-                sup_mask = torch.from_numpy((annot == 1) & (cam == 1)).bool()
-                valid_seeds = np.nonzero((annot == 1) & (cam == 1))[0]
+                targets = annot
+                sup_mask = (annot == 1) & (cam == 1)
+                seed_mask = sup_mask
 
         assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
-        return targets, sup_mask, valid_seeds.tolist()
+        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
+        return targets, sup_mask, valid_seeds
 
     def get_crop_indices(
         self, centroids: NDArray[np.float32], valid_seeds: list[int]
@@ -231,23 +230,31 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         )
         return np.array(self.find_component(seed_idx, self.crop_size, graph, centroids))
 
-    def drop_eps_neighbors(self, df: pd.DataFrame, eps: float = 1e-4) -> pd.DataFrame:
-        """Removes nuclei closer than `eps` to each other.
+    def drop_eps_neighbors(
+        self, df: pd.DataFrame, eps: float = 1e-4
+    ) -> tuple[pd.DataFrame, Tensor]:
+        """Removes nuclei closer than `eps` to each other and returns the filtered DataFrame along with the indices kept.
 
-        One of the close neighbors is removed, the other is kept. This is to prevent Delaunay triangulation
-        from failing due to numerical instabilities when nuclei are too close to each other.
+        One of the close neighbors is removed, the other is kept.
+        Used to prevent Delaunay triangulation from failing due to numerical
+        instabilities when nuclei are too close to each other.
         """
         centroids = np.stack(df["centroid"].tolist())
         quantized = np.round(centroids / eps).astype(np.int64)
+
         _, unique_indices = np.unique(quantized, axis=0, return_index=True)
+        unique_indices = np.sort(unique_indices)
+
+        indices_t = torch.from_numpy(unique_indices).long()
 
         if len(df) - len(unique_indices) > 0:
-            return df.iloc[np.sort(unique_indices)].reset_index(drop=True)
-        return df
+            return df.iloc[unique_indices].reset_index(drop=True), indices_t
+        return df, torch.arange(len(df)).long()
 
-    def __getitem__(self, idx: int) -> Sample | PredictSample:
-        nuclei_path = self.df_metadata.iloc[idx].slide_nuclei_path
-        nuclei = self.drop_eps_neighbors(pd.read_parquet(nuclei_path).sort_values("id"))
+    def __getitem__(self, idx: int) -> Crop | PredictSlide:
+        nuclei_path = self.metadata.iloc[idx].slide_nuclei_path
+        nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
+        nuclei, keep = self.drop_eps_neighbors(nuclei)
 
         # --- Extract EFD features ---
         contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
@@ -257,11 +264,8 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         x = x / self.scale_mean
 
         # --- Load targets and supervision masks ---
-        targets, sup_mask, valid_seeds = self.load_targets_and_masks(
-            self.df_metadata.iloc[idx].slide_id,
-            nuclei["id"],
-            self.df_metadata.iloc[idx].is_carcinoma,
-        )
+        slide_id = self.metadata.iloc[idx].slide_id
+        targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
 
         # --- Create a crop ---
         centroids = np.stack(nuclei["centroid"].tolist())
@@ -289,7 +293,7 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
             [crop_x, crop_pos, crop_y, crop_sup_mask]
         )
 
-        sample: Sample = {
+        crop: Crop = {
             "x": crop_x,  # (n, efd_order * 4)
             "pos": crop_pos,  # (n, 3)
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
@@ -304,10 +308,10 @@ class NucleiDataset(Dataset[Sample | PredictSample]):
         }
         if self.predict:
             metadata: Metadata = {
-                "slide_id": self.df_metadata.iloc[idx].slide_id,
-                "slide_nuclei_path": self.df_metadata.iloc[idx].slide_nuclei_path,
-                "nuclei_ids": nuclei.iloc[crop_indices_np.tolist()]["id"],
+                "slide_id": slide_id,
+                "slide_nuclei_path": nuclei_path,
+                "keep_indices": keep,
                 "perm_inverse": self.get_inverse_perm(perm_t),
             }
-            return PredictSample(sample=sample, metadata=metadata)
-        return sample
+            return PredictSlide(slide=crop, metadata=metadata)
+        return crop

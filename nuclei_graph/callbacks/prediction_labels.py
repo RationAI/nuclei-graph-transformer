@@ -22,43 +22,35 @@ class PredictionsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        slide_id = metadata["slide_id"]
-        perm_inverse = metadata["perm_inverse"]
-        nuclei_ids = metadata["nuclei_ids"]
+        nuclei_path = metadata["slide_nuclei_path"]
+        nuclei = pd.read_parquet(nuclei_path, columns=["id", "centroid"])
+        nuclei = nuclei.sort_values("id").reset_index(drop=True)
 
         logits = outputs[0].squeeze(-1)  # (n,)
-        logits_unpadded = logits[: len(nuclei_ids)]
-        logits_ordered = logits_unpadded[perm_inverse]
+        keep_indices = metadata["keep_indices"]
+        logits_unpadded = logits[: len(keep_indices)]
+        logits_ordered = logits_unpadded[metadata["perm_inverse"]]
 
         predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
+        nuclei.loc[keep_indices.numpy(), "prediction"] = predicted_labels
 
-        df_predictions = pd.DataFrame(
-            {"id": nuclei_ids, "prediction": predicted_labels}
-        )
-        nuclei = pd.read_parquet(
-            metadata["slide_nuclei_path"], columns=["id", "centroid"]
-        )
-        nuclei_preds = nuclei.merge(df_predictions, on="id", how="left")
-
-        # some nuclei may not have predictions (nuclei that have a very close neighbor (< eps)
-        # are removed in NucleiDataset due to assumptions in graph construction);
+        # some nuclei may not have predictions (nuclei that have a very close neighbor
+        # (< eps) are removed in NucleiDataset due to assumptions in graph construction);
         # we use nearest neighbor interpolation to fill in the missing predictions
-        if nuclei_preds["prediction"].isna().any():
-            valid = nuclei_preds.dropna(subset=["prediction"])
+        if nuclei["prediction"].isna().any():
+            valid = nuclei.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())
             interp = NearestNDInterpolator(coords, valid["prediction"].values)
 
-            missing_mask = nuclei_preds["prediction"].isna()
-            missing_coords = np.stack(
-                nuclei_preds.loc[missing_mask, "centroid"].tolist()
-            )
+            missing_mask = nuclei["prediction"].isna()
+            missing_coords = np.stack(nuclei.loc[missing_mask, "centroid"].tolist())
 
-            nuclei_preds.loc[missing_mask, "prediction"] = interp(missing_coords)
+            nuclei.loc[missing_mask, "prediction"] = interp(missing_coords)
 
-        final_df = nuclei_preds[["id", "prediction"]]
+        final_df = nuclei[["id", "prediction"]]
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = f"{tmp_dir}/{slide_id}.parquet"
+            output_path = f"{tmp_dir}/{metadata['slide_id']}.parquet"
             final_df.to_parquet(output_path, index=False)
 
             active_run = mlflow.active_run()

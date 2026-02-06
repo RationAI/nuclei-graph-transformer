@@ -1,8 +1,10 @@
+from collections.abc import Iterable
+
 import pandas as pd
 
 
 def compute_slides_positivity(
-    df_metadata: pd.DataFrame,
+    slide_ids: Iterable[str],
     supervision_mode: str,
     df_annot_labels: pd.DataFrame,
     df_cam_labels: pd.DataFrame,
@@ -12,7 +14,7 @@ def compute_slides_positivity(
     The positivity ratio is defined as the fraction of nuclei labeled as positive over the total number of nuclei.
 
     Args:
-        df_metadata: DataFrame containing a "slide_id" (str) column.
+        slide_ids: An iterable of slide IDs (str) for which to compute the positivity ratios.
         supervision_mode: One of "annotation", "cam", "agreement", "agreement-strict".
         df_annot_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
         df_cam_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
@@ -45,8 +47,10 @@ def compute_slides_positivity(
             ).astype(float)
             positivity_series = merged.groupby("slide_id")["is_positive"].mean()
 
-    positivity_map = df_metadata["slide_id"].map(positivity_series).fillna(0.0)
-    return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))
+    target_slides = pd.Series(list(slide_ids))
+    positivity_map = target_slides.map(positivity_series).fillna(0.0)
+
+    return dict(zip(target_slides, positivity_map, strict=True))
 
 
 def min_count_filter(df: pd.DataFrame, min_count: int) -> pd.DataFrame:

@@ -3,10 +3,10 @@ from collections.abc import Iterable
 import torch
 
 from nuclei_graph.data.block_mask import batch_block_masks
-from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch, PredictSample, Sample
+from nuclei_graph.nuclei_graph_typing import Batch, Crop, PredictBatch, PredictSlide
 
 
-def collate_fn(batch: Iterable[Sample]) -> Batch:
+def collate_fn(batch: Iterable[Crop]) -> Batch:
     batch = list(batch)
     return {
         "x": torch.stack([b["x"] for b in batch], dim=0),
@@ -17,9 +17,9 @@ def collate_fn(batch: Iterable[Sample]) -> Batch:
     }
 
 
-def collate_fn_predict(batch: Iterable[PredictSample]) -> PredictBatch:
+def collate_fn_predict(batch: Iterable[PredictSlide]) -> PredictBatch:
     batch = list(batch)
     return {
-        "batch": collate_fn([b["sample"] for b in batch]),
+        "batch": collate_fn([b["slide"] for b in batch]),
         "metadata": [b["metadata"] for b in batch],
     }

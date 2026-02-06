@@ -34,7 +34,7 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
         slides_positivity: dict[str, float],
         positivity_thr: float,
     ) -> Sequence[float]:
-        slide_ids = dataset.df_metadata["slide_id"].values
+        slide_ids = dataset.metadata["slide_id"].values
         labels = torch.tensor(
             [
                 1.0 if slides_positivity[slide_id] > positivity_thr else 0.0
