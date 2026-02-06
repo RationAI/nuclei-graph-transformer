@@ -19,6 +19,7 @@ from nuclei_graph.data.utils import (
     get_subset,
     load_df,
     min_count_filter,
+    slide_labels_from_df,
     train_val_split,
 )
 from nuclei_graph.nuclei_graph_typing import (
@@ -54,8 +55,8 @@ class DataModule(LightningDataModule):
         Args:
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading. Defaults to 0.
-            supervision_mode: Optional supervision mode to use for positive slides. One of "annotation", "cam", "agreement", "agreement-strict".
-                If None, defaults to "agreement-strict".
+            supervision_mode: Optional supervision mode to use for positive slides. One of "annotation", "cam", "agreement",
+                "agreement-strict". If None, defaults to "agreement-strict".
             cam_thr_type: Optional CAM threshold type to use for positive slides. One of "annot_restricted_thr", "default_thr":
                 "annot_restricted_thr" — should be paired with a supervision mode that restricts to annotated regions.
                 "default_thr" — more strict (higher), doesn't assume any restrictions.
@@ -123,7 +124,7 @@ class DataModule(LightningDataModule):
                 val_ids = set(val["slide_id"])
 
                 # --- load labels ---
-                slide_labels = metadata.set_index("slide_id")["is_carcinoma"].to_dict()
+                slide_labels = slide_labels_from_df(metadata)
 
                 cam_train_uri = cam_uris[self.cam_thr_type]
                 cam_train = load_df(cam_train_uri).pipe(get_subset, train_ids)
@@ -163,7 +164,7 @@ class DataModule(LightningDataModule):
 
             case "test":
                 metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
-                slide_labels = metadata.set_index("slide_id")["is_carcinoma"].to_dict()
+                slide_labels = slide_labels_from_df(metadata)
                 cam_labels = load_df(cam_uris.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
@@ -178,7 +179,7 @@ class DataModule(LightningDataModule):
 
             case "predict":
                 metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
-                slide_labels = metadata.set_index("slide_id")["is_carcinoma"].to_dict()
+                slide_labels = slide_labels_from_df(metadata)
                 cam_labels = load_df(cam_uris.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 

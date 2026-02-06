@@ -91,16 +91,16 @@ class WSLMetaArch(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.val_metrics.reset()
 
-        val_loss = self.trainer.callback_metrics.get("validation/loss")
-        if val_loss is None:
+        val_loss_t = self.trainer.callback_metrics.get("validation/loss")
+        if val_loss_t is None:
             return
-        val_loss = val_loss.detach().item()
+        val_loss = float(val_loss_t.detach().item())
 
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
-            best_metrics = {
-                "best/validation/loss": val_loss,
-                "best/epoch": torch.tensor(self.current_epoch),
+            best_metrics: dict[str, Tensor] = {
+                "best/validation/loss": torch.tensor(val_loss, dtype=torch.float32),
+                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
             }
             for k, v in metrics.items():
                 best_metrics[f"best/validation/{k}"] = v

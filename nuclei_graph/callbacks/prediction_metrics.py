@@ -1,7 +1,10 @@
+from typing import cast
+
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
 from torch import Tensor
+from torchmetrics import MetricCollection
 
 from nuclei_graph.nuclei_graph_typing import PredictBatch
 
@@ -14,14 +17,15 @@ class PredictionMetricsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
     ) -> None:
-        computed_metrics = pl_module.predict_metrics.compute()
+        metrics = cast("MetricCollection", pl_module.predict_metrics)
+        computed_metrics = metrics.compute()
 
         for key, value in computed_metrics.items():
             metric_name = key.split("/")[-1]
             value = float(value)
             mlflow.log_metric(f"prediction/{metric_name}", value)
 
-        pl_module.predict_metrics.reset()
+        metrics.reset()
 
     def on_predict_batch_end(
         self,
@@ -38,7 +42,8 @@ class PredictionMetricsCallback(Callback):
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
-        pl_module.predict_metrics.update(preds_sup, targets_sup.long())
+        metrics = cast("MetricCollection", pl_module.predict_metrics)
+        metrics.update(preds_sup, targets_sup.long())
 
 
 class PredictionSlideMetricsCallback(Callback):
@@ -59,7 +64,7 @@ class PredictionSlideMetricsCallback(Callback):
         logits_sup = outputs.squeeze(-1)[sup_mask]
         assert targets_sup.shape == logits_sup.shape
 
-        metrics = pl_module.predict_metrics
+        metrics = cast("MetricCollection", pl_module.predict_metrics)
         metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         computed_metrics = metrics.compute()
 
