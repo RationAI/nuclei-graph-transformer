@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 from typing import Any
 
-import pandas as pd
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from lightning.pytorch.utilities import rank_zero_info
@@ -10,14 +9,23 @@ from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from omegaconf import DictConfig, open_dict
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
-from nuclei_graph.data.utils.compute_stats import compute_scale_mean
-from nuclei_graph.data.utils.sampler import (
+from nuclei_graph.data.utils import (
+    build_supervision,
+    collate_fn,
+    collate_fn_predict,
+    collect_artifact_uris,
+    compute_scale_mean,
     compute_slides_positivity,
+    get_subset,
+    load_df,
     min_count_filter,
+    slide_labels_from_df,
+    train_val_split,
 )
-from nuclei_graph.data.utils.splitter import get_subset, train_val_split
-from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
+from nuclei_graph.nuclei_graph_typing import (
+    Batch,
+    PredictBatch,
+)
 
 
 SUPERVISION_MODES = {"annotation", "cam", "agreement", "agreement-strict"}
@@ -35,34 +43,36 @@ TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
 class DataModule(LightningDataModule):
     def __init__(
         self,
-        supervision_mode: str,
-        cam_thr_type: str,
         batch_size: int,
         num_workers: int = 0,
+        supervision_mode: str | None = "agreement-strict",
+        cam_thr_type: str | None = "annot_restricted_thr",
         sampler: DictConfig | None = None,
         **datasets: DictConfig,
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
         Args:
-            supervision_mode (str): Supervision mode to use for positive slides. One of "annotation", "cam", "agreement", "agreement-strict".
-            cam_thr_type (str): CAM threshold type to use for positive slides. One of "annot_restricted_thr", "default_thr":
+            batch_size: Batch size for training.
+            num_workers: Number of workers for data loading. Defaults to 0.
+            supervision_mode: Optional supervision mode to use for positive slides. One of "annotation", "cam", "agreement",
+                "agreement-strict". If None, defaults to "agreement-strict".
+            cam_thr_type: Optional CAM threshold type to use for positive slides. One of "annot_restricted_thr", "default_thr":
                 "annot_restricted_thr" — should be paired with a supervision mode that restricts to annotated regions.
                 "default_thr" — more strict (higher), doesn't assume any restrictions.
-            batch_size (int): Batch size for training.
-            num_workers (int, optional): Number of workers for data loading. Defaults to 0.
-            sampler (DictConfig | None, optional): Sampler configuration for training data loader. Defaults to None.
-            **datasets (DictConfig): Dataset configurations for different stages.
+                If None, defaults to "annot_restricted_thr".
+            sampler: Sampler configuration for training data loader. Defaults to None.
+            **datasets: Dataset configurations for different stages.
 
         Supervision Modes Summary:
-        ---------------------------------------------------------------------------------------------------------
+        -----------------------------------------------------------------------------------------------------------------
         Mode              | Mask Logic
-        ---------------------------------------------------------------------------------------------------------
+        -----------------------------------------------------------------------------------------------------------------
         annotation        | All nuclei are supervised, the label is defined only by the annotation ROI.
         cam               | Only confident CAM-labeled nuclei are supervised (positive/negative); uncertain (-1) ignored.
         agreement         | Only nuclei where annotation == CAM are supervised; uncertain CAM (-1) ignored.
         agreement-strict  | Only positive nuclei inside both annotation ROI and CAM ROI are supervised; ignore the rest.
-        ---------------------------------------------------------------------------------------------------------
+        -----------------------------------------------------------------------------------------------------------------
         Negative slides supervise all nuclei as negative in all modes.
         The choice of supervision mode only affects positive slides during the training (fit stage).
 
@@ -84,103 +94,102 @@ class DataModule(LightningDataModule):
             f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode and '{self.cam_thr_type}' CAM threshold type."
         )
 
-    def prepare_data(self) -> None:
-        def flatten_uris(d: DictConfig):
-            for value in d.values():
-                if isinstance(value, DictConfig):
-                    yield from flatten_uris(value)
-                elif value is not None:
-                    yield str(value)
-
-        uris = {
-            uri
-            for conf in self.datasets.values()
-            if isinstance(conf, DictConfig) and conf.get("uris") is not None
-            for uri in flatten_uris(conf.uris)
-            if uri is not None
-        }
-        for uri in uris:
-            download_artifacts(uri)  # download to local cache
-
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
+    def _build_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("uris", None)
         return instantiate(conf, **kwargs)
 
-    def _load_df(self, uri: str, columns: list[str] | None = None) -> pd.DataFrame:
-        return pd.read_parquet(
-            download_artifacts(uri),
-            columns=columns,
-        )
+    def prepare_data(self) -> None:
+        for uri in collect_artifact_uris(self.datasets):
+            download_artifacts(uri)
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
 
-        cam_label_uris = conf.uris.cam_label_uris
-        df_cam_labels = self._load_df(cam_label_uris.annot_restricted_thr)
-        df_annot_labels = self._load_df(conf.uris.annot_labels_uri)
+        metadata_uri = conf.uris.metadata_uri
+        cam_uris = conf.uris.cam_label_uris
+        annot_labels = load_df(conf.uris.annot_labels_uri)
 
         match stage:
             case "fit" | "validate":
-                metadata = self._load_df(conf.uris.metadata_uri, TRAIN_METADATA_COLS)
-                df_train, df_val = train_val_split(
-                    metadata, keep_cols=TRAIN_METADATA_COLS
-                )
-                df_train = min_count_filter(df_train, conf.crop_size)
-                df_cam_labels_train = self._load_df(cam_label_uris[self.cam_thr_type])
+                metadata = load_df(metadata_uri, columns=TRAIN_METADATA_COLS)
+
+                # --- split train/val ---
+                train, val = train_val_split(metadata)
+                train = min_count_filter(train, conf.crop_size)
+
+                train_ids = set(train["slide_id"])
+                val_ids = set(val["slide_id"])
+
+                # --- load labels ---
+                slide_labels = slide_labels_from_df(metadata)
+
+                cam_train_uri = cam_uris[self.cam_thr_type]
+                cam_train = load_df(cam_train_uri).pipe(get_subset, train_ids)
+                annot_train = annot_labels.pipe(get_subset, train_ids)
+
+                cam_val_uri = cam_uris[self.cam_thr_type]
+                cam_val = load_df(cam_val_uri).pipe(get_subset, val_ids)
+                annot_val = annot_labels.pipe(get_subset, val_ids)
+
+                # --- compute statistics for sampler and normalization ---
                 self.positivity = compute_slides_positivity(
-                    df_train,
+                    train_ids,
                     self.supervision_mode,
-                    df_annot_labels,
-                    df_cam_labels_train,
+                    annot_train,
+                    cam_train,
                 )
-                scale_mean = (
-                    conf.scale_mean
-                    if conf.get("scale_mean") is not None
-                    else compute_scale_mean(df_train, conf.efd_order)
+                scale_mean = conf.get("scale_mean") or compute_scale_mean(
+                    train, conf.efd_order
                 )
 
-                train_slides_ids = set(df_train["slide_id"])
-                self.train = self._instantiate_dataset(
+                # --- instantiate datasets ---
+                self.train = self._build_dataset(
                     conf,
-                    df_metadata=df_train,
-                    df_annot_labels=get_subset(train_slides_ids, df_annot_labels),
-                    df_cam_labels=get_subset(train_slides_ids, df_cam_labels_train),
+                    metadata=train,
                     scale_mean=scale_mean,
+                    supervision=build_supervision(annot_train, cam_train, slide_labels),
                     supervision_mode=self.supervision_mode,
                 )
-
-                val_slides_ids = set(df_val["slide_id"])
-                self.val = self._instantiate_dataset(
+                self.val = self._build_dataset(
                     conf,
-                    df_metadata=df_val,
-                    df_annot_labels=get_subset(val_slides_ids, df_annot_labels),
-                    df_cam_labels=get_subset(val_slides_ids, df_cam_labels),
+                    metadata=val,
                     scale_mean=scale_mean,
+                    supervision=build_supervision(annot_val, cam_val, slide_labels),
                     supervision_mode="agreement-strict",
                     full_slide=True,
                 )
+
             case "test":
-                metadata = self._load_df(conf.uris.metadata_uri, BASE_METADATA_COLS)
-                self.test = self._instantiate_dataset(
+                metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
+                slide_labels = slide_labels_from_df(metadata)
+                cam_labels = load_df(cam_uris.annot_restricted_thr)
+                sup = build_supervision(annot_labels, cam_labels, slide_labels)
+
+                self.test = self._build_dataset(
                     conf,
-                    df_metadata=metadata,
-                    df_annot_labels=df_annot_labels,
-                    df_cam_labels=df_cam_labels,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    metadata=metadata,
+                    supervision=sup,
+                    scale_mean=conf.scale_mean,
                     supervision_mode="agreement-strict",
+                    full_slide=True,
                 )
+
             case "predict":
-                metadata = self._load_df(conf.uris.metadata_uri, BASE_METADATA_COLS)
-                self.predict = self._instantiate_dataset(
+                metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
+                slide_labels = slide_labels_from_df(metadata)
+                cam_labels = load_df(cam_uris.annot_restricted_thr)
+                sup = build_supervision(annot_labels, cam_labels, slide_labels)
+
+                self.predict = self._build_dataset(
                     conf,
-                    df_metadata=metadata,
-                    df_annot_labels=df_annot_labels,
-                    df_cam_labels=df_cam_labels,
-                    scale_mean=conf.scale_mean,  # must be provided in the config
+                    metadata=metadata,
+                    supervision=sup,
+                    scale_mean=conf.scale_mean,
                     supervision_mode="agreement-strict",
+                    full_slide=True,
                     predict=True,
                 )
 

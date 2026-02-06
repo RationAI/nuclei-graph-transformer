@@ -1,35 +1,46 @@
+from dataclasses import dataclass
 from typing import TypedDict
 
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-class Sample(TypedDict):
-    x: Tensor
-    pos: Tensor
-    y: Tensor
-    sup_mask: Tensor
-    block_mask: BlockMask
+@dataclass(frozen=True)
+class SlideSupervision:
+    slide_label: int
+    annot_labels: Tensor | None = None  # sorted by nucleus id; None for negative slides
+    cam_labels: Tensor | None = None  # sorted by nucleus id; None for negative slides
 
 
-class Batch(TypedDict):
-    x: Tensor
-    pos: Tensor
-    y: Tensor
-    sup_mask: Tensor
-    block_mask: BlockMask
+@dataclass(frozen=True)
+class DatasetSupervision:
+    sup_map: dict[str, SlideSupervision]
+
+
+class Crop(TypedDict):
+    x: Tensor  # node features
+    pos: Tensor  # positional features (coordinates + rotation)
+    y: Tensor  # supervised labels
+    sup_mask: Tensor  # supervision mask
+    block_mask: BlockMask  # attention mask
 
 
 class Metadata(TypedDict):
     slide_id: str
     slide_nuclei_path: str
-    nuclei_ids: list[str]
+    keep_indices: Tensor
     perm_inverse: Tensor
 
 
-class PredictSample(TypedDict):
-    sample: Sample
+Slide = Crop  # a full-slide crop
+
+
+class PredictSlide(TypedDict):
+    slide: Slide
     metadata: Metadata
+
+
+Batch = Slide  # batched slides
 
 
 class PredictBatch(TypedDict):

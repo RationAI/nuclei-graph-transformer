@@ -1,8 +1,10 @@
+from collections.abc import Iterable
+
 import pandas as pd
 
 
 def compute_slides_positivity(
-    df_metadata: pd.DataFrame,
+    slide_ids: Iterable[str],
     supervision_mode: str,
     df_annot_labels: pd.DataFrame,
     df_cam_labels: pd.DataFrame,
@@ -12,7 +14,7 @@ def compute_slides_positivity(
     The positivity ratio is defined as the fraction of nuclei labeled as positive over the total number of nuclei.
 
     Args:
-        df_metadata: DataFrame containing a "slide_id" (str) column.
+        slide_ids: An iterable of slide IDs (str) for which to compute the positivity ratios.
         supervision_mode: One of "annotation", "cam", "agreement", "agreement-strict".
         df_annot_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "annot_label" (int).
         df_cam_labels: DataFrame containing columns "slide_id" (str), "id" (str), and "cam_label" (int).
@@ -35,18 +37,21 @@ def compute_slides_positivity(
             positivity_series = tmp_cam_labels.groupby(df_cam_labels["slide_id"]).mean()
 
         case "agreement" | "agreement-strict":  # positive if both agree on positive
-            tmp_cam_labels = df_cam_labels.copy()
-            tmp_cam_labels["cam_label"] = tmp_cam_labels["cam_label"].replace(-1, 0)
+            tmp_cam_df = df_cam_labels.copy()
+            tmp_cam_df["cam_label"] = tmp_cam_df["cam_label"].replace(-1, 0)
+
             merged = df_annot_labels.merge(
-                tmp_cam_labels, on=["slide_id", "id"], how="inner"
+                tmp_cam_df, on=["slide_id", "id"], how="inner"
             )
             merged["is_positive"] = (
                 (merged["annot_label"] == 1) & (merged["cam_label"] == 1)
             ).astype(float)
             positivity_series = merged.groupby("slide_id")["is_positive"].mean()
 
-    positivity_map = df_metadata["slide_id"].map(positivity_series).fillna(0.0)
-    return dict(zip(df_metadata["slide_id"], positivity_map, strict=True))
+    target_slides = pd.Series(list(slide_ids))
+    positivity_map = target_slides.map(positivity_series.astype(float)).fillna(0.0)
+
+    return dict(zip(target_slides, positivity_map, strict=True))
 
 
 def min_count_filter(df: pd.DataFrame, min_count: int) -> pd.DataFrame:
