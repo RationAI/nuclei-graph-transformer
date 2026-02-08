@@ -20,6 +20,6 @@ def collate_fn(batch: Iterable[Crop]) -> Batch:
 def collate_fn_predict(batch: Iterable[PredictSlide]) -> PredictBatch:
     batch = list(batch)
     return {
-        "batch": collate_fn([b["slide"] for b in batch]),
+        "slides": collate_fn([b["slide"] for b in batch]),
         "metadata": [b["metadata"] for b in batch],
     }

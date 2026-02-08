@@ -36,9 +36,9 @@ class PredictionMetricsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        sup_mask = batch["batch"]["sup_mask"]
-        targets_sup = batch["batch"]["y"]
-        logits_sup = outputs.squeeze(-1)[sup_mask]
+        slide = batch["slides"]  # batch size is 1
+        targets_sup = slide["y"]
+        logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
@@ -58,10 +58,11 @@ class PredictionSlideMetricsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        metadata = batch["metadata"][0]  # batch size is 1
-        sup_mask = batch["batch"]["sup_mask"]
-        targets_sup = batch["batch"]["y"]
-        logits_sup = outputs.squeeze(-1)[sup_mask]
+        slide = batch["slides"]  # batch size is 1
+        metadata = batch["metadata"][0] 
+
+        targets_sup = slide["y"]
+        logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
         metrics = cast("MetricCollection", pl_module.predict_metrics)

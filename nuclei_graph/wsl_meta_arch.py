@@ -127,7 +127,7 @@ class WSLMetaArch(LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Tensor:
-        return self(batch["batch"])
+        return self(batch["slides"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []
