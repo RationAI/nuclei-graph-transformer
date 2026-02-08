@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - /model/models@model.net: nuclei_transformer
-  - /data/datasets@data.predict: prostate_cancer/nuclei_dataset
+  - /data/datasets@data.dataset: prostate_cancer/nuclei_dataset
   - _self_
 
 mode: predict
@@ -13,7 +13,7 @@ trainer:
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
 data:
-  predict:
+  dataset:
     mlflow_uris:
       metadata:
         predict: mlflow-artifacts:/97/3e097f07d08c41549788a62c95eb4f3e/artifacts/tile_level_annotations_test/slides_mapping.parquet

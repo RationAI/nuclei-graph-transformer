@@ -1,15 +1,14 @@
 # @package _global_
 defaults:
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.train: prostate_cancer/nuclei_dataset
-  - /data/datasets@data.test: prostate_cancer/nuclei_dataset
+  - /data/datasets@data.dataset: prostate_cancer/nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
 
 mode: fit
 checkpoint: null
 
 trainer:
-  gradient_clip_val: 0.8
+  gradient_clip_val: 0.6
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -37,11 +36,11 @@ model:
   net:
     config:
       node_features: ${mul:4,${data.efd_order}}
-      dim: 256
-      hidden_dim: 1024
+      dim: 512
+      hidden_dim: 2048
       pos_dim: 2 # (x, y, α)
-      num_heads: 8
-      num_layers: 8
+      num_heads: 16
+      num_layers: 16
       num_classes: 1
       dropout: 0.10
       layer_scale_init: 1e-4

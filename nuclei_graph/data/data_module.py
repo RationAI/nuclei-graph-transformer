@@ -8,6 +8,7 @@ from omegaconf import DictConfig, open_dict
 from pandas import DataFrame
 from torch.utils.data import DataLoader
 
+from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils import (
     build_supervision,
     collate_fn,
@@ -102,7 +103,7 @@ class DataModule(LightningDataModule):
         for uri in all_uris:
             download_artifacts(uri)
 
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs):
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
         conf = conf.copy()
         with open_dict(conf):
             conf.pop("mlflow_uris", None)
@@ -114,8 +115,9 @@ class DataModule(LightningDataModule):
         return {str(k): int(v) for k, v in df.set_index("slide_id")[label_col].items()}
 
     def setup(self, stage: str) -> None:
-        mode = "train" if stage in ["fit", "validate"] else stage
-        conf = self.datasets[mode]
+        mode = "train" if stage in {"fit", "validate"} else stage
+
+        conf = self.datasets["dataset"]
         conf_uris = conf.mlflow_uris
         conf_sup = conf_uris.supervision
 
