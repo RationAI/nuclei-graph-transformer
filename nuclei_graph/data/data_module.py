@@ -1,5 +1,4 @@
 from collections.abc import Iterable
-from typing import Any
 
 from hydra.utils import instantiate
 from lightning import LightningDataModule
@@ -7,6 +6,7 @@ from lightning.pytorch.utilities import rank_zero_info
 from mlflow.artifacts import download_artifacts
 from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from omegaconf import DictConfig, open_dict
+from pandas import DataFrame
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.utils import (
@@ -19,7 +19,6 @@ from nuclei_graph.data.utils import (
     get_subset,
     load_df,
     min_count_filter,
-    slide_labels_from_df,
     train_val_split,
 )
 from nuclei_graph.nuclei_graph_typing import (
@@ -94,27 +93,39 @@ class DataModule(LightningDataModule):
             f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode and '{self.cam_thr_type}' CAM threshold type."
         )
 
-    def _build_dataset(self, conf: DictConfig, **kwargs: Any) -> NucleiDataset:
-        conf = conf.copy()
-        with open_dict(conf):
-            conf.pop("uris", None)
-        return instantiate(conf, **kwargs)
-
     def prepare_data(self) -> None:
-        for uri in collect_artifact_uris(self.datasets):
+        all_uris: set[str] = set()
+        for stage_conf in self.datasets.values():
+            if not isinstance(stage_conf, DictConfig):
+                continue
+            all_uris |= collect_artifact_uris(stage_conf.mlflow_uris)
+
+        for uri in all_uris:
             download_artifacts(uri)
 
-    def setup(self, stage: str) -> None:
-        mode = "train" if stage in ["fit", "validate"] else stage
-        conf = self.datasets[mode]
+    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
+        conf = conf.copy()
+        with open_dict(conf):
+            conf.pop("mlflow_uris", None)
+        return instantiate(conf, **kwargs)
 
-        metadata_uri = conf.uris.metadata_uri
-        cam_uris = conf.uris.cam_label_uris
-        annot_labels = load_df(conf.uris.annot_labels_uri)
+    def _get_slide_labels(
+        self, df: DataFrame, label_col="is_carcinoma"
+    ) -> dict[str, int]:
+        return {str(k): int(v) for k, v in df.set_index("slide_id")[label_col].items()}
+
+    def setup(self, stage: str) -> None:
+        mode = "train" if stage in {"fit", "validate"} else stage
+
+        conf = self.datasets["dataset"]
+        conf_uris = conf.mlflow_uris
+        conf_sup = conf_uris.supervision
+
+        annot_labels = load_df(conf_sup.annotations)
 
         match stage:
             case "fit" | "validate":
-                metadata = load_df(metadata_uri, columns=TRAIN_METADATA_COLS)
+                metadata = load_df(conf_uris.metadata[mode], cols=TRAIN_METADATA_COLS)
 
                 # --- split train/val ---
                 train, val = train_val_split(metadata)
@@ -123,52 +134,57 @@ class DataModule(LightningDataModule):
                 train_ids = set(train["slide_id"])
                 val_ids = set(val["slide_id"])
 
-                # --- load labels ---
-                slide_labels = slide_labels_from_df(metadata)
+                # --- load supervision ---
+                slide_labels = self._get_slide_labels(metadata)
 
-                cam_train_uri = cam_uris[self.cam_thr_type]
-                cam_train = load_df(cam_train_uri).pipe(get_subset, train_ids)
-                annot_train = annot_labels.pipe(get_subset, train_ids)
+                cam_uri_train = conf_sup.cam[self.cam_thr_type]
+                cam_labels_train = load_df(cam_uri_train).pipe(get_subset, train_ids)
+                annot_labels_train = annot_labels.pipe(get_subset, train_ids)
+                sup_train = build_supervision(
+                    annot_labels_train, cam_labels_train, slide_labels
+                )
 
-                cam_val_uri = cam_uris[self.cam_thr_type]
-                cam_val = load_df(cam_val_uri).pipe(get_subset, val_ids)
-                annot_val = annot_labels.pipe(get_subset, val_ids)
+                cam_uri_val = conf_sup.cam.annot_restricted_thr
+                cam_labels_val = load_df(cam_uri_val).pipe(get_subset, val_ids)
+                annot_labels_val = annot_labels.pipe(get_subset, val_ids)
+                sup_val = build_supervision(
+                    annot_labels_val, cam_labels_val, slide_labels
+                )
 
                 # --- compute statistics for sampler and normalization ---
                 self.positivity = compute_slides_positivity(
                     train_ids,
                     self.supervision_mode,
-                    annot_train,
-                    cam_train,
+                    annot_labels_train,
+                    cam_labels_train,
                 )
                 scale_mean = conf.get("scale_mean") or compute_scale_mean(
                     train, conf.efd_order
                 )
 
-                # --- instantiate datasets ---
-                self.train = self._build_dataset(
+                self.train = self._instantiate_dataset(
                     conf,
                     metadata=train,
                     scale_mean=scale_mean,
-                    supervision=build_supervision(annot_train, cam_train, slide_labels),
+                    supervision=sup_train,
                     supervision_mode=self.supervision_mode,
                 )
-                self.val = self._build_dataset(
+                self.val = self._instantiate_dataset(
                     conf,
                     metadata=val,
                     scale_mean=scale_mean,
-                    supervision=build_supervision(annot_val, cam_val, slide_labels),
+                    supervision=sup_val,
                     supervision_mode="agreement-strict",
                     full_slide=True,
                 )
 
             case "test":
-                metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
-                slide_labels = slide_labels_from_df(metadata)
-                cam_labels = load_df(cam_uris.annot_restricted_thr)
+                metadata = load_df(conf_uris.metadata[mode], cols=BASE_METADATA_COLS)
+                slide_labels = self._get_slide_labels(metadata)
+                cam_labels = load_df(conf_sup.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
-                self.test = self._build_dataset(
+                self.test = self._instantiate_dataset(
                     conf,
                     metadata=metadata,
                     supervision=sup,
@@ -178,12 +194,12 @@ class DataModule(LightningDataModule):
                 )
 
             case "predict":
-                metadata = load_df(metadata_uri, columns=BASE_METADATA_COLS)
-                slide_labels = slide_labels_from_df(metadata)
-                cam_labels = load_df(cam_uris.annot_restricted_thr)
+                metadata = load_df(conf_uris.metadata[mode], cols=BASE_METADATA_COLS)
+                slide_labels = self._get_slide_labels(metadata)
+                cam_labels = load_df(conf_sup.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
-                self.predict = self._build_dataset(
+                self.predict = self._instantiate_dataset(
                     conf,
                     metadata=metadata,
                     supervision=sup,

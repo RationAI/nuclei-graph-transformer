@@ -1,6 +1,6 @@
 defaults:
-  - default
-  - /experiment: # TODO
+  - base
+  - /experiment: ??? # TODO
   - _self_
 
 seed: ${random_seed:}
