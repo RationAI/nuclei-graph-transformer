@@ -1,6 +1,6 @@
 defaults:
   - base
-  - /experiment: ??? # TODO
+  - /experiment: vanilla_transformer
   - _self_
 
 seed: ${random_seed:}
