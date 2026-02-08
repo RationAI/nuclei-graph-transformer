@@ -162,7 +162,6 @@ class DataModule(LightningDataModule):
                     train, conf.efd_order
                 )
 
-                # --- instantiate datasets ---
                 self.train = self._instantiate_dataset(
                     conf,
                     metadata=train,
