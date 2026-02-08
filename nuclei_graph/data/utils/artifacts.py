@@ -6,14 +6,14 @@ from omegaconf import DictConfig
 from pandas import DataFrame
 
 
-def collect_artifact_uris(datasets: dict[str, DictConfig]) -> set[str]:
-    """Recursively collects all non-None unique artifact URIs from a nested dataset configuration.
+def collect_artifact_uris(dataset: DictConfig) -> set[str]:
+    """Recursively collects all non-None unique artifact URIs from a dataset configuration.
 
     Args:
-        datasets: A dictionary mapping dataset stage names to their configurations.
+        dataset: A dataset configuration with a `.uris` attribute.
 
     Returns:
-        set[str]: A set of all unique artifact URIs (as strings) found in all datasets.
+        set[str]: A set of all unique artifact URIs (strings).
     """
 
     def flatten(conf: DictConfig) -> Generator[str]:
@@ -23,13 +23,10 @@ def collect_artifact_uris(datasets: dict[str, DictConfig]) -> set[str]:
             elif v is not None:
                 yield str(v)
 
-    return {
-        uri
-        for conf in datasets.values()
-        if isinstance(conf, DictConfig) and conf.get("uris") is not None
-        for uri in flatten(conf.uris)
-        if uri is not None
-    }
+    if dataset.get("uris") is None:
+        return set()
+
+    return {uri for uri in flatten(dataset.uris)}
 
 
 def load_df(uri: str, columns: list[str] | None = None) -> pd.DataFrame:

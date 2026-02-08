@@ -100,13 +100,15 @@ class DataModule(LightningDataModule):
             conf.pop("uris", None)
         return instantiate(conf, **kwargs)
 
-    def prepare_data(self) -> None:
-        for uri in collect_artifact_uris(self.datasets):
+    def _prepare_stage_data(self, dataset: DictConfig) -> None:
+        uris = collect_artifact_uris(dataset)
+        for uri in uris:
             download_artifacts(uri)
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in ["fit", "validate"] else stage
         conf = self.datasets[mode]
+        self._prepare_stage_data(conf)
 
         metadata_uri = conf.uris.metadata_uri
         cam_uris = conf.uris.cam_label_uris
