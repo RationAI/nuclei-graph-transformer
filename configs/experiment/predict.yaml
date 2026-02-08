@@ -2,7 +2,6 @@
 defaults:
   - /model/models@model.net: nuclei_transformer
   - /data/datasets@data.dataset: prostate_cancer/nuclei_dataset
-  - _self_
 
 mode: predict
 checkpoint: mlflow-artifacts:/97/21bf8f212a9746d3931447e73b76bfd0/artifacts/checkpoints/epoch=26-step=1215/checkpoint.ckpt
@@ -40,7 +39,6 @@ model:
       layer_scale_init: 1e-4
 
 metadata:
-  experiment_name: Nuclei Graph — Transformer
   run_name: 📊 Predictions
   description: "Prediction Metrics: [MLflow training run](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/3e097f07d08c41549788a62c95eb4f3e)"
   hyperparams:
