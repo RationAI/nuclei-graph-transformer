@@ -1,7 +1,6 @@
 from nuclei_graph.data.utils.artifacts import (
     collect_artifact_uris,
     load_df,
-    slide_labels_from_df,
 )
 from nuclei_graph.data.utils.collator import collate_fn, collate_fn_predict
 from nuclei_graph.data.utils.compute_stats import compute_scale_mean
@@ -23,6 +22,5 @@ __all__ = [
     "get_subset",
     "load_df",
     "min_count_filter",
-    "slide_labels_from_df",
     "train_val_split",
 ]

@@ -1,5 +1,5 @@
 defaults:
-  - default
+  - base
   - /experiment: vanilla_transformer
   - _self_
 

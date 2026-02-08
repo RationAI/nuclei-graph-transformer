@@ -59,7 +59,7 @@ class PredictionSlideMetricsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         slide = batch["slides"]  # batch size is 1
-        metadata = batch["metadata"][0] 
+        metadata = batch["metadata"][0]
 
         targets_sup = slide["y"]
         logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]

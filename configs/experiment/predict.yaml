@@ -1,7 +1,8 @@
 # @package _global_
 defaults:
   - /model/models@model.net: nuclei_transformer
-  - /data/datasets@data.predict: nuclei_dataset/test
+  - /data/datasets@data.predict: prostate_cancer/nuclei_dataset
+  - _self_
 
 mode: predict
 checkpoint: mlflow-artifacts:/97/21bf8f212a9746d3931447e73b76bfd0/artifacts/checkpoints/epoch=26-step=1215/checkpoint.ckpt
@@ -12,6 +13,10 @@ trainer:
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
 data:
+  predict:
+    mlflow_uris:
+      metadata:
+        predict: mlflow-artifacts:/97/3e097f07d08c41549788a62c95eb4f3e/artifacts/tile_level_annotations_test/slides_mapping.parquet
   batch_size: 1
   alpha: 0.8
   k: 128
