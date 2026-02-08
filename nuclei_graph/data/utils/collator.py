@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 
 import torch
-from nuclei_graph.data.block_mask import batch_block_masks
 
+from nuclei_graph.data.block_mask import batch_block_masks
 from nuclei_graph.nuclei_graph_typing import Batch, Crop, PredictBatch, PredictSlide
 
 
@@ -20,6 +20,6 @@ def collate_fn(batch: Iterable[Crop]) -> Batch:
 def collate_fn_predict(batch: Iterable[PredictSlide]) -> PredictBatch:
     batch = list(batch)
     return {
-        "batch": collate_fn([b["slide"] for b in batch]),
+        "slides": collate_fn([b["slide"] for b in batch]),
         "metadata": [b["metadata"] for b in batch],
     }

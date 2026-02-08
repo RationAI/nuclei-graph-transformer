@@ -44,5 +44,5 @@ Batch = Slide  # batched slides
 
 
 class PredictBatch(TypedDict):
-    batch: Batch
+    slides: Batch
     metadata: list[Metadata]
