@@ -6,7 +6,7 @@ dataset:
     train: /mnt/data/MOU/prostate/tile_level_annotations
     test: /mnt/data/MOU/prostate/tile_level_annotations_test
     # source: preprocessing/nuclei_segmentation.py
-    nuclei_seg: ${project_path}/nuclei_segmentation
+    nuclei_seg: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
   mlflow_uris:
     exploration: # source: exploration/save_metadataset.py
       train: mlflow-artifacts:/97/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
