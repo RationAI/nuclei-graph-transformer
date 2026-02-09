@@ -4,7 +4,7 @@
 mask_tile_width: ???
 mask_tile_height: ???
 level: 2
-max_concurrent: 6
+max_concurrent: 8
 train_metadata_uri: ???
 test_metadata_uri: ???
 mlflow_artifact_path: annotation_masks
