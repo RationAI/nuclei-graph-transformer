@@ -15,7 +15,11 @@ trainer:
 data:
   batch_size: ???
   num_workers: 10
-  crop_size: ???
+  supervision_mode: ???
+  mlflow_uris:
+    metadata: ???
+    supervision: ???
+  dataset: ???
 
 model:
   lr: ???

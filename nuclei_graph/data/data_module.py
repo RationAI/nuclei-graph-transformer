@@ -4,11 +4,10 @@ from hydra.utils import instantiate
 from lightning import LightningDataModule
 from lightning.pytorch.utilities import rank_zero_info
 from mlflow.artifacts import download_artifacts
-from omegaconf import DictConfig, open_dict
+from omegaconf import DictConfig
 from pandas import DataFrame
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.datasets.nuclei_dataset import NucleiDataset
 from nuclei_graph.data.utils import (
     build_supervision,
     collate_fn,
@@ -47,7 +46,7 @@ class DataModule(LightningDataModule):
         supervision_mode: str | None = "agreement-strict",
         cam_thr_type: str | None = "annot_restricted_thr",
         sampler: DictConfig | None = None,
-        **datasets: DictConfig,
+        **data_params: DictConfig,
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
@@ -61,7 +60,9 @@ class DataModule(LightningDataModule):
                 "default_thr" — more strict (higher), doesn't assume any restrictions.
                 If None, defaults to "annot_restricted_thr".
             sampler: Sampler configuration for training data loader. Defaults to None.
-            **datasets: Dataset configurations for different stages.
+            **data_params: Additional parameters expected to contain keys:
+                - dataset: DictConfig for instantiation of a Torch Dataset.
+                - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
 
         Supervision Modes Summary:
         -----------------------------------------------------------------------------------------------------------------
@@ -80,13 +81,16 @@ class DataModule(LightningDataModule):
         super().__init__()
         assert supervision_mode in SUPERVISION_MODES
         assert cam_thr_type in CAM_THRESHOLD_TYPES
+        assert "dataset" in data_params
+        assert "mlflow_uris" in data_params
 
         self.supervision_mode = supervision_mode
         self.cam_thr_type = cam_thr_type
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
-        self.datasets = datasets
+        self.dataset_conf = data_params["dataset"]
+        self.uris_cfg = data_params["mlflow_uris"]
         self.positivity: dict[str, float] = {}
 
         rank_zero_info(
@@ -94,20 +98,9 @@ class DataModule(LightningDataModule):
         )
 
     def prepare_data(self) -> None:
-        all_uris: set[str] = set()
-        for stage_conf in self.datasets.values():
-            if not isinstance(stage_conf, DictConfig):
-                continue
-            all_uris |= collect_artifact_uris(stage_conf.mlflow_uris)
-
+        all_uris = collect_artifact_uris(self.uris_cfg)
         for uri in all_uris:
             download_artifacts(uri)
-
-    def _instantiate_dataset(self, conf: DictConfig, **kwargs) -> NucleiDataset:
-        conf = conf.copy()
-        with open_dict(conf):
-            conf.pop("mlflow_uris", None)
-        return instantiate(conf, **kwargs)
 
     def _get_slide_labels(
         self, df: DataFrame, label_col="is_carcinoma"
@@ -116,35 +109,31 @@ class DataModule(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-
-        conf = self.datasets["dataset"]
-        conf_uris = conf.mlflow_uris
-        conf_sup = conf_uris.supervision
-
-        annot_labels = load_df(conf_sup.annotation)
+        metadata_uri = self.uris_cfg.metadata[mode]
+        sup_conf = self.uris_cfg.supervision
+        annot_labels = load_df(sup_conf.annotation)
 
         match stage:
             case "fit" | "validate":
-                metadata = load_df(conf_uris.metadata[mode], cols=TRAIN_METADATA_COLS)
+                metadata = load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
 
                 # --- split train/val ---
                 train, val = train_val_split(metadata)
-                train = min_count_filter(train, conf.crop_size)
-
+                train = min_count_filter(train, self.dataset_conf.crop_size)
                 train_ids = set(train["slide_id"])
                 val_ids = set(val["slide_id"])
 
                 # --- load supervision ---
                 slide_labels = self._get_slide_labels(metadata)
 
-                cam_uri_train = conf_sup.cam[self.cam_thr_type]
+                cam_uri_train = sup_conf.cam[self.cam_thr_type]
                 cam_labels_train = load_df(cam_uri_train).pipe(get_subset, train_ids)
                 annot_labels_train = annot_labels.pipe(get_subset, train_ids)
                 sup_train = build_supervision(
                     annot_labels_train, cam_labels_train, slide_labels
                 )
 
-                cam_uri_val = conf_sup.cam.annot_restricted_thr
+                cam_uri_val = sup_conf.cam.annot_restricted_thr
                 cam_labels_val = load_df(cam_uri_val).pipe(get_subset, val_ids)
                 annot_labels_val = annot_labels.pipe(get_subset, val_ids)
                 sup_val = build_supervision(
@@ -158,19 +147,19 @@ class DataModule(LightningDataModule):
                     annot_labels_train,
                     cam_labels_train,
                 )
-                scale_mean = conf.get("scale_mean") or compute_scale_mean(
-                    train, conf.efd_order
+                scale_mean = self.dataset_conf.get("scale_mean") or compute_scale_mean(
+                    train, self.dataset_conf.efd_order
                 )
 
-                self.train = self._instantiate_dataset(
-                    conf,
+                self.train = instantiate(
+                    self.dataset_conf,
                     metadata=train,
                     scale_mean=scale_mean,
                     supervision=sup_train,
                     supervision_mode=self.supervision_mode,
                 )
-                self.val = self._instantiate_dataset(
-                    conf,
+                self.val = instantiate(
+                    self.dataset_conf,
                     metadata=val,
                     scale_mean=scale_mean,
                     supervision=sup_val,
@@ -179,31 +168,31 @@ class DataModule(LightningDataModule):
                 )
 
             case "test":
-                metadata = load_df(conf_uris.metadata[mode], cols=BASE_METADATA_COLS)
+                metadata = load_df(metadata_uri, cols=BASE_METADATA_COLS)
                 slide_labels = self._get_slide_labels(metadata)
-                cam_labels = load_df(conf_sup.cam.annot_restricted_thr)
+                cam_labels = load_df(sup_conf.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
-                self.test = self._instantiate_dataset(
-                    conf,
+                self.test = instantiate(
+                    self.dataset_conf,
                     metadata=metadata,
                     supervision=sup,
-                    scale_mean=conf.scale_mean,
+                    scale_mean=self.dataset_conf.scale_mean,
                     supervision_mode="agreement-strict",
                     full_slide=True,
                 )
 
             case "predict":
-                metadata = load_df(conf_uris.metadata[mode], cols=BASE_METADATA_COLS)
+                metadata = load_df(metadata_uri, cols=BASE_METADATA_COLS)
                 slide_labels = self._get_slide_labels(metadata)
-                cam_labels = load_df(conf_sup.cam.annot_restricted_thr)
+                cam_labels = load_df(sup_conf.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
-                self.predict = self._instantiate_dataset(
-                    conf,
+                self.predict = instantiate(
+                    self.dataset_conf,
                     metadata=metadata,
                     supervision=sup,
-                    scale_mean=conf.scale_mean,
+                    scale_mean=self.dataset_conf.scale_mean,
                     supervision_mode="agreement-strict",
                     full_slide=True,
                     predict=True,
