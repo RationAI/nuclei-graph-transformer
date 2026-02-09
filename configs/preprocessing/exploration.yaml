@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /preprocessing
+  - /data/datasets/prostate_cancer/base
+  - _self_
+
+train_data_path: ${dataset.paths.train}
+test_data_path: ${dataset.paths.test}
+
+metadata:
+  run_name: "Exploration: ${dataset.name}"
