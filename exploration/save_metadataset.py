@@ -91,7 +91,7 @@ def get_df_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 @hydra.main(
     config_path="../configs",
-    config_name="default",
+    config_name="preprocessing/exploration",
     version_base=None,
 )
 @autolog
