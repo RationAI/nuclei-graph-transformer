@@ -4,6 +4,9 @@ defaults:
   - /data/datasets/prostate_cancer
   - _self_
 
+mlflow:
+  tracking_uri: http://mlflow.rationai-mlflow:5000/
+
 train_metadata_uri: ${dataset.mlflow_uris.metadata.train}
 test_metadata_uri: ${dataset.mlflow_uris.metadata.test}
 
