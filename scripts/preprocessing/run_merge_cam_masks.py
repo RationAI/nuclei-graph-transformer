@@ -5,7 +5,7 @@ submit_job(
     job_name="nuclei-graph-merge-cam-masks",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
-    cpu=2,
+    cpu=1,
     memory="4Gi",
     public=False,
     script=[

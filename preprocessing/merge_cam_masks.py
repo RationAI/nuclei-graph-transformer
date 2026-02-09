@@ -24,7 +24,7 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@with_cli_args(["+preprocessing=cam_masks"])
+@with_cli_args(["+preprocessing=merge_cam_masks"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
