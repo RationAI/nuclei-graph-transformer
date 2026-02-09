@@ -89,11 +89,7 @@ def get_df_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary_df
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="exploration",
-    version_base=None,
-)
+@hydra.main(config_path="../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_data_paths = list(Path(config.train_data_path).glob("*.mrxs"))

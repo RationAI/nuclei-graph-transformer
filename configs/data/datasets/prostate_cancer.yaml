@@ -3,8 +3,8 @@
 dataset:
   name: MMCI Tile-Level Annotations Data
   paths:
-    train: ${data_path}/MOU/prostate/tile_level_annotations
-    test: ${data_path}/MOU/prostate/tile_level_annotations_test
+    train: ${data_path}/tile_level_annotations
+    test: ${data_path}/tile_level_annotations_test
     # source: preprocessing/nuclei_segmentation.py
     nuclei_seg: ${project_path}/nuclei_segmentation
   mlflow_uris:
