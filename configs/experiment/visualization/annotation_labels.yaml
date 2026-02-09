@@ -2,8 +2,11 @@
 
 mask_tile_width: 512
 mask_tile_height: 512
+mpp: 0.25
 annot_labels_uri: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
 visualization_mode: "3"
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
 
 metadata:
