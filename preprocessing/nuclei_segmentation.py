@@ -36,7 +36,7 @@ import torch
 from mlflow.artifacts import download_artifacts
 from numpy.typing import NDArray
 from omegaconf import DictConfig
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 from ratiopath.ray import read_slides
@@ -270,11 +270,8 @@ def run_segmentation(
     nuclei.write_parquet(str(output_dir), partition_cols=["slide_id"])
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/segmentation",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=segmentation"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))

@@ -1,0 +1,11 @@
+# @package _global_
+
+mask_tile_width: 512
+mask_tile_height: 512
+
+metadata:
+  description: |
+    Annotation Masks for the [${dataset.name}](https://youtrack.rationai.cloud.e-infra.cz/articles/PC-A-13/Tile-Level-Annotations-Data). 
+    Handles *Carcinoma*, *Exclude* and *Another pathology* regions. The resulting mask marks regions that are *Carcinoma* and are neither *Exclude* nor *Another pathology*.
+
+    Positive slides with no annotations are logged in `missing_annotations.csv`.

@@ -1,16 +1,12 @@
 # @package _global_
 
-defaults:
-  - segmentation
-  - _self_
-
-annot_masks_uri: mlflow-artifacts:/97/dab2028a50e7431ba0e93f617b5242b6/artifacts/annotation_masks
+annot_masks_uri: ???
 max_concurrent: 100
-overlap_threshold: 1.0
-nuclei_path: ${output_path}
+overlap_threshold: ???
+nuclei_path: ???
 mlflow_artifact_path: annotation_labels
 
 metadata:
-  run_name: Nuclei Annotation-based Labeling
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"
   hyperparams:
     overlap_threshold: ${overlap_threshold}

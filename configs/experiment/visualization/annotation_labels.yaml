@@ -1,0 +1,10 @@
+# @package _global_
+
+mask_tile_width: 512
+mask_tile_height: 512
+annot_labels_uri: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
+visualization_mode: "3"
+nuclei_path: ${dataset.paths.nuclei_seg}
+
+metadata:
+  run_name: "Nuclei Masks — Annotation-based Labeling: ${dataset.name}"

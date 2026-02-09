@@ -1,5 +1,6 @@
 defaults:
   - base
+  - /data/datasets/prostate_cancer
   - _self_
 
 dataset: ???

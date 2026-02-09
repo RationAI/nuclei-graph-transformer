@@ -1,0 +1,13 @@
+# @package _global_
+
+mask_tile_width: 512
+mask_tile_height: 512
+predictions_uri: null # TODO
+pred_thr: # threshold for determining positive nuclei
+visualization_mode: "2"
+nuclei_path: ${dataset.paths.nuclei_seg}
+
+metadata:
+  run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"
+  hyperparams:
+    pred_thr: pred_thr

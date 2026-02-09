@@ -1,0 +1,5 @@
+# @package _global_
+
+annot_masks_uri: mlflow-artifacts:/97/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/annotation_masks
+overlap_threshold: 1.0
+nuclei_path: ${dataset.paths.nuclei_seg}

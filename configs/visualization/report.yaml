@@ -1,10 +1,11 @@
 # @package _global_
 
-mlflow:
-  tracking_uri: http://mlflow.rationai-mlflow:5000/
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
 
-train_data_path: /mnt/data/MOU/prostate/tile_level_annotations
-test_data_path: /mnt/data/MOU/prostate/tile_level_annotations_test
+train_metadata_uri: ${dataset.mlflow_uris.metadata.train}
+test_metadata_uri: ${dataset.mlflow_uris.metadata.test}
 
 reporter:
   title: Nuclei Segmentation Masks
@@ -21,46 +22,61 @@ reporter:
       description: ""
 
   background:
-    _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
-    artifact_uris:
-      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - test
-      - mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - train
-      #- mlflow-artifacts:/72/975fc886053045cea1496b7d49c5da28/artifacts/Prostate Nuclei Graph Dataset - val
-    item_name_col: id
-    background_masks_directory: ${train_data_path}
-    ground_truth_col: null
-    item_extension: .mrxs
+    _target_: report.masks.SlideRetriever
+    paths:
+      _target_: report.masks.mlflow_slide_retriever
+      urls:
+        - ${train_metadata_uri}
+        - ${test_metadata_uri}
+      key: "slide_path"
     layer_name: Prostate WSI
 
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: cam_masks
-      run_id: 20d6c9cfb28d49ab9799328be24ead99
-      layer_name: CAM Mask
+      run_id: 0ea9afac7299434889e2e6e9d04d440e
+      layer_name: CAM
       shader_conf:
         type: bipolar-heatmap
         params:
-          threshold: 30
+          threshold: 40
           opacity: 0.5
+          colorHigh: "#FFFF00" # yellow
+          colorLow: "#FF0000" # red
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      shader_conf:
+        type: heatmap
+        params:
+          use_mode: mask_clip
+      run_id: 4ea7cee809a2443389855facba548959
+      dir_name: tissue_masks
+      layer_name: Tissue
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: annotation_masks
-      run_id: 653004aa9791433face96236e286ef75
-      layer_name: Annotation Mask
+      run_id: fb2e33383e2548c48e5bd4f2a77e47a8
+      layer_name: Annotation
       shader_conf:
         opacity: 0.5
         type: edge
-        color: "#ffff00"
-        visible: 0
+        color: "#FFFF00" # yellow
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: c235875992404297951b9d95efcd4f50
-      layer_name: Nuclei Segmentation Mask
+      run_id: dbf30cff69bb44958ac2bcb2a2d50192
+      layer_name: Segmented Nuclei
       shader_conf:
         type: heatmap
-        color: "#0000FF"
-        visible: 0
+        color: "#00FF00" # green
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: # TODO
+      layer_name: Predictions
+      shader_conf:
+        type: heatmap
+        color: "#000000" # black
 
 metadata:
   run_name: Report — Nuclei Masks

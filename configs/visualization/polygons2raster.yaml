@@ -1,18 +1,20 @@
 # @package _global_
 
 defaults:
-  - /preprocessing: segmentation
+  - /base
+  - /data/datasets/prostate_cancer
   - _self_
 
 # Note: tile sizes need to be consistent across masks to display correctly in xOpat
-mask_tile_width: 256
-mask_tile_height: 256
+mask_tile_width: ???
+mask_tile_height: ???
+visualization_mode: ???
 max_concurrent: 1
-nuclei_path: ${output_path}
+nuclei_path: ???
 mlflow_artifact_path: nuclei_masks
 
 metadata:
-  run_name: Nuclei Visualization
+  run_name: ???
   hyperparams:
     mask_tile_width: ${mask_tile_width}
     mask_tile_height: ${mask_tile_height}

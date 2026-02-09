@@ -1,15 +1,18 @@
 # @package _global_
 
-defaults:
-  - base
-  - _self_
-
-mpp: 0.25
-tile_extent: 2048
-overlap: 64
-batch_size: 8
-tissue_masks_uri: mlflow-artifacts:/65/4ea7cee809a2443389855facba548959/artifacts/tissue_masks
+mpp: ???
+tile_extent: ???
+overlap: ???
+batch_size: ???
+tissue_masks_uri: ???
+train_metadata_uri: ???
+test_metadata_uri: ???
 output_path: ${project_path}/nuclei_segmentation
 
 metadata:
-  run_name: Nuclei Segmentation
+  run_name: "Nuclei Segmentation: ${dataset.name}"
+  hyperparams:
+    mpp: ${mpp}
+    tile_extent: ${tile_extent}
+    overlap: ${overlap}
+    batch_size: ${batch_size}

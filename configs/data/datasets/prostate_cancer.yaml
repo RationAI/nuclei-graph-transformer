@@ -8,6 +8,9 @@ dataset:
     # source: preprocessing/nuclei_segmentation.py
     nuclei_seg: ${project_path}/nuclei_segmentation
   mlflow_uris:
+    exploration: # source: exploration/save_metadataset.py
+      train: mlflow-artifacts:/97/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
+      test: mlflow-artifacts:/97/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations_test/slides_metadata.csv
     metadata: # source: preprocessing/metadata_mapping.py
       train: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations/slides_mapping.parquet
       test: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet

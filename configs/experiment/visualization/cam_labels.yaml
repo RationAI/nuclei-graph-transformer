@@ -1,0 +1,10 @@
+# @package _global_
+
+mask_tile_width: 512
+mask_tile_height: 512
+cam_labels_uri: mlflow-artifacts:/97/205869b9ca3c4a9bbe6341035e0d828f/artifacts/cam_labels
+visualization_mode: "4"
+nuclei_path: ${dataset.paths.nuclei_seg}
+
+metadata:
+  run_name: "Nuclei Masks — CAM-based Pseudo Labeling: ${dataset.name}"
