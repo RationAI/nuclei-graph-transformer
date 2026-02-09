@@ -4,7 +4,7 @@ from kube_jobs import storage, submit_job
 HF_TOKEN = ...  # for access to RationAI/LSP-DETR
 
 submit_job(
-    job_name="nuclei-graph-segmentation-pc",
+    job_name="nuclei-graph-nuclei-segmentation",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=20,
@@ -16,7 +16,7 @@ submit_job(
         "cd workdir",
         "uv sync --frozen",
         f'export HF_TOKEN="{HF_TOKEN}"',
-        "uv run python -m preprocessing.nuclei_segmentation +experiment=preprocessing/segmentation",
+        "uv run python -m preprocessing.nuclei_segmentation +experiment=preprocessing/nuclei_segmentation",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

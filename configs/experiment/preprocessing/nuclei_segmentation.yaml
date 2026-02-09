@@ -5,5 +5,3 @@ tile_extent: 2048
 overlap: 64
 batch_size: 8
 tissue_masks_uri: mlflow-artifacts:/65/4ea7cee809a2443389855facba548959/artifacts/tissue_masks
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}

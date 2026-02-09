@@ -270,7 +270,7 @@ def run_segmentation(
     nuclei.write_parquet(str(output_dir), partition_cols=["slide_id"])
 
 
-@with_cli_args(["+preprocessing=segmentation"])
+@with_cli_args(["+preprocessing=nuclei_segmentation"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
