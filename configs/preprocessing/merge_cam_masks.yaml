@@ -1,8 +1,12 @@
 # @package _global_
 
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
 uris: ???
-train_metadata_uri: ???
-test_metadata_uri: ???
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 mlflow_artifact_path: cam_masks
 
 metadata:

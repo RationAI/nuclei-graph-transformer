@@ -2,9 +2,6 @@
 
 mpp: 0.25
 visualization_mode: "1"
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-nuclei_path: ${dataset.paths.nuclei_seg}
 
 metadata:
   run_name: "Nuclei Masks — Outline Polygons: ${dataset.name}"

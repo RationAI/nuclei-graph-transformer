@@ -3,9 +3,6 @@
 mpp: 0.25
 cam_labels_uri: mlflow-artifacts:/97/205869b9ca3c4a9bbe6341035e0d828f/artifacts/cam_labels
 visualization_mode: "4"
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-nuclei_path: ${dataset.paths.nuclei_seg}
 
 metadata:
   run_name: "Nuclei Masks — CAM-based Pseudo Labeling: ${dataset.name}"

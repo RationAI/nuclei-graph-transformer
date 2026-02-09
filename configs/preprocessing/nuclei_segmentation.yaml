@@ -1,5 +1,9 @@
 # @package _global_
 
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
 mpp: ???
 tile_extent: ???
 overlap: ???

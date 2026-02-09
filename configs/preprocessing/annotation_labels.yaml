@@ -1,11 +1,15 @@
 # @package _global_
 
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
 annot_masks_uri: ???
 max_concurrent: 6
 overlap_threshold: ???
-nuclei_path: ???
-train_metadata_uri: ???
-test_metadata_uri: ???
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+nuclei_path: ${dataset.paths.nuclei_seg}
 mlflow_artifact_path: annotation_labels
 
 metadata:

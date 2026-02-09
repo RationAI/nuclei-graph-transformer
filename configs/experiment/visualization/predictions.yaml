@@ -4,9 +4,6 @@ mpp: 0.25
 predictions_uri: null # TODO
 pred_thr: null # threshold for determining positive nuclei
 visualization_mode: "2"
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-nuclei_path: ${dataset.paths.nuclei_seg}
 
 metadata:
   run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"

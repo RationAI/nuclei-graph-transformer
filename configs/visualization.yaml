@@ -1,6 +1,8 @@
 defaults:
   - base
-  - /data/datasets/prostate_cancer
   - _self_
 
 dataset: ???
+
+mask_tile_width: ???
+mask_tile_height: ???

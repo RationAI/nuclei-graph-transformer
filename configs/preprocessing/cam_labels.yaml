@@ -1,5 +1,9 @@
 # @package _global_
 
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
 cam_masks_uri: ???
 missing_cam_masks_uri: ???
 max_concurrent: 6
@@ -7,9 +11,9 @@ overlap_threshold: ???
 bipolar_zero_offset: 127.5
 positive_threshold: ???
 negative_threshold: ???
-nuclei_path: ???
-train_metadata_uri: ???
-test_metadata_uri: ???
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+nuclei_path: ${dataset.paths.nuclei_seg}
 mlflow_artifact_path: cam_labels
 
 metadata:
