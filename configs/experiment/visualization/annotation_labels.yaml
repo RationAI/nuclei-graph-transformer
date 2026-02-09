@@ -1,7 +1,6 @@
 # @package _global_
 
 mpp: 0.25
-annot_labels_uri: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
 visualization_mode: "3"
 
 metadata:

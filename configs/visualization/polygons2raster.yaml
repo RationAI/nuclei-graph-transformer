@@ -10,6 +10,8 @@ mask_tile_height: ???
 mpp: ??? # must match the mpp used for nuclei segmentation
 visualization_mode: ???
 max_concurrent: 1
+annot_labels_uri: ${dataset.mlflow_uris.supervision.annotation}
+cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
 test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
