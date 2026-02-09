@@ -121,7 +121,7 @@ class DataModule(LightningDataModule):
         conf_uris = conf.mlflow_uris
         conf_sup = conf_uris.supervision
 
-        annot_labels = load_df(conf_sup.annotations)
+        annot_labels = load_df(conf_sup.annotation)
 
         match stage:
             case "fit" | "validate":

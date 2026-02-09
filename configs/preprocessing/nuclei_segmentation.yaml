@@ -1,0 +1,22 @@
+# @package _global_
+
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
+mpp: ???
+tile_extent: ???
+overlap: ???
+batch_size: ???
+tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue}
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+output_path: ${project_path}/nuclei_segmentation
+
+metadata:
+  run_name: "Nuclei Segmentation: ${dataset.name}"
+  hyperparams:
+    mpp: ${mpp}
+    tile_extent: ${tile_extent}
+    overlap: ${overlap}
+    batch_size: ${batch_size}

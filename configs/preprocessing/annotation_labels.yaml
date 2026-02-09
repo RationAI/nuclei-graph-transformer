@@ -1,16 +1,18 @@
 # @package _global_
 
 defaults:
-  - segmentation
+  - /data/datasets/prostate_cancer
   - _self_
 
-annot_masks_uri: mlflow-artifacts:/97/dab2028a50e7431ba0e93f617b5242b6/artifacts/annotation_masks
-max_concurrent: 100
+annot_masks_uri: ${dataset.mlflow_uris.masks.annotation}
+max_concurrent: 6
 overlap_threshold: 1.0
-nuclei_path: ${output_path}
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+nuclei_path: ${dataset.paths.nuclei_seg}
 mlflow_artifact_path: annotation_labels
 
 metadata:
-  run_name: Nuclei Annotation-based Labeling
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"
   hyperparams:
     overlap_threshold: ${overlap_threshold}

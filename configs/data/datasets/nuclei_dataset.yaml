@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - prostate_cancer/base
+  - prostate_cancer
   - _self_
 
 _target_: nuclei_graph.data.datasets.NucleiDataset

@@ -1,0 +1,6 @@
+# @package _global_
+
+overlap_threshold: 0.5
+# the following thresholds do not assume any restrictions
+positive_threshold: 0.6 # determined by pathologist
+negative_threshold: 0.4 # determined by pathologist
