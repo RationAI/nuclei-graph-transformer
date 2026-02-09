@@ -1,14 +1,10 @@
 # @package _global_
 
-defaults:
-  - /data/datasets/prostate_cancer
-  - _self_
-
 mlflow:
   tracking_uri: http://mlflow.rationai-mlflow:5000/
 
-train_metadata_uri: ${dataset.mlflow_uris.metadata.train}
-test_metadata_uri: ${dataset.mlflow_uris.metadata.test}
+train_metadata_uri: mlflow-artifacts:/97/5c4f69059f014d728d669a16eca68c51/artifacts/tile_level_annotations/slides_mapping.parquet
+test_metadata_uri: mlflow-artifacts:/97/5c4f69059f014d728d669a16eca68c51/artifacts/tile_level_annotations_test/slides_mapping.parquet
 
 reporter:
   title: Nuclei Segmentation Masks
