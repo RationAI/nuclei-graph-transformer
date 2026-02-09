@@ -37,7 +37,7 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@ray.remote
+@ray.remote(num_cpus=1, memory=int(0.05 * 1024**3))
 def label_slide(
     slide_path: Path,
     nuclei_dir: Path,

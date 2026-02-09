@@ -14,5 +14,5 @@ submit_job(
         "uv sync --frozen",
         "uv run python -m preprocessing.metadata_mapping +experiment=preprocessing/metadata_mapping",
     ],
-    storage=[storage.secure.DATA],
+    storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

@@ -68,7 +68,7 @@ def get_cam_values(
     return mask[y_coords, x_coords].astype(np.float32)
 
 
-@ray.remote
+@ray.remote(num_cpus=1, memory=int(0.05 * 1024**3))
 def run_cam_labeling(
     slide_path: Path,
     nuclei_dir: Path,
