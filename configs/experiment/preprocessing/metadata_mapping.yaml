@@ -5,4 +5,4 @@ exclude_slides_uris:
   - mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/missing_cam_masks.csv
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
 test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_seg_path: ${dataset.paths.nuclei_seg}
