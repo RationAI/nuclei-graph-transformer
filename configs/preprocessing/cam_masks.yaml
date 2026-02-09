@@ -1,6 +1,8 @@
 # @package _global_
 
 uris: ???
+train_metadata_uri: ???
+test_metadata_uri: ???
 mlflow_artifact_path: cam_masks
 
 metadata:

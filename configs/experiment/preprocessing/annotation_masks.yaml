@@ -2,6 +2,8 @@
 
 mask_tile_width: 512
 mask_tile_height: 512
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 
 metadata:
   description: |

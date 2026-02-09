@@ -8,6 +8,8 @@ bipolar_zero_offset: 127.5
 positive_threshold: ???
 negative_threshold: ???
 nuclei_path: ???
+train_metadata_uri: ???
+test_metadata_uri: ???
 mlflow_artifact_path: cam_labels
 
 metadata:

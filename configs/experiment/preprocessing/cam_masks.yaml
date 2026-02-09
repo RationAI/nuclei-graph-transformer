@@ -4,6 +4,8 @@ uris:
   - mlflow-artifacts:/65/bd500df13b4e47c792a68231792e3500/artifacts/cam_explanations
   - mlflow-artifacts:/65/8f5e152422e346ac9b5bef3e2aac73ef/artifacts/cam_explanations
   - mlflow-artifacts:/65/c5495c7e0cbf48bd957da3288be78124/artifacts/cam_explanations
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 
 metadata:
   description: |

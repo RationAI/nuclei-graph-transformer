@@ -4,6 +4,8 @@ annot_masks_uri: ???
 max_concurrent: 100
 overlap_threshold: ???
 nuclei_path: ???
+train_metadata_uri: ???
+test_metadata_uri: ???
 mlflow_artifact_path: annotation_labels
 
 metadata:

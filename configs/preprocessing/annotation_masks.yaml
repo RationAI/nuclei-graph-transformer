@@ -5,8 +5,8 @@ mask_tile_width: ???
 mask_tile_height: ???
 level: 2
 max_concurrent: 6
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+train_metadata_uri: ???
+test_metadata_uri: ???
 mlflow_artifact_path: annotation_masks
 
 metadata:

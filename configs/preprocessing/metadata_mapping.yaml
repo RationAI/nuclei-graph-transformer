@@ -1,8 +1,8 @@
 # @package _global_
 
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 exclude_slides_uris: ???
+train_metadata_uri: ???
+test_metadata_uri: ???
 nuclei_seg_path: ???
 
 metadata:

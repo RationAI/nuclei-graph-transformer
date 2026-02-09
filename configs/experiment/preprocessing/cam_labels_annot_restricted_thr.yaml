@@ -6,4 +6,6 @@ overlap_threshold: 0.5
 # the following thresholds assume restriction to annotation ROIs
 positive_threshold: 0.4 # determined by pathologist
 negative_threshold: 0.4 # determined by pathologist
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
