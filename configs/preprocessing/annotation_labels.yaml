@@ -4,9 +4,9 @@ defaults:
   - /data/datasets/prostate_cancer
   - _self_
 
-annot_masks_uri: ???
+annot_masks_uri: ${dataset.mlflow_uris.masks.annotation}
 max_concurrent: 6
-overlap_threshold: ???
+overlap_threshold: 1.0
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
 test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 nuclei_path: ${dataset.paths.nuclei_seg}

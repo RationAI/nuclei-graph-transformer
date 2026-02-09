@@ -8,9 +8,9 @@ mpp: ???
 tile_extent: ???
 overlap: ???
 batch_size: ???
-tissue_masks_uri: ???
-train_metadata_uri: ???
-test_metadata_uri: ???
+tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue}
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 output_path: ${project_path}/nuclei_segmentation
 
 metadata:

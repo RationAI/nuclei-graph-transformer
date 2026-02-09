@@ -12,7 +12,7 @@ submit_job(
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m preprocessing.annotation_labels +experiment=preprocessing/annotation_labels",
+        "uv run python -m preprocessing.annotation_labels",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

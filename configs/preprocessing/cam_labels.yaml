@@ -4,8 +4,8 @@ defaults:
   - /data/datasets/prostate_cancer
   - _self_
 
-cam_masks_uri: ???
-missing_cam_masks_uri: ???
+cam_masks_uri: ${dataset.mlflow_uris.masks.cam}
+missing_cam_masks_uri: ${dataset.mlflow_uris.masks.missing.cam}
 max_concurrent: 6
 overlap_threshold: ???
 bipolar_zero_offset: 127.5

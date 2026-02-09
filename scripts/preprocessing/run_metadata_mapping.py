@@ -12,7 +12,7 @@ submit_job(
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m preprocessing.metadata_mapping +experiment=preprocessing/metadata_mapping",
+        "uv run python -m preprocessing.metadata_mapping",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

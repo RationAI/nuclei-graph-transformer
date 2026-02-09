@@ -1,7 +1,5 @@
 # @package _global_
 
-cam_masks_uri: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/cam_masks
-missing_cam_masks_uri: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/missing_cam_masks.csv
 overlap_threshold: 0.5
 # the following thresholds assume restriction to annotation ROIs
 positive_threshold: 0.4 # determined by pathologist
