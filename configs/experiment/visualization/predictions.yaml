@@ -1,7 +1,5 @@
 # @package _global_
 
-mask_tile_width: 512
-mask_tile_height: 512
 mpp: 0.25
 predictions_uri: null # TODO
 pred_thr: null # threshold for determining positive nuclei

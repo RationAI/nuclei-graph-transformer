@@ -1,7 +1,5 @@
 # @package _global_
 
-mask_tile_width: 512
-mask_tile_height: 512
 mpp: 0.25
 visualization_mode: "1"
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
