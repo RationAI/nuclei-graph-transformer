@@ -2,7 +2,7 @@
 
 cam_masks_uri: ???
 missing_cam_masks_uri: ???
-max_concurrent: 100
+max_concurrent: 6
 overlap_threshold: ???
 bipolar_zero_offset: 127.5
 positive_threshold: ???

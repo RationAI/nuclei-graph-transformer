@@ -5,8 +5,8 @@ submit_job(
     job_name="nuclei-graph-annotation-masks",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
-    cpu=4,
-    memory="16Gi",
+    cpu=8,
+    memory="32Gi",
     public=False,
     script=[
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",

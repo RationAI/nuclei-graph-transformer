@@ -57,7 +57,7 @@ def filter_carcinoma(slide_path: Path) -> list[BaseGeometry]:
     return [result] if isinstance(result, Polygon) else result.geoms
 
 
-@ray.remote(num_cpus=1, memory=(2 * 1024**3))
+@ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def process_slide(
     slide_path: Path,
     level: int,
