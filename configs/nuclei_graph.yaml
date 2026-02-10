@@ -12,7 +12,6 @@ trainer: {}
 data:
   batch_size: ???
   num_workers: 10
-  supervision_mode: ???
   mlflow_uris:
     metadata: ???
     supervision: ???
