@@ -1,6 +1,8 @@
 # @package _global_
 
 overlap_threshold: 0.5
-# the following thresholds assume restriction to annotation ROIs
 positive_threshold: 0.4 # determined by pathologist
 negative_threshold: 0.4 # determined by pathologist
+
+metadata:
+  description: "CAM-based nuclei labeling with thresholds assuming restriction to annotation ROIs."
