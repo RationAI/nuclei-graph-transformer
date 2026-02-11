@@ -263,6 +263,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         efd, angles = normalize_efd_for_rotation(efd)
         efd, scales = normalize_efd_for_scale(efd)
         efd = rearrange(efd, "n order c -> n (order c)")
+        efd = efd[:, 3:]
         scales /= self.scale_mean
         x = np.concatenate([efd, scales], axis=-1)
 
