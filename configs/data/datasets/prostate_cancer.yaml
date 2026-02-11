@@ -26,7 +26,7 @@ dataset:
       predict: null
     supervision:
       # source: preprocessing/annotation_labels.py
-      annotation: mlflow-artifacts:/97/0b6fc65752184d1f977748b7f43d31e6/artifacts/annotation_labels
+      annotation: mlflow-artifacts:/97/cd9b670f1ddb432abf9e79c58336ee79/artifacts/annotation_labels
       cam: # source: preprocessing/cam_labels.py
         annot_restricted_thr: mlflow-artifacts:/97/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
         default_thr: mlflow-artifacts:/97/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
