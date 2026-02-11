@@ -10,12 +10,14 @@ The result is logged to MLflow as:
     <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and "efds" (np.ndarray[float]), "efd_scales" (np.ndarray[float]), "efd_angles" (np.ndarray[float]))
 """
 
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import hydra
 import numpy as np
 import pandas as pd
+import psutil
 import ray
 from einops import rearrange
 from mlflow.artifacts import download_artifacts
@@ -29,6 +31,12 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
+
+
+def log_memory(stage: str, slide_id: str):
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info().rss / (1024**3)  # Convert to GB
+    print(f"[{slide_id}] Memory at {stage}: {mem_info:.2f} GB")
 
 
 @ray.remote
@@ -53,6 +61,7 @@ def compute_efds(data_pair: tuple[str, str], output_dir: Path, efd_order: int) -
             "efd_angle": angles.flatten(),
         }
     )
+    log_memory("Final (Before Save)", slide_id)
     output_path = output_dir / f"{slide_id}.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     efd_df.to_parquet(output_path, index=False)
@@ -76,7 +85,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         ]
         process_items(
             items=items,
-            process_item=compute_efds,  # type: ignore[arg-type]
+            process_item=compute_efds,  # type: ignore[misc]
             fn_kwargs={
                 "output_dir": Path(tmp_dir),
                 "efd_order": config.efd_order,

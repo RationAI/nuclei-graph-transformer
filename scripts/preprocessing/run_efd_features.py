@@ -6,7 +6,7 @@ submit_job(
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=16,
-    memory="32Gi",
+    memory="48Gi",
     public=False,
     script=[
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
