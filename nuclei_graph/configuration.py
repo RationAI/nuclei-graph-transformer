@@ -19,7 +19,6 @@ class Config(PretrainedConfig):
         num_layers: int,
         num_classes: int,
         dropout: float,
-        layer_scale_init: float,
         **kwargs: Any,
     ) -> None:
         self.ffn = ffn
@@ -32,5 +31,4 @@ class Config(PretrainedConfig):
         self.num_layers = num_layers
         self.num_classes = num_classes
         self.dropout = dropout
-        self.layer_scale_init = layer_scale_init
         super().__init__(**kwargs)

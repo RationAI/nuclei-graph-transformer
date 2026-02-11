@@ -49,7 +49,6 @@ model:
       num_layers: 8
       num_classes: 1
       dropout: 0.10
-      layer_scale_init: 1e-4
 
 metadata:
   run_name: Train, ${data.supervision_mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
@@ -71,4 +70,3 @@ metadata:
     num_heads: ${model.net.config.num_heads}
     num_layers: ${model.net.config.num_layers}
     dropout: ${model.net.config.dropout}
-    layer_scale_init: ${model.net.config.layer_scale_init}

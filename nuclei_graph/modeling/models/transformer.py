@@ -1,4 +1,3 @@
-import torch
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
@@ -21,18 +20,15 @@ class Layer(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.ffn_dropout = nn.Dropout(config.dropout)
 
-        self.ls1 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
-        self.ls2 = nn.Parameter(torch.full((config.dim,), config.layer_scale_init))
-
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         assert pos.shape[-1] >= self.pos_dim
         pos = pos[:, :, : self.pos_dim]
 
         y = self.pre_attn_norm(x)
-        x = x + self.ls1 * self.attn_dropout(self.self_attn(y, pos, block_mask))
+        x = x + self.attn_dropout(self.self_attn(y, pos, block_mask))
 
         y = self.pre_ffn_norm(x)
-        x = x + self.ls2 * self.ffn_dropout(self.ffn(y))
+        x = x + self.ffn_dropout(self.ffn(y))
         return x
 
 
