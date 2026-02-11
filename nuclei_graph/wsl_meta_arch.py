@@ -60,7 +60,6 @@ class WSLMetaArch(LightningModule):
             on_step=True,
             on_epoch=True,
             prog_bar=True,
-            sync_dist=True,
             batch_size=sup_size,
         )
         return loss_sup
