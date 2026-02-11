@@ -19,7 +19,11 @@ class RoPE(nn.Module):
     """
 
     def __init__(
-        self, dim: int, pos_dim: int = 2, theta: float = 100.0, num_linear_dims: int = 2
+        self,
+        dim: int,
+        pos_dim: int = 2,
+        theta: float = 1000.0,
+        num_linear_dims: int = 2,
     ) -> None:
         """Initialize RoPE module.
 

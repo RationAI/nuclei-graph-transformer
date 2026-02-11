@@ -18,6 +18,7 @@ from nuclei_graph.data import create_block_mask_from_kdtree
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
     normalize_efd_for_rotation,
+    normalize_efd_for_scale,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Crop,
@@ -260,8 +261,10 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
         efd = elliptic_fourier_descriptors(np.asarray(contours), self.efd_order)
         efd, angles = normalize_efd_for_rotation(efd)
-        x = rearrange(efd, "n order c -> n (order c)")
-        x = x / self.scale_mean
+        efd, scales = normalize_efd_for_scale(efd)
+        efd = rearrange(efd, "n order c -> n (order c)")
+        scales /= self.scale_mean
+        x = np.concatenate([efd, scales], axis=-1)
 
         # --- Load targets and supervision masks ---
         slide_id = self.metadata.iloc[idx].slide_id
