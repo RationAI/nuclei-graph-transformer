@@ -16,17 +16,17 @@ dataset:
       # source: preprocessing/annotation_masks.py
       annotation: mlflow-artifacts:/97/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/annotation_masks
       # source: preprocessing/merge_cam_masks.py
-      cam: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/cam_masks
+      cam: mlflow-artifacts:/97/c99f949cd8994ddfa7f17d98efe8cd0a/artifacts/cam_masks
       missing:
-        cam: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/missing_cam_masks.csv
-        annotation: mlflow-artifacts:/97/dab2028a50e7431ba0e93f617b5242b6/artifacts/missing_annotations.csv
+        cam: mlflow-artifacts:/97/c99f949cd8994ddfa7f17d98efe8cd0a/artifacts/missing_cam_masks.csv
+        annotation: mlflow-artifacts:/97/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
     metadata: # source: preprocessing/metadata_mapping.py
       train: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations/slides_mapping.parquet
       test: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
     supervision:
       # source: preprocessing/annotation_labels.py
-      annotation: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
+      annotation: mlflow-artifacts:/97/0b6fc65752184d1f977748b7f43d31e6/artifacts/annotation_labels
       cam: # source: preprocessing/cam_labels.py
         annot_restricted_thr: mlflow-artifacts:/97/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
         default_thr: mlflow-artifacts:/97/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
