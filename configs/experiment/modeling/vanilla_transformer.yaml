@@ -11,6 +11,7 @@ checkpoint: null
 
 trainer:
   gradient_clip_val: 0.6
+  accumulate_grad_batches: 4
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -37,7 +38,7 @@ data:
     efd_order: 15
 
 model:
-  lr: 1e-4
+  lr: 5e-5
   warmup_epochs: 8
   net:
     config:
