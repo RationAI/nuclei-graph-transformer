@@ -264,10 +264,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         scales = features["efd_scale"].values.reshape(-1, 1)
         scales /= self.scale_mean
 
+        x_raw = np.stack(features["efd"].values)
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
-        x_raw = np.stack(features["efd"].values)
         x_sliced = x_raw[:, :target_dim]
+
         x = np.concatenate([x_sliced, scales], axis=-1)
 
         # --- Load targets and supervision masks ---
