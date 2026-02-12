@@ -6,7 +6,9 @@ defaults:
 
 train_metadata_uri: ${dataset.mlflow_uris.metadata.train}
 test_metadata_uri: ${dataset.mlflow_uris.metadata.test}
-efd_order: 25 # maximum number of harmonics that can be used as features
+train_data_path: ${dataset.paths.train}
+test_data_path: ${dataset.paths.test}
+efd_order: 20 # maximum number of harmonics that can be used as features
 max_concurrent: 8
 mlflow_artifact_path: efds
 

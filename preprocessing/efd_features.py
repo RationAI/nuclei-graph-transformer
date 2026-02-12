@@ -22,7 +22,6 @@ import numpy as np
 import pandas as pd
 import ray
 from einops import rearrange
-from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
@@ -33,6 +32,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
+from nuclei_graph.data.utils.artifacts import load_df
 
 
 @ray.remote(memory=2 * 1024**3)
@@ -63,19 +63,21 @@ def compute_efds(data_pair: tuple[str, str], output_dir: Path, efd_order: int) -
     efd_df.to_parquet(output_path, index=False)
 
 
+def get_dataset_name(path: str) -> str:
+    return Path(path).name
+
+
 @with_cli_args(["+preprocessing=efd_features"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    train_slides = pd.read_parquet(download_artifacts(config.train_metadata_uri))
-    test_slides = pd.read_parquet(download_artifacts(config.test_metadata_uri))
-
-    train_set_name = Path(config.train_data_path).name
-    test_set_name = Path(config.test_data_path).name
+    columns = ["slide_id", "slide_nuclei_path"]
+    train_slides = load_df(config.train_metadata_uri, cols=columns)
+    test_slides = load_df(config.test_metadata_uri, cols=columns)
 
     data_sets = {
-        train_set_name: train_slides[["slide_id", "slide_nuclei_path"]],
-        test_set_name: test_slides[["slide_id", "slide_nuclei_path"]],
+        get_dataset_name(config.train_data_path): train_slides,
+        get_dataset_name(config.test_data_path): test_slides,
     }
 
     for dataset_name, slides in data_sets.items():
