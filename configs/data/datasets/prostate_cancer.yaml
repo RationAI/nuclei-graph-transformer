@@ -24,6 +24,8 @@ dataset:
       train: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations/slides_mapping.parquet
       test: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
+    # source: preprocessing/efd_features.py
+    features: mlflow-artifacts:/97/45335341044d48e9afa895972f4bf1c1/artifacts/efds
     supervision:
       # source: preprocessing/annotation_labels.py
       annotation: mlflow-artifacts:/97/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels

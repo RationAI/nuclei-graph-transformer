@@ -7,7 +7,6 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from degraph import build_spatial_graph
-from einops import rearrange
 from numpy.typing import NDArray
 from pandas import DataFrame
 from scipy.spatial import KDTree
@@ -15,11 +14,6 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from nuclei_graph.data import create_block_mask_from_kdtree
-from nuclei_graph.data.efd import (
-    elliptic_fourier_descriptors,
-    normalize_efd_for_rotation,
-    normalize_efd_for_scale,
-)
 from nuclei_graph.nuclei_graph_typing import (
     Crop,
     DatasetSupervision,
@@ -40,6 +34,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self,
         metadata: DataFrame,
         scale_mean: float,
+        efds: DataFrame,
         supervision: DatasetSupervision,
         supervision_mode: str = "agreement-strict",
         crop_size: int = 4096,
@@ -56,6 +51,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
+            efds: DataFrame with columns "slide_id" (str), "id" (str), "efd" (), "efd_scale" (np.ndarray[float]), and "efd_angle" (np.ndarray[float])
+                containing precomputed elliptic fourier descriptors and related features for all nuclei.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -71,6 +68,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         )
         self.metadata = metadata
         self.scale_mean = scale_mean
+        self.efds = efds
         self.supervision = supervision
         self.supervision_mode = supervision_mode
         self.crop_size = crop_size
@@ -258,17 +256,21 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei, keep = self.drop_eps_neighbors(nuclei)
 
         # --- Extract EFD features ---
-        contours = rearrange(nuclei["polygon"].tolist(), "b (v c) -> b v c", c=2)
-        efd = elliptic_fourier_descriptors(np.asarray(contours), self.efd_order)
-        efd, angles = normalize_efd_for_rotation(efd)
-        efd, scales = normalize_efd_for_scale(efd)
-        efd = rearrange(efd, "n order c -> n (order c)")
-        efd = efd[:, 3:]
+        slide_id = self.metadata.iloc[idx].slide_id
+        features = self.efds[self.efds["slide_id"] == slide_id]
+        keep_np = keep.cpu().numpy()
+        features = features.sort_values("id").iloc[keep_np].reset_index(drop=True)
+
+        scales = features["efd_scale"].values.reshape(-1, 1)
         scales /= self.scale_mean
-        x = np.concatenate([efd, scales], axis=-1)
+
+        # slice EFD coefficients to the desired order (number of harmonics)
+        target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
+        x_raw = np.stack(features["efd"].values)
+        x_sliced = x_raw[:, :target_dim]
+        x = np.concatenate([x_sliced, scales], axis=-1)
 
         # --- Load targets and supervision masks ---
-        slide_id = self.metadata.iloc[idx].slide_id
         targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
 
         # --- Create a crop ---
@@ -277,6 +279,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # --- Prepare positional encodings ---
         crop_centroids = centroids[crop_indices_np]
+        crop_centroids = crop_centroids - crop_centroids.mean(axis=0)
+        angles = features["efd_angle"].values.reshape(-1, 1)
+
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotations = 2.0 * (angles % np.pi)
         crop_rotations = rotations[crop_indices_np]

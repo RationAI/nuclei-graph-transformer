@@ -22,7 +22,7 @@ class RoPE(nn.Module):
         self,
         dim: int,
         pos_dim: int = 2,
-        theta: float = 1000.0,
+        theta: float = 10000.0,
         num_linear_dims: int = 2,
     ) -> None:
         """Initialize RoPE module.

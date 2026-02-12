@@ -1,13 +1,17 @@
-"""Script for converting nuclei polygons to Elliptic Fourier Descriptor (EFD) features and extracting their scales and orientation angles.
+"""Script for converting nuclei polygons to Elliptic Fourier Descriptor (EFD) features..
 
 Assumes the following structure of input data:
 1. Metadata Mapping (`preprocessing/metadata_mapping.py`):
 <DATASET_NAME>/
     slides_mapping.parquet (columns "slide_id" (str), "slide_nuclei_path" (str)).
 
-The result is logged to MLflow as:
+The result is a Parquet file for each slide containing the raw EFD features, rotation normalized EFD features, scale factors,
+and orientation angles for each nucleus.
+
+The output is logged to MLflow as:
 <MLFLOW_ARTIFACT_PATH>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and "efds" (np.ndarray[float]), "efd_scales" (np.ndarray[float]), "efd_angles" (np.ndarray[float]))
+    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), "efd_raw" (np.ndarray[float]), "efd" (np.ndarray[float]), "efd_scales" (np.ndarray[float]),
+    "efd_angles" (np.ndarray[float]))
 """
 
 from pathlib import Path
@@ -37,20 +41,21 @@ def compute_efds(data_pair: tuple[str, str], output_dir: Path, efd_order: int) -
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     contours = rearrange(nuclei["polygon"].tolist(), "b (v d) -> b v d", d=2)
 
-    efd = elliptic_fourier_descriptors(np.asarray(contours), efd_order)
-    efd, angles = normalize_efd_for_rotation(efd)
-    efd, scales = normalize_efd_for_scale(efd)
-    efd = rearrange(efd, "n order c -> n (order c)")
-    # after scale normalization A1, B1, and C1 coeffs are fixed constants so we can remove them
-    efd = efd[:, 3:]
+    efd_raw = elliptic_fourier_descriptors(np.asarray(contours), efd_order)
+    efd_rotated, angles = normalize_efd_for_rotation(efd_raw)
+    _, scales = normalize_efd_for_scale(efd_raw)
+
+    efd_rotated = rearrange(efd_rotated, "n order c -> n (order c)")
+    efd_raw = rearrange(efd_raw, "n order c -> n (order c)")
 
     efd_df = pd.DataFrame(
         {
             "slide_id": slide_id,
             "id": nuclei["id"],
-            "efd": list(efd),
-            "efd_scale": scales.flatten(),
-            "efd_angle": angles.flatten(),
+            "efd_raw": list(efd_raw),
+            "efd_rotated": list(efd_rotated),
+            "efd_scales": scales.flatten(),
+            "efd_angles": angles.flatten(),
         }
     )
     output_path = output_dir / f"{slide_id}.parquet"
