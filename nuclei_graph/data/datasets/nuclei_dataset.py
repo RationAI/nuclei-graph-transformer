@@ -259,12 +259,12 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         slide_id = self.metadata.iloc[idx].slide_id
         features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
-        efds = features["efd_rotated"][keep].numpy()
+        efds = features["efd_rotated"][keep].cpu().numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         efds_sliced = efds[:, :target_dim]
 
-        scales = features["scales"][keep].numpy().reshape(-1, 1)
+        scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
         scales /= self.scale_mean
 
         x = np.concatenate([efds_sliced, scales], axis=-1)
@@ -280,7 +280,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_centroids = centroids[crop_indices_np]
         crop_centroids = crop_centroids - crop_centroids.mean(axis=0)
 
-        angles = features["angles"][keep].numpy().reshape(-1, 1)
+        angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotations = 2.0 * (angles % np.pi)
         crop_rotations = rotations[crop_indices_np]
