@@ -1,4 +1,4 @@
-"""Script for converting nuclei polygons to Elliptic Fourier Descriptor (EFD) features..
+"""Script for converting nuclei polygons to Elliptic Fourier Descriptors (EFDs).
 
 Assumes the following structure of input data:
 1. Metadata Mapping (`preprocessing/metadata_mapping.py`):
