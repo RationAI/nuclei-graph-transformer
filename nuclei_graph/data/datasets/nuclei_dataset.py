@@ -34,7 +34,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self,
         metadata: DataFrame,
         scale_mean: float,
-        efds: DataFrame,
+        efds_path: str,
         supervision: DatasetSupervision,
         supervision_mode: str = "agreement-strict",
         crop_size: int = 4096,
@@ -51,8 +51,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
-            efds: DataFrame with columns "slide_id" (str), "id" (str), "efd" (), "efd_scale" (np.ndarray[float]), and "efd_angle" (np.ndarray[float])
-                containing precomputed elliptic fourier descriptors and related features for all nuclei.
+            efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, rotation normalized EFD features, scale factors,
+                and orientation angles for each nucleus. The tensors are ordered by nucleus id.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -68,7 +68,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         )
         self.metadata = metadata
         self.scale_mean = scale_mean
-        self.efds = efds
+        self.efds_path = efds_path
         self.supervision = supervision
         self.supervision_mode = supervision_mode
         self.crop_size = crop_size
@@ -257,19 +257,17 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # --- Extract EFD features ---
         slide_id = self.metadata.iloc[idx].slide_id
-        features = self.efds[self.efds["slide_id"] == slide_id]
-        keep_np = keep.cpu().numpy()
-        features = features.sort_values("id").iloc[keep_np].reset_index(drop=True)
+        features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
-        scales = features["efd_scale"].values.reshape(-1, 1)
-        scales /= self.scale_mean
-
-        x_raw = np.stack(features["efd"].values)
+        efds = features["efd_rotated"][keep].numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
-        x_sliced = x_raw[:, :target_dim]
+        efds_sliced = efds[:, :target_dim]
 
-        x = np.concatenate([x_sliced, scales], axis=-1)
+        scales = features["scales"][keep].numpy().reshape(-1, 1)
+        scales /= self.scale_mean
+
+        x = np.concatenate([efds_sliced, scales], axis=-1)
 
         # --- Load targets and supervision masks ---
         targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
@@ -281,8 +279,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # --- Prepare positional encodings ---
         crop_centroids = centroids[crop_indices_np]
         crop_centroids = crop_centroids - crop_centroids.mean(axis=0)
-        angles = features["efd_angle"].values.reshape(-1, 1)
 
+        angles = features["angles"][keep].numpy().reshape(-1, 1)
         # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         rotations = 2.0 * (angles % np.pi)
         crop_rotations = rotations[crop_indices_np]

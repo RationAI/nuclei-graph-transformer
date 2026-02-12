@@ -26,8 +26,8 @@ dataset:
       predict: null
     # source: preprocessing/efd_features.py
     features:
-      train: mlflow-artifacts:/97/03ae6027411b48639f0e6d84ce1d5e52/artifacts/tile_level_annotations
-      test: mlflow-artifacts:/97/03ae6027411b48639f0e6d84ce1d5e52/artifacts/tile_level_annotations_test
+      train: mlflow-artifacts:/97/fa26410f5b104cf0a33504a2dc101336/artifacts/tile_level_annotations
+      test: mlflow-artifacts:/97/fa26410f5b104cf0a33504a2dc101336/artifacts/tile_level_annotations_test
       predict: null
     supervision:
       # source: preprocessing/annotation_labels.py

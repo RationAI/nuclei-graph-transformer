@@ -110,9 +110,10 @@ class DataModule(LightningDataModule):
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
         metadata_uri = self.uris_cfg.metadata[mode]
-        efds_uri = self.uris_cfg.efds[mode]
         sup_conf = self.uris_cfg.supervision
+
         annot_labels = load_df(sup_conf.annotation)
+        efds_path = download_artifacts(self.uris_cfg.efds[mode])
 
         match stage:
             case "fit" | "validate":
@@ -133,7 +134,6 @@ class DataModule(LightningDataModule):
                 sup_train = build_supervision(
                     annot_labels_train, cam_labels_train, slide_labels
                 )
-                efds_train = load_df(efds_uri).pipe(get_subset, train_ids)
 
                 cam_uri_val = sup_conf.cam.annot_restricted_thr
                 cam_labels_val = load_df(cam_uri_val).pipe(get_subset, val_ids)
@@ -141,7 +141,6 @@ class DataModule(LightningDataModule):
                 sup_val = build_supervision(
                     annot_labels_val, cam_labels_val, slide_labels
                 )
-                efds_val = load_df(efds_uri).pipe(get_subset, val_ids)
 
                 # --- compute statistics for sampler and normalization ---
                 self.positivity = compute_slides_positivity(
@@ -160,7 +159,7 @@ class DataModule(LightningDataModule):
                     scale_mean=scale_mean,
                     supervision=sup_train,
                     supervision_mode=self.supervision_mode,
-                    efds=efds_train,
+                    efds_path=efds_path,
                 )
                 self.val = instantiate(
                     self.dataset_conf,
@@ -168,7 +167,7 @@ class DataModule(LightningDataModule):
                     scale_mean=scale_mean,
                     supervision=sup_val,
                     supervision_mode="agreement-strict",
-                    efds=efds_val,
+                    efds_path=efds_path,
                     full_slide=True,
                 )
 
@@ -183,7 +182,7 @@ class DataModule(LightningDataModule):
                     metadata=metadata,
                     supervision=sup,
                     scale_mean=self.dataset_conf.scale_mean,
-                    efds=load_df(efds_uri),
+                    efds_path=efds_path,
                     supervision_mode="agreement-strict",
                     full_slide=True,
                 )
@@ -200,7 +199,7 @@ class DataModule(LightningDataModule):
                     supervision=sup,
                     scale_mean=self.dataset_conf.scale_mean,
                     supervision_mode="agreement-strict",
-                    efds=load_df(efds_uri),
+                    efds_path=efds_path,
                     full_slide=True,
                     predict=True,
                 )
