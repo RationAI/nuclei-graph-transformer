@@ -1,6 +1,7 @@
 import heapq
 from collections.abc import Iterable
 from random import choice, randint
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
@@ -25,6 +26,13 @@ from nuclei_graph.nuclei_graph_typing import (
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
 type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
 type AdjacencyGraph = list[list[Neighbor]]
+
+
+class Features(TypedDict):
+    efd_raw: Tensor
+    efd_rotated: Tensor
+    scales: Tensor
+    angles: Tensor
 
 
 class NucleiDataset(Dataset[Crop | PredictSlide]):
@@ -257,7 +265,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # --- Extract EFD features ---
         slide_id = self.metadata.iloc[idx].slide_id
-        features = torch.load(f"{self.efds_path}/{slide_id}.pt")
+        features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
         efds = features["efd_rotated"][keep].cpu().numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
