@@ -69,28 +69,33 @@ def compute_efds(data_pair: tuple[str, str], output_dir: Path, efd_order: int) -
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_slides = pd.read_parquet(download_artifacts(config.train_metadata_uri))
     test_slides = pd.read_parquet(download_artifacts(config.test_metadata_uri))
-    slides = pd.concat([train_slides, test_slides])
-    slides = slides[["slide_id", "slide_nuclei_path"]]
 
-    with TemporaryDirectory() as tmp_dir:
-        items = [
-            (sid, Path(path))
-            for sid, path in zip(
-                slides["slide_id"], slides["slide_nuclei_path"], strict=True
+    train_set_name = Path(config.train_data_path).name
+    test_set_name = Path(config.test_data_path).name
+
+    data_sets = {
+        train_set_name: train_slides[["slide_id", "slide_nuclei_path"]],
+        test_set_name: test_slides[["slide_id", "slide_nuclei_path"]],
+    }
+
+    for dataset_name, slides in data_sets.items():
+        with TemporaryDirectory() as tmp_dir:
+            items = [
+                (id, Path(path))
+                for id, path in zip(
+                    slides["slide_id"], slides["slide_nuclei_path"], strict=True
+                )
+            ]
+            process_items(
+                items=items,
+                process_item=compute_efds,  # type: ignore[misc]
+                fn_kwargs={
+                    "output_dir": Path(tmp_dir),
+                    "efd_order": config.efd_order,
+                },
+                max_concurrent=config.max_concurrent,
             )
-        ]
-        process_items(
-            items=items,
-            process_item=compute_efds,  # type: ignore[misc]
-            fn_kwargs={
-                "output_dir": Path(tmp_dir),
-                "efd_order": config.efd_order,
-            },
-            max_concurrent=config.max_concurrent,
-        )
-        logger.log_artifacts(
-            local_dir=tmp_dir, artifact_path=config.mlflow_artifact_path
-        )
+            logger.log_artifacts(local_dir=tmp_dir, artifact_path=dataset_name)
 
 
 if __name__ == "__main__":
