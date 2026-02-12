@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 
+import pandas as pd
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from lightning.pytorch.utilities import rank_zero_info
@@ -12,11 +13,9 @@ from nuclei_graph.data.utils import (
     build_supervision,
     collate_fn,
     collate_fn_predict,
-    collect_artifact_uris,
     compute_scale_mean,
     compute_slides_positivity,
     get_subset,
-    load_df,
     min_count_filter,
     train_val_split,
 )
@@ -97,27 +96,26 @@ class DataModule(LightningDataModule):
             f"[INFO] Initializing DataModule in the '{self.supervision_mode}' supervision mode and '{self.cam_thr_type}' CAM threshold type."
         )
 
-    def prepare_data(self) -> None:
-        all_uris = collect_artifact_uris(self.uris_cfg)
-        for uri in all_uris:
-            download_artifacts(uri)
-
     def _get_slide_labels(
         self, df: DataFrame, label_col="is_carcinoma"
     ) -> dict[str, int]:
         return {str(k): int(v) for k, v in df.set_index("slide_id")[label_col].items()}
+
+    def _load_df(self, uri: str, cols: list[str] | None = None) -> pd.DataFrame:
+        path = download_artifacts(uri)
+        return pd.read_parquet(path, columns=cols)
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
         metadata_uri = self.uris_cfg.metadata[mode]
         sup_conf = self.uris_cfg.supervision
 
-        annot_labels = load_df(sup_conf.annotation)
+        annot_labels = self._load_df(sup_conf.annotation)
         efds_path = download_artifacts(self.uris_cfg.efds[mode])
 
         match stage:
             case "fit" | "validate":
-                metadata = load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
+                metadata = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
 
                 # --- split train/val ---
                 train, val = train_val_split(metadata)
@@ -129,14 +127,16 @@ class DataModule(LightningDataModule):
                 slide_labels = self._get_slide_labels(metadata)
 
                 cam_uri_train = sup_conf.cam[self.cam_thr_type]
-                cam_labels_train = load_df(cam_uri_train).pipe(get_subset, train_ids)
+                cam_labels_train = self._load_df(cam_uri_train).pipe(
+                    get_subset, train_ids
+                )
                 annot_labels_train = annot_labels.pipe(get_subset, train_ids)
                 sup_train = build_supervision(
                     annot_labels_train, cam_labels_train, slide_labels
                 )
 
                 cam_uri_val = sup_conf.cam.annot_restricted_thr
-                cam_labels_val = load_df(cam_uri_val).pipe(get_subset, val_ids)
+                cam_labels_val = self._load_df(cam_uri_val).pipe(get_subset, val_ids)
                 annot_labels_val = annot_labels.pipe(get_subset, val_ids)
                 sup_val = build_supervision(
                     annot_labels_val, cam_labels_val, slide_labels
@@ -172,9 +172,9 @@ class DataModule(LightningDataModule):
                 )
 
             case "test":
-                metadata = load_df(metadata_uri, cols=BASE_METADATA_COLS)
+                metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
                 slide_labels = self._get_slide_labels(metadata)
-                cam_labels = load_df(sup_conf.cam.annot_restricted_thr)
+                cam_labels = self._load_df(sup_conf.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
                 self.test = instantiate(
@@ -188,9 +188,9 @@ class DataModule(LightningDataModule):
                 )
 
             case "predict":
-                metadata = load_df(metadata_uri, cols=BASE_METADATA_COLS)
+                metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
                 slide_labels = self._get_slide_labels(metadata)
-                cam_labels = load_df(sup_conf.cam.annot_restricted_thr)
+                cam_labels = self._load_df(sup_conf.cam.annot_restricted_thr)
                 sup = build_supervision(annot_labels, cam_labels, slide_labels)
 
                 self.predict = instantiate(

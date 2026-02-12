@@ -22,6 +22,7 @@ import pandas as pd
 import ray
 import torch
 from einops import rearrange
+from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
@@ -32,7 +33,6 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from nuclei_graph.data.utils.artifacts import load_df
 
 
 @ray.remote(memory=2 * 1024**3)
@@ -61,8 +61,9 @@ def compute_efds_tensor(
     torch.save(slide_data, output_path)
 
 
-def get_dataset_name(path: str) -> str:
-    return Path(path).name
+def load_df(uri: str, cols: list[str] | None = None) -> pd.DataFrame:
+    path = download_artifacts(uri)
+    return pd.read_parquet(path, columns=cols)
 
 
 @with_cli_args(["+preprocessing=efd_features"])
@@ -74,8 +75,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     test_slides = load_df(config.test_metadata_uri, cols=columns)
 
     data_sets = {
-        get_dataset_name(config.train_data_path): train_slides,
-        get_dataset_name(config.test_data_path): test_slides,
+        Path(config.train_data_path).name: train_slides,
+        Path(config.test_data_path).name: test_slides,
     }
 
     for dataset_name, slides in data_sets.items():
