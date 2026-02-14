@@ -272,11 +272,12 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         efds_sliced = efds[:, :target_dim]
 
-        scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
+        # scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
         # scales /= self.scale_mean
 
-        x = np.concatenate([efds_sliced, scales], axis=-1)
-        x /= self.scale_mean
+        x = efds_sliced
+        # x = np.concatenate([efds_sliced, scales], axis=-1)
+        # x /= self.scale_mean
 
         # --- Load targets and supervision masks ---
         targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
