@@ -14,6 +14,9 @@ trainer:
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
 
 data:
+  paths:
+    features:
+      predict: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations_test
   mlflow_uris:
     metadata:
       predict: mlflow-artifacts:/97/3e097f07d08c41549788a62c95eb4f3e/artifacts/tile_level_annotations_test/slides_mapping.parquet

@@ -5,16 +5,22 @@ Assumes the following structure of input data:
 <DATASET_NAME>/
     slides_mapping.parquet (columns "slide_id" (str), "slide_nuclei_path" (str)).
 
+2. Segmented nuclei (`preprocessing/nuclei_segmentation.py`):
+<NUCLEI_PATH>/
+    <DATASET_NAME>/
+        slide_id=<SLIDE_NAME>/
+            *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
+
 The result is a PyTorch binary file for each slide containing the raw EFD features, rotation normalized EFD features, scale factors,
 and orientation angles for each nucleus. All are ordered by nucleus id.
 
-The output is logged to MLflow as:
-<MLFLOW_ARTIFACT_PATH>/
-    <SLIDE_NAME>.pt (a dictionary of Tensors with keys "efd_raw", "efd_rotated", "scales", and "angles", all ordered by nucleus id).
+The output is saved as:
+<OUTPUT_PATH>/
+    <DATASET_NAME>/
+        <SLIDE_NAME>.pt (a dictionary of Tensors with keys "efd_raw", "efd_rotated", "scales", and "angles", all ordered by nucleus id).
 """
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import hydra
 import numpy as np
@@ -80,23 +86,21 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     }
 
     for dataset_name, slides in data_sets.items():
-        with TemporaryDirectory() as tmp_dir:
-            items = [
-                (sid, Path(path))
-                for sid, path in zip(
-                    slides["slide_id"], slides["slide_nuclei_path"], strict=True
-                )
-            ]
-            process_items(
-                items=items,
-                process_item=compute_efds_tensor,  # type: ignore[misc]
-                fn_kwargs={
-                    "output_dir": Path(tmp_dir),
-                    "efd_order": config.efd_order,
-                },
-                max_concurrent=config.max_concurrent,
+        items = [
+            (sid, Path(path))
+            for sid, path in zip(
+                slides["slide_id"], slides["slide_nuclei_path"], strict=True
             )
-            logger.log_artifacts(local_dir=tmp_dir, artifact_path=dataset_name)
+        ]
+        process_items(
+            items=items,
+            process_item=compute_efds_tensor,  # type: ignore[misc]
+            fn_kwargs={
+                "output_dir": Path(config.output_path) / dataset_name,
+                "efd_order": config.efd_order,
+            },
+            max_concurrent=config.max_concurrent,
+        )
 
 
 if __name__ == "__main__":

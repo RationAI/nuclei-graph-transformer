@@ -4,8 +4,8 @@ defaults:
   - /data/datasets/prostate_cancer
   - _self_
 
-train_data_path: ${dataset.paths.train}
-test_data_path: ${dataset.paths.test}
+train_data_path: ${dataset.paths.wsi_data.train}
+test_data_path: ${dataset.paths.wsi_data.test}
 
 metadata:
   run_name: "Exploration: ${dataset.name}"

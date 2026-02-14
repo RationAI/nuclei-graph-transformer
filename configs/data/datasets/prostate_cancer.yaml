@@ -3,10 +3,16 @@
 dataset:
   name: MMCI Tile-Level Annotations Data
   paths:
-    train: /mnt/data/MOU/prostate/tile_level_annotations
-    test: /mnt/data/MOU/prostate/tile_level_annotations_test
+    wsi_data:
+      train: /mnt/data/MOU/prostate/tile_level_annotations
+      test: /mnt/data/MOU/prostate/tile_level_annotations_test
     # source: preprocessing/nuclei_segmentation.py
     nuclei_seg: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
+    # source: preprocessing/efd_features.py
+    features:
+      train: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations
+      test: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations_test
+      predict: null
   mlflow_uris:
     exploration: # source: exploration/save_metadataset.py
       train: mlflow-artifacts:/97/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
@@ -23,11 +29,6 @@ dataset:
     metadata: # source: preprocessing/metadata_mapping.py
       train: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations/slides_mapping.parquet
       test: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet
-      predict: null
-    # source: preprocessing/efd_features.py
-    features:
-      train: mlflow-artifacts:/97/fa26410f5b104cf0a33504a2dc101336/artifacts/tile_level_annotations
-      test: mlflow-artifacts:/97/fa26410f5b104cf0a33504a2dc101336/artifacts/tile_level_annotations_test
       predict: null
     supervision:
       # source: preprocessing/annotation_labels.py

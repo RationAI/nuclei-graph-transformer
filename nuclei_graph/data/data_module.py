@@ -62,6 +62,7 @@ class DataModule(LightningDataModule):
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
                 - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
+                - paths: DictConfig with key "features" containing paths to nuclei EFD representations.
 
         Supervision Modes Summary:
         -----------------------------------------------------------------------------------------------------------------
@@ -90,6 +91,7 @@ class DataModule(LightningDataModule):
         self.sampler_partial = sampler
         self.dataset_conf = data_params["dataset"]
         self.uris_cfg = data_params["mlflow_uris"]
+        self.paths_cfg = data_params["paths"]
         self.positivity: dict[str, float] = {}
 
         rank_zero_info(
@@ -111,7 +113,7 @@ class DataModule(LightningDataModule):
         sup_conf = self.uris_cfg.supervision
 
         annot_labels = self._load_df(sup_conf.annotation)
-        efds_path = download_artifacts(self.uris_cfg.efds[mode])
+        efds_path = self.paths_cfg.features[mode]
 
         match stage:
             case "fit" | "validate":

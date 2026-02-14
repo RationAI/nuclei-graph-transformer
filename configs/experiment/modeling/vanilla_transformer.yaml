@@ -27,10 +27,11 @@ data:
   cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
   sampler_pos_thr: 0.35
   batch_size: 8
+  paths:
+    features: ${dataset.paths.features}
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
-    efds: ${dataset.mlflow_uris.features}
   dataset:
     crop_size: 4096
     alpha: 0.8
