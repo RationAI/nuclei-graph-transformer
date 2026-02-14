@@ -3,8 +3,9 @@
 dataset:
   name: MMCI Tile-Level Annotations Data
   paths:
-    train: /mnt/data/MOU/prostate/tile_level_annotations
-    test: /mnt/data/MOU/prostate/tile_level_annotations_test
+    wsi_data:
+      train: /mnt/data/MOU/prostate/tile_level_annotations
+      test: /mnt/data/MOU/prostate/tile_level_annotations_test
     # source: preprocessing/nuclei_segmentation.py
     nuclei_seg: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
   mlflow_uris:
