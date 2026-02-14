@@ -273,9 +273,10 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         efds_sliced = efds[:, :target_dim]
 
         scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
-        scales /= self.scale_mean
+        # scales /= self.scale_mean
 
         x = np.concatenate([efds_sliced, scales], axis=-1)
+        x /= self.scale_mean
 
         # --- Load targets and supervision masks ---
         targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
