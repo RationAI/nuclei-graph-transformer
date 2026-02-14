@@ -30,8 +30,16 @@ def build_supervision(
             group_annot = annot_groups[slide_id]
             group_cam = cam_groups[slide_id]
 
-            annot = torch.tensor(group_annot["annot_label"].values, dtype=torch.float32)
-            cam = torch.tensor(group_cam["cam_label"].values, dtype=torch.float32)
+            merged = pd.merge(
+                group_annot[["id", "annot_label"]],
+                group_cam[["id", "cam_label"]],
+                on="id",
+                how="inner",
+                validate="1:1",
+            ).sort_values("id")
+
+            annot = torch.tensor(merged["annot_label"].values, dtype=torch.float32)
+            cam = torch.tensor(merged["cam_label"].values, dtype=torch.float32)
 
         sup_map[slide_id] = SlideSupervision(
             slide_label=int(label),
