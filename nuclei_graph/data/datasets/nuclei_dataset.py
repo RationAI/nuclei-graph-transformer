@@ -267,7 +267,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         slide_id = self.metadata.iloc[idx].slide_id
         features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
-        efds = features["efd_rotated"][keep].cpu().numpy()
+        efds = features["efd_raw"][keep].cpu().numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         efds_sliced = efds[:, :target_dim]
