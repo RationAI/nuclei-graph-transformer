@@ -40,7 +40,7 @@ data:
     efd_order: 15
 
 model:
-  lr: 8se-5
+  lr: 8e-5
   warmup_epochs: 8
   net:
     config:
