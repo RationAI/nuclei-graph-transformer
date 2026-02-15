@@ -71,7 +71,7 @@ def load_df(uri: str, cols: list[str] | None = None) -> pd.DataFrame:
 @with_cli_args(["+preprocessing=efd_features"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger) -> None:
+def main(config: DictConfig, _: MLFlowLogger) -> None:
     columns = ["slide_id", "slide_nuclei_path"]
     train_slides = load_df(config.train_metadata_uri, cols=columns)
     test_slides = load_df(config.test_metadata_uri, cols=columns)
