@@ -25,7 +25,7 @@ trainer:
 data:
   supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
   cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
-  sampler_pos_thr: 0.30
+  sampler_pos_thr: 0.40
   batch_size: 8
   paths:
     features: ${dataset.paths.features}
@@ -55,7 +55,7 @@ model:
 
 metadata:
   run_name: Train, ${data.supervision_mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
-  description: "rotated efds, scale mean norm, sampler 0.2"
+  description: "rotated efds, scale mean norm, sampler 0.4"
   hyperparams:
     supervision_mode: ${data.supervision_mode}
     cam_thr_type: ${data.cam_thr_type}
