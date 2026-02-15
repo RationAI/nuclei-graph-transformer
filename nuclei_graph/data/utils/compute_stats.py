@@ -1,33 +1,26 @@
-import numpy as np
+from pathlib import Path
+
 import pandas as pd
-from einops import rearrange
+import torch
 from tqdm import tqdm
 
-from nuclei_graph.data.efd import (
-    elliptic_fourier_descriptors,
-    normalize_efd_for_scale,
-)
 
-
-def compute_scale_mean(df: pd.DataFrame, efd_order: int) -> float:
+def compute_scale_mean(df: pd.DataFrame, efds_path: str | Path) -> float:
     total_sum = 0.0
     total_count = 0
 
-    print("Computing scale statistics...")
-    for nuclei_path in tqdm(df["slide_nuclei_path"]):
-        nuclei_df = pd.read_parquet(nuclei_path, columns=["polygon"])
+    efds_path = Path(efds_path)
+    print(f"Computing scale statistics from features in: {efds_path}")
 
-        contours = rearrange(nuclei_df["polygon"].tolist(), "b (v c) -> b v c", c=2)
-        efd = elliptic_fourier_descriptors(contours, efd_order)
-        _, scales = normalize_efd_for_scale(efd)
+    for slide_id in tqdm(df["slide_id"], desc="Loading scales"):
+        file_path = efds_path / f"{slide_id}.pt"
 
-        total_sum += np.sum(scales)
-        total_count += len(scales)
+        data = torch.load(file_path, map_location="cpu", weights_only=True)
+        scales = data["scales"]
 
-    if total_count == 0:
-        return 0.0
+        total_sum += scales.sum().item()
+        total_count += scales.numel()
 
     scale_mean = float(total_sum / total_count)
     print(f"Computed scale mean: {scale_mean:.4f}")
-
     return scale_mean

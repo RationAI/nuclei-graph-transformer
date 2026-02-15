@@ -152,7 +152,7 @@ class DataModule(LightningDataModule):
                     cam_labels_train,
                 )
                 scale_mean = self.dataset_conf.get("scale_mean") or compute_scale_mean(
-                    train, self.dataset_conf.efd_order
+                    train, efds_path
                 )
 
                 self.train = instantiate(
