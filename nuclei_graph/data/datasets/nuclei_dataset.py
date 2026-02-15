@@ -267,17 +267,16 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         slide_id = self.metadata.iloc[idx].slide_id
         features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
-        efds = features["efd_raw"][keep].cpu().numpy()
+        efds = features["efd_rotated"][keep].cpu().numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
-        efds_sliced = efds[:, :target_dim]
+        x = efds[:, :target_dim]
 
         # scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
         # scales /= self.scale_mean
 
-        x = efds_sliced
         # x = np.concatenate([efds_sliced, scales], axis=-1)
-        # x /= self.scale_mean
+        x /= self.scale_mean
 
         # --- Load targets and supervision masks ---
         targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
