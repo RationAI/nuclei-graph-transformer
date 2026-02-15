@@ -25,7 +25,7 @@ trainer:
 data:
   supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
   cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
-  sampler_pos_thr: 0.20
+  sampler_pos_thr: 0.30
   batch_size: 8
   paths:
     features: ${dataset.paths.features}
