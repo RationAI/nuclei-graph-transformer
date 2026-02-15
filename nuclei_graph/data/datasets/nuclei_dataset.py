@@ -29,8 +29,7 @@ type AdjacencyGraph = list[list[Neighbor]]
 
 
 class Features(TypedDict):
-    efd_raw: Tensor
-    efd_rotated: Tensor
+    efds: Tensor
     scales: Tensor
     angles: Tensor
 
@@ -59,8 +58,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
-            efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, rotation normalized EFD features, scale factors,
-                and orientation angles for each nucleus. The tensors are ordered by nucleus id.
+            efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -267,7 +265,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         slide_id = self.metadata.iloc[idx].slide_id
         features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
-        efds = features["efd_raw"][keep].cpu().numpy()
+        efds = features["efds"][keep].cpu().numpy()
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         x = efds[:, :target_dim]

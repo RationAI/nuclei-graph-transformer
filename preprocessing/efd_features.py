@@ -11,13 +11,13 @@ Assumes the following structure of input data:
         slide_id=<SLIDE_NAME>/
             *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
 
-The result is a PyTorch binary file for each slide containing the raw EFD features, rotation normalized EFD features, scale factors,
-and orientation angles for each nucleus. All are ordered by nucleus id.
+The result is a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation
+angle for each nucleus. All are ordered by nucleus id.
 
 The output is saved as:
 <OUTPUT_PATH>/
     <DATASET_NAME>/
-        <SLIDE_NAME>.pt (a dictionary of Tensors with keys "efd_raw", "efd_rotated", "scales", and "angles", all ordered by nucleus id).
+        <SLIDE_NAME>.pt (a dictionary of Tensors with keys "efds", "scales", and "angles").
 """
 
 from pathlib import Path
@@ -49,16 +49,14 @@ def compute_efds_tensor(
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     contours = rearrange(nuclei["polygon"].tolist(), "b (v d) -> b v d", d=2)
 
-    efd_raw = elliptic_fourier_descriptors(np.asarray(contours), efd_order)
-    efd_rotated, angles = normalize_efd_for_rotation(efd_raw)
-    _, scales = normalize_efd_for_scale(efd_raw)
+    efds = elliptic_fourier_descriptors(np.asarray(contours), efd_order)
+    _, angles = normalize_efd_for_rotation(efds)
+    _, scales = normalize_efd_for_scale(efds)
 
-    efd_rotated = rearrange(efd_rotated, "n order c -> n (order c)")
-    efd_raw = rearrange(efd_raw, "n order c -> n (order c)")
+    efds = rearrange(efds, "n order c -> n (order c)")
 
     slide_data = {
-        "efd_raw": torch.from_numpy(efd_raw).float(),
-        "efd_rotated": torch.from_numpy(efd_rotated).float(),
+        "efds": torch.from_numpy(efds).float(),
         "scales": torch.from_numpy(scales.flatten()).float(),
         "angles": torch.from_numpy(angles.flatten()).float(),
     }
@@ -87,8 +85,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     for dataset_name, slides in data_sets.items():
         items = [
-            (sid, Path(path))
-            for sid, path in zip(
+            (s_id, Path(path))
+            for s_id, path in zip(
                 slides["slide_id"], slides["slide_nuclei_path"], strict=True
             )
         ]
