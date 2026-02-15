@@ -23,8 +23,8 @@ trainer:
       patience: 15
 
 data:
-  supervision_mode: "agreement" # "annotation", "cam", "agreement", "agreement-strict"
-  cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
+  supervision_mode: "cam" # "annotation", "cam", "agreement", "agreement-strict"
+  cam_thr_type: "default_thr" # "annot_restricted_thr" or "default_thr"
   sampler_pos_thr: 0.30
   batch_size: 8
   paths:
