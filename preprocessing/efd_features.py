@@ -29,15 +29,16 @@ import ray
 import torch
 from einops import rearrange
 from mlflow.artifacts import download_artifacts
+from omegaconf import DictConfig
+from rationai.masks.processing import process_items
+from rationai.mlkit import autolog, with_cli_args
+from rationai.mlkit.lightning.loggers import MLFlowLogger
+
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from omegaconf import DictConfig
-from rationai.masks.processing import process_items
-from rationai.mlkit import autolog, with_cli_args
-from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
 @ray.remote(memory=2 * 1024**3)
@@ -70,7 +71,7 @@ def load_df(uri: str, cols: list[str] | None = None) -> pd.DataFrame:
 @with_cli_args(["+preprocessing=efd_features"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger) -> None:
+def main(config: DictConfig, _: MLFlowLogger) -> None:
     columns = ["slide_id", "slide_nuclei_path"]
     train_slides = load_df(config.train_metadata_uri, cols=columns)
     test_slides = load_df(config.test_metadata_uri, cols=columns)
