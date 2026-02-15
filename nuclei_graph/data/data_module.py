@@ -99,7 +99,7 @@ class DataModule(LightningDataModule):
         )
 
     def _get_slide_labels(
-        self, df: DataFrame, label_col="is_carcinoma"
+        self, df: DataFrame, label_col: str = "is_carcinoma"
     ) -> dict[str, int]:
         return {str(k): int(v) for k, v in df.set_index("slide_id")[label_col].items()}
 
