@@ -42,9 +42,7 @@ from nuclei_graph.data.efd import (
 
 
 @ray.remote(memory=2 * 1024**3)
-def compute_efds_tensor(
-    data_pair: tuple[str, str], output_dir: Path, efd_order: int
-) -> None:
+def compute_efds(data_pair: tuple[str, str], output_dir: Path, efd_order: int) -> None:
     slide_id, nuclei_path = data_pair
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     contours = rearrange(nuclei["polygon"].tolist(), "b (v d) -> b v d", d=2)
@@ -92,7 +90,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         ]
         process_items(
             items=items,
-            process_item=compute_efds_tensor,  # type: ignore[misc]
+            process_item=compute_efds,  # type: ignore[misc]
             fn_kwargs={
                 "output_dir": Path(config.output_path) / dataset_name,
                 "efd_order": config.efd_order,
