@@ -23,10 +23,10 @@ trainer:
       patience: 15
 
 data:
-  supervision_mode: "cam" # "annotation", "cam", "agreement", "agreement-strict"
-  cam_thr_type: "default_thr" # "annot_restricted_thr" or "default_thr"
+  supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
+  cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
   sampler_pos_thr: 0.30
-  batch_size: 4
+  batch_size: 16
   paths:
     features: ${dataset.paths.features}
   mlflow_uris:
@@ -45,11 +45,11 @@ model:
   net:
     config:
       node_features: ${mul:4,${data.dataset.efd_order}}
-      dim: 256
-      hidden_dim: 1024
+      dim: 512
+      hidden_dim: 2048
       pos_dim: 3 # (x, y, α)
-      num_heads: 8
-      num_layers: 8
+      num_heads: 16
+      num_layers: 16
       num_classes: 1
       dropout: 0.10
 
