@@ -11,7 +11,7 @@ checkpoint: null
 
 trainer:
   gradient_clip_val: 0.8
-  #accumulate_grad_batches: 2
+  accumulate_grad_batches: 2
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -26,7 +26,7 @@ data:
   supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
   cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
   sampler_pos_thr: 0.30
-  batch_size: 16
+  batch_size: 8
   paths:
     features: ${dataset.paths.features}
   mlflow_uris:
