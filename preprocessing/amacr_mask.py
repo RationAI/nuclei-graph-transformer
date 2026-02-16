@@ -114,8 +114,6 @@ def save_as_tif(input_im: NDArray, output_path: Path) -> None:
 
 
 class TMAMaskerMask:
-    # tma_transformer: TMATransformer
-
     def __init__(
         self,
         mask_min_area,
@@ -124,7 +122,6 @@ class TMAMaskerMask:
         color_seg_kernel_size,
         color_seg_max_dist,
         color_seg_ratio,
-        # tma_transformer,
         holes_area_threshold,
     ) -> None:
         self.mask_min_area = mask_min_area
@@ -133,7 +130,6 @@ class TMAMaskerMask:
         self.color_seg_kernel_size = color_seg_kernel_size
         self.color_seg_max_dist = color_seg_max_dist
         self.color_seg_ratio = color_seg_ratio
-        # self.tma_transformer = tma_transformer
         self.holes_area_threshold = holes_area_threshold
 
     def log_params(self):
@@ -144,22 +140,21 @@ class TMAMaskerMask:
         mlflow.log_param("color_seg_max_dist", self.color_seg_max_dist)
         mlflow.log_param("color_seg_ratio", self.color_seg_ratio)
         mlflow.log_param("holes_area_threshold", self.holes_area_threshold)
-        # self.tma_transformer.log_params()
 
     def process_pair(self, trg_img_fp):
         logging.getLogger("PIL").setLevel(
             logging.WARNING
-        )  # keep this if you dont want terminal flooded with logs
+        ) 
         print(f"Processing: {trg_img_fp}")
 
         ce_img = np.array(
             (Image.open(trg_img_fp))
-        )  # open the slide you want to process, cant be used on huge slides, it will load ~level 7 1700x800
+        ) 
 
         dab_smaller = Image.open(trg_img_fp)
         dab_smaller.seek(
             2
-        )  # open smaller resolution for cheaper computation of stain matrix
+        ) 
         dab_smaller = np.array((dab_smaller))
         print(ce_img.shape)
         print(dab_smaller.shape)
@@ -168,7 +163,7 @@ class TMAMaskerMask:
         stains = ["hematoxylin", "dab", "null"]
         hdab_rgb = compute_stain_matrix(
             dab_smaller, stains
-        )  # compute stain matrix which helps separating stains from original slide
+        ) 
         c_he_stain = isolate_stain(ce_img, hdab_rgb, 0)
         c_dab_stain = isolate_stain(ce_img, hdab_rgb, 1)
         c_null_stain = isolate_stain(ce_img, hdab_rgb, 2)
@@ -178,7 +173,6 @@ class TMAMaskerMask:
                 c_dab_stain, c_he_stain, c_null_stain, ce_img, self.mask_min_area
             )
         )
-        # excluded fill_holes and remove_background
 
         return cytokeratin_mask
 
@@ -188,7 +182,6 @@ class TMAMaskerMask:
 
         print(f"Processing (via PyVips): {Path(trg_img_fp).name}")
 
-        # 1. Open with PyVips (Level 0 = Full Res)
         slide = pyvips.Image.new_from_file(str(trg_img_fp), level=0)
 
         full_width = slide.width
@@ -238,7 +231,6 @@ class TMAMaskerMask:
                 ch = min(patch_size, full_height - y)
 
                 try:
-                    # FIX: Use PyVips extraction, NOT slide.read_region
                     patch_vips = slide.extract_area(x, y, cw, ch)
                     patch_np = patch_vips.numpy()
 
@@ -307,7 +299,6 @@ class TMAMaskerMask:
 
         is_brown = dab_stain > (he_stain * 2.0)
 
-        # 3. OTSU THRESHOLDING
         try:
             thresh = threshold_otsu(dab_stain)
             thresh = np.clip(thresh, 0.08, 0.25)
@@ -519,7 +510,7 @@ def main():
     # source_fp = (
     #     "/home/jovyan/nuclei-graph-transformer/amacr_mask/input/crop_pyramid.tiff"
     # )
-    out_fp = (OUT_DIR / f"{Path(source_fp).stem}").with_suffix(".tif")
+    out_fp = (OUT_DIR / f"{Path(source_fp).stem}").with_suffix(".tiff")
     # mask = mask_masker.process_pair(source_fp)
     mask_masker.process_whole(source_fp, out_fp)
     # save_as_tif(img_as_ubyte(mask), out_fp)
