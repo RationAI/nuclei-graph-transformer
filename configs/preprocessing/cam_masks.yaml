@@ -1,0 +1,21 @@
+# @package _global_
+
+defaults:
+  - base
+  - _self_
+
+uris:
+  - mlflow-artifacts:/65/bd500df13b4e47c792a68231792e3500/artifacts/cam_explanations
+  - mlflow-artifacts:/65/8f5e152422e346ac9b5bef3e2aac73ef/artifacts/cam_explanations
+  - mlflow-artifacts:/65/c5495c7e0cbf48bd957da3288be78124/artifacts/cam_explanations
+mlflow_artifact_path: cam_masks
+
+metadata:
+  run_name: "🎭 CAM Masks: Prostate Cancer"
+  description: |
+    This run merges the following MLflow artifacts containing CAM masks:
+    - [CAM VGG-16 Stain MMCI TL Train](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/bd500df13b4e47c792a68231792e3500)
+    - [CAM VGG-16 Stain MMCI TL Val](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/8f5e152422e346ac9b5bef3e2aac73ef)
+    - [CAM VGG-16 Stain MMCI TL Test](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/c5495c7e0cbf48bd957da3288be78124)
+
+    Model used to generate CAM masks: [VGG-16 Stain](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/3d053bb91d4841e28afe2c93dfe0b273)
