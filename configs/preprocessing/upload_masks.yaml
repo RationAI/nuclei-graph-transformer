@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - /data/datasets/prostate_cancer
+  - _self_
+
+metadata:
+  run_name: "AMACR mask"
