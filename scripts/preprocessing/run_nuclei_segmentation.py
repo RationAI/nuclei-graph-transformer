@@ -2,6 +2,7 @@ from kube_jobs import storage, submit_job
 
 
 HF_TOKEN = ...  # for access to RationAI/LSP-DETR
+DATASET_NAME = "prostate_cancer"
 
 submit_job(
     job_name="nuclei-graph-nuclei-segmentation",
@@ -16,7 +17,7 @@ submit_job(
         "cd workdir",
         "uv sync --frozen",
         f'export HF_TOKEN="{HF_TOKEN}"',
-        "uv run python -m preprocessing.nuclei_segmentation +experiment=preprocessing/nuclei_segmentation",
+        f"uv run python -m preprocessing.nuclei_segmentation +data=datasets/raw/{DATASET_NAME}",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

@@ -1,6 +1,8 @@
 from kube_jobs import storage, submit_job
 
 
+DATASET_NAME = "prostate_cancer"
+
 submit_job(
     job_name="nuclei-graph-merge-cam-masks",
     username=...,
@@ -12,7 +14,7 @@ submit_job(
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m preprocessing.merge_cam_masks +experiment=preprocessing/merge_cam_masks",
+        f"uv run python -m preprocessing.merge_cam_masks +experiment=preprocessing/cam_masks/{DATASET_NAME}",
     ],
     storage=[storage.secure.DATA],
 )
