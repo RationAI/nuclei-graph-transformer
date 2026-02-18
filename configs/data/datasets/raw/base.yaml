@@ -8,7 +8,7 @@ dataset:
     wsi_data:
       train: ???
       test: ???
-    nuclei_seg: ??? # nuclei_segmentation.py
+    nuclei_seg: ??? # preprocessing/nuclei_segmentation.py
 
   mlflow_uris:
     exploration: # exploration/save_metadataset.py
