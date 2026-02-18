@@ -1,9 +1,0 @@
-# @package _global_
-
-defaults:
-  - /data/datasets/raw/prostate_cancer
-  - _self_
-
-tile_extent: 2048
-overlap: 64
-batch_size: 8
