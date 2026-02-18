@@ -1,9 +1,5 @@
 # @package _global_
 
-defaults:
-  - /data/datasets/prostate_cancer
-  - _self_
-
 train_data_path: ${dataset.paths.wsi_data.train}
 test_data_path: ${dataset.paths.wsi_data.test}
 

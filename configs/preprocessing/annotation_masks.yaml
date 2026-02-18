@@ -1,9 +1,5 @@
 # @package _global_
 
-defaults:
-  - /data/datasets/prostate_cancer
-  - _self_
-
 mask_tile_width: ???
 mask_tile_height: ???
 level: 2
@@ -14,11 +10,6 @@ mlflow_artifact_path: annotation_masks
 
 metadata:
   run_name: "🖍️ Annotation Masks: ${dataset.name}"
-  description: |
-    Annotation Masks for the [${dataset.name}](https://youtrack.rationai.cloud.e-infra.cz/articles/PC-A-13/Tile-Level-Annotations-Data). 
-    Handles *Carcinoma*, *Exclude* and *Another pathology* regions. The resulting mask marks regions that are *Carcinoma* and are neither *Exclude* nor *Another pathology*.
-
-    Positive slides with no annotations are logged in `missing_annotations.csv`.
   hyperparams:
     level: ${level}
     mask_tile_width: ${mask_tile_width}

@@ -1,0 +1,35 @@
+# @package _global_
+
+dataset:
+  name: ???
+  mpp: ???
+
+  paths:
+    wsi_data:
+      train: ???
+      test: ???
+    nuclei_seg: ??? # nuclei_segmentation.py
+
+  mlflow_uris:
+    exploration: # exploration/save_metadataset.py
+      train: ???
+      test: ???
+
+    masks:
+      tissue: ???
+      annotation: ??? # preprocessing/annotation_masks.py
+      cam: ??? # preprocessing/merge_cam_masks.py
+      missing:
+        cam: ???
+        annotation: ???
+
+    metadata: # preprocessing/metadata_mapping.py
+      train: ???
+      test: ???
+      predict: ???
+
+    supervision:
+      annotation: ??? # preprocessing/annotation_labels.py
+      cam: # preprocessing/cam_labels.py
+        annot_restricted_thr: ???
+        default_thr: ???
