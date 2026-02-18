@@ -28,8 +28,8 @@ dataset:
         annotation: mlflow-artifacts:/97/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
 
     metadata:
-      train: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations/slides_mapping.parquet
-      test: mlflow-artifacts:/97/511a456896b44eaaaf9f4e3c871e0b29/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      train: mlflow-artifacts:/97/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations/slides_mapping.parquet
+      test: mlflow-artifacts:/97/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
 
     supervision:
