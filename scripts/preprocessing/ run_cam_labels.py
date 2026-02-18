@@ -1,7 +1,7 @@
 from kube_jobs import storage, submit_job
 
 
-EXPERIMENT_NAME = ...  # "cam_labels_annot_restricted_thr" or "cam_labels_default_thr"
+EXPERIMENT_NAME = ...  # "annot_restricted_thr" or "default_thr"
 DATASET_NAME = "prostate_cancer"
 
 submit_job(
