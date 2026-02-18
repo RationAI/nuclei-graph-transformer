@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - segmentation
+  - _self_
+
+exclude_slides_uris:
+  - mlflow-artifacts:/97/dab2028a50e7431ba0e93f617b5242b6/artifacts/missing_annotations.csv
+  - mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/missing_cam_masks.csv
+nuclei_seg_path: ${output_path}
+
+metadata:
+  run_name: 📁 Metadataset Mapping
