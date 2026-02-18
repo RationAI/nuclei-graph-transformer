@@ -1,6 +1,8 @@
 from kube_jobs import storage, submit_job
 
 
+DATASET_NAME = "prostate_cancer"
+
 submit_job(
     job_name="nuclei-graph-annotation-nuclei-labeling",
     username=...,
@@ -12,7 +14,7 @@ submit_job(
         "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m preprocessing.annotation_labels",
+        "uv run python -m preprocessing.annotation_labels +data=datasets/raw/{DATASET_NAME}",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
