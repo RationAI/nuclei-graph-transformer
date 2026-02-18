@@ -7,6 +7,7 @@ from pathlib import Path
 import mlflow
 import numpy as np
 
+import cv2 
 
 if not hasattr(np, "mat"):
     np.mat = np.asmatrix
@@ -24,32 +25,16 @@ from histomicstk.preprocessing.color_deconvolution import (
 from numpy.typing import NDArray
 from PIL import Image
 from skimage import img_as_bool, img_as_float, img_as_ubyte
-from skimage.color import rgb2gray
 from skimage.draw import polygon as polygon_draw
 from skimage.exposure import rescale_intensity
-from skimage.filters import threshold_otsu
-from skimage.filters.rank import enhance_contrast
+from skimage.filters import apply_hysteresis_threshold 
 from skimage.measure import label, regionprops
-from skimage.morphology import (
-    closing,
-    disk,
-    opening,
-    remove_small_holes,
-    remove_small_objects,
-)
 from skimage.transform import warp
 from skimage.util import invert
 
 
 def isolate_stain(image: NDArray, matrix: NDArray, i: int, i_o: int = 230) -> NDArray:
-    """Isolate stain as grayscale image.
-
-    Args:
-        image (NDArray): Image to be processed.
-        matrix (NDArray): Stain matrix.
-        i (int): Index of stain to be isolated in stain matrix
-        i_o (int, optional): Background RGB intensities. Defaults to 230.
-    """
+    """Isolate stain as grayscale image."""
     im_deconvolved = color_deconvolution(
         img_as_ubyte(image),
         complement_stain_matrix(matrix),
@@ -57,26 +42,19 @@ def isolate_stain(image: NDArray, matrix: NDArray, i: int, i_o: int = 230) -> ND
     )
     r = im_deconvolved.Stains[:, :, i]
     res = rescale_intensity(img_as_float(r), out_range=(0, 1))
-
     return invert(res)
 
 
 def compute_stain_matrix(image: NDArray, stains: list[str] | None = None) -> NDArray:
-    """Compute stain matrix adaptively.
-
-    Returns:
-        NDArray: stain matrix
-    """
+    """Compute stain matrix adaptively."""
     if stains is None:
         stains = ["hematoxylin", "dab", "null"]
 
     im_input = img_as_ubyte(image)
     stain_matrix = np.array([stain_color_map[st] for st in stains]).T[:, :2]
 
-    # Compute stain matrix adaptively
     sparsity_factor = 0.5
     i_0 = 230
-    # Filter warning for division by zero
     with warnings.catch_warnings():
         warnings.simplefilter("always")
         im_sda = color_conversion.rgb_to_sda(im_input, i_0)
@@ -86,31 +64,6 @@ def compute_stain_matrix(image: NDArray, stains: list[str] | None = None) -> NDA
         sparsity_factor,
     )
     return stain_matrix
-
-
-def save_as_tif(input_im: NDArray, output_path: Path) -> None:
-    """Save image in tiff format.
-
-    Args:
-        input_im (NDArray): Image to be saved.
-        output_path (Path): Path where image will be saved.
-    """
-    vips_im = pyvips.Image.new_from_memory(
-        np.array(Image.fromarray(input_im).convert("RGBA")),
-        input_im.shape[1],
-        input_im.shape[0],
-        4,
-        format="uchar",
-    )
-    vips_im.tiffsave(
-        str(output_path),
-        bigtiff=True,
-        compression=pyvips.enums.ForeignTiffCompression.DEFLATE,
-        tile=True,
-        tile_width=256,
-        tile_height=256,
-        pyramid=True,
-    )
 
 
 class TMAMaskerMask:
@@ -141,41 +94,6 @@ class TMAMaskerMask:
         mlflow.log_param("color_seg_ratio", self.color_seg_ratio)
         mlflow.log_param("holes_area_threshold", self.holes_area_threshold)
 
-    def process_pair(self, trg_img_fp):
-        logging.getLogger("PIL").setLevel(
-            logging.WARNING
-        ) 
-        print(f"Processing: {trg_img_fp}")
-
-        ce_img = np.array(
-            (Image.open(trg_img_fp))
-        ) 
-
-        dab_smaller = Image.open(trg_img_fp)
-        dab_smaller.seek(
-            2
-        ) 
-        dab_smaller = np.array((dab_smaller))
-        print(ce_img.shape)
-        print(dab_smaller.shape)
-
-        print("Obtaining stain matrices")
-        stains = ["hematoxylin", "dab", "null"]
-        hdab_rgb = compute_stain_matrix(
-            dab_smaller, stains
-        ) 
-        c_he_stain = isolate_stain(ce_img, hdab_rgb, 0)
-        c_dab_stain = isolate_stain(ce_img, hdab_rgb, 1)
-        c_null_stain = isolate_stain(ce_img, hdab_rgb, 2)
-
-        cytokeratin_mask = img_as_float(
-            self.__create_cytokeratin_mask(
-                c_dab_stain, c_he_stain, c_null_stain, ce_img, self.mask_min_area
-            )
-        )
-
-        return cytokeratin_mask
-
     def process_whole(self, trg_img_fp, out_fp, temp_dir="temp_masks"):
         logging.getLogger("PIL").setLevel(logging.WARNING)
         os.makedirs(temp_dir, exist_ok=True)
@@ -198,7 +116,6 @@ class TMAMaskerMask:
                 level_2_np = level_2_np[:, :, :3]
 
             mask_tissue = np.mean(level_2_np, axis=2) < 235
-
             tissue_pixels = level_2_np[mask_tissue].reshape(-1, 1, 3)
 
             print(f"Pixels available: {len(tissue_pixels)}")
@@ -210,7 +127,6 @@ class TMAMaskerMask:
                 tissue_pixels = tissue_pixels[indices]
 
             stains = ["hematoxylin", "dab", "null"]
-
             hdab_rgb = compute_stain_matrix(tissue_pixels, stains)
             print(f"Global Stain Matrix:\n{hdab_rgb}")
 
@@ -225,6 +141,8 @@ class TMAMaskerMask:
         )
         mask_memmap[:] = 0
 
+        self.morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
         for y in range(0, full_height, patch_size):
             for x in range(0, full_width, patch_size):
                 cw = min(patch_size, full_width - x)
@@ -233,10 +151,8 @@ class TMAMaskerMask:
                 try:
                     patch_vips = slide.extract_area(x, y, cw, ch)
                     patch_np = patch_vips.numpy()
-
                     if patch_np.shape[2] == 4:
                         patch_np = patch_np[:, :, :3]
-
                 except Exception:
                     continue
 
@@ -276,217 +192,58 @@ class TMAMaskerMask:
         del mask_memmap
         del vips_im
         import gc
-
         gc.collect()
 
         if os.path.exists(temp_filename):
-            try:
-                os.remove(temp_filename)
-            except:
-                pass
+            try: os.remove(temp_filename)
+            except: pass
 
         return None
 
     def __create_cytokeratin_mask(
         self, dab_stain, he_stain, null_stain, original_rgb, mask_min_area
     ) -> NDArray:
-        """Enhanced mask creation using Spectral Dominance and Saturation Filtering."""
-        hsv_img = skimage.color.rgb2hsv(original_rgb)
-        saturation = hsv_img[:, :, 1]
+        """Enhanced mask creation using CV2 optimization where possible."""
+        
+        hsv_img = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2HSV)
+        saturation = hsv_img[:, :, 1] / 255.0
         is_saturated = saturation > 0.12
 
         not_shadow = dab_stain > (null_stain * 1.8)
-
         is_brown = dab_stain > (he_stain * 2.0)
 
         try:
-            thresh = threshold_otsu(dab_stain)
-            thresh = np.clip(thresh, 0.08, 0.25)
-        except:
-            thresh = 0.1
+            dab_uint8 = (dab_stain * 255).astype(np.uint8)
+            otsu_val, _ = cv2.threshold(dab_uint8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            otsu_val = otsu_val / 255.0 # Convert back to float for comparison
 
-        final_mask = (dab_stain > thresh) & is_saturated & not_shadow & is_brown
+            thresh_high = np.clip(otsu_val, 0.20, 0.30)
+            thresh_low = thresh_high * 0.4
+        except:
+            thresh_high = 0.25
+            thresh_low = 0.10
+
+        hysteresis_mask = apply_hysteresis_threshold(dab_stain, thresh_low, thresh_high)
+
+        final_mask = hysteresis_mask & is_saturated & not_shadow & is_brown
 
         if np.any(final_mask):
-            final_mask = opening(final_mask, disk(1))
-            final_mask = remove_small_objects(final_mask, min_size=mask_min_area)
+            final_mask_u8 = final_mask.astype(np.uint8) * 255
+            
+            if not hasattr(self, 'morph_kernel'):
+                 self.morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+                 
+            final_mask_u8 = cv2.morphologyEx(final_mask_u8, cv2.MORPH_OPEN, self.morph_kernel)
+
+            cnts, _ = cv2.findContours(final_mask_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            mask_cleaned = np.zeros_like(final_mask_u8)
+            valid_cnts = [c for c in cnts if cv2.contourArea(c) >= mask_min_area]
+            cv2.drawContours(mask_cleaned, valid_cnts, -1, 255, thickness=cv2.FILLED)
+            
+            final_mask = mask_cleaned > 0
 
         return final_mask
-
-    @staticmethod
-    def crete_exclude_mask(annot: shapely.MultiPolygon, shape) -> NDArray:
-        """Draw exclude mask.
-
-        Args:
-            annot (shapely.MultiPolygon) : annotations polygons
-            shape (NDArray): shape of mask
-        Returns:
-            NDArray: exclude mask
-        """
-        mask = np.zeros(shape[:2])
-        if annot is not None:
-            TMAMaskerMask.draw_multipolygon(annot, mask, 1, 0)
-        return mask
-
-    @staticmethod
-    def draw_multipolygon(
-        multipolygon: shapely.MultiPolygon, image: NDArray, value: int, channel: int
-    ) -> None:
-        """Draw multipolygon on image."""
-        for p in multipolygon.geoms:
-            TMAMaskerMask.draw_polygon(p, image, value, channel)
-
-    @staticmethod
-    def polygon_to_annotation(polygon: shapely.Polygon) -> NDArray:
-        """Converts polygon to numpy array.
-
-        Returns:
-            NDArray: numpy array representation of polygon.
-        """
-        return np.asarray(polygon.exterior.coords)[:-1, :]
-
-    @staticmethod
-    def draw_polygon(
-        polygon: shapely.Polygon, image: NDArray, value: int, channel: int
-    ) -> NDArray:
-        """Draw polygon on image.
-
-        Returns:
-            NDArray: image
-        """
-        annotation = TMAMaskerMask.polygon_to_annotation(polygon)
-        rr, cc = polygon_draw(annotation[:, 0], annotation[:, 1])
-        for a, b in zip(rr, cc, strict=False):
-            if a >= image.shape[0] or b >= image.shape[1]:
-                continue
-            if len(image.shape) == 2:
-                image[a, b] = value
-            else:
-                image[a, b, channel] = value
-        return image
-
-    @staticmethod
-    def transform_mask_by_shapely_transform(img: NDArray, transform) -> NDArray:
-        """Apply shapely transform to the mask.
-
-        Returns:
-            NDArray: transformed mask / image
-        """
-        translate = skimage.transform.SimilarityTransform(
-            translation=(-transform.trans_y, -transform.trans_x)
-        )
-        translated = skimage.transform.warp(img, translate)
-
-        rotated = skimage.transform.rotate(
-            translated,
-            transform.rotation_angle,
-            center=(transform.rotation_origin_y, transform.rotation_origin_x),
-        )
-        return rotated
-
-    @staticmethod
-    def transform_image_pwise(image, transform):
-        if len(image.shape) > 2:
-            a = []
-            for i in range(image.shape[2]):
-                a.append(warp(image[:, :, i], transform.inverse, order=0))
-            return np.stack(a, axis=2)
-
-        return warp(image, transform.inverse)
-
-    @staticmethod
-    def hole_mask(mask: NDArray, holes_max_area) -> NDArray:
-        """Creates binary mask of holes in mask.
-
-        mask (NDArray): Binary mask.
-
-        Returns:
-            NDArray: Binary mask of holes in mask.
-        """
-        h_mask = np.zeros(mask.shape, dtype=bool)
-        regionprops = TMAMaskerMask.holes_in_mask(mask, holes_max_area)
-        for r in regionprops:
-            coords = tuple(zip(*r.coords, strict=False))
-            h_mask[coords] = 1
-        return h_mask
-
-    @staticmethod
-    def fill_holes(
-        mask: NDArray, hematoxylin_mask: NDArray, holes_max_area, holes_min_area
-    ) -> NDArray:
-        """Fills holes in mask.
-
-        Fills parts of holes which intersect hematoxylin_mask, then fills remaining small holes.
-
-        Returns:
-            NDArray: Mask with filled holes.
-        """
-        mask = img_as_bool(mask)
-        mask = closing(mask, disk(2))
-        hole_m = TMAMaskerMask.hole_mask(mask, holes_max_area)
-        hole_m = remove_small_holes(hole_m, 20)
-        out = np.logical_or(mask, np.logical_and(hole_m, hematoxylin_mask))
-        out = closing(out, disk(3))
-        out = remove_small_holes(out, holes_min_area, out=out)
-        return out
-
-    @staticmethod
-    def holes_in_mask(mask: NDArray, max_size: int) -> NDArray:
-        """Find holes in mask.
-
-        Args:
-            mask (NDArray): Binary mask.
-            max_size (int): Maximal size of holes.
-
-        Returns:
-          NDArray:  array of regionprops of holes
-        """
-        inverted = invert(mask)
-        lb = label(inverted)
-        regions = np.asarray(regionprops(lb))
-        return regions[[r.area < max_size for r in regions]]
-
-    @staticmethod
-    def create_he_mask(hematoxylin_stain: NDArray) -> NDArray:
-        """Creates binary mask of hematoxylin stain using Otsu method.
-
-        Args:
-            hematoxylin_stain (NDArray): NxM
-        Returns:
-            NDArray: Binary mask.
-        """
-        mask = hematoxylin_stain > threshold_otsu(hematoxylin_stain)
-        mask = closing(mask, disk(2))
-        mask = remove_small_holes(mask, 20)
-        mask = remove_small_objects(mask, 20)
-        return mask
-
-    def mask_remove_he_background(
-        self,
-        cytokeratin_mask: NDArray,
-        he_image: NDArray,
-        mask_min_area,
-        bg_thresh: int = 195,
-    ) -> NDArray:
-        """Removes regions of a mask which are considered to be a background of HE image.
-
-        Returns:
-            NDArray: Binary mask.
-        """
-        cytokeratin_mask = skimage.util.img_as_ubyte(cytokeratin_mask)
-        he_image = skimage.util.img_as_ubyte(he_image)
-        gray = img_as_ubyte(rgb2gray(he_image))
-        enhanced = enhance_contrast(gray, disk(3))
-
-        he_to_remove = (enhanced > bg_thresh) * 255
-        mask = cytokeratin_mask - he_to_remove
-        mask = np.clip(mask, a_min=0, a_max=255)
-
-        mask = closing(mask, disk(3))
-        mask = remove_small_objects(mask, mask_min_area)
-        mask = remove_small_holes(mask, self.holes_area_threshold)
-        return mask
-
 
 OUT_DIR = Path("/home/jovyan/nuclei-graph-transformer/amacr_mask/mask")
 
@@ -507,16 +264,12 @@ def main():
     t0 = time.time()
 
     source_fp = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/wsi_data/2025_09852-01-02-05-AMACR.mrxs"
-    # source_fp = (
-    #     "/home/jovyan/nuclei-graph-transformer/amacr_mask/input/crop_pyramid.tiff"
-    # )
     out_fp = (OUT_DIR / f"{Path(source_fp).stem}").with_suffix(".tiff")
-    # mask = mask_masker.process_pair(source_fp)
+    
     mask_masker.process_whole(source_fp, out_fp)
-    # save_as_tif(img_as_ubyte(mask), out_fp)
 
     t = time.time() - t0
-    print(f"Running time: {t // 60} minutes {t % 60} seconds")
+    print(f"Running time: {t // 60:.0f} minutes {t % 60:.0f} seconds")
 
 
 if __name__ == "__main__":
