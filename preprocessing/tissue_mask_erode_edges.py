@@ -1,70 +1,141 @@
+"""Script for eroding tissue masks for Whole Slide Images (WSIs).
+
+This pipeline applies edge erosion to existing tissue masks. The masks are intended to be used for
+filtering out edge artifacts such as unwanted staining that can occur at the borders of tissue sections.
+Internal holes in the tissue mask are preserved.
+
+Assumes the following structure of input data:
+1. Exploratory Metadataset (TODO):
+    <DATASET_NAME>/
+        slides_metadata.csv (columns "slide_path" (str))
+
+The output is logged to MLflow as:
+<MLFLOW_ARTIFACT_PATH>/
+    <SLIDE_NAME>.tiff (binary single-channel eroded tissue mask)
+"""
+
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import cast
 
 import cv2
+import hydra
 import numpy as np
+import pandas as pd
 import pyvips
+import ray
+from cv2 import (
+    drawContours,
+    findContours,
+    getStructuringElement,
+)
+from mlflow.artifacts import download_artifacts
+from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks import slide_resolution, write_big_tiff
+from rationai.masks.processing import process_items
+from rationai.mlkit import autolog, with_cli_args
+from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-# --- CONFIGURATION ---
 SLIDE_PATH = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/wsi_data/2025_09852-01-02-05-AMACR.mrxs"
-INPUT_MASK_PATH = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask/2025_09852-01-02-05-AMACR.tiff"
+INPUT_MASK_DIR = (
+    "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask"
+)
 OUTPUT_DIR = (
     "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask_eroded"
 )
 
-LEVEL = 2
-EDGE_EROSION_ITERATIONS = 50
 
-
-def erode_tissue_mask(vips_mask: pyvips.Image, iterations: int) -> pyvips.Image:
-    mask_np = vips_mask.numpy()
+def erode_tissue_mask(
+    tissue_mask: pyvips.Image,
+    iterations: int,
+) -> pyvips.Image:
+    mask_np = tissue_mask.numpy()
     if mask_np.ndim == 3:
         mask_np = mask_np[:, :, 0]
 
-    # Ensure uint8 0-255
     mask_uint8 = (mask_np > 127).astype(np.uint8) * 255
 
-    # Create solid mask for safe boundary erosion
     mask_solid = np.zeros_like(mask_uint8)
-    ext_contours, _ = cv2.findContours(
+
+    # Identify external contours and fill them to create a solid mask
+    # (we do not want to erode internal holes in the mask, only the edges)
+    ext_contours, _ = findContours(
         mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
-    cv2.drawContours(mask_solid, ext_contours, -1, 255, thickness=cv2.FILLED)
+    drawContours(mask_solid, ext_contours, -1, 255, thickness=cv2.FILLED)
 
+    # Erosion
     k_size = iterations * 2 + 1
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
-
+    kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
     mask_eroded_solid = cv2.erode(mask_solid, kernel)
+
+    # Recover internal structures
     mask_final = cv2.bitwise_and(mask_uint8, mask_eroded_solid)
-
-    vi_mask = pyvips.Image.new_from_array(mask_final)
-    return vi_mask.copy(interpretation="b-w")
+    return pyvips.Image.new_from_array(mask_final).copy(interpretation="b-w")
 
 
-def main():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+@ray.remote(memory=4 * 1024**3)
+def process_eroded_mask(
+    slide_path: Path,
+    tissue_mask_dir: Path,
+    output_dir: Path,
+    mask_tile_width: int,
+    mask_tile_height: int,
+    level: int,
+    erosion_iterations: int,
+) -> None:
+    with OpenSlide(slide_path) as slide:
+        mpp_x, mpp_y = slide_resolution(slide, level)
 
-    # Load metadata from original slide
-    with OpenSlide(SLIDE_PATH) as slide:
-        mpp_x, mpp_y = slide_resolution(slide, LEVEL)
+    slide_id = slide_path.stem
+    tissue_mask_path = tissue_mask_dir / f"{slide_id}.tiff"
+    slide = cast("pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path)))
 
-    # Process Mask
-    input_vips = pyvips.Image.new_from_file(INPUT_MASK_PATH)
-    eroded_vips = erode_tissue_mask(input_vips, EDGE_EROSION_ITERATIONS)
+    mask = erode_tissue_mask(slide, iterations=erosion_iterations)
 
-    out_path = Path(OUTPUT_DIR) / Path(INPUT_MASK_PATH).name
+    output_path = output_dir / f"{slide_id}.tiff"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     write_big_tiff(
-        eroded_vips,
-        path=out_path,
+        image=mask,
+        path=output_path,
         mpp_x=mpp_x,
         mpp_y=mpp_y,
-        tile_width=512,
-        tile_height=512,
+        tile_width=mask_tile_width,
+        tile_height=mask_tile_height,
     )
+
+
+@with_cli_args(["+preprocessing=tissue_masks"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
+@autolog
+def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    # slides = pd.read_csv(download_artifacts(config.metadata_uri))
+    # tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))
+
+    with TemporaryDirectory() as tmp_dir:
+        process_items(
+            items=[Path(SLIDE_PATH)],  # slides["slide_path"].map(Path)
+            process_item=process_eroded_mask,
+            fn_kwargs={
+                "tissue_mask_dir": Path(INPUT_MASK_DIR),  # tissue_masks_dir
+                "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
+                "mask_tile_width": config.mask_tile_width,
+                "mask_tile_height": config.mask_tile_height,
+                "level": config.level,
+                "erosion_iterations": config.edge_erosion_iters,
+            },
+            max_concurrent=config.max_concurrent,
+        )
+        # logger.log_artifacts(
+        #     local_dir=tmp_dir, artifact_path=config.mlflow_artifact_path
+        # )
 
 
 if __name__ == "__main__":
+    ray.init()
     main()
+    ray.shutdown()
