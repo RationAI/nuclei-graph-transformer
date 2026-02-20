@@ -122,7 +122,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             process_item=process_eroded_mask,
             fn_kwargs={
                 "tissue_mask_dir": Path(INPUT_MASK_DIR),  # tissue_masks_dir
-                "output_dir": OUTPUT_DIR,  # tmp_dir,
+                "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
                 "level": config.level,
