@@ -1,0 +1,15 @@
+# @package _global_
+
+level: 2
+mask_tile_width: ???
+mask_tile_height: ???
+metadata_uri: ${dataset.mlflow_uris.exploration}
+max_concurrent: 6
+mlflow_artifact_path: ???
+
+metadata:
+  run_name: ???
+  hyperparams:
+    level: ${level}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}

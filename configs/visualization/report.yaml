@@ -23,38 +23,37 @@ reporter:
     globs: ["*.mrxs"]
     layer_name: WSI
 
-
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: mask_raw
-      run_id: 3a392afc198448868a224bc246b8b658
+      run_id: e45a8c0f6ab445fba098a96cba279c41
       layer_name: Raw AMACR
       shader_conf:
         type: heatmap
         color: "#FF0000" # red
-    
+
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: mask
-      run_id: 3a392afc198448868a224bc246b8b658
+      run_id: e45a8c0f6ab445fba098a96cba279c41
       layer_name: Dilated AMACR
       shader_conf:
         opacity: 0.4
         type: heatmap
         color: "#0000FF0" # blue
-      
+
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: tissue_mask
-      run_id: 3a392afc198448868a224bc246b8b658
+      run_id: e45a8c0f6ab445fba098a96cba279c41
       layer_name: Tissue Mask
       shader_conf:
         visible: false
         opacity: 0.4
         type: heatmap
         color: "#000000" # black
-    
+
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: tissue_mask_eroded
-      run_id: 3a392afc198448868a224bc246b8b658
+      run_id: e45a8c0f6ab445fba098a96cba279c41
       layer_name: Tissue Mask Eroded
       shader_conf:
         opacity: 0.2

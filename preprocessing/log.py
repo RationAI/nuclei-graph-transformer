@@ -7,13 +7,14 @@ from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
+
 @with_cli_args(["+preprocessing=upload_masks"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger) -> None:
+def main(_: DictConfig, logger: MLFlowLogger) -> None:
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        
+
         mask_raw = tmp_path / "mask_raw"
         mask_closed = tmp_path / "mask"
         tissue = tmp_path / "tissue_mask"
@@ -36,7 +37,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         dst_tissue = tissue / f"{slide_id}.tiff"
         os.symlink(tissue_mask_path, dst_tissue)
         dst_tissue_eroded = tissue_eroded / f"{slide_id}.tiff"
-        os.symlink(tissue_mask_eroded_path,  dst_tissue_eroded)
+        os.symlink(tissue_mask_eroded_path, dst_tissue_eroded)
 
         print("Uploading to MLflow...")
         logger.log_artifacts(local_dir=tmp_dir)

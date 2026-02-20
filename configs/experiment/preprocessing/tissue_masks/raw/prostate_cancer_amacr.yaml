@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - /data/datasets/raw/evaluation/prostate_cancer_amacr
+  - _self_
+
+disk_factor: 30
+max_hole_size: 60000
+threshold: 6
+mlflow_artifact_path: tissue_masks
+
+metadata:
+  run_name: "🎭 Tissue Masks: ${dataset.name}"
+  hyperparams:
+    disk_factor: ${disk_factor}
+    max_hole_size: ${max_hole_size}
+    threshold: ${threshold}
