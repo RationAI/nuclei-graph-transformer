@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - base
+  - _self_
+
+noise_removal_radius: 5
+min_pre_dilation_area: 300
+dilation_disk_size: 135
+max_hole_size: 1500000
+min_final_object_size: 90000
+cleanup_scale: 2
+patch_size: 8192
+
+mlflow_artifact_path: amacr_masks_refined
+
+metadata:
+  run_name: "🎭 AMACR Masks, Refined: ${dataset.name}"
+  hyperparams:
+    noise_removal_radius: ${noise_removal_radius}
+    min_pre_dilation_area: ${min_pre_dilation_area}
+    dilation_disk_size: ${dilation_disk_size}
+    max_hole_size: ${max_hole_size}
+    min_final_object_size: ${min_final_object_size}
+    cleanup_scale: ${cleanup_scale}
+    patch_size: ${patch_size}

@@ -1,0 +1,25 @@
+# @package _global_
+
+dataset:
+  name: Prostate Cancer — AMACR Stained Data
+
+  paths:
+    wsi_data: /mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/wsi_data
+    nuclei_seg: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
+
+  mlflow_uris:
+    exploration: null # TODO
+
+    masks:
+      tissue:
+        raw: null # TODO
+        eroded: null # TODO
+
+      amacr:
+        raw: null # TODO
+        dilated: null # TODO
+
+    metadata: null # TODO
+
+    supervision:
+      amacr: null # TODO
