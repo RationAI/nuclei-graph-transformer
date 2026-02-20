@@ -5,7 +5,7 @@ defaults:
   - _self_
 
 edge_erosion_iters: 50
-tissue_masks_uri: null # TODO
+tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue.raw}
 mlflow_artifact_path: tissue_masks_edges_eroded
 
 metadata:
