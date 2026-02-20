@@ -108,7 +108,7 @@ def process_slide(
     )
     mask = tissue_mask(slide, mpp, **morph_params)
 
-    output_path = Path(output_dir, slide_path.with_suffix(".tiff").name)
+    output_path = output_dir / f"{slide_path.stem}.tiff"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     write_big_tiff(

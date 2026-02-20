@@ -90,11 +90,13 @@ def process_eroded_mask(
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level)
 
-    tissue_mask_path = tissue_mask_dir / slide_path.with_suffix(".tiff").name
+    slide_id = slide_path.stem
+    tissue_mask_path = tissue_mask_dir / f"{slide_id}.tiff"
     slide = cast("pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path)))
+
     mask = erode_tissue_mask(slide, iterations=erosion_iterations)
 
-    output_path = Path(output_dir, slide_path.with_suffix(".tiff").name)
+    output_path = output_dir / f"{slide_id}.tiff"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     write_big_tiff(
