@@ -288,10 +288,10 @@ def compute_amacr_mask(
             cw = min(patch_size, width - x)
             ch = min(patch_size, height - y)
 
-            mask_x = min(int(x * scale_x), mask_vips.width - 1)
-            mask_y = min(int(y * scale_y), mask_vips.height - 1)
-            mask_cw = min(max(1, int(cw * scale_x)), mask_vips.width - mask_x)
-            mask_ch = min(max(1, int(ch * scale_y)), mask_vips.height - mask_y)
+            mask_x = int(np.clip(x * scale_x, 0, mask_vips.width - 1))
+            mask_y = int(np.clip(y * scale_y, 0, mask_vips.height - 1))
+            mask_cw = int(np.clip(cw * scale_x, 1, mask_vips.width - mask_x))
+            mask_ch = int(np.clip(ch * scale_y, 1, mask_vips.height - mask_y))
 
             tissue_patch = mask_vips.extract_area(mask_x, mask_y, mask_cw, mask_ch)
             if not np.any(tissue_patch.numpy() > 0):  # skip empty tissue patches
