@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - /data/datasets/raw/evaluation/prostate_cancer_amacr
+  - _self_
+
+edge_erosion_iters: 50
+tissue_masks_uri: null # TODO
+mlflow_artifact_path: tissue_masks_edges_eroded
+
+metadata:
+  run_name: "🎭 Tissue Masks, Edges Eroded: ${dataset.name}"
+  hyperparams:
+    edge_erosion_iters: ${edge_erosion_iters}
