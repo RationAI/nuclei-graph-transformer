@@ -1,8 +1,7 @@
 """Script for generating tissue masks for Whole Slide Images (WSIs).
 
 This pipeline is intended to be used for very lightly stained slides where traditional Otsu thresholding
-on the saturation channel fails (the histogram is unimodal and dominated by background). Hard threshold
-is used instead.
+on the saturation channel fails (the histogram is almost unimodal). Hard threshold is used instead.
 The mask is refined my morphological closing (to fill gaps), hole filling, and opening (to remove noise).
 
 Assumes the following structure of input data:
