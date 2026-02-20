@@ -248,10 +248,10 @@ def compute_amacr_mask(
         tissue_mask_path (Path): Path to the precomputed tissue mask for the slide.
         temp_filename (Path): Path to the temporary file for memory mapping.
         params (dict[str, Any]): Dictionary of thresholds and hyperparameters needed
-            for computation of the cytokeratin mask and morphological cleaning.
+            for computation of the AMACR mask and morphological cleaning.
             Should include keys:
               - "patch_size" (int): size of patches to process at a time,
-            and the color heuristics for stain isolation as described in `create_cytokeratin_mask`.
+            and the color heuristics for stain isolation as described in `create_marker_mask`.
 
     Returns:
         tuple[pyvips.Image, np.memmap]: The PyVips image wrapping the mask,
@@ -262,14 +262,14 @@ def compute_amacr_mask(
     # compute the global stain matrix for the whole slide
     hdab_matrix = compute_stain_matrix(tissue_pixels)
 
-    slide_vips = cast(
-        "pyvips.Image", pyvips.Image.new_from_file(str(slide_path), level=0)
-    )
-    width, height = slide_vips.width, slide_vips.height
+    slide = cast("pyvips.Image", pyvips.Image.new_from_file(str(slide_path), level=0))
+    width, height = slide.width, slide.height
 
-    mask_vips = cast("pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path)))
-    scale_x = mask_vips.width / width
-    scale_y = mask_vips.height / height
+    tissue_mask = cast(
+        "pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path))
+    )
+    scale_x = tissue_mask.width / width
+    scale_y = tissue_mask.height / height
 
     mask_memmap = np.memmap(
         temp_filename, dtype="uint8", mode="w+", shape=(height, width)
@@ -288,24 +288,24 @@ def compute_amacr_mask(
             cw = min(patch_size, width - x)
             ch = min(patch_size, height - y)
 
-            mask_x = int(np.clip(x * scale_x, 0, mask_vips.width - 1))
-            mask_y = int(np.clip(y * scale_y, 0, mask_vips.height - 1))
-            mask_cw = int(np.clip(cw * scale_x, 1, mask_vips.width - mask_x))
-            mask_ch = int(np.clip(ch * scale_y, 1, mask_vips.height - mask_y))
+            mask_x = int(np.clip(x * scale_x, 0, tissue_mask.width - 1))
+            mask_y = int(np.clip(y * scale_y, 0, tissue_mask.height - 1))
+            mask_cw = int(np.clip(cw * scale_x, 1, tissue_mask.width - mask_x))
+            mask_ch = int(np.clip(ch * scale_y, 1, tissue_mask.height - mask_y))
 
-            tissue_patch = mask_vips.extract_area(mask_x, mask_y, mask_cw, mask_ch)
+            tissue_patch = tissue_mask.extract_area(mask_x, mask_y, mask_cw, mask_ch)
             if not np.any(tissue_patch.numpy() > 0):  # skip empty tissue patches
                 continue
 
-            patch = slide_vips.extract_area(x, y, cw, ch).numpy()
+            patch = slide.extract_area(x, y, cw, ch).numpy()
             if patch.shape[2] == 4:  # drop alpha channel
                 patch = patch[:, :, :3]
 
-            c_dab = isolate_stain(patch, hdab_matrix, 1)
-            c_he = isolate_stain(patch, hdab_matrix, 0)
-            c_null = isolate_stain(patch, hdab_matrix, 2)
+            dab = isolate_stain(patch, hdab_matrix, 1)
+            he = isolate_stain(patch, hdab_matrix, 0)
+            null = isolate_stain(patch, hdab_matrix, 2)
 
-            patch_mask = create_marker_mask(patch, c_dab, c_he, c_null, params)
+            patch_mask = create_marker_mask(patch, dab, he, null, params)
             mask_memmap[y : y + ch, x : x + cw] = patch_mask.astype(np.uint8) * 255
 
     print(f"[{slide_path.stem}] Flushing memory map to disk...", flush=True)
