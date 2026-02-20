@@ -6,15 +6,17 @@ Internal holes in the tissue mask are preserved.
 
 Assumes the following structure of input data:
 1. Exploratory Metadataset (TODO):
-    <DATASET_NAME>/
-        slides_metadata.csv (columns "slide_path" (str))
+slides_metadata.csv (columns "slide_path" (str))
+
+2. Tissue masks (`preprocessing/tissue_masks.py`):
+<MLFLOW_ARTIFACT_PATH>/
+    <SLIDE_NAME>.tiff (binary single-channel mask of detected tissue)
 
 The output is logged to MLflow as:
 <MLFLOW_ARTIFACT_PATH>/
     <SLIDE_NAME>.tiff (binary single-channel eroded tissue mask)
 """
 
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import cast
@@ -22,7 +24,6 @@ from typing import cast
 import cv2
 import hydra
 import numpy as np
-import pandas as pd
 import pyvips
 import ray
 from cv2 import (
@@ -30,7 +31,6 @@ from cv2 import (
     findContours,
     getStructuringElement,
 )
-from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks import slide_resolution, write_big_tiff

@@ -17,5 +17,5 @@ submit_job(
         "uv sync --frozen",
         f"uv run python -m preprocessing.tissue_masks +experiment=preprocessing/tissue_masks/{EXPERIMENT_NAME}/{DATASET_NAME}",
     ],
-    storage=[storage.secure.DATA],
+    storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

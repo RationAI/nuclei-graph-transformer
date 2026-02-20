@@ -2,12 +2,11 @@
 
 This pipeline is intended to be used for very lightly stained slides where traditional Otsu thresholding
 on the saturation channel fails (the histogram is almost unimodal). Hard threshold is used instead.
-The mask is refined my morphological closing (to fill gaps), hole filling, and opening (to remove noise).
+The mask is refined with morphological closing (to fill gaps), hole filling, and opening (to remove noise).
 
 Assumes the following structure of input data:
 1. Exploratory Metadataset (TODO):
-    <DATASET_NAME>/
-        slides_metadata.csv (columns "slide_path" (str))
+slides_metadata.csv (columns "slide_path" (str))
 
 The output is logged to MLflow as:
 <MLFLOW_ARTIFACT_PATH>/
@@ -20,7 +19,6 @@ from typing import Any, cast
 
 import cv2
 import hydra
-import pandas as pd
 import pyvips
 import ray
 from cv2 import (
@@ -32,7 +30,6 @@ from cv2 import (
     getStructuringElement,
     morphologyEx,
 )
-from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks import slide_resolution, write_big_tiff
