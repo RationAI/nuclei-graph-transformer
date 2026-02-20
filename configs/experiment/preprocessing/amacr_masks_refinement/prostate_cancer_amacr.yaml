@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - /data/datasets/raw/evaluation/prostate_cancer_amacr
+  - _self_
+
+noise_removal_radius: 5
+min_pre_dilation_area: 300
+dilation_disk_size: 135
+max_hole_size: 1500000
+min_final_object_size: 90000
+cleanup_scale: 2
+patch_size: 8192

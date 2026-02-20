@@ -1,16 +1,12 @@
 # @package _global_
 
-defaults:
-  - base
-  - _self_
-
-noise_removal_radius: 5
-min_pre_dilation_area: 300
-dilation_disk_size: 135
-max_hole_size: 1500000
-min_final_object_size: 90000
-cleanup_scale: 2
-patch_size: 8192
+noise_removal_radius: ???
+min_pre_dilation_area: ???
+dilation_disk_size: ???
+max_hole_size: ???
+min_final_object_size: ???
+cleanup_scale: ???
+patch_size: ???
 
 mlflow_artifact_path: amacr_masks_refined
 
