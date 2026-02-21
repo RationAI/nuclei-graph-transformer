@@ -5,10 +5,10 @@ a tiled dilation with a morphological refinement.
 
 The main steps are:
 1. Tissue Restriction: Masking out edge artifacts using the pre-computed eroded tissue mask.
-2. Local Noise Removal: Via morphological opening and contour-area filtering.
+2. Local Noise Removal: Application of morphological opening and contour-area filtering.
 3. Tiled Dilation: Expansion of the cleaned mask.
 3. Global Artifact Removal: Eliminating isolated artifact regions that survived the tiled cleanup.
-4. Global Hole Filling: Filling internal holes up to a defined maximum area threshold using the downsampled view.
+4. Global Hole Filling: Filling internal holes up to a defined maximum area threshold.
 
 Assumes the following structure of input data:
 1. Exploratory Metadataset (TODO):
@@ -30,7 +30,7 @@ The output is logged to MLflow as:
 import gc
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 import cv2
 import hydra
@@ -61,258 +61,291 @@ OUTPUT_DIR = (
 )
 
 
-def apply_tiled_dilation(
-    mask_slide: pyvips.Image,
-    tissue_mask_np: NDArray,
-    refined_mmap: np.memmap,
-    params: dict[str, Any],
-) -> None:
-    """Applies morphological noise removal and dilation.
+class RefinementParams(TypedDict):
+    noise_removal_radius: int
+    min_pre_dilation_area: int
+    dilation_disk_size: int
+    max_hole_size: int
+    min_final_object_size: int
+    cleanup_scale: int
+    tile_size: int
 
-    Args:
-        mask_slide (pyvips.Image): The raw AMACR mask to process.
-        tissue_mask_np (NDArray): Low-resolution binary tissue mask for valid area bounding.
-        refined_mmap (np.memmap): Memory-mapped array to write refined patches into.
-        params (dict[str, Any]): Dictionary of morphological hyperparameters:
-            - "dilation_disk_size" (int): Radius of the structuring element for dilation.
-            - "noise_removal_radius" (int): Radius for morphological opening to remove noise.
-            - "min_pre_dilation_area" (int): Minimum area for contours to be kept before dilation.
-            - "patch_size" (int): Size of the tiles to process at once.
-    """
+
+def get_tissue_mask_tile(
+    tissue_mask: pyvips.Image,
+    padded_bounds: tuple[int, int, int, int],
+    scales: tuple[float, float],
+) -> NDArray:
+    """Extracts and upscales a low-res tissue mask tile."""
+    padded_x, padded_y, padded_w, padded_h = padded_bounds
+    scale_x, scale_y = scales
+
+    lowres_w, lowres_h = tissue_mask.width, tissue_mask.height
+
+    lowres_padded_x = int(np.clip(padded_x * scale_x, 0, lowres_w - 1))
+    lowres_padded_y = int(np.clip(padded_y * scale_y, 0, lowres_h - 1))
+    lowres_padded_w = int(np.clip(padded_w * scale_x, 1, lowres_w - lowres_padded_x))
+    lowres_padded_h = int(np.clip(padded_h * scale_y, 1, lowres_h - lowres_padded_y))
+
+    tissue_mask = tissue_mask.extract_area(
+        lowres_padded_x, lowres_padded_y, lowres_padded_w, lowres_padded_h
+    ).numpy()
+
+    if tissue_mask.ndim == 3:
+        tissue_mask = tissue_mask[:, :, 0]
+    _, tissue_mask = cv2.threshold(tissue_mask, 127, 255, cv2.THRESH_BINARY)
+
+    tissue_mask_hires = np.zeros((padded_h, padded_w), dtype=np.uint8)
+    if tissue_mask.size > 0:
+        tissue_mask_hires = cv2.resize(
+            tissue_mask,
+            (padded_w, padded_h),
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+    return tissue_mask_hires
+
+
+def clean_tile(
+    tile: NDArray,
+    noise_kernel: NDArray,
+    min_area: int,
+) -> NDArray:
+    """Applies morphological opening and filters small contours."""
+    if not np.any(tile):
+        return tile
+
+    # opening (remove noise)
+    processed_tile = cv2.morphologyEx(tile, cv2.MORPH_OPEN, noise_kernel)
+
+    # contour filtering (removes objects smaller than min area)
+    contours, _ = cv2.findContours(
+        processed_tile, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    valid_contours = [
+        contour for contour in contours if cv2.contourArea(contour) >= min_area
+    ]
+
+    if valid_contours:
+        clean_mask = np.zeros_like(processed_tile)
+        cv2.drawContours(clean_mask, valid_contours, -1, 255, -1)
+        return clean_mask
+    else:
+        processed_tile[:] = 0
+        return processed_tile
+
+
+def expand_mask(
+    mask_slide: pyvips.Image,
+    tissue_mask: pyvips.Image,
+    refined_mmap: np.memmap,
+    params: RefinementParams,
+) -> None:
+    """Applies morphological noise removal and dilation."""
     # --- Prepare morphological kernels ---
     noise_ksize = params["noise_removal_radius"] * 2 + 1
     noise_kernel = cv2.getStructuringElement(
         cv2.MORPH_ELLIPSE, (noise_ksize, noise_ksize)
     )
+
     dil_ksize = params["dilation_disk_size"] * 2 + 1
     dilation_kernel = cv2.getStructuringElement(
         cv2.MORPH_ELLIPSE, (dil_ksize, dil_ksize)
     )
-    width, height = mask_slide.width, mask_slide.height
 
-    # --- Calculate scaling factors between the tissue mask and the raw AMACR mask ---
-    tissue_extent_y, tissue_extent_x = tissue_mask_np.shape
-    scale_x = tissue_extent_x / width
-    scale_y = tissue_extent_y / height
+    # --- Calculate scaling and tiling bounds ---
+    hires_w, hires_h = mask_slide.width, mask_slide.height
+    lowres_w, lowres_h = tissue_mask.width, tissue_mask.height
 
-    patch_size = params["patch_size"]
+    scale_x = lowres_w / hires_w
+    scale_y = lowres_h / hires_h
+
+    tile_size = params["tile_size"]
+    # pad the tile to prevent artifacts at the tile boundaries during dilation
     padding = params["dilation_disk_size"] + 10
-    stride = patch_size - (2 * padding)
+    stride = tile_size - (2 * padding)
 
-    # --- Tiled Dilation ---
-    for y in range(0, height, stride):
-        print(f"(Dilation): Row Y={y}/{height}", flush=True)
+    # --- Tiled Processing Loop ---
+    for y in range(0, hires_h, stride):
+        print(f"(Dilation): Row Y={y}/{hires_h}", flush=True)
 
-        for x in range(0, width, stride):
-            # The core (unpadded) region for this iteration
-            core_width = min(patch_size, width - x)
-            core_height = min(patch_size, height - y)
+        for x in range(0, hires_w, stride):
+            # "core" region (an actual area we want to write back to the memmap)
+            core_w = min(tile_size, hires_w - x)
+            core_h = min(tile_size, hires_h - y)
 
-            tile_x = int(np.clip(x * scale_x, 0, tissue_extent_x - 1))
-            tile_y = int(np.clip(y * scale_y, 0, tissue_extent_y - 1))
-            tile_w = int(np.clip(core_width * scale_x, 1, tissue_extent_x - tile_x))
-            tile_h = int(np.clip(core_height * scale_y, 1, tissue_extent_y - tile_y))
+            lowres_core_x = int(np.clip(x * scale_x, 0, lowres_w - 1))
+            lowres_core_y = int(np.clip(y * scale_y, 0, lowres_h - 1))
+            lowres_core_w = int(np.clip(core_w * scale_x, 1, lowres_w - lowres_core_x))
+            lowres_core_h = int(np.clip(core_h * scale_y, 1, lowres_h - lowres_core_y))
 
-            mask_tile = tissue_mask_np[
-                tile_y : tile_y + tile_h, tile_x : tile_x + tile_w
-            ]
-            if mask_tile.size == 0 or np.count_nonzero(mask_tile) == 0:
-                continue  # skip empy tissue regions
+            tissue_core = tissue_mask.extract_area(
+                lowres_core_x, lowres_core_y, lowres_core_w, lowres_core_h
+            ).numpy()
 
-            # Define the padded region to extract from the high-res WSI
-            pad_x = max(0, x - padding)
-            pad_y = max(0, y - padding)
-            pad_w = min(width - pad_x, core_width + (x - pad_x) + padding)
-            pad_h = min(height - pad_y, core_height + (y - pad_y) + padding)
-
-            patch_np = mask_slide.extract_area(pad_x, pad_y, pad_w, pad_h).numpy()
-
-            if patch_np.ndim == 3:
-                patch_np = patch_np[:, :, 0]
-
-            if patch_np.max() == 0:
+            # if this core region is empty, skip it
+            if tissue_core.size == 0 or np.max(tissue_core) == 0:
                 continue
 
-            patch_u8 = (patch_np > 0).astype(np.uint8) * 255
+            # extract padded high-resolution data
+            padded_x = max(0, x - padding)
+            padded_y = max(0, y - padding)
+            padded_w = min(hires_w - padded_x, core_w + (x - padded_x) + padding)
+            padded_h = min(hires_h - padded_y, core_h + (y - padded_y) + padding)
 
-            # Apply the low-res tissue mask to remove edge artifacts
-            lr_x, lr_y = int(pad_x * scale_x), int(pad_y * scale_y)
-            lr_end_x = int((pad_x + pad_w) * scale_x) + 1
-            lr_end_y = int((pad_y + pad_h) * scale_y) + 1
+            hires_tile = mask_slide.extract_area(padded_x, padded_y, padded_w, padded_h)
+            hires_tile = hires_tile.numpy()
 
-            tissue_edge_filter = tissue_mask_np[lr_y:lr_end_y, lr_x:lr_end_x]
+            if hires_tile.ndim == 3:
+                hires_tile = hires_tile[:, :, 0]
 
-            if tissue_edge_filter.size > 0:
-                tissue_edge_filter_hires = cv2.resize(
-                    tissue_edge_filter,
-                    (pad_w, pad_h),
-                    interpolation=cv2.INTER_NEAREST,
-                )
-                patch_u8 &= tissue_edge_filter_hires
-            else:
-                patch_u8[:] = 0
+            if hires_tile.max() == 0:  # empty tile
+                continue
 
-            # Morphological Cleaning (opening -> filtering by area)
-            if np.any(patch_u8):
-                patch_u8 = cv2.morphologyEx(patch_u8, cv2.MORPH_OPEN, noise_kernel)
+            tile_u8 = (hires_tile > 0).astype(np.uint8) * 255
 
-                contours, _ = cv2.findContours(
-                    patch_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-                )
-                valid_contours = [
-                    contour
-                    for contour in contours
-                    if cv2.contourArea(contour) >= params["min_pre_dilation_area"]
-                ]
-                if valid_contours:
-                    clean_mask = np.zeros_like(patch_u8)
-                    cv2.drawContours(clean_mask, valid_contours, -1, 255, -1)
+            # --- Tissue Edge Filtering ---
+            padded_bounds = (padded_x, padded_y, padded_w, padded_h)
+            scales = (scale_x, scale_y)
+            tissue_mask_hires = get_tissue_mask_tile(tissue_mask, padded_bounds, scales)
 
-                    # Dilate the cleaned mask
-                    patch_u8 = cv2.dilate(clean_mask, dilation_kernel)
-                else:
-                    patch_u8[:] = 0
+            tile_u8 &= tissue_mask_hires
 
-            # Write the processed region back to the memory map (stripping the padding)
-            offset_x = x - pad_x
-            offset_y = y - pad_y
+            # --- Morphological Cleaning & Dilation ---
+            min_area = params["min_pre_dilation_area"]
+            tile_u8 = clean_tile(tile_u8, noise_kernel, min_area)
 
-            refined_mmap[y : y + core_height, x : x + core_width] = patch_u8[
-                offset_y : offset_y + core_height, offset_x : offset_x + core_width
+            if np.any(tile_u8):
+                tile_u8 = cv2.dilate(tile_u8, dilation_kernel)
+
+            # --- Write Back ---
+            offset_x = x - padded_x
+            offset_y = y - padded_y
+
+            refined_mmap[y : y + core_h, x : x + core_w] = tile_u8[
+                offset_y : offset_y + core_h, offset_x : offset_x + core_w
             ]
+
+            del hires_tile, tile_u8, tissue_mask_hires
 
     refined_mmap.flush()
 
 
-def apply_global_cleanup(refined_mmap: np.memmap, params: dict[str, Any]) -> NDArray:
-    """Creates a downsampled global view to remove artifacts and fill holes."""
-    scale = params["cleanup_scale"]
-    height, width = refined_mmap.shape
+def create_downsampled_mask(mmap: np.memmap, scale: int, tile_size: int) -> NDArray:
+    """Creates a low-resolution view of a (large) memory-mapped array."""
+    assert tile_size % scale == 0, "Tile size must be divisible by the scale."
 
-    lowres_h, lowres_w = height // scale, width // scale
+    mmap_height, mmap_width = mmap.shape
+    mask_height, mask_width = mmap_height // scale, mmap_width // scale
 
-    lowres_mask = cv2.resize(
-        refined_mmap[::scale, ::scale],
-        (lowres_w, lowres_h),
-        interpolation=cv2.INTER_NEAREST,
-    )
+    mask = np.zeros((mask_height, mask_width), dtype=np.uint8)
 
-    # Connected Component Analysis to remove small isolated artifacts
+    for y in range(0, mmap_height, tile_size):
+        for x in range(0, mmap_width, tile_size):
+            mmap_tile_width = min(tile_size, mmap_width - x)
+            mmap_tile_height = min(tile_size, mmap_height - y)
+
+            mmap_tile = mmap[y : y + mmap_tile_height, x : x + mmap_tile_width]
+            mask_tile = mmap_tile[::scale, ::scale]
+
+            mask_y, mask_x = y // scale, x // scale
+            mask_tile_height, mask_tile_width = mask_tile.shape
+
+            if mask_y + mask_tile_height > mask_height:
+                mask_tile_height = mask_height - mask_y
+            if mask_x + mask_tile_width > mask_width:
+                mask_tile_width = mask_width - mask_x
+
+            mask[
+                mask_y : mask_y + mask_tile_height, mask_x : mask_x + mask_tile_width
+            ] = mask_tile[:mask_tile_height, :mask_tile_width]
+
+    return mask
+
+
+def apply_global_cleanup(mmap: np.memmap, params: RefinementParams) -> NDArray:
+    """Removes artifacts and fills holes."""
+    # --- Downsampling ---
+    scale = params["cleanup_scale"]  # downsample factor
+    tile_size = params["tile_size"]
+    lowres_mask = create_downsampled_mask(mmap, scale, tile_size)
+
+    # --- Connected Component Analysis ---
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
         lowres_mask, connectivity=8
     )
-
-    # Scale area down by scale^2
     lowres_min_area = params["min_final_object_size"] // (scale**2)
 
-    lowres_cleaned = np.zeros_like(lowres_mask)
-    for i in range(1, num_labels):
-        if stats[i, cv2.CC_STAT_AREA] >= lowres_min_area:
-            lowres_cleaned[labels == i] = 255
+    # create a lookup table: index -> object ID
+    label_map = np.zeros(num_labels, dtype=np.uint8)
 
-    # Fill internal holes within valid objects
-    lowres_max_hole = params["max_hole_size"] // (scale**2)
+    # find the IDs of all objects that are larger than the minimum area.
+    valid_labels = np.where(stats[:, cv2.CC_STAT_AREA] >= lowres_min_area)[0]
+    label_map[valid_labels] = 255
+    label_map[0] = 0  # background label
+
+    lowres_cleaned = label_map[labels]
+
+    # --- Hole Filling ---
+    lowres_max_hole_size = params["max_hole_size"] // (scale**2)
     lowres_final = remove_small_holes(
-        lowres_cleaned > 0, area_threshold=lowres_max_hole
+        lowres_cleaned > 0, max_size=lowres_max_hole_size
     ).astype(np.uint8)
 
-    return lowres_final * 255
+    lowres_final *= 255
+    return lowres_final
 
 
 def project_lowres_to_highres(
-    low_res_mask: NDArray, high_res_mmap: np.memmap, params: dict[str, Any]
+    mask: NDArray, mmap: np.memmap, scale: int, tile_size: int
 ) -> None:
-    """Projects the cleaned low-resolution mask back into the high-resolution memmap.
+    """Projects low-resolution mask back into the high-resolution memmap."""
+    mmap_height, mmap_width = mmap.shape
 
-    Args:
-        low_res_mask (NDArray): The downsampled mask.
-        high_res_mmap (np.memmap): Memory-mapped array to overwrite with final results.
-        params (dict[str, Any]): Dictionary containing scale and patch parameters:
-            - "cleanup_scale" (int): The downsampling factor used for cleanup.
-            - "patch_size" (int): The tile size used for processing.
-    """
-    scale = params["cleanup_scale"]
-    tile_size = params["patch_size"]
-    full_h, full_w = high_res_mmap.shape
+    for y in range(0, mmap_height, tile_size):
+        for x in range(0, mmap_width, tile_size):
+            mmap_tile_width = min(tile_size, mmap_width - x)
+            mmap_tile_height = min(tile_size, mmap_height - y)
 
-    for hires_y in range(0, full_h, tile_size):
-        for hires_x in range(0, full_w, tile_size):
-            hires_extent_x = min(tile_size, full_w - hires_x)
-            hires_extent_y = min(tile_size, full_h - hires_y)
+            mask_y, mask_x = y // scale, x // scale
 
-            lowres_x, lowres_y = hires_x // scale, hires_y // scale
-            lowres_extent_x = hires_extent_x // scale + 1
-            lowres_extent_y = hires_extent_y // scale + 1
+            mask_tile_width = (mmap_tile_width // scale) + 1
+            mask_tile_height = (mmap_tile_height // scale) + 1
 
-            lowres_crop = low_res_mask[
-                lowres_y : lowres_y + lowres_extent_y,
-                lowres_x : lowres_x + lowres_extent_x,
+            mask_tile = mask[
+                mask_y : mask_y + mask_tile_height, mask_x : mask_x + mask_tile_width
             ]
 
-            upscaled_patch = cv2.resize(
-                lowres_crop,
-                (hires_extent_x, hires_extent_y),
+            upscaled_tile = cv2.resize(
+                mask_tile,
+                (mmap_tile_width, mmap_tile_height),
                 interpolation=cv2.INTER_LINEAR,
             )
+            upscaled_tile = (upscaled_tile > 127).astype(np.uint8)
+            upscaled_tile *= 255
 
-            high_res_mmap[
-                hires_y : hires_y + hires_extent_y, hires_x : hires_x + hires_extent_x
-            ] = (upscaled_patch > 127).astype(np.uint8) * 255
+            mmap[y : y + mmap_tile_height, x : x + mmap_tile_width] = upscaled_tile
 
-    high_res_mmap.flush()
-
-
-def refine_amacr_mask(
-    raw_mask: pyvips.Image,
-    tissue_mask: NDArray,
-    temp_filename: Path,
-    params: dict[str, Any],
-) -> tuple[pyvips.Image, np.memmap]:
-    """AMACR mask refinement pipeline.
-
-    Args:
-        raw_mask (pyvips.Image): The raw AMACR mask.
-        tissue_mask (NDArray): The eroded tissue mask for restriction.
-        temp_filename (Path): Path to the temporary file for memory mapping.
-        params (dict[str, Any]): Hyperparameters for morphology.
-
-    Returns:
-        tuple[pyvips.Image, np.memmap]: The refined mask wrapped in PyVips and the memmap array.
-    """
-    refined_mmap = np.memmap(
-        temp_filename, dtype="uint8", mode="w+", shape=(raw_mask.height, raw_mask.width)
-    )
-    refined_mmap[:] = 0
-
-    print("Tiled Dilation...", flush=True)
-    apply_tiled_dilation(raw_mask, tissue_mask, refined_mmap, params)
-
-    print("Cleanup & Hole Filling...", flush=True)
-    cleaned_mask = apply_global_cleanup(refined_mmap, params)
-
-    print("Projecting final mask to high resolution...", flush=True)
-    project_lowres_to_highres(cleaned_mask, refined_mmap, params)
-
-    vips_im = pyvips.Image.new_from_array(refined_mmap).copy(interpretation="b-w")
-    return vips_im, refined_mmap
+    mmap.flush()
 
 
 @ray.remote(memory=8 * 1024**3)
-def process_slide(
+def refine_slide(
     slide_path: Path,
     output_dir: Path,
     raw_masks_dir: Path,
     eroded_tissue_masks_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
-    **refinement_params: Any,
+    **params: RefinementParams,
 ) -> None:
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level=0)
 
-    eroded_tissue_mask_path = eroded_tissue_masks_dir / f"{slide_path.stem}.tiff"
-    eroded_tissue_mask = cast(
-        "pyvips.Image", pyvips.Image.new_from_file(str(eroded_tissue_mask_path))
+    tissue_mask_path = eroded_tissue_masks_dir / f"{slide_path.stem}.tiff"
+    tissue_mask = cast(
+        "pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path))
     )
 
     raw_mask_path = raw_masks_dir / f"{slide_path.stem}.tiff"
@@ -321,18 +354,34 @@ def process_slide(
     with TemporaryDirectory() as temp_dir:
         temp_filename = Path(temp_dir) / f"{slide_path.stem}_temp.dat"
 
-        vips_im, mask_memmap = refine_amacr_mask(
-            raw_mask=raw_mask,
-            tissue_mask=eroded_tissue_mask.numpy(),
-            temp_filename=temp_filename,
-            params=refinement_params,
+        refined_mmap = np.memmap(
+            temp_filename,
+            dtype="uint8",
+            mode="w+",
+            shape=(raw_mask.height, raw_mask.width),
         )
+        refined_mmap[:] = 0
+
+        print("Tiled Dilation...", flush=True)
+        expand_mask(raw_mask, tissue_mask, refined_mmap, params)
+
+        print("Global Cleanup...", flush=True)
+        lowres_cleaned_mask = apply_global_cleanup(refined_mmap, params)
+
+        print("Projecting final mask to high resolution...", flush=True)
+        scale = params["cleanup_scale"]
+        tile_size = params["tile_size"]
+        project_lowres_to_highres(lowres_cleaned_mask, refined_mmap, scale, tile_size)
+
+        refined_mask = pyvips.Image.new_from_memory(
+            refined_mmap.data, refined_mmap.shape[1], refined_mmap.shape[0], 1, "uchar"
+        ).copy(interpretation="b-w")
 
         output_path = output_dir / f"{slide_path.stem}.tiff"
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_big_tiff(
-            image=vips_im,
+            image=refined_mask,
             path=output_path,
             mpp_x=mpp_x,
             mpp_y=mpp_y,
@@ -340,7 +389,7 @@ def process_slide(
             tile_height=mask_tile_height,
         )
 
-        del vips_im, mask_memmap
+        del refined_mask, refined_mmap
         gc.collect()
 
 
@@ -352,20 +401,20 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # raw_masks_dir = Path(download_artifacts(config.raw_masks_uri))
     # eroded_tissue_masks_dir = Path(download_artifacts(config.eroded_tissue_masks_uri))
 
-    refinement_params = {
+    refinement_params: RefinementParams = {
         "noise_removal_radius": config["noise_removal_radius"],
         "min_pre_dilation_area": config["min_pre_dilation_area"],
         "dilation_disk_size": config["dilation_disk_size"],
         "max_hole_size": config["max_hole_size"],
         "min_final_object_size": config["min_final_object_size"],
         "cleanup_scale": config["cleanup_scale"],
-        "patch_size": config["patch_size"],
+        "tile_size": config["tile_size"],
     }
 
     with TemporaryDirectory() as tmp_dir:
         process_items(
             items=[Path(SLIDE_PATH)],  # slides["slide_path"].map(Path)
-            process_item=process_slide,
+            process_item=refine_slide,
             fn_kwargs={
                 "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
                 "raw_masks_dir": Path(RAW_MASKS_DIR),  # raw_masks_dir,

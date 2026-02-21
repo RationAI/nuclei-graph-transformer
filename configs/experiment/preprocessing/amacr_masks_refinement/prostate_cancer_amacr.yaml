@@ -10,4 +10,4 @@ dilation_disk_size: 135
 max_hole_size: 1500000
 min_final_object_size: 90000
 cleanup_scale: 2
-patch_size: 8192
+tile_size: 8192

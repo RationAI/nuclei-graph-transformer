@@ -6,7 +6,7 @@ dilation_disk_size: ???
 max_hole_size: ???
 min_final_object_size: ???
 cleanup_scale: ???
-patch_size: ???
+tile_size: ???
 
 max_concurrent: 6 # TODO
 metadata_uri: ${dataset.mlflow_uris.exploration}
@@ -23,4 +23,4 @@ metadata:
     max_hole_size: ${max_hole_size}
     min_final_object_size: ${min_final_object_size}
     cleanup_scale: ${cleanup_scale}
-    patch_size: ${patch_size}
+    tile_size: ${tile_size}
