@@ -3,7 +3,7 @@
 mask_tile_width: ???
 mask_tile_height: ???
 
-refinement_params:
+stain_isolation_params:
   mask_min_area: ???
   tile_size: ???
   shadow_ratio: ???
@@ -20,8 +20,8 @@ metadata:
   hyperparams:
     mask_tile_width: ${mask_tile_width}
     mask_tile_height: ${mask_tile_height}
-    mask_min_area: ${refinement_params.mask_min_area}
-    tile_size: ${refinement_params.tile_size}
-    shadow_ratio: ${refinement_params.shadow_ratio}
-    brown_ratio: ${refinement_params.brown_ratio}
-    sat_threshold: ${refinement_params.sat_threshold}
+    mask_min_area: ${stain_isolation_params.mask_min_area}
+    tile_size: ${stain_isolation_params.tile_size}
+    shadow_ratio: ${stain_isolation_params.shadow_ratio}
+    brown_ratio: ${stain_isolation_params.brown_ratio}
+    sat_threshold: ${stain_isolation_params.sat_threshold}

@@ -58,7 +58,7 @@ TISSUE_MASKS_DIR = (
 )
 
 
-class RefinementParams(TypedDict):
+class StainIsolationParams(TypedDict):
     mask_min_area: int
     tile_size: int
     shadow_ratio: float
@@ -135,7 +135,7 @@ def create_marker_mask(
     dab_stain: NDArray,
     he_stain: NDArray,
     null_stain: NDArray,
-    params: RefinementParams,
+    params: StainIsolationParams,
 ) -> NDArray:
     """Generates a binary mask for target markers (e.g., AMACR) from a tissue tile.
 
@@ -249,7 +249,7 @@ def compute_amacr_mask(
     slide_path: Path,
     tissue_mask: pyvips.Image,
     tmp_name: Path,
-    params: RefinementParams,
+    params: StainIsolationParams,
 ) -> tuple[pyvips.Image, np.memmap]:
     """Computes the AMACR mask for a WSI and stores it in a memory-mapped file."""
     tissue_pixels = sample_tissue_pixels(slide_path)
@@ -323,7 +323,7 @@ def process_slide(
     tissue_mask_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
-    **refinement_params: RefinementParams,
+    **stain_isolation_params: StainIsolationParams,
 ) -> None:
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level=0)
@@ -337,7 +337,7 @@ def process_slide(
         temp_filename = Path(temp_dir) / f"{slide_path.stem}_temp.dat"
 
         vips_im, mask_memmap = compute_amacr_mask(
-            slide_path, tissue_mask, temp_filename, refinement_params
+            slide_path, tissue_mask, temp_filename, stain_isolation_params
         )
 
         output_path = output_dir / f"{slide_path.stem}.tiff"
@@ -372,7 +372,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "tissue_mask_dir": Path(TISSUE_MASKS_DIR),  # tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                **config.refinement_params,
+                **config.stain_isolation_params,
             },
             max_concurrent=config.max_concurrent,
         )
