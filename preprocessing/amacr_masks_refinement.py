@@ -15,11 +15,11 @@ Assumes the following structure of input data:
 slides_metadata.csv (columns "slide_path" (str))
 
 2. Raw AMACR Masks (`amacr_masks.py`):
-<RAW_MASK_URI>/
+<RAW_MASKS_URI>/
     <SLIDE_NAME>.tiff (binary single-channel raw AMACR mask)
 
 3. Eroded Tissue Masks (`tissue_masks_erode_edges.py`):
-<ERODED_TISSUE_MASK_URI>/
+<ERODED_TISSUE_MASKS_URI>/
     <SLIDE_NAME>.tiff (binary single-channel eroded tissue mask)
 
 The output is logged to MLflow as:
@@ -306,8 +306,8 @@ def refine_amacr_mask(
 def process_slide(
     slide_path: Path,
     output_dir: Path,
-    raw_mask_dir: Path,
-    eroded_tissue_mask_dir: Path,
+    raw_masks_dir: Path,
+    eroded_tissue_masks_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
     **refinement_params: Any,
@@ -315,12 +315,12 @@ def process_slide(
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level=0)
 
-    eroded_tissue_mask_path = eroded_tissue_mask_dir / f"{slide_path.stem}.tiff"
+    eroded_tissue_mask_path = eroded_tissue_masks_dir / f"{slide_path.stem}.tiff"
     eroded_tissue_mask = cast(
         "pyvips.Image", pyvips.Image.new_from_file(str(eroded_tissue_mask_path))
     )
 
-    raw_mask_path = raw_mask_dir / f"{slide_path.stem}.tiff"
+    raw_mask_path = raw_masks_dir / f"{slide_path.stem}.tiff"
     raw_mask = cast("pyvips.Image", pyvips.Image.new_from_file(str(raw_mask_path)))
 
     with TemporaryDirectory() as temp_dir:
@@ -354,8 +354,8 @@ def process_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # slides = pd.read_csv(download_artifacts(config.metadata_uri))
-    # raw_mask_dir = Path(download_artifacts(config.raw_mask_uri))
-    # eroded_tissue_mask_dir = Path(download_artifacts(config.eroded_tissue_mask_uri))
+    # raw_mask_dir = Path(download_artifacts(config.raw_masks_uri))
+    # eroded_tissue_mask_dir = Path(download_artifacts(config.eroded_tissue_masks_uri))
 
     refinement_params = {
         "noise_removal_radius": config["noise_removal_radius"],
@@ -373,8 +373,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             process_item=process_slide,
             fn_kwargs={
                 "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
-                "raw_mask_dir": Path(RAW_MASK_DIR),  # raw_mask_dir,
-                "eroded_tissue_mask_dir": Path(
+                "raw_masks_dir": Path(RAW_MASK_DIR),  # raw_mask_dir,
+                "eroded_tissue_masks_dir": Path(
                     ERODED_TISSUE_MASK_DIR
                 ),  # eroded_tissue_mask_dir,
                 "mask_tile_width": config.mask_tile_width,

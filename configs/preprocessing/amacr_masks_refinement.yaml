@@ -10,8 +10,8 @@ patch_size: ???
 
 max_concurrent: 6 # TODO
 metadata_uri: ${dataset.mlflow_uris.exploration}
-raw_mask_uri: ${dataset.mlflow_uris.masks.amacr.raw}
-eroded_tissue_mask_uri: ${dataset.mlflow_uris.masks.tissue.eroded}
+raw_masks_uri: ${dataset.mlflow_uris.masks.amacr.raw}
+eroded_tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue.eroded}
 mlflow_artifact_path: amacr_masks_refined
 
 metadata:
