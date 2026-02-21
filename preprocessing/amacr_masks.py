@@ -363,14 +363,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # slides = pd.read_csv(download_artifacts(config.metadata_uri))
     # tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))
 
-    refinement_params: RefinementParams = {
-        "mask_min_area": config["mask_min_area"],
-        "tile_size": config["tile_size"],
-        "shadow_ratio": config["shadow_ratio"],
-        "brown_ratio": config["brown_ratio"],
-        "sat_threshold": config["sat_threshold"],
-    }
-
     with TemporaryDirectory() as tmp_dir:
         process_items(
             items=[Path(SLIDE_PATH)],  # slides["slide_path"].map(Path),
@@ -380,7 +372,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "tissue_mask_dir": Path(TISSUE_MASKS_DIR),  # tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                **refinement_params,
+                **config.refinement_params,
             },
             max_concurrent=config.max_concurrent,
         )

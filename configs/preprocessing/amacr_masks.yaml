@@ -3,13 +3,12 @@
 mask_tile_width: ???
 mask_tile_height: ???
 
-mask_min_area: ???
-holes_min_area: ???
-holes_max_area: ???
-tile_size: ???
-shadow_ratio: ???
-brown_ratio: ???
-sat_threshold: ???
+refinement_params:
+  mask_min_area: ???
+  tile_size: ???
+  shadow_ratio: ???
+  brown_ratio: ???
+  sat_threshold: ???
 
 max_concurrent: 6 # TODO
 metadata_uri: ${dataset.mlflow_uris.exploration}
@@ -21,10 +20,8 @@ metadata:
   hyperparams:
     mask_tile_width: ${mask_tile_width}
     mask_tile_height: ${mask_tile_height}
-    mask_min_area: ${mask_min_area}
-    holes_min_area: ${holes_min_area}
-    holes_max_area: ${holes_max_area}
-    tile_size: ${tile_size}
-    shadow_ratio: ${shadow_ratio}
-    brown_ratio: ${brown_ratio}
-    sat_threshold: ${sat_threshold}
+    mask_min_area: ${refinement_params.mask_min_area}
+    tile_size: ${refinement_params.tile_size}
+    shadow_ratio: ${refinement_params.shadow_ratio}
+    brown_ratio: ${refinement_params.brown_ratio}
+    sat_threshold: ${refinement_params.sat_threshold}

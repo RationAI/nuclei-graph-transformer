@@ -4,10 +4,9 @@ defaults:
   - /data/datasets/raw/evaluation/prostate_cancer_amacr
   - _self_
 
-mask_min_area: 60
-holes_min_area: 50
-holes_max_area: 400
-tile_size: 3000
-shadow_ratio: 1.8
-brown_ratio: 2.0
-sat_threshold: 0.12
+refinement_params:
+  mask_min_area: 60
+  tile_size: 3000
+  shadow_ratio: 1.8
+  brown_ratio: 2.0
+  sat_threshold: 0.12
