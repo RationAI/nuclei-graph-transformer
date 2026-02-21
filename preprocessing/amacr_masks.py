@@ -8,7 +8,7 @@ Assumes the following structure of input data:
 slides_metadata.csv (columns "slide_path" (str))
 
 2. Tissue Masks (`tissue_masks.py`)
-<MLFLOW_ARTIFACT_PATH>/
+<TISSUE_MASKS_URI>/
     <SLIDE_NAME>.tiff (binary single-channel mask of tissue regions)
 
 The output is logged to MLflow as:
