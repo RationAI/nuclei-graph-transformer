@@ -20,7 +20,7 @@ import gc
 import warnings
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 import cv2
 import hydra
@@ -56,6 +56,14 @@ OUTPUT_DIR = (
 TISSUE_MASKS_DIR = (
     "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask"
 )
+
+
+class RefinementParams(TypedDict):
+    mask_min_area: int
+    tile_size: int
+    shadow_ratio: float
+    brown_ratio: float
+    sat_threshold: float
 
 
 def isolate_stain(image: NDArray, matrix: NDArray, i: int, i_o: int = 230) -> NDArray:
@@ -108,15 +116,7 @@ def compute_stain_matrix(image: NDArray, stains: list[str] | None = None) -> NDA
 
 
 def compute_adaptive_thresholds(dab_stain: NDArray) -> tuple[float, float]:
-    """Calculates adaptive high and low thresholds for hysteresis thresholding.
-
-    Args:
-        dab_stain (NDArray): The deconvolved DAB (brown) stain channel,
-            normalized to the range [0, 1].
-
-    Returns:
-        tuple[float, float]: A tuple containing (thresh_low, thresh_high).
-    """
+    """Calculates adaptive high and low thresholds for hysteresis thresholding."""
     dab_uint8 = (dab_stain * 255).astype(np.uint8)
 
     otsu_val, _ = cv2.threshold(dab_uint8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -135,27 +135,13 @@ def create_marker_mask(
     dab_stain: NDArray,
     he_stain: NDArray,
     null_stain: NDArray,
-    params: dict[str, Any],
+    params: RefinementParams,
 ) -> NDArray:
-    """Generates a binary mask for target markers (e.g., AMACR) from a tissue patch.
+    """Generates a binary mask for target markers (e.g., AMACR) from a tissue tile.
 
     This function uses a combination of hysteresis thresholding on the target DAB stain,
     color space heuristics (HSV saturation), and relative channel intensities to isolate
-    true positive staining from dark tissue shadows, background, and overlapping hematoxylin.
-
-    Args:
-        original_rgb (NDArray): The original RGB image patch (uint8).
-        dab_stain (NDArray): The deconvolved DAB (brown) channel, normalized [0, 1].
-        he_stain (NDArray): The deconvolved Hematoxylin (blue) channel, normalized [0, 1].
-        null_stain (NDArray): The deconvolved residual/shadow channel, normalized [0, 1].
-        params (dict[str, Any]): Dictionary with keys:
-            - "sat_threshold" (float): minimum saturation to consider a pixel valid stain,
-            - "shadow_ratio" (float): minimum ratio of DAB to null stain to exclude shadows,
-            - "brown_ratio" (float): minimum ratio of DAB to HE stain to exclude blue nuclei,
-            - "mask_min_area" (int): minimum area in pixels for a valid mask region.
-
-    Returns:
-        NDArray: A boolean 2D array representing the cleaned cytokeratin/target mask.
+    true positive staining from dark tissue shadows, background, and hematoxylin.
     """
     # --- Color Heuristic Pre-filtering ---
     hsv_img = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2HSV)
@@ -235,85 +221,99 @@ def sample_tissue_pixels(
     return tissue_pixels
 
 
+def has_tissue(
+    tissue_mask: pyvips.Image,
+    coords: tuple[int, int],
+    extents: tuple[int, int],
+    scales: tuple[float, float],
+) -> bool:
+    x, y = coords
+    extent_x, extent_y = extents
+    scale_x, scale_y = scales
+
+    width, height = tissue_mask.width, tissue_mask.height
+
+    tile_x = int(np.clip(x * scale_x, 0, width - 1))
+    tile_y = int(np.clip(y * scale_y, 0, height - 1))
+    tile_extent_x = int(np.clip(extent_x * scale_x, 1, width - tile_x))
+    tile_extent_y = int(np.clip(extent_y * scale_y, 1, height - tile_y))
+
+    tissue_mask_tile = tissue_mask.extract_area(
+        tile_x, tile_y, tile_extent_x, tile_extent_y
+    ).numpy()
+
+    return bool(np.any(tissue_mask_tile > 0))
+
+
 def compute_amacr_mask(
     slide_path: Path,
-    tissue_mask_path: Path,
-    temp_filename: Path,
-    params: dict[str, Any],
+    tissue_mask: pyvips.Image,
+    tmp_name: Path,
+    params: RefinementParams,
 ) -> tuple[pyvips.Image, np.memmap]:
-    """Computes the AMACR mask for a WSI and stores it in a memory-mapped file.
-
-    Args:
-        slide_path (Path): Path to the original Whole Slide Image.
-        tissue_mask_path (Path): Path to the precomputed tissue mask for the slide.
-        temp_filename (Path): Path to the temporary file for memory mapping.
-        params (dict[str, Any]): Dictionary of thresholds and hyperparameters needed
-            for computation of the AMACR mask and morphological cleaning.
-            Should include keys:
-              - "patch_size" (int): size of patches to process at a time,
-            and the color heuristics for stain isolation as described in `create_marker_mask`.
-
-    Returns:
-        tuple[pyvips.Image, np.memmap]: The PyVips image wrapping the mask,
-            and the memmap array itself (must be kept alive until saving is done).
-    """
-    # get a representative sample of tissue colors
+    """Computes the AMACR mask for a WSI and stores it in a memory-mapped file."""
     tissue_pixels = sample_tissue_pixels(slide_path)
-    # compute the global stain matrix for the whole slide
     hdab_matrix = compute_stain_matrix(tissue_pixels)
 
     slide = cast("pyvips.Image", pyvips.Image.new_from_file(str(slide_path), level=0))
-    width, height = slide.width, slide.height
 
-    tissue_mask = cast(
-        "pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path))
+    wsi_extent_x, wsi_extent_y = slide.width, slide.height
+    mask_extent_x, mask_extent_y = tissue_mask.width, tissue_mask.height
+
+    scale_x = mask_extent_x / wsi_extent_x
+    scale_y = mask_extent_y / wsi_extent_y
+
+    mask_mmap = np.memmap(
+        tmp_name, dtype="uint8", mode="w+", shape=(wsi_extent_y, wsi_extent_x)
     )
-    scale_x = tissue_mask.width / width
-    scale_y = tissue_mask.height / height
+    mask_mmap[:] = 0
 
-    mask_memmap = np.memmap(
-        temp_filename, dtype="uint8", mode="w+", shape=(height, width)
-    )
-    mask_memmap[:] = 0
+    tile_size = params["tile_size"]
+    total_rows = len(range(0, wsi_extent_y, tile_size))
+    print(f"Processing [{slide_path.stem}]...", flush=True)
 
-    patch_size = params["patch_size"]
-    total_rows = len(range(0, height, patch_size))
-    for row_idx, y in enumerate(range(0, height, patch_size)):
-        print(
-            f"[{slide_path.stem}] Processing row {row_idx + 1}/{total_rows} (Y={y})",
-            flush=True,
-        )
+    for row_idx, tile_y in enumerate(range(0, wsi_extent_y, tile_size)):
+        print(f"Processing row {row_idx + 1}/{total_rows} (Y={tile_y})", flush=True)
 
-        for x in range(0, width, patch_size):
-            cw = min(patch_size, width - x)
-            ch = min(patch_size, height - y)
+        for tile_x in range(0, wsi_extent_x, tile_size):
+            tile_extent_x = min(tile_size, wsi_extent_x - tile_x)
+            tile_extent_y = min(tile_size, wsi_extent_y - tile_y)
 
-            mask_x = int(np.clip(x * scale_x, 0, tissue_mask.width - 1))
-            mask_y = int(np.clip(y * scale_y, 0, tissue_mask.height - 1))
-            mask_cw = int(np.clip(cw * scale_x, 1, tissue_mask.width - mask_x))
-            mask_ch = int(np.clip(ch * scale_y, 1, tissue_mask.height - mask_y))
-
-            tissue_patch = tissue_mask.extract_area(mask_x, mask_y, mask_cw, mask_ch)
-            if not np.any(tissue_patch.numpy() > 0):  # skip empty tissue patches
+            coords = (tile_x, tile_y)
+            extents = (tile_extent_x, tile_extent_y)
+            scales = (scale_x, scale_y)
+            if not has_tissue(tissue_mask, coords, extents, scales):
                 continue
 
-            patch = slide.extract_area(x, y, cw, ch).numpy()
-            if patch.shape[2] == 4:  # drop alpha channel
-                patch = patch[:, :, :3]
+            tile = slide.extract_area(
+                tile_x, tile_y, tile_extent_x, tile_extent_y
+            ).numpy()
 
-            dab = isolate_stain(patch, hdab_matrix, 1)
-            he = isolate_stain(patch, hdab_matrix, 0)
-            null = isolate_stain(patch, hdab_matrix, 2)
+            if tile.shape[2] == 4:  # drop alpha channel
+                tile = tile[:, :, :3]
 
-            patch_mask = create_marker_mask(patch, dab, he, null, params)
-            mask_memmap[y : y + ch, x : x + cw] = patch_mask.astype(np.uint8) * 255
+            # separate the RGB tile into standard histological channels
+            dab = isolate_stain(tile, hdab_matrix, 1)
+            he = isolate_stain(tile, hdab_matrix, 0)
+            null = isolate_stain(tile, hdab_matrix, 2)
+
+            # generate the binary mask using color heuristics and hysteresis thresholding
+            amacr_tile_mask = create_marker_mask(tile, dab, he, null, params)
+
+            mask_mmap[
+                tile_y : tile_y + tile_extent_y, tile_x : tile_x + tile_extent_x
+            ] = amacr_tile_mask.astype(np.uint8) * 255
+
+            del tile, dab, he, null, amacr_tile_mask
 
     print(f"[{slide_path.stem}] Flushing memory map to disk...", flush=True)
-    mask_memmap.flush()
+    mask_mmap.flush()
 
-    vips_im = pyvips.Image.new_from_array(mask_memmap).copy(interpretation="b-w")
+    vips_im = pyvips.Image.new_from_memory(
+        mask_mmap.data, mask_mmap.shape[1], mask_mmap.shape[0], 1, "uchar"
+    ).copy(interpretation="b-w")
 
-    return vips_im, mask_memmap
+    return vips_im, mask_mmap
 
 
 @ray.remote(memory=8 * 1024**3)
@@ -323,18 +323,21 @@ def process_slide(
     tissue_mask_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
-    **amacr_params: Any,
+    **refinement_params: RefinementParams,
 ) -> None:
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level=0)
 
     tissue_mask_path = tissue_mask_dir / f"{slide_path.stem}.tiff"
+    tissue_mask = cast(
+        "pyvips.Image", pyvips.Image.new_from_file(str(tissue_mask_path))
+    )
 
     with TemporaryDirectory() as temp_dir:
         temp_filename = Path(temp_dir) / f"{slide_path.stem}_temp.dat"
 
         vips_im, mask_memmap = compute_amacr_mask(
-            slide_path, tissue_mask_path, temp_filename, amacr_params
+            slide_path, tissue_mask, temp_filename, refinement_params
         )
 
         output_path = output_dir / f"{slide_path.stem}.tiff"
@@ -360,9 +363,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # slides = pd.read_csv(download_artifacts(config.metadata_uri))
     # tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))
 
-    amacr_params = {
+    refinement_params: RefinementParams = {
         "mask_min_area": config["mask_min_area"],
-        "patch_size": config["patch_size"],
+        "tile_size": config["tile_size"],
         "shadow_ratio": config["shadow_ratio"],
         "brown_ratio": config["brown_ratio"],
         "sat_threshold": config["sat_threshold"],
@@ -377,7 +380,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "tissue_mask_dir": Path(TISSUE_MASKS_DIR),  # tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                **amacr_params,
+                **refinement_params,
             },
             max_concurrent=config.max_concurrent,
         )

@@ -7,7 +7,7 @@ defaults:
 mask_min_area: 60
 holes_min_area: 50
 holes_max_area: 400
-patch_size: 3000
+tile_size: 3000
 shadow_ratio: 1.8
 brown_ratio: 2.0
 sat_threshold: 0.12

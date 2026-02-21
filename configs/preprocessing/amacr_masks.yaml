@@ -6,7 +6,7 @@ mask_tile_height: ???
 mask_min_area: ???
 holes_min_area: ???
 holes_max_area: ???
-patch_size: ???
+tile_size: ???
 shadow_ratio: ???
 brown_ratio: ???
 sat_threshold: ???
@@ -24,7 +24,7 @@ metadata:
     mask_min_area: ${mask_min_area}
     holes_min_area: ${holes_min_area}
     holes_max_area: ${holes_max_area}
-    patch_size: ${patch_size}
+    tile_size: ${tile_size}
     shadow_ratio: ${shadow_ratio}
     brown_ratio: ${brown_ratio}
     sat_threshold: ${sat_threshold}
