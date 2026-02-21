@@ -50,10 +50,10 @@ from skimage.morphology import remove_small_holes
 
 
 SLIDE_PATH = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/wsi_data/2025_09852-01-02-05-AMACR.mrxs"
-RAW_MASK_DIR = (
+RAW_MASKS_DIR = (
     "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/amacr_mask_raw"
 )
-ERODED_TISSUE_MASK_DIR = (
+ERODED_TISSUE_MASKS_DIR = (
     "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask_eroded"
 )
 OUTPUT_DIR = (
@@ -354,8 +354,8 @@ def process_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # slides = pd.read_csv(download_artifacts(config.metadata_uri))
-    # raw_mask_dir = Path(download_artifacts(config.raw_masks_uri))
-    # eroded_tissue_mask_dir = Path(download_artifacts(config.eroded_tissue_masks_uri))
+    # raw_masks_dir = Path(download_artifacts(config.raw_masks_uri))
+    # eroded_tissue_masks_dir = Path(download_artifacts(config.eroded_tissue_masks_uri))
 
     refinement_params = {
         "noise_removal_radius": config["noise_removal_radius"],
@@ -373,10 +373,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             process_item=process_slide,
             fn_kwargs={
                 "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
-                "raw_masks_dir": Path(RAW_MASK_DIR),  # raw_mask_dir,
+                "raw_masks_dir": Path(RAW_MASKS_DIR),  # raw_masks_dir,
                 "eroded_tissue_masks_dir": Path(
-                    ERODED_TISSUE_MASK_DIR
-                ),  # eroded_tissue_mask_dir,
+                    ERODED_TISSUE_MASKS_DIR
+                ),  # eroded_tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
                 **refinement_params,
