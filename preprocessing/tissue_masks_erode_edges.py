@@ -26,11 +26,6 @@ import hydra
 import numpy as np
 import pyvips
 import ray
-from cv2 import (
-    drawContours,
-    findContours,
-    getStructuringElement,
-)
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks import slide_resolution, write_big_tiff
@@ -62,14 +57,14 @@ def erode_tissue_mask(
 
     # Identify external contours and fill them to create a solid mask
     # (we do not want to erode internal holes in the mask, only the edges)
-    ext_contours, _ = findContours(
+    ext_contours, _ = cv2.findContours(
         mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
-    drawContours(mask_solid, ext_contours, -1, 255, thickness=cv2.FILLED)
+    cv2.drawContours(mask_solid, ext_contours, -1, 255, thickness=cv2.FILLED)
 
     # Erosion
     k_size = iterations * 2 + 1
-    kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
     mask_eroded_solid = cv2.erode(mask_solid, kernel)
 
     # Recover internal structures
@@ -121,7 +116,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             items=[Path(SLIDE_PATH)],  # slides["slide_path"].map(Path)
             process_item=process_eroded_mask,
             fn_kwargs={
-                "tissue_mask_dir": Path(INPUT_MASK_DIR),  # tissue_masks_dir
+                "tissue_mask_dir": Path(INPUT_MASK_DIR),  # tissue_masks_dir,
                 "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,

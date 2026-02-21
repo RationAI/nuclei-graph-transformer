@@ -21,15 +21,6 @@ import cv2
 import hydra
 import pyvips
 import ray
-from cv2 import (
-    GaussianBlur,
-    contourArea,
-    cvtColor,
-    drawContours,
-    findContours,
-    getStructuringElement,
-    morphologyEx,
-)
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks import slide_resolution, write_big_tiff
@@ -56,33 +47,33 @@ def tissue_mask(
         img_np = img_np[:, :, :3]
 
     # Extract HSV saturation channel
-    hsv = cvtColor(img_np, cv2.COLOR_RGB2HSV)
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
     saturation = hsv[:, :, 1]
 
-    blurred_s = GaussianBlur(saturation, (7, 7), 0)
+    blurred_s = cv2.GaussianBlur(saturation, (7, 7), 0)
 
-    # Hard thresholding (Otsu fails on very lightly stained slides due to skewed histogram)
+    # Hard thresholding
     _, mask_bin = cv2.threshold(blurred_s, threshold, 255, cv2.THRESH_BINARY)
 
     # Closing (fill gaps)
     disk_size = max(1, int(disk_factor / mpp))
     k_size = disk_size * 2 + 1
-    closing_kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
-    mask_closed = morphologyEx(mask_bin, cv2.MORPH_CLOSE, closing_kernel)
+    closing_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    mask_closed = cv2.morphologyEx(mask_bin, cv2.MORPH_CLOSE, closing_kernel)
 
     # Hole Filling
-    contours, hierarchy = findContours(
+    contours, hierarchy = cv2.findContours(
         mask_closed, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
     )  # RETR_CCOMP creates a 2-level hierarchy: external boundaries and holes
     if hierarchy is not None:
         for i, cnt in enumerate(contours):
             # holes are contours with a parent
-            if hierarchy[0][i][3] != -1 and contourArea(cnt) < max_hole_size:
-                drawContours(mask_closed, [cnt], -1, 255, -1)
+            if hierarchy[0][i][3] != -1 and cv2.contourArea(cnt) < max_hole_size:
+                cv2.drawContours(mask_closed, [cnt], -1, 255, -1)
 
     # Opening (remove noise)
-    opening_kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
-    mask_opened = morphologyEx(mask_closed, cv2.MORPH_OPEN, opening_kernel)
+    opening_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    mask_opened = cv2.morphologyEx(mask_closed, cv2.MORPH_OPEN, opening_kernel)
 
     return pyvips.Image.new_from_array(mask_opened).copy(interpretation="b-w")
 
