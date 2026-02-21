@@ -30,7 +30,7 @@ The output is logged to MLflow as:
 import gc
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, TypedDict, cast
+from typing import TypedDict, cast
 
 import cv2
 import hydra
