@@ -1,13 +1,14 @@
 # @package _global_
 
-noise_removal_radius: ???
-min_pre_dilation_area: ???
-dilation_disk_size: ???
-max_hole_size: ???
-min_final_object_size: ???
-cleanup_scale: ???
-tile_size: ???
+refinement_params:
+  noise_removal_radius: ???
+  min_pre_dilation_area: ???
+  dilation_disk_size: ???
+  max_hole_size: ???
+  min_final_object_size: ???
+  cleanup_scale: ???
 
+tile_size: 8192
 max_concurrent: 6 # TODO
 metadata_uri: ${dataset.mlflow_uris.exploration}
 raw_masks_uri: ${dataset.mlflow_uris.masks.amacr.raw}
@@ -17,10 +18,10 @@ mlflow_artifact_path: amacr_masks_refined
 metadata:
   run_name: "🎭 AMACR Masks, Refined: ${dataset.name}"
   hyperparams:
-    noise_removal_radius: ${noise_removal_radius}
-    min_pre_dilation_area: ${min_pre_dilation_area}
-    dilation_disk_size: ${dilation_disk_size}
-    max_hole_size: ${max_hole_size}
-    min_final_object_size: ${min_final_object_size}
-    cleanup_scale: ${cleanup_scale}
+    noise_removal_radius: ${refinement_params.noise_removal_radius}
+    min_pre_dilation_area: ${refinement_params.min_pre_dilation_area}
+    dilation_disk_size: ${refinement_params.dilation_disk_size}
+    max_hole_size: ${refinement_params.max_hole_size}
+    min_final_object_size: ${refinement_params.min_final_object_size}
+    cleanup_scale: ${refinement_params.cleanup_scale}
     tile_size: ${tile_size}

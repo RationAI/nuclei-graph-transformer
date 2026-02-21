@@ -68,10 +68,9 @@ class RefinementParams(TypedDict):
     max_hole_size: int
     min_final_object_size: int
     cleanup_scale: int
-    tile_size: int
 
 
-def get_tissue_mask_tile(
+def extract_upscaled_tissue_mask(
     tissue_mask: pyvips.Image,
     padded_bounds: tuple[int, int, int, int],
     scales: tuple[float, float],
@@ -106,7 +105,7 @@ def get_tissue_mask_tile(
     return tissue_mask_hires
 
 
-def clean_tile(
+def filter_tile_artifacts(
     tile: NDArray,
     noise_kernel: NDArray,
     min_area: int,
@@ -136,10 +135,11 @@ def clean_tile(
         return processed_tile
 
 
-def expand_mask(
+def tiled_refinement(
     mask_slide: pyvips.Image,
     tissue_mask: pyvips.Image,
     refined_mmap: np.memmap,
+    tile_size: int,
     params: RefinementParams,
 ) -> None:
     """Applies morphological noise removal and dilation."""
@@ -161,7 +161,6 @@ def expand_mask(
     scale_x = lowres_w / hires_w
     scale_y = lowres_h / hires_h
 
-    tile_size = params["tile_size"]
     # pad the tile to prevent artifacts at the tile boundaries during dilation
     padding = params["dilation_disk_size"] + 10
     stride = tile_size - (2 * padding)
@@ -208,13 +207,15 @@ def expand_mask(
             # --- Tissue Edge Filtering ---
             padded_bounds = (padded_x, padded_y, padded_w, padded_h)
             scales = (scale_x, scale_y)
-            tissue_mask_hires = get_tissue_mask_tile(tissue_mask, padded_bounds, scales)
+            tissue_mask_hires = extract_upscaled_tissue_mask(
+                tissue_mask, padded_bounds, scales
+            )
 
             tile_u8 &= tissue_mask_hires
 
             # --- Morphological Cleaning & Dilation ---
             min_area = params["min_pre_dilation_area"]
-            tile_u8 = clean_tile(tile_u8, noise_kernel, min_area)
+            tile_u8 = filter_tile_artifacts(tile_u8, noise_kernel, min_area)
 
             if np.any(tile_u8):
                 tile_u8 = cv2.dilate(tile_u8, dilation_kernel)
@@ -264,11 +265,12 @@ def create_downsampled_mask(mmap: np.memmap, scale: int, tile_size: int) -> NDAr
     return mask
 
 
-def apply_global_cleanup(mmap: np.memmap, params: RefinementParams) -> NDArray:
+def apply_global_cleanup(
+    mmap: np.memmap, tile_size: int, params: RefinementParams
+) -> NDArray:
     """Removes artifacts and fills holes."""
     # --- Downsampling ---
     scale = params["cleanup_scale"]  # downsample factor
-    tile_size = params["tile_size"]
     lowres_mask = create_downsampled_mask(mmap, scale, tile_size)
 
     # --- Connected Component Analysis ---
@@ -300,7 +302,7 @@ def apply_global_cleanup(mmap: np.memmap, params: RefinementParams) -> NDArray:
 def project_lowres_to_highres(
     mask: NDArray, mmap: np.memmap, scale: int, tile_size: int
 ) -> None:
-    """Projects low-resolution mask back into the high-resolution memmap."""
+    """Projects low-resolution mask back into the high-resolution memory map."""
     mmap_height, mmap_width = mmap.shape
 
     for y in range(0, mmap_height, tile_size):
@@ -331,13 +333,14 @@ def project_lowres_to_highres(
 
 
 @ray.remote(memory=8 * 1024**3)
-def refine_slide(
+def process_slide(
     slide_path: Path,
     output_dir: Path,
     raw_masks_dir: Path,
     eroded_tissue_masks_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
+    tile_size: int,
     **params: RefinementParams,
 ) -> None:
     with OpenSlide(slide_path) as slide:
@@ -362,15 +365,14 @@ def refine_slide(
         )
         refined_mmap[:] = 0
 
-        print("Tiled Dilation...", flush=True)
-        expand_mask(raw_mask, tissue_mask, refined_mmap, params)
+        print("Tiled Refinement...", flush=True)
+        tiled_refinement(raw_mask, tissue_mask, refined_mmap, tile_size, params)
 
         print("Global Cleanup...", flush=True)
-        lowres_cleaned_mask = apply_global_cleanup(refined_mmap, params)
+        lowres_cleaned_mask = apply_global_cleanup(refined_mmap, tile_size, params)
 
         print("Projecting final mask to high resolution...", flush=True)
         scale = params["cleanup_scale"]
-        tile_size = params["tile_size"]
         project_lowres_to_highres(lowres_cleaned_mask, refined_mmap, scale, tile_size)
 
         refined_mask = pyvips.Image.new_from_memory(
@@ -401,20 +403,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     # raw_masks_dir = Path(download_artifacts(config.raw_masks_uri))
     # eroded_tissue_masks_dir = Path(download_artifacts(config.eroded_tissue_masks_uri))
 
-    refinement_params: RefinementParams = {
-        "noise_removal_radius": config["noise_removal_radius"],
-        "min_pre_dilation_area": config["min_pre_dilation_area"],
-        "dilation_disk_size": config["dilation_disk_size"],
-        "max_hole_size": config["max_hole_size"],
-        "min_final_object_size": config["min_final_object_size"],
-        "cleanup_scale": config["cleanup_scale"],
-        "tile_size": config["tile_size"],
-    }
-
     with TemporaryDirectory() as tmp_dir:
         process_items(
             items=[Path(SLIDE_PATH)],  # slides["slide_path"].map(Path)
-            process_item=refine_slide,
+            process_item=process_slide,
             fn_kwargs={
                 "output_dir": Path(OUTPUT_DIR),  # Path(tmp_dir),
                 "raw_masks_dir": Path(RAW_MASKS_DIR),  # raw_masks_dir,
@@ -423,7 +415,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 ),  # eroded_tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                **refinement_params,
+                "tile_size": config.tile_size,
+                **config.refinement_params,
             },
             max_concurrent=config.max_concurrent,
         )
