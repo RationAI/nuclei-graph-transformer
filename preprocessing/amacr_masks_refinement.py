@@ -155,16 +155,15 @@ def apply_tiled_dilation(
             # Morphological Cleaning (opening -> filtering by area)
             if np.any(patch_u8):
                 patch_u8 = cv2.morphologyEx(patch_u8, cv2.MORPH_OPEN, noise_kernel)
+
                 contours, _ = cv2.findContours(
                     patch_u8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
                 )
-
                 valid_contours = [
                     contour
                     for contour in contours
                     if cv2.contourArea(contour) >= params["min_pre_dilation_area"]
                 ]
-
                 if valid_contours:
                     clean_mask = np.zeros_like(patch_u8)
                     cv2.drawContours(clean_mask, valid_contours, -1, 255, -1)
@@ -280,10 +279,6 @@ def refine_amacr_mask(
     Returns:
         tuple[pyvips.Image, np.memmap]: The refined mask wrapped in PyVips and the memmap array.
     """
-    if tissue_mask.ndim == 3:
-        tissue_mask = tissue_mask[:, :, 0]
-    tissue_mask = (tissue_mask > 127).astype(np.uint8) * 255
-
     refined_mmap = np.memmap(
         temp_filename, dtype="uint8", mode="w+", shape=(raw_mask.height, raw_mask.width)
     )
