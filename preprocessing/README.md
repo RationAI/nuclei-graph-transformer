@@ -28,6 +28,6 @@ The preprocessing pipeline follows these steps:
 8. **AMACR Mask** (`amacr_masks.py`)  
    Computes AMACR mask by isolating the stain using adaptive color deconvolution, hysteresis thresholding, and morphological cleaning.
 
-9. **AMACR Mask Postprocessing** (`amacr_masks_dilated.py`)  
+9. **AMACR Mask Postprocessing** (`amacr_masks_postprocess.py`)  
    Filters out artifacts and dilates the mask to obtain AMACR-based annotation masks.
 
