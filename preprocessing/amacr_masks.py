@@ -60,7 +60,6 @@ TISSUE_MASKS_DIR = (
 
 class StainIsolationParams(TypedDict):
     mask_min_area: int
-    tile_size: int
     shadow_ratio: float
     brown_ratio: float
     sat_threshold: float
@@ -249,6 +248,7 @@ def compute_amacr_mask(
     slide_path: Path,
     tissue_mask: pyvips.Image,
     tmp_name: Path,
+    tile_size: int,
     params: StainIsolationParams,
 ) -> tuple[pyvips.Image, np.memmap]:
     """Computes the AMACR mask for a WSI and stores it in a memory-mapped file."""
@@ -268,7 +268,6 @@ def compute_amacr_mask(
     )
     mask_mmap[:] = 0
 
-    tile_size = params["tile_size"]
     total_rows = len(range(0, wsi_extent_y, tile_size))
     print(f"Processing [{slide_path.stem}]...", flush=True)
 
@@ -323,6 +322,7 @@ def process_slide(
     tissue_mask_dir: Path,
     mask_tile_width: int,
     mask_tile_height: int,
+    tile_size: int,
     **stain_isolation_params: StainIsolationParams,
 ) -> None:
     with OpenSlide(slide_path) as slide:
@@ -337,7 +337,7 @@ def process_slide(
         temp_filename = Path(temp_dir) / f"{slide_path.stem}_temp.dat"
 
         vips_im, mask_memmap = compute_amacr_mask(
-            slide_path, tissue_mask, temp_filename, stain_isolation_params
+            slide_path, tissue_mask, temp_filename, tile_size, stain_isolation_params
         )
 
         output_path = output_dir / f"{slide_path.stem}.tiff"
@@ -372,6 +372,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "tissue_mask_dir": Path(TISSUE_MASKS_DIR),  # tissue_masks_dir,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
+                "tile_size": config.tile_size,
                 **config.stain_isolation_params,
             },
             max_concurrent=config.max_concurrent,
