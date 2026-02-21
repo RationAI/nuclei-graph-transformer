@@ -15,11 +15,11 @@ Assumes the following structure of input data:
 slides_metadata.csv (columns "slide_path" (str))
 
 2. Raw AMACR Masks (`amacr_masks.py`):
-<RAW_MASK_DIR>/
+<RAW_MASK_URI>/
     <SLIDE_NAME>.tiff (binary single-channel raw AMACR mask)
 
 3. Eroded Tissue Masks (`tissue_masks_erode_edges.py`):
-<ERODED_TISSUE_MASK_DIR>/
+<ERODED_TISSUE_MASK_URI>/
     <SLIDE_NAME>.tiff (binary single-channel eroded tissue mask)
 
 The output is logged to MLflow as:
