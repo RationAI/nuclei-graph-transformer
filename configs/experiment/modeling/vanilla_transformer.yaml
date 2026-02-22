@@ -3,7 +3,7 @@
 defaults:
   - /data/datasets/prostate_cancer
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/datasets/graph@data.dataset: default
   - /data/samplers@data.sampler: weighted_random_sampler
 
 mode: fit

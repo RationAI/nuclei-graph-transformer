@@ -3,7 +3,7 @@
 defaults:
   - /data/datasets/prostate_cancer
   - /model/models@model.net: nuclei_transformer
-  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/datasets/graph@data.dataset: default
 
 mode: predict
 checkpoint: mlflow-artifacts:/97/21bf8f212a9746d3931447e73b76bfd0/artifacts/checkpoints/epoch=26-step=1215/checkpoint.ckpt
