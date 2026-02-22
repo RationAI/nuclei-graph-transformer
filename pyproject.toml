@@ -20,9 +20,11 @@ dependencies = [
     "transformers>=4.57.1",
     "einops>=0.8.1",
     "torchvision>=0.24.0",
+    "histomicstk",
 ]
 
 [tool.uv.sources]
+histomicstk = { git = "ssh://git@gitlab.ics.muni.cz/rationai/digital-pathology/tools/image-registration.git", branch = "master", subdirectory = "lib/histomicstk" }
 rationai-mlkit = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/mlkit.git" }
 rationai-masks = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/masks.git" }
 
