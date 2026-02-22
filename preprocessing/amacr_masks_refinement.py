@@ -1,4 +1,4 @@
-"""Script for refining and dilating AMACR stain masks for Whole Slide Images (WSIs).
+"""Script for AMACR stain-based annotation masks for Whole Slide Images (WSIs).
 
 This pipeline takes a raw AMACR mask and a pre-computed eroded tissue mask, and applies
 a tiled dilation with a morphological refinement.
