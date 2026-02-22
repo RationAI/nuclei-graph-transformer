@@ -11,10 +11,10 @@ submit_job(
     memory="64Gi",  # TODO
     public=False,
     script=[
-        "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
+        "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        f"uv run python -m preprocessing.amacr_masks +experiment=preprocessing/amacr_masks/{DATASET_NAME}",
+        f"uv run -m preprocessing.amacr_masks +experiment=preprocessing/amacr_masks/{DATASET_NAME}",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
