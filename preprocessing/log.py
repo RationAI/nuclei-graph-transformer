@@ -26,7 +26,7 @@ def main(_: DictConfig, logger: MLFlowLogger) -> None:
 
         slide_id = "2025_09852-01-02-05-AMACR"
         raw_path = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/amacr_mask_raw/2025_09852-01-02-05-AMACR.tiff"
-        refined_path = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/amacr_mask_dilated/2025_09852-01-02-05-AMACR.tiff"
+        refined_path = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/amacr_mask_refined/2025_09852-01-02-05-AMACR.tiff"
         tissue_mask_path = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask/2025_09852-01-02-05-AMACR.tiff"
         tissue_mask_eroded_path = "/mnt/projects/nuclei_based_wsi_analysis/amacr_ground_truth_test/tissue_mask_eroded/2025_09852-01-02-05-AMACR.tiff"
 
