@@ -1,9 +1,5 @@
 # @package _global_
 
-defaults:
-  - /data/datasets/prostate_cancer
-  - _self_
-
 annot_masks_uri: ${dataset.mlflow_uris.masks.annotation}
 max_concurrent: 6
 overlap_threshold: 1.0

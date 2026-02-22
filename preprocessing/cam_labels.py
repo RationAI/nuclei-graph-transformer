@@ -39,7 +39,7 @@ from numpy.typing import NDArray
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks.processing import process_items
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
@@ -68,7 +68,7 @@ def get_cam_values(
     return mask[y_coords, x_coords].astype(np.float32)
 
 
-@ray.remote
+@ray.remote(num_cpus=1, memory=(2 * 1024**3))
 def run_cam_labeling(
     slide_path: Path,
     nuclei_dir: Path,
@@ -107,11 +107,8 @@ def run_cam_labeling(
     nuclei[cols].to_parquet(output_path, index=False)
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/cam_labels",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=cam_labels"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))

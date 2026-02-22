@@ -1,6 +1,8 @@
 from kube_jobs import storage, submit_job
 
 
+DATASET_NAME = "prostate_cancer"
+
 submit_job(
     job_name="nuclei-graph-compute-efds",
     username=...,
@@ -9,10 +11,10 @@ submit_job(
     memory="64Gi",
     public=False,
     script=[
-        "git clone git@gitlab.ics.muni.cz:rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
+        "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m preprocessing.efd_features",
+        "uv run -m preprocessing.efd_features +data=datasets/raw/{DATASET_NAME}",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

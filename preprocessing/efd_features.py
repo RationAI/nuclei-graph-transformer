@@ -90,7 +90,7 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
         ]
         process_items(
             items=items,
-            process_item=compute_efds,  # type: ignore[misc]
+            process_item=compute_efds,
             fn_kwargs={
                 "output_dir": Path(config.output_path) / dataset_name,
                 "efd_order": config.efd_order,

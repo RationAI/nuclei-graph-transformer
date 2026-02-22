@@ -21,7 +21,7 @@ import mlflow
 import mlflow.data.pandas_dataset
 import pandas as pd
 from omegaconf import DictConfig
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
@@ -89,11 +89,8 @@ def get_df_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary_df
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/exploration",
-    version_base=None,
-)
+@with_cli_args(["+exploration=save_metadataset"])
+@hydra.main(config_path="../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_data_paths = list(Path(config.train_data_path).glob("*.mrxs"))
