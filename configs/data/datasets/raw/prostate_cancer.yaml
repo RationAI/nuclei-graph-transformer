@@ -12,6 +12,9 @@ dataset:
     wsi_data:
       train: /mnt/data/MOU/prostate/tile_level_annotations
       test: /mnt/data/MOU/prostate/tile_level_annotations_test
+    features:
+      train: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations
+      test: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations_test
     nuclei_seg: /mnt/projects/nuclei_based_wsi_analysis/nuclei_segmentation
 
   mlflow_uris:

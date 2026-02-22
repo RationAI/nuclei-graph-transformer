@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
-from nuclei_graph.data.supervision import NucleiSupervision
+
+if TYPE_CHECKING:
+    from nuclei_graph.data.supervision import NucleiSupervision
 
 
 @dataclass(frozen=True)
