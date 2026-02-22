@@ -7,6 +7,15 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
+from nuclei_graph.data.supervision import (
+    AgreementStrictSupervision,
+    AgreementSupervision,
+    AnnotationSupervision,
+    CAMSupervision,
+    NegativeSlideSupervision,
+    NucleiSupervision,
+    create_supervision,
+)
 
 
 __all__ = [

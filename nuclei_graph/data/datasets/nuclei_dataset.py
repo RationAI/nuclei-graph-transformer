@@ -43,7 +43,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         scale_mean: float,
         efds_path: str,
         supervision: DatasetSupervision,
-        supervision_mode: str = "agreement-strict",
         crop_size: int = 4096,
         alpha: float = 0.8,
         k: int = 64,
@@ -60,7 +59,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             scale_mean: Mean of nuclei scales estimated from training data for normalization.
             efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
-            supervision_mode: Supervision mode for weakly supervised learning, one of "annotation", "cam", "agreement", "agreement-strict".
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
@@ -76,7 +74,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.scale_mean = scale_mean
         self.efds_path = efds_path
         self.supervision = supervision
-        self.supervision_mode = supervision_mode
         self.crop_size = crop_size
         self.alpha = alpha
         self.k = k
@@ -165,53 +162,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         )
         return perm_inverse
 
-    def load_supervision(
-        self,
-        slide_id: str,
-        keep: Tensor,
-    ) -> tuple[Tensor, Tensor, list[int]]:
-        """Load nucleus-level targets and a supervision mask for weakly supervised learning.
-
-        Returns:
-            targets (tensor[float], shape (n,)): Ground truth for each nucleus (can also be uncertain, represented by -1).
-            sup_mask (tensor[bool], shape (n,)): True for nuclei with confident labels.
-            valid_seeds (list[int]): Nuclei indices eligible as seeds for crop generation; i.e. supervised positive nuclei.
-        """
-        n = len(keep)
-        targets = torch.full((n,), 0.0, dtype=torch.float32)  # default: negative
-        sup_mask = torch.full((n,), True, dtype=torch.bool)  # default: all supervised
-
-        slide_sup = self.supervision.sup_map[slide_id]
-
-        if slide_sup.slide_label == 0:
-            return targets, sup_mask, list(range(n))
-
-        assert slide_sup.annot_labels is not None and slide_sup.cam_labels is not None
-        annot = slide_sup.annot_labels[keep]
-        cam = slide_sup.cam_labels[keep]
-        seed_mask = torch.ones(n, dtype=torch.bool)
-
-        match self.supervision_mode:
-            case "annotation":
-                targets = annot
-                seed_mask = annot == 1
-            case "cam":
-                targets = cam
-                sup_mask = cam != -1
-                seed_mask = cam == 1
-            case "agreement":
-                targets = annot
-                sup_mask = annot == cam
-                seed_mask = (annot == 1) & (cam == 1)
-            case "agreement-strict":
-                targets = annot
-                sup_mask = (annot == 1) & (cam == 1)
-                seed_mask = sup_mask
-
-        assert torch.all(targets[sup_mask] != -1.0)  # sup. targets cannot be uncertain
-        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
-        return targets, sup_mask, valid_seeds
-
     def get_crop_indices(
         self, centroids: NDArray[np.float32], valid_seeds: list[int]
     ) -> NDArray[np.int64]:
@@ -277,7 +227,13 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         x /= self.scale_mean
 
         # --- Load targets and supervision masks ---
-        targets, sup_mask, valid_seeds = self.load_supervision(slide_id, keep)
+        nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
+
+        targets = nuclei_sup.get_targets()[keep]
+        sup_mask = nuclei_sup.get_sup_mask()[keep]
+        seed_mask = nuclei_sup.get_seed_mask()[keep]
+
+        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 
         # --- Create a crop ---
         centroids = np.stack(nuclei["centroid"].tolist())

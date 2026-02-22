@@ -4,17 +4,18 @@ from typing import TypedDict
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
+from nuclei_graph.data.supervision import NucleiSupervision
+
 
 @dataclass(frozen=True)
 class SlideSupervision:
     slide_label: int
-    annot_labels: Tensor | None = None  # sorted by nucleus id; None for negative slides
-    cam_labels: Tensor | None = None  # sorted by nucleus id; None for negative slides
+    nuclei_supervision: NucleiSupervision
 
 
 @dataclass(frozen=True)
 class DatasetSupervision:
-    sup_map: dict[str, SlideSupervision]
+    supervision_map: dict[str, SlideSupervision]
 
 
 class Crop(TypedDict):
