@@ -10,6 +10,11 @@ from nuclei_graph.nuclei_graph_typing import DatasetSupervision, SlideSupervisio
 
 class NucleiSupervision(ABC):
     def __init__(self, n: int, is_carcinoma: bool):
+        """Abstract base class for nucleus-level supervision.
+
+        The logic in subclasses only applies to positive slides. For negative slides,
+        all nuclei are implicitly assigned a target label of 0.0 and are fully supervised.
+        """
         self.n = n
         self.is_carcinoma = is_carcinoma
         self.targets_negative = torch.full((n,), 0.0, dtype=torch.float32)
