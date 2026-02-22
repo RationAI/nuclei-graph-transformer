@@ -1,6 +1,6 @@
 """Script for computation and normalization of Elliptic Fourier Descriptors (EFD) from batched contours.
 
-Extended implementation from the Nuclei Foundational Model repository by Matěj Pekár.
+Source: extended implementation from the Nuclei Foundational Model repository.
 """
 
 import numpy as np

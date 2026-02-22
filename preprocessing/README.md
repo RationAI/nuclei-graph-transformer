@@ -19,3 +19,6 @@ The preprocessing pipeline follows these steps:
 
 6. **Map Slides to Nuclei** (`metadata_mapping.py`)  
    Creates a mapping between slide IDs, patient IDs, Mirax files, carcinoma status, and the nuclei segmentation folders.
+
+7. **Compute EFD Features** (`efd_features.py`)
+   Precomputes elliptical Fourier descriptors from the nuclei contours.
