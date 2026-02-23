@@ -21,7 +21,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.EarlyStopping
       monitor: validation/loss
       mode: min
-      patience: 15
+      patience: 18
 
 data:
   sampler_pos_thr: 0.30
