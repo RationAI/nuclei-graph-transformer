@@ -97,9 +97,7 @@ def test_batch_block_masks(simple_points: PointsFixture) -> None:
 
     mask1 = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
     mask2 = create_block_mask_from_kdtree(tree, points, 4, k=2, block_size=2)
-
-    seq_lens = torch.tensor([4, 4], dtype=torch.int32)
-    batched = batch_block_masks([mask1, mask2], seq_lens=seq_lens)
+    batched = batch_block_masks([mask1, mask2])
 
     assert batched.kv_num_blocks.shape == (2, 1, 2)
     assert batched.kv_indices.shape[0] == 2
@@ -118,9 +116,7 @@ def test_batch_padding_logic() -> None:
     tree_b = KDTree(pts_b)
     mask_b = create_block_mask_from_kdtree(tree_b, pts_b, 2, k=2, block_size=1)
 
-    seq_lens = torch.tensor([2, 2], dtype=torch.int32)
-    batched = batch_block_masks([mask_a, mask_b], seq_lens=seq_lens)
-
+    batched = batch_block_masks([mask_a, mask_b])
     assert batched.kv_indices.shape[-1] == 2
 
     indices_a = batched.kv_indices[0, 0, 0]
@@ -203,49 +199,3 @@ def test_neighbor_coverage(simple_points: PointsFixture) -> None:
                 f"Point {q_idx} (Block {q_block}) has neighbor {neighbor_idx} "
                 f"(Block {target_kv_block}), but mask only allows blocks {allowed_kv_blocks}"
             )
-
-
-def test_batched_point_level_padding_leakage() -> None:
-    """Test that batched masks correctly restrict point-level attention to unpadded lengths within a mixed block."""
-    block_size = 4
-    k = 2
-
-    # sequence 1: 4 total points, but only 3 are real (1 padding point)
-    pts_1 = np.zeros((4, 2), dtype=np.float32)
-    tree_1 = KDTree(pts_1)
-    mask_1 = create_block_mask_from_kdtree(
-        tree_1, pts_1, n_points_unpadded=3, k=k, block_size=block_size
-    )
-
-    # sequence 2: 4 total points, but only 2 are real (2 padding points)
-    pts_2 = np.zeros((4, 2), dtype=np.float32)
-    tree_2 = KDTree(pts_2)
-    mask_2 = create_block_mask_from_kdtree(
-        tree_2, pts_2, n_points_unpadded=2, k=k, block_size=block_size
-    )
-
-    seq_lens = torch.tensor([3, 2], dtype=torch.int32)
-    batched = batch_block_masks([mask_1, mask_2], seq_lens=seq_lens)
-
-    mask_mod = batched.mask_mod
-
-    dummy_h = torch.tensor([0])
-    dummy_q = torch.tensor([0])
-
-    # --- Check Batch 0 (Unpadded length = 3) ---
-    b0 = torch.tensor([0])
-    kv3 = torch.tensor([3])  # This is a padded key
-    assert not mask_mod(b0, dummy_h, dummy_q, kv3).item(), (
-        "Leakage in Batch 0: Real query point attended to padded key point 3!"
-    )
-
-    # --- Check Batch 1 (Unpadded length = 2) ---
-    b1 = torch.tensor([1])
-    kv2 = torch.tensor([2])  # This is a padded key
-    assert not mask_mod(b1, dummy_h, dummy_q, kv2).item(), (
-        "Leakage in Batch 1: Real query point attended to padded key point 2!"
-    )
-
-    kv1 = torch.tensor([1])  # This is a valid key for both
-    assert mask_mod(b0, dummy_h, dummy_q, kv1).item(), "Valid key blocked in Batch 0!"
-    assert mask_mod(b1, dummy_h, dummy_q, kv1).item(), "Valid key blocked in Batch 1!"

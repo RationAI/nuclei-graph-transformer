@@ -4,6 +4,7 @@ import torch
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
+from torch.nn.attention.flex_attention import BlockMask
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torchmetrics import Metric, MetricCollection
@@ -42,7 +43,25 @@ class WSLMetaArch(LightningModule):
         self.best_val_metrics: dict[str, Tensor] = {}
 
     def forward(self, batch: Batch) -> Tensor:
-        return self.net(batch["x"], batch["pos"], batch["block_mask"])
+        device = batch["seq_len"].device
+
+        _, _, max_len, _ = batch["block_mask"].shape
+        positions = torch.arange(max_len, device=device).unsqueeze(0)
+        valid_mask = positions < batch["seq_len"].unsqueeze(1)
+
+        def padding_mask_mod(b, h, q_idx, kv_idx):
+            return valid_mask[b, q_idx] & valid_mask[b, kv_idx]
+
+        block_mask = BlockMask.from_kv_blocks(
+            kv_num_blocks=batch["block_mask"].kv_num_blocks,
+            kv_indices=batch["block_mask"].kv_indices,
+            full_kv_num_blocks=batch["block_mask"].q_num_blocks.to(device),
+            full_kv_indices=batch["block_mask"].q_indices.to(device),
+            BLOCK_SIZE=batch["block_mask"].BLOCK_SIZE,
+            mask_mod=padding_mask_mod,
+        )
+
+        return self.net(batch["x"], batch["pos"], block_mask)
 
     def training_step(self, batch: Batch) -> Tensor:
         logits = self(batch).squeeze(-1)
