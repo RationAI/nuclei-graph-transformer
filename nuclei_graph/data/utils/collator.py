@@ -8,12 +8,14 @@ from nuclei_graph.nuclei_graph_typing import Batch, Crop, PredictBatch, PredictS
 
 def collate_fn(batch: Iterable[Crop]) -> Batch:
     batch = list(batch)
+    seq_lens = torch.tensor([item["seq_len"] for item in batch], dtype=torch.int32)
     return {
         "x": torch.stack([b["x"] for b in batch], dim=0),
         "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
         "sup_mask": torch.stack([b["sup_mask"] for b in batch], dim=0),
-        "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
+        "block_mask": batch_block_masks([b["block_mask"] for b in batch], seq_lens),
+        "seq_len": seq_lens,
     }
 
 

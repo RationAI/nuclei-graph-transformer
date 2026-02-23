@@ -1,10 +1,11 @@
 # @package _global_
 
 defaults:
-  - /data/datasets/prostate_cancer
+  - /data/datasets/raw/prostate_cancer
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/datasets/graph@data.dataset: default
   - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/supervision@data.supervision_strategy: # TODO
 
 mode: fit
 checkpoint: null
@@ -12,27 +13,28 @@ checkpoint: null
 trainer: # TODO
 
 data:
-  supervision_mode: "agreement-strict" # "annotation", "cam", "agreement", "agreement-strict"
-  cam_thr_type: "annot_restricted_thr" # "annot_restricted_thr" or "default_thr"
   sampler_pos_thr: 0.30
   batch_size: 8
+  paths:
+    features: ${dataset.paths.features}
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 128
+    k: 256
     attn_block_size: 128
     efd_order: 15
 
 model: # TODO
 
 metadata:
-  run_name: Train, ${data.supervision_mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
+  run_name: Train, ${data.supervision_strategy.mode}
+  description: "testing run"
   hyperparams:
-    supervision_mode: ${data.supervision_mode}
-    cam_thr_type: ${data.cam_thr_type}
+    supervision_mode: ${data.supervision_strategy.mode}
+    cam_thr_type: ${data.supervision_strategy.cam_thr_type}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.dataset.crop_size}
