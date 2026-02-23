@@ -34,7 +34,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 256
+    k: 64
     attn_block_size: 128
     efd_order: 15
 
