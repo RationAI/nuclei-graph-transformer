@@ -12,6 +12,13 @@ def attend_all_mask_mod(
     return torch.ones_like(batch, dtype=torch.bool)
 
 
+def create_padding_mask_mod(unpadded_lengths: Tensor):
+    def padding_mask_mod(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
+        return (q_idx < unpadded_lengths[b]) & (kv_idx < unpadded_lengths[b])
+
+    return padding_mask_mod
+
+
 def create_block_mask_from_kdtree(
     kdtree: KDTree,
     points: NDArray[np.floating],
@@ -91,7 +98,7 @@ def create_block_mask_from_kdtree(
     )
 
 
-def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
+def batch_block_masks(masks: list[BlockMask], seq_lens: Tensor) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
     All masks must have the same sequence length and block size.
@@ -99,6 +106,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
 
     Args:
         masks: List of BlockMask objects.
+        seq_lens: Tensor of shape (batch_size,) containing the unpadded sequence lengths.
 
     Returns:
         Batched BlockMask object with layouts (Batch, Head, ...):
@@ -112,7 +120,6 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
             b = batch size,
             num_blocks = seq_length // block_size,
             max_kv_blocks = maximum number of KV blocks per query block across the batch,
-        The "mask_mod" is inherited from the first mask.
     """
     assert all(m.shape == masks[0].shape for m in masks)
     assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
@@ -133,6 +140,6 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
         full_kv_num_blocks=None,
         full_kv_indices=None,
         BLOCK_SIZE=masks[0].BLOCK_SIZE,
-        mask_mod=masks[0].mask_mod,
+        mask_mod=create_padding_mask_mod(seq_lens),
     )
     return batched_mask
