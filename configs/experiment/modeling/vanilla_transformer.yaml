@@ -11,8 +11,8 @@ mode: fit
 checkpoint: null
 
 trainer:
-  gradient_clip_val: 0.8
-  accumulate_grad_batches: 2
+  gradient_clip_val: 0.7
+  accumulate_grad_batches: 3
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -54,7 +54,7 @@ model:
 
 metadata:
   run_name: Train, ${data.supervision_strategy.mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
-  description: "testing run"
+  description: "acc grad batches 3"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}
