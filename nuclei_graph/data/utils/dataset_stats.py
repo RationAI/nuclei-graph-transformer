@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -8,9 +9,10 @@ from tqdm import tqdm
 
 def compute_feature_statistics(
     df: pd.DataFrame, efds_path: str | Path, target_dim: int
-) -> tuple[float, Tensor, Tensor]:
-    """Computes global scale mean, EFD mean, and EFD standard deviation."""
-    total_scale_sum = 0.0
+) -> tuple[tuple[float, float], tuple[Tensor, Tensor]]:
+    """Computes global log-scale mean, log-scale std, EFD mean, and EFD standard deviation."""
+    total_log_scale_sum = 0.0
+    total_log_scale_sq_sum = 0.0
     total_count = 0
 
     efd_sum = torch.zeros(target_dim, dtype=torch.float64)
@@ -23,21 +25,32 @@ def compute_feature_statistics(
         file_path = efds_path / f"{slide_id}.pt"
         data = torch.load(file_path, map_location="cpu", weights_only=True)
 
+        # Log-transform the scales for a normal distribution
         scales = data["scales"]
+        log_scales = torch.log(scales + 1e-6)
+
         efds = data["efds"][:, :target_dim].to(torch.float64)
 
-        total_scale_sum += scales.sum().item()
+        total_log_scale_sum += log_scales.sum().item()
+        total_log_scale_sq_sum += (log_scales**2).sum().item()
         total_count += scales.numel()
 
         efd_sum += efds.sum(dim=0)
         efd_sq_sum += (efds**2).sum(dim=0)
 
-    scale_mean = float(total_scale_sum / total_count)
+    # Compute Log-Scale Stats
+    log_scale_mean = total_log_scale_sum / total_count
+    log_scale_var = (total_log_scale_sq_sum / total_count) - (log_scale_mean**2)
+    log_scale_std = math.sqrt(max(log_scale_var, 1e-8))
+
+    # Compute EFD Stats
     efd_mean = efd_sum / total_count
     efd_var = (efd_sq_sum / total_count) - (efd_mean**2)
     efd_std = torch.sqrt(torch.clamp(efd_var, min=1e-8))
 
-    print(f"[INFO] Computed scale mean: {scale_mean:.4f}")
+    print(f"[INFO] Computed log_scale mean: {log_scale_mean:.4f}")
+    print(f"[INFO] Computed log_scale std: {log_scale_std:.4f}")
     print(f"[INFO] Computed EFD mean: {efd_mean}")
     print(f"[INFO] Computed EFD std: {efd_std}")
-    return scale_mean, efd_mean.float(), efd_std.float()
+
+    return (log_scale_mean, log_scale_std), (efd_mean.float(), efd_std.float())

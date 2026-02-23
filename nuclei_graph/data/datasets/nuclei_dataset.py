@@ -40,9 +40,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
     def __init__(
         self,
         metadata: DataFrame,
-        scale_mean: float,
-        efd_mean: Tensor,
-        efd_std: Tensor,
+        log_scale_stats: tuple[float, float],
+        efd_stats: tuple[Tensor, Tensor],
         efds_path: str,
         supervision: DatasetSupervision,
         crop_size: int = 4096,
@@ -58,9 +57,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         Args:
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
-            scale_mean: Mean of nuclei scales estimated from training data for normalization.
-            efd_mean: Mean of EFD coefficients estimated from training data for normalization.
-            efd_std: Standard deviation of EFD coefficients estimated from training data for normalization.
+            log_scale_stats: Tuple of (log-scale mean, log-scale std) computed across the training set for normalizing the scale feature.
+            efd_stats: Tuple of (EFD mean, EFD std) computed across the training set for normalizing the EFD features. Each is a Tensor of shape (efd_order * 4,).
             efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -75,8 +73,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             "`crop_size` must be divisible by `attn_block_size`."
         )
         self.metadata = metadata
-        self.scale_mean = scale_mean
+        self.log_scale_mean, self.log_scale_std = log_scale_stats
         self.efds_path = efds_path
+        efd_mean, efd_std = efd_stats
         self.efd_mean = efd_mean.numpy()
         self.efd_std = efd_std.numpy()
         self.supervision = supervision
@@ -229,14 +228,15 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         x = (x - self.efd_mean) / (self.efd_std + 1e-6)
 
         angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
+        # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
         norm_angles = (angles % np.pi) / np.pi
         norm_angles = (norm_angles * 2.0) - 1.0
 
-        # scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
-        # scales /= self.scale_mean
+        scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
+        log_scales = np.log(scales + 1e-6)
+        norm_scales = (log_scales - self.log_scale_mean) / (self.log_scale_std + 1e-6)
 
-        x = np.concatenate([x, norm_angles], axis=-1)
-        # x /= self.scale_mean
+        x = np.concatenate([x, norm_angles, norm_scales], axis=-1)
 
         # --- Load targets and supervision masks ---
         nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
