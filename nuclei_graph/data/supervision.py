@@ -165,16 +165,12 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
 
 @dataclass(frozen=True)
 class SlideSupervision:
-    """Supervision information for a single slide."""
-
     slide_label: int
     nuclei_supervision: NucleiSupervision
 
 
 @dataclass(frozen=True)
 class DatasetSupervision:
-    """Supervision information for the entire dataset."""
-
     supervision_map: dict[str, SlideSupervision]
 
 
