@@ -14,7 +14,7 @@ def collate_fn(batch: Iterable[Crop]) -> Batch:
         "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "y": torch.cat([b["y"] for b in batch], dim=0),  # variable-length tensors
         "sup_mask": torch.stack([b["sup_mask"] for b in batch], dim=0),
-        "block_mask": batch_block_masks([b["block_mask"] for b in batch], seq_lens),
+        "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
         "seq_len": seq_lens,
     }
 
