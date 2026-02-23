@@ -36,14 +36,14 @@ data:
     alpha: 0.8
     k: 64
     attn_block_size: 128
-    efd_order: 15
+    efd_order: 10
 
 model:
-  lr: 2e-5
+  lr: 5e-5
   warmup_epochs: 8
   net:
     config:
-      node_features: 62 #${mul:4,${data.dataset.efd_order}}
+      node_features: 42 #${mul:4,${data.dataset.efd_order}}
       dim: 256
       hidden_dim: 1024
       pos_dim: 2 # (x, y, α)
