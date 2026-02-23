@@ -42,6 +42,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), 0.0, dtype=torch.float32)
+        assert self.annot_labels is not None
         return self.annot_labels
 
     def get_sup_mask(self, n: int) -> Tensor:
@@ -57,6 +58,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
             return 0.0
+        assert self.annot_labels is not None
         return float((self.annot_labels == 1).sum() / len(self.annot_labels))
 
 
@@ -68,6 +70,7 @@ class CAMNucleiSupervision(NucleiSupervision):
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), 0.0, dtype=torch.float32)
+        assert self.cam_labels is not None
         return self.cam_labels
 
     def get_sup_mask(self, n: int) -> Tensor:
@@ -83,6 +86,7 @@ class CAMNucleiSupervision(NucleiSupervision):
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
             return 0.0
+        assert self.cam_labels is not None
         return float((self.cam_labels == 1).sum() / len(self.cam_labels))
 
 
@@ -100,6 +104,7 @@ class AgreementNucleiSupervision(NucleiSupervision):
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), 0.0, dtype=torch.float32)
+        assert self.annot_labels is not None
         return self.annot_labels
 
     def get_sup_mask(self, n: int) -> Tensor:
@@ -115,6 +120,7 @@ class AgreementNucleiSupervision(NucleiSupervision):
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
             return 0.0
+        assert self.annot_labels is not None and self.cam_labels is not None
         return float(
             ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
             / len(self.annot_labels)
@@ -135,6 +141,7 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), 0.0, dtype=torch.float32)
+        assert self.annot_labels is not None
         return self.annot_labels
 
     def get_sup_mask(self, n: int) -> Tensor:
@@ -150,6 +157,7 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
             return 0.0
+        assert self.annot_labels is not None and self.cam_labels is not None
         return float(
             ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
             / len(self.annot_labels)
