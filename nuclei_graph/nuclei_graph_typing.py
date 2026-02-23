@@ -10,6 +10,7 @@ class Crop(TypedDict):
     y: Tensor  # supervised labels
     sup_mask: Tensor  # supervision mask
     block_mask: BlockMask  # attention mask
+    seq_len: Tensor  # unpadded sequence length
 
 
 class Metadata(TypedDict):

@@ -12,7 +12,7 @@ from nuclei_graph.data.supervision import SupervisionStrategy, build_supervision
 from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
-    compute_scale_mean,
+    compute_feature_statistics,
     get_subset,
     min_count_filter,
     train_val_split,
@@ -129,15 +129,16 @@ class DataModule(LightningDataModule):
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
-                scale_mean = self.dataset_conf.get("scale_mean") or compute_scale_mean(
-                    train, efds_path
+                scale_mean, efd_mean, efd_std = compute_feature_statistics(
+                    train, efds_path, self.dataset_conf.efd_order * 4
                 )
-
                 # --- instantiate datasets ---
                 self.train = instantiate(
                     self.dataset_conf,
                     metadata=train,
                     scale_mean=scale_mean,
+                    efd_mean=efd_mean,
+                    efd_std=efd_std,
                     supervision=sup_train,
                     efds_path=efds_path,
                 )
@@ -145,6 +146,8 @@ class DataModule(LightningDataModule):
                     self.dataset_conf,
                     metadata=val,
                     scale_mean=scale_mean,
+                    efd_mean=efd_mean,
+                    efd_std=efd_std,
                     supervision=sup_val,
                     efds_path=efds_path,
                     full_slide=True,
@@ -163,6 +166,8 @@ class DataModule(LightningDataModule):
                     metadata=metadata,
                     supervision=sup,
                     scale_mean=self.dataset_conf.scale_mean,
+                    efd_mean=self.dataset_conf.efd_mean,
+                    efd_std=self.dataset_conf.efd_std,
                     efds_path=efds_path,
                     full_slide=True,
                 )
@@ -180,6 +185,8 @@ class DataModule(LightningDataModule):
                     metadata=metadata,
                     supervision=sup,
                     scale_mean=self.dataset_conf.scale_mean,
+                    efd_mean=self.dataset_conf.efd_mean,
+                    efd_std=self.dataset_conf.efd_std,
                     efds_path=efds_path,
                     full_slide=True,
                     predict=True,

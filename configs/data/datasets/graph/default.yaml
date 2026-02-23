@@ -1,8 +1,6 @@
 # @package _global_
 
 _target_: nuclei_graph.data.datasets.NucleiDataset
-
-scale_mean: 13.0332 # train data estimate
 crop_size: ???
 alpha: ???
 k: ???
