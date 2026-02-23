@@ -53,8 +53,8 @@ class WSLMetaArch(LightningModule):
             return valid_mask[b, q_idx] & valid_mask[b, kv_idx]
 
         block_mask = BlockMask.from_kv_blocks(
-            kv_num_blocks=batch["block_mask"].kv_num_blocks,
-            kv_indices=batch["block_mask"].kv_indices,
+            kv_num_blocks=batch["block_mask"].kv_num_blocks.to(device),
+            kv_indices=batch["block_mask"].kv_indices.to(device),
             full_kv_num_blocks=batch["block_mask"].q_num_blocks.to(device),
             full_kv_indices=batch["block_mask"].q_indices.to(device),
             BLOCK_SIZE=batch["block_mask"].BLOCK_SIZE,
