@@ -55,11 +55,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
         return self.annot_labels == 1
 
     def get_positivity(self) -> float:
-        if (
-            not self.is_carcinoma
-            or self.annot_labels is None
-            or len(self.annot_labels) == 0
-        ):
+        if not self.is_carcinoma:
             return 0.0
         return float((self.annot_labels == 1).sum() / len(self.annot_labels))
 
@@ -85,11 +81,7 @@ class CAMNucleiSupervision(NucleiSupervision):
         return self.cam_labels == 1
 
     def get_positivity(self) -> float:
-        if (
-            not self.is_carcinoma
-            or self.cam_labels is None
-            or len(self.cam_labels) == 0
-        ):
+        if not self.is_carcinoma:
             return 0.0
         return float((self.cam_labels == 1).sum() / len(self.cam_labels))
 
@@ -121,11 +113,7 @@ class AgreementNucleiSupervision(NucleiSupervision):
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
-        if (
-            not self.is_carcinoma
-            or self.annot_labels is None
-            or len(self.annot_labels) == 0
-        ):
+        if not self.is_carcinoma:
             return 0.0
         return float(
             ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
@@ -160,11 +148,7 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
-        if (
-            not self.is_carcinoma
-            or self.annot_labels is None
-            or len(self.annot_labels) == 0
-        ):
+        if not self.is_carcinoma:
             return 0.0
         return float(
             ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
@@ -192,7 +176,14 @@ class SupervisionStrategy:
         cam_labels: Tensor | None = None,
     ) -> NucleiSupervision:
         supervision = self._modes[self.mode]
-        return supervision(is_carcinoma, annot_labels, cam_labels)
+        if self.mode == "annotation":
+            return supervision(is_carcinoma, annot_labels=annot_labels)
+        elif self.mode == "cam":
+            return supervision(is_carcinoma, cam_labels=cam_labels)
+        else:  # agreement modes
+            return supervision(
+                is_carcinoma, cam_labels=cam_labels, annot_labels=annot_labels
+            )
 
 
 def build_supervision(
