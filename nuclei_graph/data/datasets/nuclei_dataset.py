@@ -209,6 +209,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
         nuclei_path = self.metadata.iloc[idx].slide_nuclei_path
         nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
+        nuclei_count = len(nuclei)
         nuclei, keep = self.drop_eps_neighbors(nuclei)
 
         # --- Extract EFD features ---
@@ -229,9 +230,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # --- Load targets and supervision masks ---
         nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
 
-        targets = nuclei_sup.get_targets()[keep]
-        sup_mask = nuclei_sup.get_sup_mask()[keep]
-        seed_mask = nuclei_sup.get_seed_mask()[keep]
+        targets = nuclei_sup.get_targets(nuclei_count)[keep]
+        sup_mask = nuclei_sup.get_sup_mask(nuclei_count)[keep]
+        seed_mask = nuclei_sup.get_seed_mask(nuclei_count)[keep]
 
         valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 

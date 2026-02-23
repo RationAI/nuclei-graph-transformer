@@ -9,28 +9,24 @@ from nuclei_graph.nuclei_graph_typing import DatasetSupervision, SlideSupervisio
 
 
 class NucleiSupervision(ABC):
-    def __init__(self, n: int, is_carcinoma: bool):
+    def __init__(self, is_carcinoma: bool):
         """Abstract base class for nucleus-level supervision.
 
         The logic in subclasses only applies to positive slides. For negative slides,
         all nuclei are implicitly assigned a target label of 0.0 and are fully supervised.
         """
-        self.n = n
         self.is_carcinoma = is_carcinoma
-        self.targets_negative = torch.full((n,), 0.0, dtype=torch.float32)
-        self.sup_mask_all = torch.full((n,), True, dtype=torch.bool)
-        self.seed_mask_all = torch.arange(n)
 
     @abstractmethod
-    def get_targets(self) -> Tensor:
+    def get_targets(self, n: int) -> Tensor:
         """Returns nucleus-level targets."""
 
     @abstractmethod
-    def get_sup_mask(self) -> Tensor:
+    def get_sup_mask(self, n: int) -> Tensor:
         """Returns supervision mask (True for confident labels)."""
 
     @abstractmethod
-    def get_seed_mask(self) -> Tensor:
+    def get_seed_mask(self, n: int) -> Tensor:
         """Returns indices eligible as seeds for crop generation."""
 
     @abstractmethod
@@ -39,121 +35,141 @@ class NucleiSupervision(ABC):
 
 
 class AnnotationNucleiSupervision(NucleiSupervision):
-    """Supervision based on annotations."""
-
-    def __init__(self, n: int, is_carcinoma: bool, annot_labels: Tensor):
-        super().__init__(n, is_carcinoma)
+    def __init__(self, is_carcinoma: bool, annot_labels: Tensor | None = None):
+        super().__init__(is_carcinoma)
         self.annot_labels = annot_labels
 
-    def get_targets(self) -> Tensor:
+    def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.targets_negative
+            return torch.full((n,), 0.0, dtype=torch.float32)
         return self.annot_labels
 
-    def get_sup_mask(self) -> Tensor:
+    def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.sup_mask_all
+            return torch.full((n,), True, dtype=torch.bool)
         return self.annot_labels == 1
 
-    def get_seed_mask(self) -> Tensor:
+    def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.seed_mask_all
+            return torch.ones(n, dtype=torch.bool)
         return self.annot_labels == 1
 
     def get_positivity(self) -> float:
-        if not self.is_carcinoma or self.n == 0:
+        if (
+            not self.is_carcinoma
+            or self.annot_labels is None
+            or len(self.annot_labels) == 0
+        ):
             return 0.0
-        return float((self.annot_labels == 1).sum() / self.n)
+        return float((self.annot_labels == 1).sum() / len(self.annot_labels))
 
 
 class CAMNucleiSupervision(NucleiSupervision):
-    """Supervision based on CAM only."""
-
-    def __init__(self, n: int, is_carcinoma: bool, cam_labels: Tensor):
-        super().__init__(n, is_carcinoma)
+    def __init__(self, is_carcinoma: bool, cam_labels: Tensor | None = None):
+        super().__init__(is_carcinoma)
         self.cam_labels = cam_labels
 
-    def get_targets(self) -> Tensor:
+    def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.targets_negative
+            return torch.full((n,), 0.0, dtype=torch.float32)
         return self.cam_labels
 
-    def get_sup_mask(self) -> Tensor:
+    def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.sup_mask_all
+            return torch.full((n,), True, dtype=torch.bool)
         return self.cam_labels != -1
 
-    def get_seed_mask(self) -> Tensor:
+    def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.seed_mask_all
+            return torch.ones(n, dtype=torch.bool)
         return self.cam_labels == 1
 
     def get_positivity(self) -> float:
-        if not self.is_carcinoma or self.n == 0:
+        if (
+            not self.is_carcinoma
+            or self.cam_labels is None
+            or len(self.cam_labels) == 0
+        ):
             return 0.0
-        return float((self.cam_labels == 1).sum() / self.n)
+        return float((self.cam_labels == 1).sum() / len(self.cam_labels))
 
 
 class AgreementNucleiSupervision(NucleiSupervision):
-    """Supervision where annotation and CAM agree."""
-
     def __init__(
-        self, n: int, is_carcinoma: bool, cam_labels: Tensor, annot_labels: Tensor
+        self,
+        is_carcinoma: bool,
+        cam_labels: Tensor | None = None,
+        annot_labels: Tensor | None = None,
     ):
-        super().__init__(n, is_carcinoma)
+        super().__init__(is_carcinoma)
         self.cam_labels = cam_labels
         self.annot_labels = annot_labels
 
-    def get_targets(self) -> Tensor:
+    def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.targets_negative
+            return torch.full((n,), 0.0, dtype=torch.float32)
         return self.annot_labels
 
-    def get_sup_mask(self) -> Tensor:
+    def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.sup_mask_all
+            return torch.full((n,), True, dtype=torch.bool)
         return self.annot_labels == self.cam_labels
 
-    def get_seed_mask(self) -> Tensor:
+    def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.seed_mask_all
+            return torch.ones(n, dtype=torch.bool)
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
-        if not self.is_carcinoma or self.n == 0:
+        if (
+            not self.is_carcinoma
+            or self.annot_labels is None
+            or len(self.annot_labels) == 0
+        ):
             return 0.0
-        return float(((self.annot_labels == 1) & (self.cam_labels == 1)).sum() / self.n)
+        return float(
+            ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
+            / len(self.annot_labels)
+        )
 
 
 class PositiveAgreementNucleiSupervision(NucleiSupervision):
-    """Supervision only for nuclei that are positive in both annotation and CAM."""
-
     def __init__(
-        self, n: int, is_carcinoma: bool, cam_labels: Tensor, annot_labels: Tensor
+        self,
+        is_carcinoma: bool,
+        cam_labels: Tensor | None = None,
+        annot_labels: Tensor | None = None,
     ):
-        super().__init__(n, is_carcinoma)
+        super().__init__(is_carcinoma)
         self.cam_labels = cam_labels
         self.annot_labels = annot_labels
 
-    def get_targets(self) -> Tensor:
+    def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.targets_negative
+            return torch.full((n,), 0.0, dtype=torch.float32)
         return self.annot_labels
 
-    def get_sup_mask(self) -> Tensor:
+    def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.sup_mask_all
+            return torch.full((n,), True, dtype=torch.bool)
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
-    def get_seed_mask(self) -> Tensor:
+    def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
-            return self.seed_mask_all
+            return torch.ones(n, dtype=torch.bool)
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
-        if not self.is_carcinoma or self.n == 0:
+        if (
+            not self.is_carcinoma
+            or self.annot_labels is None
+            or len(self.annot_labels) == 0
+        ):
             return 0.0
-        return float(((self.annot_labels == 1) & (self.cam_labels == 1)).sum() / self.n)
+        return float(
+            ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
+            / len(self.annot_labels)
+        )
 
 
 class SupervisionStrategy:
@@ -171,22 +187,14 @@ class SupervisionStrategy:
 
     def create(
         self,
-        n: int,
         is_carcinoma: bool,
-        annot_labels: Tensor,
-        cam_labels: Tensor,
+        annot_labels: Tensor | None = None,
+        cam_labels: Tensor | None = None,
     ) -> NucleiSupervision:
         supervision = self._modes[self.mode]
-
-        if self.mode == "annotation":
-            assert annot_labels is not None
-            return supervision(n, is_carcinoma, annot_labels)
-        elif self.mode == "cam":
-            assert cam_labels is not None
-            return supervision(n, is_carcinoma, cam_labels)
-        else:  # agreement modes
-            assert annot_labels is not None and cam_labels is not None
-            return supervision(n, is_carcinoma, cam_labels, annot_labels)
+        return supervision(
+            is_carcinoma=is_carcinoma, annot_labels=annot_labels, cam_labels=cam_labels
+        )
 
 
 def build_supervision(
@@ -195,35 +203,26 @@ def build_supervision(
     df_cam: pd.DataFrame,
     label_map: dict[str, int],
 ) -> DatasetSupervision:
-    """Builds a DatasetSupervision dataclass.
 
-    Args:
-        sup_strategy: An instance of SupervisionStrategy defining the type of supervision to use.
-        df_annot: DataFrame containing annotation labels with columns "slide_id" (str), "id" (str), and "annot_label" (int).
-        df_cam: DataFrame containing CAM labels with columns "slide_id" (str), "id" (str), and "cam_label" (int).
-        label_map: Mapping from slide_id to slide-level label (int).
-    """
     df_merged = pd.merge(
         df_annot, df_cam, on=["slide_id", "id"], how="inner", validate="1:1"
     )
-
     df_merged = df_merged.sort_values(["slide_id", "id"])
     grouped = df_merged.groupby("slide_id")
 
     sup_map = {}
     for slide_id, label in tqdm(label_map.items(), desc="Building Supervision"):
-        group = grouped.get_group(slide_id)
-
-        n = len(group)
-        annot = torch.tensor(group["annot_label"].values, dtype=torch.float32)
-        cam = torch.tensor(group["cam_label"].values, dtype=torch.float32)
-
-        nuclei_sup = sup_strategy.create(
-            n=n,
-            is_carcinoma=bool(label),
-            annot_labels=annot,
-            cam_labels=cam,
-        )
+        if label == 0:
+            nuclei_sup = sup_strategy.create(is_carcinoma=False)
+        else:
+            group = grouped.get_group(slide_id)
+            annot = torch.tensor(group["annot_label"].values, dtype=torch.float32)
+            cam = torch.tensor(group["cam_label"].values, dtype=torch.float32)
+            nuclei_sup = sup_strategy.create(
+                is_carcinoma=True,
+                annot_labels=annot,
+                cam_labels=cam,
+            )
 
         sup_map[slide_id] = SlideSupervision(
             slide_label=int(label), nuclei_supervision=nuclei_sup
