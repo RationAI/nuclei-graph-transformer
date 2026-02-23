@@ -104,8 +104,6 @@ class DataModule(LightningDataModule):
                 val_ids = set(val["slide_id"])
 
                 # --- load supervision ---
-                slide_labels = self._get_slide_labels(metadata)
-
                 cam_uri_train = sup_conf.cam[cam_thr_type]
                 cam_labels_train = self._load_df(cam_uri_train).pipe(
                     get_subset, train_ids
@@ -115,14 +113,15 @@ class DataModule(LightningDataModule):
                     self.sup_strategy,
                     annot_labels_train,
                     cam_labels_train,
-                    slide_labels,
+                    self._get_slide_labels(train),
                 )
 
                 cam_uri_val = sup_conf.cam.annot_restricted_thr
                 cam_labels_val = self._load_df(cam_uri_val).pipe(get_subset, val_ids)
                 annot_labels_val = annot_labels.pipe(get_subset, val_ids)
+                labels_val = self._get_slide_labels(val)
                 sup_val = build_supervision(
-                    eval_sup_strategy, annot_labels_val, cam_labels_val, slide_labels
+                    eval_sup_strategy, annot_labels_val, cam_labels_val, labels_val
                 )
 
                 # --- compute statistics for sampler and normalization ---
