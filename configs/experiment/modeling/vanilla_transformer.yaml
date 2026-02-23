@@ -44,17 +44,17 @@ model:
   net:
     config:
       node_features: 42 #${mul:4,${data.dataset.efd_order}}
-      dim: 256
-      hidden_dim: 1024
+      dim: 512
+      hidden_dim: 2048
       pos_dim: 2 # (x, y, α)
-      num_heads: 8
-      num_layers: 8
+      num_heads: 16
+      num_layers: 16
       num_classes: 1
       dropout: 0.10
 
 metadata:
   run_name: Train, ${data.supervision_strategy.mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
-  description: "acc grad batches 3"
+  description: "bigger arch"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}
