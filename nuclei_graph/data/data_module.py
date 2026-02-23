@@ -54,7 +54,7 @@ class DataModule(LightningDataModule):
                 - paths: DictConfig with key "features" containing paths to nuclei EFD representations.
 
         The choice of supervision strategy only affects positive slides during the training (fit stage).
-        For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "annot_restricted_thr" CAM threshold type.
+        For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "positive-agreement" CAM threshold type.
         """
         super().__init__()
         assert "dataset" in data_params
