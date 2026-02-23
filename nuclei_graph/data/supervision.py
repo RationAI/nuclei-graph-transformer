@@ -192,9 +192,7 @@ class SupervisionStrategy:
         cam_labels: Tensor | None = None,
     ) -> NucleiSupervision:
         supervision = self._modes[self.mode]
-        return supervision(
-            is_carcinoma=is_carcinoma, annot_labels=annot_labels, cam_labels=cam_labels
-        )
+        return supervision(is_carcinoma, annot_labels, cam_labels)
 
 
 def build_supervision(

@@ -36,7 +36,7 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        supervision_strategy: SupervisionStrategy,
+        supervision_strategy: DictConfig,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **data_params: DictConfig,
@@ -46,7 +46,7 @@ class DataModule(LightningDataModule):
         Args:
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading. Defaults to 0.
-            supervision_strategy: An instance of SupervisionStrategy defining the type of supervision to use for positive slides.
+            supervision_strategy: An DictConfig defining the type of supervision to use for positive slides.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
@@ -61,7 +61,7 @@ class DataModule(LightningDataModule):
         assert "mlflow_uris" in data_params
 
         self.batch_size = batch_size
-        self.sup_strategy = supervision_strategy
+        self.sup_strategy = instantiate(supervision_strategy)
         self.num_workers = num_workers
         self.sampler_partial = sampler
         self.dataset_conf = data_params["dataset"]
