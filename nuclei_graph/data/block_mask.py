@@ -14,7 +14,7 @@ def attend_all_mask_mod(
 
 def create_padding_mask_mod(unpadded_lengths: Tensor):
     def padding_mask_mod(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
-        return kv_idx < unpadded_lengths[b]
+        return (q_idx < unpadded_lengths[b]) & (kv_idx < unpadded_lengths[b])
 
     return padding_mask_mod
 
