@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import pandas as pd
 import torch
 from torch import Tensor
 from tqdm import tqdm
-
-from nuclei_graph.nuclei_graph_typing import DatasetSupervision, SlideSupervision
 
 
 class NucleiSupervision(ABC):
@@ -162,6 +161,21 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
             ((self.annot_labels == 1) & (self.cam_labels == 1)).sum()
             / len(self.annot_labels)
         )
+
+
+@dataclass(frozen=True)
+class SlideSupervision:
+    """Supervision information for a single slide."""
+
+    slide_label: int
+    nuclei_supervision: NucleiSupervision
+
+
+@dataclass(frozen=True)
+class DatasetSupervision:
+    """Supervision information for the entire dataset."""
+
+    supervision_map: dict[str, SlideSupervision]
 
 
 class SupervisionStrategy:

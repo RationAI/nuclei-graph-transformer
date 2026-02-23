@@ -15,9 +15,9 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from nuclei_graph.data import create_block_mask_from_kdtree
+from nuclei_graph.data.supervision import DatasetSupervision
 from nuclei_graph.nuclei_graph_typing import (
     Crop,
-    DatasetSupervision,
     Metadata,
     PredictSlide,
 )
