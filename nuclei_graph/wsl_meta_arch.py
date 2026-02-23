@@ -43,6 +43,7 @@ class WSLMetaArch(LightningModule):
         self.best_val_metrics: dict[str, Tensor] = {}
 
     def forward(self, batch: Batch) -> Tensor:
+        # Handle mixed blocks (those that include valid and padded tokens)
         device = batch["seq_len"].device
         seq_lens = batch["seq_len"]
 
