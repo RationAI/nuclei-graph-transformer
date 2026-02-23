@@ -11,7 +11,7 @@ class NucleiSupervision(ABC):
     def __init__(self, is_carcinoma: bool):
         """Abstract base class for nucleus-level supervision.
 
-        The logic in subclasses only applies to positive slides. For negative slides,
+        The logic in subclasses only differs for the positive slides. For negative slides,
         all nuclei are implicitly assigned a target label of 0.0 and are fully supervised.
         """
         self.is_carcinoma = is_carcinoma
@@ -26,7 +26,11 @@ class NucleiSupervision(ABC):
 
     @abstractmethod
     def get_seed_mask(self, n: int) -> Tensor:
-        """Returns indices eligible as seeds for crop generation."""
+        """Returns indices eligible as seeds for crop generation.
+
+        Negative slides should return all True, while positive slides
+        are expected to return confident positives.
+        """
 
     @abstractmethod
     def get_positivity(self) -> float:
@@ -34,6 +38,8 @@ class NucleiSupervision(ABC):
 
 
 class AnnotationNucleiSupervision(NucleiSupervision):
+    """Supervision based on rough pathologist annotations."""
+
     def __init__(self, is_carcinoma: bool, annot_labels: Tensor | None = None):
         super().__init__(is_carcinoma)
         self.annot_labels = annot_labels
@@ -62,6 +68,13 @@ class AnnotationNucleiSupervision(NucleiSupervision):
 
 
 class CAMNucleiSupervision(NucleiSupervision):
+    """Supervision based on CAM labels.
+
+    Regions above a certain CAM threshold are considered positive, those below a certain
+    threshold are negative, and those in between are ignored.
+    The thresholds are determined by the `cam_thr_type` parameter in the `SupervisionStrategy` class.
+    """
+
     def __init__(self, is_carcinoma: bool, cam_labels: Tensor | None = None):
         super().__init__(is_carcinoma)
         self.cam_labels = cam_labels
@@ -90,6 +103,11 @@ class CAMNucleiSupervision(NucleiSupervision):
 
 
 class AgreementNucleiSupervision(NucleiSupervision):
+    """Supervision based on the consensus between Annotations and CAM labels.
+
+    The supervision mask is only valid where the annotation exactly matches the CAM label.
+    """
+
     def __init__(
         self,
         is_carcinoma: bool,
@@ -127,6 +145,11 @@ class AgreementNucleiSupervision(NucleiSupervision):
 
 
 class PositiveAgreementNucleiSupervision(NucleiSupervision):
+    """Strict supervision requiring both Annotation and CAM to agree on a positive label.
+
+    Unlike Agreement, negatives in positive slides (0 == 0) are masked out and not supervised.
+    """
+
     def __init__(
         self,
         is_carcinoma: bool,
