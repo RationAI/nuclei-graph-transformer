@@ -132,7 +132,7 @@ class WSLMetaArch(LightningModule):
                 "best/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
             }
             for k, v in metrics.items():
-                best_metrics[f"best/validation/{k}"] = v
+                best_metrics[f"best/{k}"] = v
 
             self.best_val_metrics = best_metrics
             self.log_dict(best_metrics, prog_bar=False)
