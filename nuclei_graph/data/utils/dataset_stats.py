@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 def compute_feature_statistics(
     df: pd.DataFrame, efds_path: str | Path, target_dim: int
-) -> tuple[tuple[float, float], tuple[Tensor, Tensor]]:
+) -> tuple[tuple[float, float], dict[str, Tensor]]:
     """Computes global log-scale mean, log-scale std, EFD mean, and EFD standard deviation."""
     total_log_scale_sum = 0.0
     total_log_scale_sq_sum = 0.0
@@ -53,4 +53,7 @@ def compute_feature_statistics(
     print(f"[INFO] Computed EFD mean: {efd_mean}")
     print(f"[INFO] Computed EFD std: {efd_std}")
 
-    return (log_scale_mean, log_scale_std), (efd_mean.float(), efd_std.float())
+    return (log_scale_mean, log_scale_std), {
+        "mean": efd_mean.float(),
+        "std": efd_std.float(),
+    }

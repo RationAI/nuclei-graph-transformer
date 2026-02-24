@@ -41,7 +41,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self,
         metadata: DataFrame,
         log_scale_stats: tuple[float, float],
-        efd_stats: tuple[Tensor, Tensor],
+        efd_stats: dict[str, Tensor],
         efds_path: str,
         supervision: DatasetSupervision,
         crop_size: int = 4096,
@@ -58,7 +58,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
             log_scale_stats: Tuple of (log-scale mean, log-scale std) computed across the training set for normalizing the scale feature.
-            efd_stats: Tuple of (EFD mean, EFD std) computed across the training set for normalizing the EFD features. Each is a Tensor of shape (efd_order * 4,).
+            efd_stats: Dictionary with keys "mean" and "std" containing EFD mean and EFD std computed across the training set for normalizing the EFD features.
             efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -75,9 +75,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.metadata = metadata
         self.log_scale_mean, self.log_scale_std = log_scale_stats
         self.efds_path = efds_path
-        efd_mean, efd_std = efd_stats
-        self.efd_mean = efd_mean.numpy()
-        self.efd_std = efd_std.numpy()
+        self.efd_mean = efd_stats["mean"].numpy()
+        self.efd_std = efd_stats["std"].numpy()
         self.supervision = supervision
         self.crop_size = crop_size
         self.alpha = alpha

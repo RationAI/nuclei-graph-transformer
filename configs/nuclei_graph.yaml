@@ -1,6 +1,6 @@
 defaults:
   - base
-  - /experiment/modeling: vanilla_transformer
+  - /experiment/modeling: predict #vanilla_transformer
   - _self_
 
 seed: ${random_seed:}
@@ -9,7 +9,7 @@ checkpoint: ???
 
 trainer:
   enable_checkpointing: true
-  max_epochs: 120
+  max_epochs: 150
   log_every_n_steps: 5
 
 data:

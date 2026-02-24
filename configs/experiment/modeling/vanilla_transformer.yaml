@@ -21,7 +21,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.EarlyStopping
       monitor: validation/loss
       mode: min
-      patience: 30
+      patience: 35
 
 data:
   sampler_pos_thr: 0.30
@@ -54,7 +54,7 @@ model:
 
 metadata:
   run_name: Train, ${data.supervision_strategy.mode} [(${model.net.config.dim},${model.net.config.hidden_dim},${model.net.config.pos_dim},${model.net.config.num_heads},${model.net.config.num_layers}),(${data.batch_size},${data.dataset.k},${data.dataset.crop_size})(${data.sampler_pos_thr})]
-  description: "bigger arch"
+  description: "test run"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}

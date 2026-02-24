@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
 import pandas as pd
+import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
@@ -81,17 +82,18 @@ class DataModule(LightningDataModule):
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
 
-        metadata_uri = self.uris_cfg.metadata[mode]
-
         sup_conf = self.uris_cfg.supervision
         annot_labels = self._load_df(sup_conf.annotation)
-
-        efds_path = self.paths_cfg.features[mode]
-
         cam_thr_type = self.sup_strategy.cam_thr_type
         eval_sup_strategy = SupervisionStrategy(
             "positive-agreement", "annot_restricted_thr"
         )
+        metadata_uri = self.uris_cfg.metadata[mode]
+        efds_path = self.paths_cfg.features[mode]
+
+        log_scales_list = self.dataset_conf.get("log_scale_stats", None)
+        efd_stats_cfg = self.dataset_conf.get("efd_stats", None)
+        target_dim = self.dataset_conf.efd_order * 4
 
         match stage:
             case "fit" | "validate":
@@ -129,14 +131,24 @@ class DataModule(LightningDataModule):
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
-                log_scale_stats, efd_stats = compute_feature_statistics(
-                    train, efds_path, self.dataset_conf.efd_order * 4
-                )
+
+                if log_scales_list is None or efd_stats_cfg is None:
+                    log_scales, efd_stats = compute_feature_statistics(
+                        train, efds_path, self.dataset_conf.efd_order * 4
+                    )
+                else:
+                    log_scales = tuple(log_scales_list)
+                    means, stds = efd_stats_cfg.mean, efd_stats_cfg.std
+                    efd_stats = {
+                        "mean": torch.tensor(means, dtype=torch.float32)[:target_dim],
+                        "std": torch.tensor(stds, dtype=torch.float32)[:target_dim],
+                    }
+
                 # --- instantiate datasets ---
                 self.train = instantiate(
                     self.dataset_conf,
                     metadata=train,
-                    log_scale_stats=log_scale_stats,
+                    log_scale_stats=log_scales,
                     efd_stats=efd_stats,
                     supervision=sup_train,
                     efds_path=efds_path,
@@ -144,7 +156,7 @@ class DataModule(LightningDataModule):
                 self.val = instantiate(
                     self.dataset_conf,
                     metadata=val,
-                    log_scale_stats=log_scale_stats,
+                    log_scale_stats=log_scales,
                     efd_stats=efd_stats,
                     supervision=sup_val,
                     efds_path=efds_path,
@@ -158,13 +170,18 @@ class DataModule(LightningDataModule):
                 sup = build_supervision(
                     eval_sup_strategy, annot_labels, cam_labels, slide_labels
                 )
+                means, stds = efd_stats_cfg.mean, efd_stats_cfg.std  # must be set
+                efd_stats = {
+                    "mean": torch.tensor(means, dtype=torch.float32)[:target_dim],
+                    "std": torch.tensor(stds, dtype=torch.float32)[:target_dim],
+                }
 
                 self.test = instantiate(
                     self.dataset_conf,
                     metadata=metadata,
                     supervision=sup,
-                    log_scale_stats=self.dataset_conf.log_scale_stats,
-                    efd_stats=self.dataset_conf.efd_stats,
+                    log_scale_stats=tuple(log_scales_list),  # must be set
+                    efd_stats=efd_stats,
                     efds_path=efds_path,
                     full_slide=True,
                 )
@@ -176,13 +193,18 @@ class DataModule(LightningDataModule):
                 sup = build_supervision(
                     eval_sup_strategy, annot_labels, cam_labels, slide_labels
                 )
+                means, stds = efd_stats_cfg.mean, efd_stats_cfg.std  # must be set
+                efd_stats = {
+                    "mean": torch.tensor(means, dtype=torch.float32)[:target_dim],
+                    "std": torch.tensor(stds, dtype=torch.float32)[:target_dim],
+                }
 
                 self.predict = instantiate(
                     self.dataset_conf,
                     metadata=metadata,
                     supervision=sup,
-                    log_scale_stats=self.dataset_conf.log_scale_stats,
-                    efd_stats=self.dataset_conf.efd_stats,
+                    log_scale_stats=tuple(log_scales_list),  # must be set
+                    efd_stats=efd_stats,
                     efds_path=efds_path,
                     full_slide=True,
                     predict=True,

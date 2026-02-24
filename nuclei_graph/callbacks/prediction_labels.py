@@ -32,7 +32,7 @@ class PredictionsCallback(Callback):
         logits_ordered = logits_unpadded[metadata["perm_inverse"]]
 
         predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
-        nuclei.loc[keep_indices.numpy(), "prediction"] = predicted_labels
+        nuclei.loc[keep_indices.cpu().numpy(), "prediction"] = predicted_labels
 
         # some nuclei may not have predictions (nuclei that have a very close neighbor
         # (< eps) are removed in NucleiDataset due to assumptions in graph construction);
