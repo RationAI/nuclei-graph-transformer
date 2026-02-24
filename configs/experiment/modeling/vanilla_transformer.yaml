@@ -34,7 +34,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 128
+    k: 64
     attn_block_size: 128
     efd_order: 10
 
@@ -53,7 +53,7 @@ model:
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "increased k=128"
+  description: "test run"
 
   tags:
     model_layers: ${model.net.config.num_layers}
