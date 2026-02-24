@@ -270,7 +270,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             [crop_x, crop_pos, crop_y, crop_sup_mask]
         )
         crop_block_mask = create_block_mask_from_kdtree(
-            kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
+            kdtree=KDTree(crop_pos_np[perm_np], leafsize=self.attn_block_size),
             points=crop_pos.cpu().numpy(),
             n_points_unpadded=len(crop_indices_np),
             k=self.k,
