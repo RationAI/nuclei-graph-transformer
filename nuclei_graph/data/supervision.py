@@ -53,11 +53,13 @@ class AnnotationNucleiSupervision(NucleiSupervision):
     def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), True, dtype=torch.bool)
+        assert self.annot_labels is not None
         return self.annot_labels == 1
 
     def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
+        assert self.annot_labels is not None
         return self.annot_labels == 1
 
     def get_positivity(self) -> float:
@@ -88,11 +90,13 @@ class CAMNucleiSupervision(NucleiSupervision):
     def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), True, dtype=torch.bool)
+        assert self.cam_labels is not None
         return self.cam_labels != -1
 
     def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
+        assert self.cam_labels is not None
         return self.cam_labels == 1
 
     def get_positivity(self) -> float:
@@ -127,11 +131,13 @@ class AgreementNucleiSupervision(NucleiSupervision):
     def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), True, dtype=torch.bool)
+        assert self.annot_labels is not None and self.cam_labels is not None
         return self.annot_labels == self.cam_labels
 
     def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
+        assert self.annot_labels is not None and self.cam_labels is not None
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
@@ -169,11 +175,13 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
     def get_sup_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), True, dtype=torch.bool)
+        assert self.annot_labels is not None and self.cam_labels is not None
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_seed_mask(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
+        assert self.annot_labels is not None and self.cam_labels is not None
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:

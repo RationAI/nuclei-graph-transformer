@@ -50,7 +50,7 @@ class WSLMetaArch(LightningModule):
         device = batch["seq_len"].device
         seq_lens = batch["seq_len"]
 
-        def padding_mask_mod(b, h, q_idx, kv_idx):
+        def padding_mask_mod(b, h, q_idx, kv_idx) -> Tensor:
             return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
 
         block_mask = BlockMask.from_kv_blocks(
