@@ -5,7 +5,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/graph@data.dataset: default
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: agreement
+  - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: fit
 checkpoint: null
@@ -54,16 +54,6 @@ model:
 metadata:
   run_name: "Train: Self Attention Transformer"
   description: "test run"
-
-  tags:
-    model_layers: "${model.net.config.num_layers}"
-    model_hidden_dim: "${model.net.config.hidden_dim}"
-    supervision: "${data.supervision_strategy.mode}"
-    sampler_pos_thr: "${data.sampler_pos_thr}"
-    batch_size: "${data.batch_size}"
-    k: "${data.dataset.k}"
-    efd_order: "${data.dataset.efd_order}"
-
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}

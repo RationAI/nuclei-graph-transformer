@@ -43,6 +43,7 @@ class WSLMetaArch(LightningModule):
         self.best_val_loss = float("inf")
         self.best_val_metrics: dict[str, Tensor] = {}
         self.val_step_losses: list[Tensor] = []
+        self.val_step_sizes: list[int] = []
 
     def forward(self, batch: Batch) -> Tensor:
         # Handle mixed blocks (those that include valid and padded tokens)
@@ -106,7 +107,8 @@ class WSLMetaArch(LightningModule):
             batch_size=sup_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
-        self.val_step_losses.append(loss)
+        self.val_step_losses.append(loss.detach() * sup_size)
+        self.val_step_sizes.append(sup_size)
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
@@ -115,8 +117,13 @@ class WSLMetaArch(LightningModule):
 
         if not self.val_step_losses:
             return
-        val_loss = torch.stack(self.val_step_losses).mean().item()
+
+        total_loss = torch.stack(self.val_step_losses).sum()
+        total_size = sum(self.val_step_sizes)
+        val_loss = (total_loss / total_size).item()
+
         self.val_step_losses.clear()
+        self.val_step_sizes.clear()
 
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
