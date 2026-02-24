@@ -8,6 +8,7 @@ defaults:
 
 mode: predict
 checkpoint: mlflow-artifacts:/97/539aa76659014a3782172f1f441e6176/artifacts/checkpoints/epoch=97-step=2940/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/539aa76659014a3782172f1f441e6176
 
 trainer:
   callbacks:
@@ -39,7 +40,6 @@ model:
       node_features: 42 # ${mul:4,${data.dataset.efd_order}}
       dim: 512
       hidden_dim: 2048
-      pos_dim: 2
       num_heads: 16
       num_layers: 16
       num_classes: 1
@@ -47,6 +47,13 @@ model:
 
 metadata:
   run_name: 📊 Predictions
-  description: "Prediction Metrics: [MLflow training run](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/539aa76659014a3782172f1f441e6176)"
+  description: "Prediction Metrics: [MLflow training run](${checkpoint_url})"
+  tags:
+    model_layers: ${model.net.config.num_layers}
+    model_hidden_dim: ${model.net.config.hidden_dim}
+    supervision: ${data.supervision_strategy.mode}
+    sampler_pos_thr: ${data.sampler_pos_thr}
+    k: ${data.dataset.k}
+    efd_order: ${data.dataset.efd_order}
   hyperparams:
     checkpoint: ${checkpoint}

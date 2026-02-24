@@ -58,7 +58,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
                 to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
             log_scale_stats: Tuple of (log-scale mean, log-scale std) computed across the training set for normalizing the scale feature.
-            efd_stats: Dictionary with keys "mean" and "std" containing EFD mean and EFD std computed across the training set for normalizing the EFD features.
+            efd_stats: Dictionary with keys "mean" and "std" containing mean and std computed across the training set for normalizing the EFD features.
             efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
             supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -216,7 +216,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei_count = len(nuclei)
         nuclei, keep = self.drop_eps_neighbors(nuclei)
 
-        # --- Extract EFD features ---
+        # --- Prepare features ---
         slide_id = self.metadata.iloc[idx].slide_id
         features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
 
@@ -224,18 +224,18 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         x = efds[:, :target_dim]
-        x = (x - self.efd_mean) / (self.efd_std + 1e-6)
+        x = (x - self.efd_mean) / (self.efd_std + 1e-6)  # z-score norm
 
         angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
-        # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
-        norm_angles = (angles % np.pi) / np.pi
-        norm_angles = (norm_angles * 2.0) - 1.0
+        # double so that θ and θ + π map to the same values (nuclei/ellipses are symmetric)
+        cos_angles = np.cos(2.0 * angles)
+        sin_angles = np.sin(2.0 * angles)
 
         scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
         log_scales = np.log(scales + 1e-6)
         norm_scales = (log_scales - self.log_scale_mean) / (self.log_scale_std + 1e-6)
 
-        x = np.concatenate([x, norm_angles, norm_scales], axis=-1)
+        x = np.concatenate([x, cos_angles, sin_angles, norm_scales], axis=-1)
 
         # --- Load targets and supervision masks ---
         nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
@@ -250,16 +250,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         centroids = np.stack(nuclei["centroid"].tolist())
         crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
 
-        # --- Prepare positional encodings ---
+        # --- Prepare positional encoding ---
         crop_centroids = centroids[crop_indices_np]
-        crop_centroids = crop_centroids - crop_centroids.mean(axis=0)
-
-        # angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
-        # take modulo π due to 180° symmetry and stretch to [0, 2π) to ensure closure at 0/π
-        # rotations = 2.0 * (angles % np.pi)
-        # crop_rotations = rotations[crop_indices_np]
-        crop_pos_np = crop_centroids
-        # crop_pos_np = np.concatenate([crop_centroids, crop_rotations], axis=-1)
+        crop_pos_np = crop_centroids - crop_centroids.mean(axis=0)
 
         # --- Optimize data layout for block-sparse attention ---
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
@@ -277,13 +270,13 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         )
 
         crop: Crop = {
-            "x": crop_x,  # (n, efd_order * 4)
-            "pos": crop_pos,  # (n, 3)
+            "x": crop_x,  # (n, efd_order * 4 + 3)
+            "pos": crop_pos,  # (n, 2)
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
             "sup_mask": crop_sup_mask.bool(),  # (n, )
             "block_mask": create_block_mask_from_kdtree(
                 kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
-                points=crop_pos[:, :2].cpu().numpy(),  # only pass spatial coordinates
+                points=crop_pos.cpu().numpy(),
                 n_points_unpadded=len(crop_indices_np),
                 k=self.k,
                 block_size=self.attn_block_size,

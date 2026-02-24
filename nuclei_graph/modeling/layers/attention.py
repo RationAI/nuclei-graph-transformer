@@ -15,7 +15,7 @@ flex_attention = torch.compile(flex_attention, dynamic=True, mode="max-autotune"
 
 
 class RotarySparseAttention(nn.Module):
-    def __init__(self, dim: int, num_heads: int, pos_dim: int) -> None:
+    def __init__(self, dim: int, num_heads: int) -> None:
         super().__init__()
 
         assert dim % num_heads == 0
@@ -26,7 +26,7 @@ class RotarySparseAttention(nn.Module):
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
 
-        self.rope = RoPE(self.head_dim, pos_dim=pos_dim, theta=10000)
+        self.rope = RoPE(self.head_dim)
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         q, k, v = rearrange(

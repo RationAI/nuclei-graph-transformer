@@ -14,7 +14,6 @@ class Config(PretrainedConfig):
         node_features: int,
         dim: int,
         hidden_dim: int,
-        pos_dim: int,
         num_heads: int,
         num_layers: int,
         num_classes: int,
@@ -26,7 +25,6 @@ class Config(PretrainedConfig):
         self.node_features = node_features
         self.dim = dim
         self.hidden_dim = hidden_dim
-        self.pos_dim = pos_dim
         self.num_heads = num_heads
         self.num_layers = num_layers
         self.num_classes = num_classes
