@@ -5,7 +5,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/graph@data.dataset: default
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: positive_agreement
+  - /data/supervision@data.supervision_strategy: agreement
 
 mode: fit
 checkpoint: null
