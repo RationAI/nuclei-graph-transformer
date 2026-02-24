@@ -56,13 +56,13 @@ metadata:
   description: "test run"
 
   tags:
-    model_layers: ${model.net.config.num_layers}
-    model_hidden_dim: ${model.net.config.hidden_dim}
-    supervision: ${data.supervision_strategy.mode}
-    sampler_pos_thr: ${data.sampler_pos_thr}
-    batch_size: ${data.batch_size}
-    k: ${data.dataset.k}
-    efd_order: ${data.dataset.efd_order}
+    model_layers: "${model.net.config.num_layers}"
+    model_hidden_dim: "${model.net.config.hidden_dim}"
+    supervision: "${data.supervision_strategy.mode}"
+    sampler_pos_thr: "${data.sampler_pos_thr}"
+    batch_size: "${data.batch_size}"
+    k: "${data.dataset.k}"
+    efd_order: "${data.dataset.efd_order}"
 
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
