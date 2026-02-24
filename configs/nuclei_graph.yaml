@@ -15,6 +15,8 @@ trainer:
 data:
   batch_size: ???
   num_workers: 10
+  paths:
+    features: ???
   mlflow_uris:
     metadata: ???
     supervision: ???

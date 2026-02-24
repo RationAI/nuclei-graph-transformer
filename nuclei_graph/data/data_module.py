@@ -66,9 +66,6 @@ class DataModule(LightningDataModule):
         For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "annot_restricted_thr" CAM threshold type.
         """
         super().__init__()
-        assert "dataset" in data_params
-        assert "mlflow_uris" in data_params
-
         self.batch_size = batch_size
         self.sup_strategy = instantiate(supervision_strategy)
         self.num_workers = num_workers
