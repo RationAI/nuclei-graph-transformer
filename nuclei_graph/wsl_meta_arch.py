@@ -37,13 +37,16 @@ class WSLMetaArch(LightningModule):
         }
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
-        self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
+        self.predict_metrics_global = MetricCollection(metrics, prefix="prediction/")
+        self.predict_metrics_slide = MetricCollection(metrics, prefix="prediction/")
 
         self.best_val_loss = float("inf")
         self.best_val_metrics: dict[str, Tensor] = {}
+        self.val_step_losses: list[Tensor] = []
 
     def forward(self, batch: Batch) -> Tensor:
         # Handle mixed blocks (those that include valid and padded tokens)
+        _block_mask = batch["block_mask"]
         device = batch["seq_len"].device
         seq_lens = batch["seq_len"]
 
@@ -51,11 +54,11 @@ class WSLMetaArch(LightningModule):
             return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
 
         block_mask = BlockMask.from_kv_blocks(
-            kv_num_blocks=batch["block_mask"].kv_num_blocks.to(device),
-            kv_indices=batch["block_mask"].kv_indices.to(device),
-            full_kv_num_blocks=batch["block_mask"].q_num_blocks.to(device),
-            full_kv_indices=batch["block_mask"].q_indices.to(device),
-            BLOCK_SIZE=batch["block_mask"].BLOCK_SIZE,
+            kv_num_blocks=_block_mask.kv_num_blocks.to(device),
+            kv_indices=_block_mask.kv_indices.to(device),
+            full_kv_num_blocks=_block_mask.q_num_blocks.to(device),
+            full_kv_indices=_block_mask.q_indices.to(device),
+            BLOCK_SIZE=_block_mask.BLOCK_SIZE,
             mask_mod=padding_mask_mod,
         )
 
@@ -101,16 +104,17 @@ class WSLMetaArch(LightningModule):
             batch_size=sup_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        self.val_step_losses.append(loss)
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.val_metrics.reset()
 
-        val_loss_t = self.trainer.callback_metrics.get("validation/loss")
-        if val_loss_t is None:
+        if not self.val_step_losses:
             return
-        val_loss = float(val_loss_t.detach().item())
+        val_loss = torch.stack(self.val_step_losses).mean().item()
+        self.val_step_losses.clear()
 
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss

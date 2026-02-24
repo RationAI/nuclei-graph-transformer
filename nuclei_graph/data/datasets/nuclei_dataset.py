@@ -265,8 +265,16 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
         crop_x = torch.from_numpy(x[crop_indices_np][perm_np].astype(np.float32))
 
+        # --- Pad to block size and create a block mask ---
         crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
             [crop_x, crop_pos, crop_y, crop_sup_mask]
+        )
+        crop_block_mask = create_block_mask_from_kdtree(
+            kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
+            points=crop_pos.cpu().numpy(),
+            n_points_unpadded=len(crop_indices_np),
+            k=self.k,
+            block_size=self.attn_block_size,
         )
 
         crop: Crop = {
@@ -274,13 +282,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             "pos": crop_pos,  # (n, 2)
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
             "sup_mask": crop_sup_mask.bool(),  # (n, )
-            "block_mask": create_block_mask_from_kdtree(
-                kdtree=KDTree(crop_centroids[perm_np], leafsize=self.attn_block_size),
-                points=crop_pos.cpu().numpy(),
-                n_points_unpadded=len(crop_indices_np),
-                k=self.k,
-                block_size=self.attn_block_size,
-            ),
+            "block_mask": crop_block_mask,
             "seq_len": torch.tensor(len(crop_indices_np), dtype=torch.int32),
         }
         if self.predict:

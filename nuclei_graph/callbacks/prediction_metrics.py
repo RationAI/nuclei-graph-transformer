@@ -17,7 +17,7 @@ class PredictionMetricsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
     ) -> None:
-        metrics = cast("MetricCollection", pl_module.predict_metrics)
+        metrics = cast("MetricCollection", pl_module.predict_metrics_global)
         computed_metrics = metrics.compute()
 
         for key, value in computed_metrics.items():
@@ -38,11 +38,15 @@ class PredictionMetricsCallback(Callback):
     ) -> None:
         slide = batch["slides"]  # batch size is 1
         targets_sup = slide["y"]
+
+        if targets_sup.numel() == 0:
+            return
+
         logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
-        metrics = cast("MetricCollection", pl_module.predict_metrics)
+        metrics = cast("MetricCollection", pl_module.predict_metrics_global)
         metrics.update(preds_sup, targets_sup.long())
 
 
@@ -65,7 +69,7 @@ class PredictionSlideMetricsCallback(Callback):
         logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]
         assert targets_sup.shape == logits_sup.shape
 
-        metrics = cast("MetricCollection", pl_module.predict_metrics)
+        metrics = cast("MetricCollection", pl_module.predict_metrics_slide)
         metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         computed_metrics = metrics.compute()
 
