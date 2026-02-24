@@ -73,7 +73,7 @@ class DataModule(LightningDataModule):
         self.sup_strategy = instantiate(supervision_strategy)
         self.num_workers = num_workers
         self.sampler_partial = sampler
-        self.dataset_conf = data_params["dataset"]
+        self.dataset_cfg = data_params["dataset"]
         self.uris_cfg = data_params["mlflow_uris"]
         self.paths_cfg = data_params["paths"]
         self.positivity: dict[str, float] = {}
@@ -132,7 +132,7 @@ class DataModule(LightningDataModule):
         annot_labels = self._load_df(sup_conf.annotation)
         metadata_uri = self.uris_cfg.metadata[mode]
         efds_path = self.paths_cfg.features[mode]
-        target_dim = self.dataset_conf.efd_order * 4
+        target_dim = self.dataset_cfg.efd_order * 4
 
         match stage:
             case "fit" | "validate":
@@ -140,7 +140,7 @@ class DataModule(LightningDataModule):
 
                 # --- split train/val ---
                 train, val = train_val_split(metadata)
-                train = min_count_filter(train, self.dataset_conf.crop_size)
+                train = min_count_filter(train, self.dataset_cfg.crop_size)
 
                 # --- load supervision ---
                 sup_train = self._prepare_supervision(
@@ -165,13 +165,13 @@ class DataModule(LightningDataModule):
                     df=train,
                     efds_path=efds_path,
                     target_dim=target_dim,
-                    log_scales_list=self.dataset_conf.get("log_scale_stats", None),
-                    efd_stats_cfg=self.dataset_conf.get("efd_stats", None),
+                    log_scales_list=self.dataset_cfg.get("log_scale_stats", None),
+                    efd_stats_cfg=self.dataset_cfg.get("efd_stats", None),
                 )
 
                 # --- instantiate datasets ---
                 self.train = instantiate(
-                    self.dataset_conf,
+                    self.dataset_cfg,
                     metadata=train,
                     log_scale_stats=log_scales,
                     efd_stats=efd_stats,
@@ -179,7 +179,7 @@ class DataModule(LightningDataModule):
                     efds_path=efds_path,
                 )
                 self.val = instantiate(
-                    self.dataset_conf,
+                    self.dataset_cfg,
                     metadata=val,
                     log_scale_stats=log_scales,
                     efd_stats=efd_stats,
@@ -200,12 +200,12 @@ class DataModule(LightningDataModule):
                     df=metadata,
                     efds_path=efds_path,
                     target_dim=target_dim,
-                    log_scales_list=self.dataset_conf.log_scale_stats,  # must be set
-                    efd_stats_cfg=self.dataset_conf.efd_stats,  # must be set
+                    log_scales_list=self.dataset_cfg.log_scale_stats,  # must be set
+                    efd_stats_cfg=self.dataset_cfg.efd_stats,  # must be set
                 )
 
                 dataset = instantiate(
-                    self.dataset_conf,
+                    self.dataset_cfg,
                     metadata=metadata,
                     supervision=sup,
                     log_scale_stats=log_scales,
