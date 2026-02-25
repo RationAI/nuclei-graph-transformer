@@ -21,7 +21,12 @@ def create_block_mask_from_kdtree(
 ) -> BlockMask:
     """Generates a single-item BlockMask from a KDTree and a corresponding point array.
 
-    Padded points (at the end of the array) are excluded so that they neither attend to nor are attended by any key/value blocks.
+    Padded points (at the end of the array) are excluded so that they neither attend to nor
+    are attended by any key/value blocks. In case of mixed blocks that contain both padded
+    and unpadded points (e.g. during inference), the whole block is treated as VALID and the
+    inconsistency should be resolved outside of this function (e.g., using a specified
+    `mask_mod` before the forward model pass). The reason for this is two-fold — PyTorch
+    pickling constraints and compiler performance (to avoid expensive point-level padding check).
 
     Args:
         kdtree: KDTree built over the points.
