@@ -46,24 +46,28 @@ class WSLMetaArch(LightningModule):
         self.val_step_sizes: list[int] = []
 
     def forward(self, batch: Batch) -> Tensor:
-        # Handle mixed blocks (those that include valid and padded tokens)
         _block_mask = batch["block_mask"]
-        device = batch["seq_len"].device
-        seq_lens = batch["seq_len"]
 
-        def padding_mask_mod(
-            batch: Tensor, head: Tensor, q_idx: Tensor, kv_idx: Tensor
-        ) -> Tensor:
-            return (q_idx < seq_lens[batch]) & (kv_idx < seq_lens[batch])
+        # in case of validation/test/pediction stage we have to handle mixed blocks
+        if not self.training:
+            device = batch["seq_len"].device
+            seq_lens = batch["seq_len"]
 
-        block_mask = BlockMask.from_kv_blocks(
-            kv_num_blocks=_block_mask.kv_num_blocks.to(device),
-            kv_indices=_block_mask.kv_indices.to(device),
-            full_kv_num_blocks=_block_mask.q_num_blocks.to(device),
-            full_kv_indices=_block_mask.q_indices.to(device),
-            BLOCK_SIZE=_block_mask.BLOCK_SIZE,
-            mask_mod=padding_mask_mod,
-        )
+            def padding_mask_mod(
+                b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor
+            ) -> Tensor:
+                return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
+
+            block_mask = BlockMask.from_kv_blocks(
+                kv_num_blocks=_block_mask.kv_num_blocks.to(device),
+                kv_indices=_block_mask.kv_indices.to(device),
+                full_kv_num_blocks=None,
+                full_kv_indices=None,
+                BLOCK_SIZE=_block_mask.BLOCK_SIZE,
+                mask_mod=padding_mask_mod,
+            )
+        else:  # during training, all points are valid
+            block_mask = _block_mask
 
         return self.net(batch["x"], batch["pos"], block_mask)
 
