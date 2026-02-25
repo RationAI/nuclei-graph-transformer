@@ -7,8 +7,8 @@ defaults:
   - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: predict
-checkpoint: mlflow-artifacts:/97/539aa76659014a3782172f1f441e6176/artifacts/checkpoints/epoch=97-step=2940/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/539aa76659014a3782172f1f441e6176
+checkpoint: mlflow-artifacts:/97/6d9dde9babf4491f92bbc092e954ce98/artifacts/checkpoints/epoch=112-step=3390/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6d9dde9babf4491f92bbc092e954ce98
 
 trainer:
   callbacks:
