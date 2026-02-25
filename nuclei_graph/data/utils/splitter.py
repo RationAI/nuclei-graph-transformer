@@ -13,7 +13,7 @@ def train_val_split(
 
     Source: Prostate Cancer repository.
     """
-    data = metadata.copy()
+    data = metadata.copy().sort_values(by="slide_id").reset_index(drop=True)
 
     labels = data["is_carcinoma"]
     groups = data["patient_id"]

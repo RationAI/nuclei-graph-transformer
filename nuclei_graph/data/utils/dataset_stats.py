@@ -11,6 +11,8 @@ def compute_feature_statistics(
     df: pd.DataFrame, efds_path: str | Path, target_dim: int
 ) -> tuple[tuple[float, float], dict[str, Tensor]]:
     """Computes global log-scale mean, log-scale std, EFD mean, and EFD standard deviation."""
+    df = df.sort_values(by="slide_id").reset_index(drop=True)
+
     total_log_scale_sum = 0.0
     total_log_scale_sq_sum = 0.0
     total_count = 0
