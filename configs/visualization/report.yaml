@@ -34,7 +34,7 @@ reporter:
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: cam_masks
-      run_id: 0ea9afac7299434889e2e6e9d04d440e
+      run_id: 23749f39b3f8451485a5c4bc75fd37bd
       layer_name: CAM
       shader_conf:
         type: bipolar-heatmap
@@ -64,19 +64,11 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: dbf30cff69bb44958ac2bcb2a2d50192
+      run_id: 8bb9401d74a0429e92413496be7c1910
       layer_name: Segmented Nuclei
       shader_conf:
         type: heatmap
         color: "#00FF00" # green
-
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: nuclei_masks
-      run_id: # TODO
-      layer_name: Predictions
-      shader_conf:
-        type: heatmap
-        color: "#000000" # black
 
 metadata:
   run_name: Report — Nuclei Masks
