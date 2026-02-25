@@ -24,7 +24,7 @@ trainer:
       patience: 35
 
 data:
-  sampler_pos_thr: 0.30
+  sampler_pos_thr: 0.20
   batch_size: 8
   paths:
     features: ${dataset.paths.features}
@@ -53,7 +53,7 @@ model:
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "smaller arch"
+  description: "smaller arch, lower sampler thr=0.20"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}
