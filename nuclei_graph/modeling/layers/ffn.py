@@ -1,4 +1,4 @@
-"""Taken from the Nuclei Foundational Model repository, by Matěj Pekár."""
+"""Source: Nuclei Foundational Model repository."""
 
 import torch.nn as nn
 import torch.nn.functional as F

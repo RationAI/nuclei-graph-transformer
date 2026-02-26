@@ -1,11 +1,12 @@
 # @package _global_
 
 defaults:
-  - /data/datasets/raw/prostate_cancer
+  - /data/sources/prostate_cancer
+  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets/graph@data.dataset: default
+  - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: positive_agreement
+  - /data/supervision@data.supervision_strategy: agreement #positive_agreement
 
 mode: fit
 checkpoint: null
@@ -53,7 +54,7 @@ model:
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "smaller arch, lower sampler thr=0.20"
+  description: "smaller arch"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${data.supervision_strategy.cam_thr_type}

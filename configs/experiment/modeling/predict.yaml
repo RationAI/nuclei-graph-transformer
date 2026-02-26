@@ -1,13 +1,14 @@
 # @package _global_
 
 defaults:
-  - /data/datasets/raw/prostate_cancer
+  - /data/sources/prostate_cancer
+  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/graph@data.dataset: default
   - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: predict
-checkpoint: mlflow-artifacts:/97/8f482a006253405885d335a0a39b483e/artifacts/checkpoints/epoch=171-step=5160/checkpoint.ckpt
+checkpoint: ${mlflow_project}/8f482a006253405885d335a0a39b483e/artifacts/checkpoints/epoch=171-step=5160/checkpoint.ckpt
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/8f482a006253405885d335a0a39b483e
 
 trainer:
@@ -19,10 +20,10 @@ data:
   batch_size: 1
   paths:
     features:
-      predict: /mnt/projects/nuclei_based_wsi_analysis/nuclei_efd/tile_level_annotations_test
+      predict: ${project_path}/nuclei_efd/tile_level_annotations_test
   mlflow_uris:
     metadata:
-      predict: mlflow-artifacts:/97/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      predict: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
     supervision: ${dataset.mlflow_uris.supervision}
   dataset:
     alpha: 0.8

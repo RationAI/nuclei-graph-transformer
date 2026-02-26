@@ -1,6 +1,9 @@
 # @package _global_
 
 visualization_mode: "4"
+slides_uris:
+  - ${dataset.mlflow_uris.exploration.train}
+  - ${dataset.mlflow_uris.exploration.test}
 
 metadata:
   run_name: "Nuclei Masks — CAM-based Pseudo Labeling: ${dataset.name}"
