@@ -1,7 +1,7 @@
 # @package _global_
 
-predictions_uri: null # TODO
-pred_thr: null # threshold for determining positive nuclei
+predictions_uri: mlflow-artifacts:/97/22044290ac3c4c2eab8686f28c81ba2f/artifacts/predictions
+pred_thr: 0.5 # threshold for determining positive nuclei
 visualization_mode: "2"
 
 metadata:
