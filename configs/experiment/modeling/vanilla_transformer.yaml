@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer
+  - /data/sources@data.dataset: # TODO
+  - /model/models@model.net: # TODO
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/supervision@data.supervision_strategy: # TODO
+
+mode: fit
+checkpoint: null
+
+trainer: {}
+
+data:
+  sampler_pos_thr: 0.20
+  batch_size: 8
+  paths:
+    features: ${dataset.paths.features}
+  mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
+    supervision: ${dataset.mlflow_uris.supervision}
+  dataset:
+    crop_size: 4096
+    alpha: 0.8
+    k: 64
+    attn_block_size: 128
+    efd_order: 10
+    symmetric_block_mask: False
+
+model: {}
+
+metadata:
+  run_name: "Train: Self Attention Transformer"
+  description: "smaller arch"
+  hyperparams:
+    supervision_mode: ${data.supervision_strategy.mode}
+    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
+    sampler_positivity_threshold: ${data.sampler_pos_thr}
+    batch_size: ${data.batch_size}
+    crop_size: ${data.dataset.crop_size}
+    alpha: ${data.dataset.alpha}
+    k: ${data.dataset.k}
+    attn_block_size: ${data.dataset.attn_block_size}
+    efd_order: ${data.dataset.efd_order}
