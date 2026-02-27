@@ -1,0 +1,3 @@
+_target_: nuclei_graph.data.supervision.SupervisionStrategy
+mode: positive-agreement
+cam_thr_type: annot_restricted_thr

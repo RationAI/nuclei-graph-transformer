@@ -1,0 +1,3 @@
+_target_: nuclei_graph.data.supervision.SupervisionStrategy
+mode: cam
+cam_thr_type: default_thr
