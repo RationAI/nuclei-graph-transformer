@@ -4,12 +4,15 @@ dataset:
   name: MMCI Tile-Level Annotations Data
   mpp: 0.25
 
+  # must match across all masks in order to be displayed correctly together in xOpat
+  mask_tile_width: 512
+  mask_tile_height: 512
+
   paths:
     wsi_data:
       train: ${data_path}/tile_level_annotations
       test: ${data_path}/tile_level_annotations_test
-
-    # preprocessing/efd_features.py
+    # preprocessing/efd_feature.py
     features:
       train: ${project_path}/nuclei_efd/tile_level_annotations
       test: ${project_path}/nuclei_efd/tile_level_annotations_test

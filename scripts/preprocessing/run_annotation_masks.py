@@ -12,7 +12,7 @@ submit_job(
         "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m preprocessing.annotation_masks",
+        "uv run -m preprocessing.annotation_masks +data=sources/...",
     ],
     storage=[storage.secure.DATA],
 )

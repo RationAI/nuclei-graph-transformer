@@ -19,7 +19,7 @@ OmegaConf.register_new_resolver("mul", lambda a, b: a * b)
 OmegaConf.register_new_resolver("add", lambda a, b: a + b)
 
 
-@hydra.main(config_path="../configs", config_name="nuclei_graph", version_base=None)
+@hydra.main(config_path="../configs", config_name="ml", version_base=None)
 @autolog
 def main(config: DictConfig, logger: Logger) -> None:
     torch.set_float32_matmul_precision("medium")

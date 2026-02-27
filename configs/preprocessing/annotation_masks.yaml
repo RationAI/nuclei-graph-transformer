@@ -1,7 +1,7 @@
 # @package _global_
 
-mask_tile_width: ???
-mask_tile_height: ???
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
 level: 2
 max_concurrent: 6
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
