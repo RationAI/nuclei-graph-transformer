@@ -1,0 +1,22 @@
+# @package _global_
+
+defaults:
+  - segmentation
+  - _self_
+
+cam_masks_uri: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/cam_masks
+missing_cam_masks_uri: mlflow-artifacts:/97/0ea9afac7299434889e2e6e9d04d440e/artifacts/missing_cam_masks.csv
+max_concurrent: 100
+overlap_threshold: 0.5
+bipolar_zero_offset: 127.5
+positive_threshold: 0.4 # determined by pathologist
+negative_threshold: 0.4 # determined by pathologist
+nuclei_path: ${output_path}
+mlflow_artifact_path: cam_labels
+
+metadata:
+  run_name: 🔍 CAM-based Labeling
+  hyperparams:
+    overlap_threshold: ${overlap_threshold}
+    positive_threshold: ${positive_threshold}
+    negative_threshold: ${negative_threshold}
