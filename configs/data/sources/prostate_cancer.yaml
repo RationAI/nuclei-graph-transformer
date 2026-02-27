@@ -12,12 +12,12 @@ dataset:
     wsi_data:
       train: ${data_path}/tile_level_annotations
       test: ${data_path}/tile_level_annotations_test
-    # preprocessing/efd_feature.py
-    features:
-      train: ${project_path}/nuclei_efd/tile_level_annotations
-      test: ${project_path}/nuclei_efd/tile_level_annotations_test
     # preprocessing/nuclei_segmentation.py
     nuclei_seg: ${project_path}/nuclei_segmentation
+    # preprocessing/efd_features.py
+    features:
+      train: ${project_path}/nuclei_efds/tile_level_annotations
+      test: ${project_path}/nuclei_efds/tile_level_annotations_test
 
   mlflow_uris:
     # exploration/save_metadataset.py
