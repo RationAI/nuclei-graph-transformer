@@ -6,7 +6,7 @@ from torch.nn.attention.flex_attention import BlockMask
 
 class Crop(TypedDict):
     x: Tensor  # node features
-    pos: Tensor  # positional features (coordinates + rotation)
+    pos: Tensor  # positional features
     y: Tensor  # supervised labels
     sup_mask: Tensor  # supervision mask
     block_mask: BlockMask  # attention mask

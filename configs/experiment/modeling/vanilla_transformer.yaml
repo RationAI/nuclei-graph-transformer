@@ -14,21 +14,14 @@ checkpoint: null
 trainer: # TODO
 
 data:
-  sampler_pos_thr: 0.20
+  sampler_pos_thr: # TODO
   batch_size: 8
   paths:
     features: ${dataset.paths.features}
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
-  dataset:
-    crop_size: 4096
-    alpha: 0.8
-    k: 64
-    attn_block_size: 128
-    efd_order: 10
-    symmetric_block_mask: False
-
+  dataset: # TODO
 model: # TODO
 
 metadata:
