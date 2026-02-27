@@ -145,7 +145,7 @@ def get_local_path(uri: str | None) -> Path | None:
 @hydra.main(config_path="../configs", config_name="visualization", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    assert int(config.visualization_mode) in {1, 2, 3, 4}
+    assert config.visualization_mode in {1, 2, 3, 4}
 
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
     test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
@@ -153,9 +153,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     valid_slides = slides[~slides["is_carcinoma"] | slides["has_annotation"]]
 
     label_dirs = {
-        "annot_labels_dir": get_local_path(config.get("annot_labels_uri")),
-        "cam_labels_dir": get_local_path(config.get("cam_labels_uri")),
-        "predictions_dir": get_local_path(config.get("predictions_uri")),
+        "annot_labels_dir": get_local_path(config.annot_labels_uri),
+        "cam_labels_dir": get_local_path(config.cam_labels_uri),
+        "predictions_dir": get_local_path(config.predictions_uri),
     }
 
     with TemporaryDirectory() as output_dir:

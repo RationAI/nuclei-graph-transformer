@@ -1,10 +1,12 @@
 # @package _global_
 
-predictions_uri: null # TODO
-pred_thr: null # threshold for determining positive nuclei
-visualization_mode: "2"
+predictions_uri: ??? # TODO
+checkpoint_url: ??? # TODO
+pred_thr: ??? # threshold for determining positive nuclei, TODO
+visualization_mode: 2
 
 metadata:
   run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"
+  description: "Visualization of model predictions as raster masks. [MLflow training run](${checkpoint_url})"
   hyperparams:
     pred_thr: pred_thr

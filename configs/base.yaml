@@ -5,10 +5,7 @@ defaults:
 
 data_path: /mnt/data/MOU/prostate
 project_path: /mnt/projects/nuclei_based_wsi_analysis
-
-# tile sizes need to be consistent across masks to display correctly in xOpat; this sets project default
-mask_tile_width: 512
-mask_tile_height: 512
+mlflow_project: mlflow-artifacts:/97
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
