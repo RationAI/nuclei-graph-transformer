@@ -1,0 +1,22 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer
+  - /data/sources@data.dataset: # TODO
+  - /model/models@model.net: # TODO
+  - /data/datasets@data.dataset: # TODO
+  - /data/samplers@data.sampler: # TODO
+  - /data/supervision@data.supervision_strategy: positive_agreement # annotation, cam, agreement
+
+mode: fit
+checkpoint: null
+
+trainer: {}
+
+data: {}
+
+model: {}
+
+metadata:
+  run_name: "Train: Self Attention Transformer"
+  description: ""
