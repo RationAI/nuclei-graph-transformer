@@ -238,12 +238,14 @@ class SupervisionStrategy:
 def build_supervision(
     sup_strategy: SupervisionStrategy,
     df_annot: pd.DataFrame,
-    df_cam: pd.DataFrame,
+    df_cam: pd.DataFrame | None,
     label_map: dict[str, int],
 ) -> DatasetSupervision:
 
-    df_merged = pd.merge(
-        df_annot, df_cam, on=["slide_id", "id"], how="inner", validate="1:1"
+    df_merged = (
+        pd.merge(df_annot, df_cam, on=["slide_id", "id"], how="inner", validate="1:1")
+        if df_cam is not None
+        else df_annot
     )
     df_merged = df_merged.sort_values(["slide_id", "id"])
     grouped = df_merged.groupby("slide_id")
@@ -255,7 +257,11 @@ def build_supervision(
         else:
             group = grouped.get_group(slide_id)
             annot = torch.tensor(group["annot_label"].values, dtype=torch.float32)
-            cam = torch.tensor(group["cam_label"].values, dtype=torch.float32)
+            cam = (
+                torch.tensor(group["cam_label"].values, dtype=torch.float32)
+                if df_cam is not None
+                else None
+            )
             nuclei_sup = sup_strategy.create(
                 is_carcinoma=True,
                 annot_labels=annot,

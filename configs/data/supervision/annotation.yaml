@@ -1,2 +1,3 @@
 _target_: nuclei_graph.data.supervision.SupervisionStrategy
 mode: annotation
+cam_thr_type: null

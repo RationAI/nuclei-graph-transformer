@@ -58,7 +58,7 @@ metadata:
   description: "smaller arch"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
-    cam_thr_type: ${data.supervision_strategy.cam_thr_type,null}
+    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.dataset.crop_size}

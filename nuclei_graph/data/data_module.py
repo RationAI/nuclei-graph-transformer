@@ -88,12 +88,16 @@ class DataModule(LightningDataModule):
         self,
         df: DataFrame,
         strategy: SupervisionStrategy,
-        cam_uri: str,
+        cam_uri: str | None,
         annot_labels: DataFrame,
     ) -> DatasetSupervision:
         slide_ids = set(df["slide_id"])
 
-        cam_labels = self._load_df(cam_uri).pipe(get_subset, slide_ids)
+        cam_labels = (
+            self._load_df(cam_uri).pipe(get_subset, slide_ids)
+            if cam_uri is not None
+            else None
+        )
         annot_labels = annot_labels.pipe(get_subset, slide_ids)
 
         return build_supervision(
@@ -140,10 +144,15 @@ class DataModule(LightningDataModule):
                 train = min_count_filter(train, self.dataset_cfg.crop_size)
 
                 # --- load supervision ---
+                cam_uri = (
+                    sup_conf.cam[self.sup_strategy.cam_thr_type]
+                    if self.sup_strategy.cam_thr_type is not None
+                    else None
+                )
                 sup_train = self._prepare_supervision(
                     df=train,
                     strategy=self.sup_strategy,
-                    cam_uri=sup_conf.cam[self.sup_strategy.cam_thr_type],
+                    cam_uri=cam_uri,
                     annot_labels=annot_labels,
                 )
                 sup_val = self._prepare_supervision(
