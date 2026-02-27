@@ -199,3 +199,44 @@ def test_neighbor_coverage(simple_points: PointsFixture) -> None:
                 f"Point {q_idx} (Block {q_block}) has neighbor {neighbor_idx} "
                 f"(Block {target_kv_block}), but mask only allows blocks {allowed_kv_blocks}"
             )
+
+
+def test_symmetric_block_mask() -> None:
+    """Test that the symmetric argument correctly mirrors the block adjacency matrix."""
+    # Point 0 is isolated, Points 1, 2, 3 are clustered together.
+    points = np.array(
+        [
+            [0.0, 0.0],  # Block 0
+            [2.0, 0.0],  # Block 1
+            [2.1, 0.0],  # Block 2
+            [2.2, 0.0],  # Block 3
+        ],
+        dtype=np.float32,
+    )
+    tree = KDTree(points)
+    block_size = 1
+    k = 2  # Each point finds itself + its 1 closest neighbor
+
+    mask_asym = create_block_mask_from_kdtree(
+        tree, points, n_points_unpadded=4, k=k, block_size=block_size, symmetric=False
+    )
+    asym_indices = mask_asym.kv_indices[0, 0]
+
+    assert 1 in asym_indices[0].tolist(), "Block 0 should attend to Block 1"
+    assert 0 not in asym_indices[1].tolist(), (
+        "Block 1 should NOT attend to Block 0 in asymmetric mode"
+    )
+
+    mask_sym = create_block_mask_from_kdtree(
+        tree, points, n_points_unpadded=4, k=k, block_size=block_size, symmetric=True
+    )
+    sym_indices = mask_sym.kv_indices[0, 0]
+
+    assert 1 in sym_indices[0].tolist(), "Block 0 should still attend to Block 1"
+    assert 0 in sym_indices[1].tolist(), (
+        "Block 1 MUST now attend to Block 0 because symmetric=True"
+    )
+
+    assert torch.equal(mask_sym.kv_indices, mask_sym.full_kv_indices), (
+        "full_kv_indices must exactly match kv_indices when attend_all_mask_mod is used"
+    )
