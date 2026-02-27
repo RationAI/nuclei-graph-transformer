@@ -3,9 +3,9 @@
 defaults:
   - /data/sources/prostate_cancer
   - /data/sources@data.dataset: prostate_cancer_stats
-  - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: null
-  - /data/samplers@data.sampler: null
+  - /model/models@model.net: # TODO
+  - /data/datasets@data.dataset: # TODO
+  - /data/samplers@data.sampler: # TODO
   - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: fit
