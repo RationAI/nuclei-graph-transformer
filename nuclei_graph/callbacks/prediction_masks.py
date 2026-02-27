@@ -78,7 +78,6 @@ class PredictionMasksCallback(Callback):
         mask = PILImage.new("L", mask_size, color=0)
         canvas = ImageDraw.Draw(mask)
 
-        # draw prediction heatmaps
         for _, row in nuclei.iterrows():
             poly = rearrange(row["polygon"], "(n c) -> n c", c=2)
             scaled_poly = [(x * scale_x, y * scale_y) for x, y in poly]
