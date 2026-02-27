@@ -1,6 +1,5 @@
 # @package _global_
 
-# Note: tile sizes need to be consistent across masks to display correctly in xOpat
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 mpp: ${dataset.mpp}
