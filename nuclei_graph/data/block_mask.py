@@ -86,11 +86,14 @@ def create_block_mask_from_kdtree(
 
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
+    kv_num_blocks_ext = kv_num_blocks.unsqueeze(0)  # add head dim
+    kv_indices_ext = kv_indices.unsqueeze(0)  # add head dim
+
     return BlockMask.from_kv_blocks(
-        kv_num_blocks=kv_num_blocks.unsqueeze(0),  # add head dim
-        kv_indices=kv_indices.unsqueeze(0),  # add head dim
-        full_kv_num_blocks=None,  # let PyTorch derive the transposed layout (K -> Q)
-        full_kv_indices=None,  # let PyTorch derive the transposed layout (K -> Q)
+        kv_num_blocks=kv_num_blocks_ext,
+        kv_indices=kv_indices_ext,
+        full_kv_num_blocks=kv_num_blocks_ext.clone(),  # every active block is a "full" block
+        full_kv_indices=kv_indices_ext.clone(),  # every active block is a "full" block
         BLOCK_SIZE=(block_size, block_size),
         mask_mod=attend_all_mask_mod,
     )
@@ -122,6 +125,7 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     assert all(m.shape == masks[0].shape for m in masks)
     assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
 
+    # batch KV blocks
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
     kv_indices_list = [m.kv_indices for m in masks]
 
@@ -132,11 +136,22 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     ]
     kv_indices = torch.cat(padded_kv_indices, dim=0)
 
+    # batch full KV blocks
+    full_kv_num_blocks = torch.cat([m.full_kv_num_blocks for m in masks], dim=0)
+    full_kv_indices_list = [m.full_kv_indices for m in masks]
+
+    max_full_kv_len = max(kv.shape[-1] for kv in full_kv_indices_list)
+    padded_full_kv_indices = [
+        torch.nn.functional.pad(kv, (0, max_full_kv_len - kv.shape[-1]), "constant", -1)
+        for kv in full_kv_indices_list
+    ]
+    full_kv_indices = torch.cat(padded_full_kv_indices, dim=0)
+
     batched_mask = BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks,
         kv_indices=kv_indices,
-        full_kv_num_blocks=None,
-        full_kv_indices=None,
+        full_kv_num_blocks=full_kv_num_blocks,
+        full_kv_indices=full_kv_indices,
         BLOCK_SIZE=masks[0].BLOCK_SIZE,
         mask_mod=masks[0].mask_mod,
     )
