@@ -1,8 +1,6 @@
 from kube_jobs import storage, submit_job
 
 
-DATASET_NAME = "prostate_cancer"
-
 submit_job(
     job_name="nuclei-graph-data-exploration",
     username=...,
@@ -14,7 +12,7 @@ submit_job(
         "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        f"uv run -m exploration.save_metadataset +data=datasets/raw/{DATASET_NAME}",
+        "uv run -m exploration.save_metadataset +data=sources/...",
     ],
     storage=[storage.secure.DATA],
 )

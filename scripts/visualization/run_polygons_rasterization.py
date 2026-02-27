@@ -1,11 +1,6 @@
 from kube_jobs import storage, submit_job
 
 
-EXPERIMENT_NAME = (
-    ...
-)  # one of "annotation_labels", "cam_labels", "outline_polygons", "predictions"
-DATASET_NAME = "prostate_cancer"
-
 submit_job(
     job_name="nuclei-graph-polygons-rasterization",
     username=...,
@@ -17,7 +12,7 @@ submit_job(
         "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        f"uv run -m visualization.polygons2raster +experiment=visualization/{EXPERIMENT_NAME} +data=datasets/raw/{DATASET_NAME}",
+        "uv run -m visualization.polygons2raster +experiment=visualization/... +data=sources/...",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
