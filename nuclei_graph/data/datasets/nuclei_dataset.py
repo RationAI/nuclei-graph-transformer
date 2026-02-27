@@ -112,7 +112,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         Returns:
             list[int]: Indices of nuclei in the component.
 
-        Taken from the Nuclei Foundational Model repository.
+        Source: Nuclei Foundational Model repository.
         """
         component_indices: list[int] = []
         visited = np.zeros(len(centroids), dtype=bool)
