@@ -6,7 +6,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: annotation #positive_agreement
+  - /data/supervision@data.supervision_strategy: cam #positive_agreement
 
 mode: fit
 checkpoint: null
