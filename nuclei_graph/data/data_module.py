@@ -1,12 +1,18 @@
 from collections.abc import Iterable
 
 import pandas as pd
+import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
-from nuclei_graph.data.supervision import SupervisionStrategy, build_supervision
+from nuclei_graph.data.supervision import (
+    DatasetSupervision,
+    SupervisionStrategy,
+    build_supervision,
+)
 from omegaconf import DictConfig
 from pandas import DataFrame
+from torch import Tensor
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.utils import (
@@ -23,10 +29,14 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
+EVAL_CAM_THR_TYPE = "annot_restricted_thr"
+EVAL_SUP_STRATEGY = SupervisionStrategy("positive-agreement", EVAL_CAM_THR_TYPE)
+
 BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
     "slide_nuclei_path",
+    "slide_path",
 ]
 
 TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
@@ -57,14 +67,11 @@ class DataModule(LightningDataModule):
         For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "annot_restricted_thr" CAM threshold type.
         """
         super().__init__()
-        assert "dataset" in data_params
-        assert "mlflow_uris" in data_params
-
         self.batch_size = batch_size
         self.sup_strategy = instantiate(supervision_strategy)
         self.num_workers = num_workers
         self.sampler_partial = sampler
-        self.dataset_conf = data_params["dataset"]
+        self.dataset_cfg = data_params["dataset"]
         self.uris_cfg = data_params["mlflow_uris"]
         self.paths_cfg = data_params["paths"]
         self.positivity: dict[str, float] = {}
@@ -78,20 +85,56 @@ class DataModule(LightningDataModule):
         path = download_artifacts(uri)
         return pd.read_parquet(path, columns=cols)
 
+    def _prepare_supervision(
+        self,
+        df: DataFrame,
+        strategy: SupervisionStrategy,
+        cam_uri: str | None,
+        annot_labels: DataFrame,
+    ) -> DatasetSupervision:
+        slide_ids = set(df["slide_id"])
+
+        cam_labels = (
+            self._load_df(cam_uri).pipe(get_subset, slide_ids)
+            if cam_uri is not None
+            else None
+        )
+        annot_labels = annot_labels.pipe(get_subset, slide_ids)
+
+        return build_supervision(
+            strategy,
+            annot_labels,
+            cam_labels,
+            self._get_slide_labels(df),
+        )
+
+    def _prepare_stats(
+        self,
+        df: DataFrame,
+        efds_path: str,
+        target_dim: int,
+        log_scales_list: list[float] | None = None,
+        efd_stats_cfg: DictConfig | None = None,
+    ) -> tuple[tuple[float, ...], dict[str, Tensor]]:
+
+        if log_scales_list is None or efd_stats_cfg is None:
+            return compute_feature_statistics(df, efds_path, target_dim)
+
+        log_scales = tuple(log_scales_list)
+        efd_stats = {
+            "mean": torch.tensor(efd_stats_cfg.mean, dtype=torch.float32)[:target_dim],
+            "std": torch.tensor(efd_stats_cfg.std, dtype=torch.float32)[:target_dim],
+        }
+        return log_scales, efd_stats
+
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
 
-        metadata_uri = self.uris_cfg.metadata[mode]
-
         sup_conf = self.uris_cfg.supervision
         annot_labels = self._load_df(sup_conf.annotation)
-
+        metadata_uri = self.uris_cfg.metadata[mode]
         efds_path = self.paths_cfg.features[mode]
-
-        cam_thr_type = self.sup_strategy.cam_thr_type
-        eval_sup_strategy = SupervisionStrategy(
-            "positive-agreement", "annot_restricted_thr"
-        )
+        target_dim = self.dataset_cfg.efd_order * 4
 
         match stage:
             case "fit" | "validate":
@@ -99,29 +142,25 @@ class DataModule(LightningDataModule):
 
                 # --- split train/val ---
                 train, val = train_val_split(metadata)
-                train = min_count_filter(train, self.dataset_conf.crop_size)
-                train_ids = set(train["slide_id"])
-                val_ids = set(val["slide_id"])
+                train = min_count_filter(train, self.dataset_cfg.crop_size)
 
                 # --- load supervision ---
-                cam_uri_train = sup_conf.cam[cam_thr_type]
-                cam_labels_train = self._load_df(cam_uri_train).pipe(
-                    get_subset, train_ids
+                cam_uri = (
+                    sup_conf.cam[self.sup_strategy.cam_thr_type]
+                    if self.sup_strategy.cam_thr_type is not None
+                    else None
                 )
-                annot_labels_train = annot_labels.pipe(get_subset, train_ids)
-                sup_train = build_supervision(
-                    self.sup_strategy,
-                    annot_labels_train,
-                    cam_labels_train,
-                    self._get_slide_labels(train),
+                sup_train = self._prepare_supervision(
+                    df=train,
+                    strategy=self.sup_strategy,
+                    cam_uri=cam_uri,
+                    annot_labels=annot_labels,
                 )
-
-                cam_uri_val = sup_conf.cam.annot_restricted_thr
-                cam_labels_val = self._load_df(cam_uri_val).pipe(get_subset, val_ids)
-                annot_labels_val = annot_labels.pipe(get_subset, val_ids)
-                labels_val = self._get_slide_labels(val)
-                sup_val = build_supervision(
-                    eval_sup_strategy, annot_labels_val, cam_labels_val, labels_val
+                sup_val = self._prepare_supervision(
+                    df=val,
+                    strategy=EVAL_SUP_STRATEGY,
+                    cam_uri=sup_conf.cam[EVAL_CAM_THR_TYPE],
+                    annot_labels=annot_labels,
                 )
 
                 # --- compute statistics for sampler and normalization ---
@@ -129,64 +168,64 @@ class DataModule(LightningDataModule):
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
-                log_scale_stats, efd_stats = compute_feature_statistics(
-                    train, efds_path, self.dataset_conf.efd_order * 4
+                log_scales, efd_stats = self._prepare_stats(
+                    df=train,
+                    efds_path=efds_path,
+                    target_dim=target_dim,
+                    log_scales_list=self.dataset_cfg.get("log_scale_stats", None),
+                    efd_stats_cfg=self.dataset_cfg.get("efd_stats", None),
                 )
+
                 # --- instantiate datasets ---
                 self.train = instantiate(
-                    self.dataset_conf,
+                    self.dataset_cfg,
                     metadata=train,
-                    log_scale_stats=log_scale_stats,
+                    log_scale_stats=log_scales,
                     efd_stats=efd_stats,
                     supervision=sup_train,
                     efds_path=efds_path,
                 )
                 self.val = instantiate(
-                    self.dataset_conf,
+                    self.dataset_cfg,
                     metadata=val,
-                    log_scale_stats=log_scale_stats,
+                    log_scale_stats=log_scales,
                     efd_stats=efd_stats,
                     supervision=sup_val,
                     efds_path=efds_path,
                     full_slide=True,
                 )
 
-            case "test":
+            case "test" | "predict":
                 metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
-                slide_labels = self._get_slide_labels(metadata)
-                cam_labels = self._load_df(sup_conf.cam.annot_restricted_thr)
-                sup = build_supervision(
-                    eval_sup_strategy, annot_labels, cam_labels, slide_labels
+                sup = self._prepare_supervision(
+                    df=metadata,
+                    strategy=EVAL_SUP_STRATEGY,
+                    cam_uri=sup_conf.cam[EVAL_CAM_THR_TYPE],
+                    annot_labels=annot_labels,
+                )
+                log_scales, efd_stats = self._prepare_stats(
+                    df=metadata,
+                    efds_path=efds_path,
+                    target_dim=target_dim,
+                    log_scales_list=self.dataset_cfg.log_scale_stats,  # must be set
+                    efd_stats_cfg=self.dataset_cfg.efd_stats,  # must be set
                 )
 
-                self.test = instantiate(
-                    self.dataset_conf,
+                dataset = instantiate(
+                    self.dataset_cfg,
                     metadata=metadata,
                     supervision=sup,
-                    log_scale_stats=self.dataset_conf.log_scale_stats,
-                    efd_stats=self.dataset_conf.efd_stats,
+                    log_scale_stats=log_scales,
+                    efd_stats=efd_stats,
                     efds_path=efds_path,
                     full_slide=True,
+                    predict=(stage == "predict"),
                 )
 
-            case "predict":
-                metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
-                slide_labels = self._get_slide_labels(metadata)
-                cam_labels = self._load_df(sup_conf.cam.annot_restricted_thr)
-                sup = build_supervision(
-                    eval_sup_strategy, annot_labels, cam_labels, slide_labels
-                )
-
-                self.predict = instantiate(
-                    self.dataset_conf,
-                    metadata=metadata,
-                    supervision=sup,
-                    log_scale_stats=self.dataset_conf.log_scale_stats,
-                    efd_stats=self.dataset_conf.efd_stats,
-                    efds_path=efds_path,
-                    full_slide=True,
-                    predict=True,
-                )
+                if stage == "test":
+                    self.test = dataset
+                else:
+                    self.predict = dataset
 
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = (

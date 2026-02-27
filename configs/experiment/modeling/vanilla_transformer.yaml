@@ -1,11 +1,12 @@
 # @package _global_
 
 defaults:
-  - /data/datasets/raw/prostate_cancer
+  - /data/sources/prostate_cancer
+  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets/graph@data.dataset: default
-  - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: # TODO
+  - /data/datasets@data.dataset: null
+  - /data/samplers@data.sampler: null
+  - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: fit
 checkpoint: null
@@ -13,7 +14,7 @@ checkpoint: null
 trainer: # TODO
 
 data:
-  sampler_pos_thr: 0.30
+  sampler_pos_thr: 0.20
   batch_size: 8
   paths:
     features: ${dataset.paths.features}
@@ -23,18 +24,19 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 256
+    k: 64
     attn_block_size: 128
-    efd_order: 15
+    efd_order: 10
+    symmetric_block_mask: False
 
 model: # TODO
 
 metadata:
-  run_name: Train, ${data.supervision_strategy.mode}
-  description: "testing run"
+  run_name: "Train: Self Attention Transformer"
+  description: "smaller arch"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
-    cam_thr_type: ${data.supervision_strategy.cam_thr_type}
+    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
     crop_size: ${data.dataset.crop_size}

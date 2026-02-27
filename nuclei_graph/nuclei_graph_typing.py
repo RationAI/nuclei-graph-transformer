@@ -16,6 +16,7 @@ class Crop(TypedDict):
 class Metadata(TypedDict):
     slide_id: str
     slide_nuclei_path: str
+    slide_path: str
     keep_indices: Tensor
     perm_inverse: Tensor
 
