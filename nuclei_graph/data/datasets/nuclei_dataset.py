@@ -49,6 +49,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         k: int = 64,
         attn_block_size: int = 128,
         efd_order: int = 10,
+        symmetric_block_mask: bool = False,
         full_slide: bool = False,
         predict: bool = False,
     ) -> None:
@@ -66,6 +67,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             k: Number of neighbors for sparse attention.
             attn_block_size: Block size for sparse attention. It must hold that `crop_size` mod `attn_block_size` is 0.
             efd_order: Order of the elliptic fourier descriptors used for nuclei shape representation.
+            symmetric_block_mask: Whether to symmetrize the block mask. Defaults to False.
             full_slide: Whether the dataset is used for full slide inference (no cropping).
             predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
         """
@@ -83,6 +85,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.k = k
         self.attn_block_size = attn_block_size
         self.efd_order = efd_order
+        self.symmetric_block_mask = symmetric_block_mask
         self.full_slide = full_slide
         self.predict = predict
 
@@ -275,6 +278,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             n_points_unpadded=len(crop_indices_np),
             k=self.k,
             block_size=self.attn_block_size,
+            symmetric=self.symmetric_block_mask,
         )
 
         crop: Crop = {

@@ -18,6 +18,7 @@ def create_block_mask_from_kdtree(
     n_points_unpadded: int,
     k: int,
     block_size: int,
+    symmetric: bool = False,
 ) -> BlockMask:
     """Generates a single-item BlockMask from a KDTree and a corresponding point array.
 
@@ -34,6 +35,7 @@ def create_block_mask_from_kdtree(
         k: Number of neighbors to query, at least 1.
         n_points_unpadded: Number of points without the padding.
         block_size: Number of points per block.
+        symmetric: Whether to symmetrize the block mask. Defaults to False.
 
     Returns:
         A BlockMask object with layouts (Batch, Head, ...):
@@ -63,6 +65,9 @@ def create_block_mask_from_kdtree(
 
     # mark blocks as connected if any point in Q attends to any point in K
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
+
+    if symmetric:  # enforce symmetric block graph
+        adj_matrix = adj_matrix | adj_matrix.T
 
     # 2. Convert adjacency to BlockMask format
     # ----------------------------------------------------------------

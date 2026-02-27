@@ -38,6 +38,7 @@ data:
     k: 64
     attn_block_size: 128
     efd_order: 10
+    symmetric_block_mask: False
 
 model:
   lr: 1e-4

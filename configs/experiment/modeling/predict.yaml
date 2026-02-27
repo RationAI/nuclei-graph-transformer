@@ -31,6 +31,7 @@ data:
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096
+    symmetric_block_mask: False
 
 model:
   lr: 1e-4
