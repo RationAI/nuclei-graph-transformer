@@ -6,7 +6,7 @@ defaults:
   - /model/models@model.net: # TODO
   - /data/datasets@data.dataset: # TODO
   - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.supervision_strategy: positive_agreement
+  - /data/supervision@data.supervision_strategy: # TODO
 
 mode: fit
 checkpoint: null
