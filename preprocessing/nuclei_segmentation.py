@@ -16,13 +16,9 @@ Each row in the saved Parquet files corresponds to a single nucleus and contains
 
 The `id` is intended to be used for determining a fixed ordering of nuclei within a slide
 (reading partitioned Parquet files does not always guarantee a fixed order).
-
-Note: To run this pipeline, a Hugging Face authentication token must be set in the environment:
-      `export HF_TOKEN=<hf_token>`.
 """
 
 import hashlib
-import os
 from collections.abc import Iterator
 from math import ceil, floor
 from pathlib import Path
@@ -41,6 +37,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 from ratiopath.ray import read_slides
 from ratiopath.tiling import grid_tiles, read_slide_tiles
+from ray.data.expressions import col
 from transformers import AutoImageProcessor, AutoModelForObjectDetection
 
 
@@ -95,13 +92,11 @@ class Model:
         self.model = AutoModelForObjectDetection.from_pretrained(
             "RationAI/LSP-DETR",
             trust_remote_code=True,
-            token=os.environ["HF_TOKEN"],  # requires HF_TOKEN env variable
         ).to(self.device)
         self.model = self.model.eval()
         self.processor = AutoImageProcessor.from_pretrained(
             "RationAI/LSP-DETR",
             trust_remote_code=True,
-            token=os.environ["HF_TOKEN"],  # requires HF_TOKEN env variable
         )
 
     @torch.inference_mode()
@@ -249,7 +244,19 @@ def run_segmentation(
             memory=3 * 1024**3,
         )
         .repartition(target_num_rows_per_block=config.batch_size * 16)
-        .map_batches(read_slide_tiles, num_cpus=1, memory=5 * 1024**3)
+        .with_column(
+            "tile",
+            read_slide_tiles(
+                col("path"),
+                col("tile_x"),
+                col("tile_y"),
+                col("tile_extent_x"),
+                col("tile_extent_y"),
+                col("level"),
+            ),
+            num_cpus=1,
+            memory=5 * 1024**3,
+        )
     )
 
     nuclei = tissue_tiles.map_batches(
