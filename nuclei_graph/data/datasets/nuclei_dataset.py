@@ -227,7 +227,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # slice EFD coefficients to the desired order (number of harmonics)
         target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
         x = efds[:, :target_dim]
-        x = (x - self.efd_mean) / (self.efd_std + 1e-6)  # z-score norm
+        x = (x - self.efd_mean) / (self.efd_std + 1e-6)
 
         angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
         # double so that θ and θ + π map to the same values (nuclei/ellipses are symmetric)
@@ -293,6 +293,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             metadata: Metadata = {
                 "slide_id": slide_id,
                 "slide_nuclei_path": nuclei_path,
+                "slide_path": self.metadata.iloc[idx].slide_path,
                 "keep_indices": keep,
                 "perm_inverse": self.get_inverse_perm(perm_t),
             }

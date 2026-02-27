@@ -62,17 +62,9 @@ reporter:
         type: edge
         color: "#FFFF00" # yellow
 
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: nuclei_masks
-    #   run_id: 8bb9401d74a0429e92413496be7c1910
-    #   layer_name: Segmented Nuclei
-    #   shader_conf:
-    #     type: heatmap
-    #     color: "#00FF00" # green
-
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: nuclei_masks
-      run_id: 3673f8c01997497c96b3e0be31dc2377
+      dir_name: prediction_masks
+      run_id: 6a429d49ae4e41c18f96875f0bcb9a06
       layer_name: Predictions Nuclei
       shader_conf:
         type: heatmap

@@ -4,7 +4,7 @@ defaults:
   - /data/sources/prostate_cancer
   - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets/graph@data.dataset: default
+  - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision_strategy: positive_agreement
 
 mode: predict
@@ -13,14 +13,20 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 
 trainer:
   callbacks:
-    - _target_: nuclei_graph.callbacks.PredictionsCallback
     - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
+    - _target_: nuclei_graph.callbacks.PredictionsCallback
+      mlflow_artifact_path: "predictions"
+    - _target_: nuclei_graph.callbacks.PredictionMasksCallback
+      level: 2
+      mask_tile_width: 512
+      mask_tile_height: 512
+      mlflow_artifact_path: "prediction_masks"
 
 data:
   batch_size: 1
   paths:
     features:
-      predict: ${project_path}/nuclei_efd/tile_level_annotations_test
+      predict: ${project_path}/nuclei_efds/tile_level_annotations_test
   mlflow_uris:
     metadata:
       predict: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
@@ -48,6 +54,6 @@ model:
 
 metadata:
   run_name: 📊 Predictions
-  description: "Prediction Metrics: [MLflow training run](${checkpoint_url})"
+  description: "Predictions: [MLflow training run](${checkpoint_url})"
   hyperparams:
     checkpoint: ${checkpoint}

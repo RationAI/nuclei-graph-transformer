@@ -36,6 +36,7 @@ BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
     "slide_nuclei_path",
+    "slide_path",
 ]
 
 TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
