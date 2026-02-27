@@ -64,7 +64,7 @@ def create_block_mask_from_kdtree(
     # mark blocks as connected if any point in Q attends to any point in K
     adj_matrix[q_block_ids_expanded[valid_mask], kv_block_ids[valid_mask]] = True
 
-    # 2. Convert adjacency to BlockMask format:
+    # 2. Convert adjacency to BlockMask format
     # ----------------------------------------------------------------
     kv_counts = adj_matrix.sum(axis=1)
     kv_num_blocks = torch.from_numpy(kv_counts).int().unsqueeze(0)
