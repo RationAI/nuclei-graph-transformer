@@ -26,6 +26,5 @@ model: # TODO
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "smaller arch"
   hyperparams:
     batch_size: ${data.batch_size}
