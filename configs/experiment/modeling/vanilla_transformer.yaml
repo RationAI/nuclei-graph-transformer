@@ -28,12 +28,4 @@ metadata:
   run_name: "Train: Self Attention Transformer"
   description: "smaller arch"
   hyperparams:
-    supervision_mode: ${data.supervision_strategy.mode}
-    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
-    sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
-    crop_size: ${data.dataset.crop_size}
-    alpha: ${data.dataset.alpha}
-    k: ${data.dataset.k}
-    attn_block_size: ${data.dataset.attn_block_size}
-    efd_order: ${data.dataset.efd_order}
