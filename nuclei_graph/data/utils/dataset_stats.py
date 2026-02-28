@@ -50,8 +50,8 @@ def compute_feature_statistics(
     efd_var = (efd_sq_sum / total_count) - (efd_mean**2)
     efd_std = torch.sqrt(torch.clamp(efd_var, min=1e-8))
 
-    print(f"[INFO] Computed log_scale mean: {log_scale_mean:.4f}")
-    print(f"[INFO] Computed log_scale std: {log_scale_std:.4f}")
+    print(f"[INFO] Computed log scale mean: {log_scale_mean:.4f}")
+    print(f"[INFO] Computed log scale std: {log_scale_std:.4f}")
     print(f"[INFO] Computed EFD mean: {efd_mean}")
     print(f"[INFO] Computed EFD std: {efd_std}")
 

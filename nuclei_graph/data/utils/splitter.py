@@ -46,23 +46,19 @@ def train_val_split(
 
     # --- Summary ---
     print("\n" + "DATA SPLIT SUMMARY")
-
-    orig_pos_rate = labels.mean()
-    print(f"Original Dataset Positivity: {orig_pos_rate:.1%}\n")
+    print(f"Original Dataset Positivity: {labels.mean():.1%}\n")
 
     for name, split_df in [("Train", df_train), ("Val", df_val)]:
         n_slides = len(split_df)
-        n_patients = split_df["patient_id"].nunique()
         pos_slides = split_df["is_carcinoma"].sum()
         neg_slides = n_slides - pos_slides
         pos_rate = pos_slides / n_slides if n_slides > 0 else 0
 
         print(f"{name} Set:")
-        print(f"  Patients:   {n_patients}")
+        print(f"  Patients:   {split_df['patient_id'].nunique()}")
         print(f"  Slides:     {n_slides} (Pos: {pos_slides}, Neg: {neg_slides})")
         print(f"  Positivity: {pos_rate:.1%}")
         print("-" * 30 + "\n")
-    # ---------------------------
 
     return df_train, df_val
 
