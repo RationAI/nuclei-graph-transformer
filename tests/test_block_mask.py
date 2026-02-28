@@ -7,6 +7,7 @@ from torch.nn.attention.flex_attention import BlockMask
 from nuclei_graph.data.block_mask import (
     batch_block_masks,
     create_block_mask_from_kdtree,
+    mask_mixed_blocks,
 )
 
 
@@ -236,7 +237,89 @@ def test_symmetric_block_mask() -> None:
     assert 0 in sym_indices[1].tolist(), (
         "Block 1 MUST now attend to Block 0 because symmetric=True"
     )
+    assert mask_sym.full_kv_indices is not None
+    assert torch.equal(mask_sym.kv_indices, mask_sym.full_kv_indices)
 
     assert torch.equal(mask_sym.kv_indices, mask_sym.full_kv_indices), (
         "full_kv_indices must exactly match kv_indices when attend_all_mask_mod is used"
+    )
+
+
+def test_mask_mixed_blocks() -> None:
+    """Test that boundary/padded blocks are demoted from full blocks."""
+    # Create a 6-point layout mapped to 3 blocks (block_size=2).
+    # Block 0: Valid
+    # Block 1: Valid
+    # Block 2: Contains padding (only 1 valid point)
+    points = np.array(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],  # Block 0 (fully valid)
+            [1.0, 0.0],
+            [1.1, 0.0],  # Block 1 (fully valid)
+            [2.0, 0.0],
+            [0.0, 0.0],  # Block 2 (1 valid, 1 padded)
+        ],
+        dtype=np.float32,
+    )
+    tree = KDTree(points)
+    block_size = 2
+    n_unpadded = 5  # 6th point is the  padding
+    seq_len = torch.tensor([5])  # batch size 1, sequence length 5
+
+    # Points attend to themselves and 1 neighbor (k=2)
+    # Block 0 attends to Block 0
+    # Block 1 attends to Block 1
+    # Block 2 attends to Block 2 and Block 1
+    # Symmetric=True will force Block 1 to attend to Block 2
+    mask = create_block_mask_from_kdtree(
+        tree,
+        points,
+        n_points_unpadded=n_unpadded,
+        k=2,
+        block_size=block_size,
+        symmetric=True,
+    )
+
+    # check initial state (everything is considered a "full" block)
+    assert mask.full_kv_num_blocks is not None
+    assert mask.full_kv_indices is not None
+    assert torch.equal(mask.kv_indices, mask.full_kv_indices)
+    assert torch.equal(mask.kv_num_blocks, mask.full_kv_num_blocks)
+
+    adjusted_mask = mask_mixed_blocks(mask, seq_len)
+
+    assert adjusted_mask.full_kv_num_blocks is not None
+    assert adjusted_mask.full_kv_indices is not None
+
+    full_kv_num = adjusted_mask.full_kv_num_blocks[0, 0]
+    full_kv_idx = adjusted_mask.full_kv_indices[0, 0]
+
+    # blocks 0 and 1 are valid. Block 2 is the padded boundary block.
+
+    # Query blocks containing padding cannot be full
+    # Query Block 2 should have 0 full KV blocks
+    assert full_kv_num[2] == 0, (
+        "Query Block 2 contains padding and should have 0 full blocks."
+    )
+    assert torch.all(full_kv_idx[2] == -1), (
+        "Query Block 2 full indices should all be -1."
+    )
+
+    # KV blocks containing padding cannot be full
+    # Query Block 1 attends to Block 2 (because of symmetric=True).
+    # since Block 2 is a padding block, it must be removed from Block 1's FULL blocks.
+    assert 2 not in full_kv_idx[1].tolist(), (
+        "Query Block 1 cannot have Block 2 as a full block, because Block 2 contains padding."
+    )
+
+    # Block 1 should still have Block 1 as a full block
+    assert 1 in full_kv_idx[1].tolist(), (
+        "Query Block 1 should still consider Block 1 as a full block."
+    )
+
+    # test that standard kv_indices was not mutated
+    # Block 1 should still attend to Block 2 in the standard kv_indices
+    assert 2 in adjusted_mask.kv_indices[0, 0, 1].tolist(), (
+        "Standard kv_indices should not be mutated; Block 1 must still attend to Block 2."
     )
