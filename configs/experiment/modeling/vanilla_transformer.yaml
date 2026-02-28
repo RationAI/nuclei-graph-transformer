@@ -33,7 +33,7 @@ data:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
   dataset:
-    crop_size: 1024
+    crop_size: 2048
     alpha: 0.8
     k: 64
     attn_block_size: 128
@@ -55,7 +55,7 @@ model:
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "cam sup, smaller sampler thr=0.10, crop=1024, k=64"
+  description: "cam sup, smaller sampler thr=0.10, crop=2048, k=64"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
