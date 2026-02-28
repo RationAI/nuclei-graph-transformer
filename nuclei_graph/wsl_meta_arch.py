@@ -3,10 +3,6 @@ from typing import Any
 import torch
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
-from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    PredictBatch,
-)
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -19,6 +15,10 @@ from torchmetrics.classification import (
 )
 
 from nuclei_graph.data.block_mask import mask_mixed_blocks
+from nuclei_graph.nuclei_graph_typing import (
+    Batch,
+    PredictBatch,
+)
 
 
 class WSLMetaArch(LightningModule):
