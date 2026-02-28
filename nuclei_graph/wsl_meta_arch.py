@@ -4,7 +4,6 @@ import torch
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
-from torch.nn.attention.flex_attention import BlockMask
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torchmetrics import Metric, MetricCollection
@@ -15,6 +14,7 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
+from nuclei_graph.data.block_mask import mask_mixed_blocks
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
     PredictBatch,
@@ -46,28 +46,11 @@ class WSLMetaArch(LightningModule):
         self.val_step_sizes: list[int] = []
 
     def forward(self, batch: Batch) -> Tensor:
-        _block_mask = batch["block_mask"]
+        block_mask = batch["block_mask"]
 
         # in case of validation/test/pediction stage we have to handle mixed blocks
         if not self.training:
-            device = batch["seq_len"].device
-            seq_lens = batch["seq_len"]
-
-            def padding_mask_mod(
-                b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor
-            ) -> Tensor:
-                return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
-
-            block_mask = BlockMask.from_kv_blocks(
-                kv_num_blocks=_block_mask.kv_num_blocks.to(device),
-                kv_indices=_block_mask.kv_indices.to(device),
-                full_kv_num_blocks=None,
-                full_kv_indices=None,
-                BLOCK_SIZE=_block_mask.BLOCK_SIZE,
-                mask_mod=padding_mask_mod,
-            )
-        else:  # during training, all points are valid
-            block_mask = _block_mask
+            block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
         return self.net(batch["x"], batch["pos"], block_mask)
 

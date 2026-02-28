@@ -104,6 +104,14 @@ def create_block_mask_from_kdtree(
     )
 
 
+def _pad_indices(indices_list: list[Tensor]) -> list[Tensor]:
+    max_len = max(idx.shape[-1] for idx in indices_list)
+    return [
+        torch.nn.functional.pad(idx, (0, max_len - idx.shape[-1]), "constant", -1)
+        for idx in indices_list
+    ]
+
+
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     """Batch a list of single-item BlockMask objects into one batched BlockMask.
 
@@ -130,27 +138,11 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     assert all(m.shape == masks[0].shape for m in masks)
     assert all(m.BLOCK_SIZE == masks[0].BLOCK_SIZE for m in masks)
 
-    # batch KV blocks
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
-    kv_indices_list = [m.kv_indices for m in masks]
+    kv_indices = torch.cat(_pad_indices([m.kv_indices for m in masks]), dim=0)
 
-    max_kv_len = max(kv.shape[-1] for kv in kv_indices_list)
-    padded_kv_indices = [
-        torch.nn.functional.pad(kv, (0, max_kv_len - kv.shape[-1]), "constant", -1)
-        for kv in kv_indices_list
-    ]
-    kv_indices = torch.cat(padded_kv_indices, dim=0)
-
-    # batch full KV blocks
     full_kv_num_blocks = torch.cat([m.full_kv_num_blocks for m in masks], dim=0)
-    full_kv_indices_list = [m.full_kv_indices for m in masks]
-
-    max_full_kv_len = max(kv.shape[-1] for kv in full_kv_indices_list)
-    padded_full_kv_indices = [
-        torch.nn.functional.pad(kv, (0, max_full_kv_len - kv.shape[-1]), "constant", -1)
-        for kv in full_kv_indices_list
-    ]
-    full_kv_indices = torch.cat(padded_full_kv_indices, dim=0)
+    full_kv_indices = torch.cat(_pad_indices([m.full_kv_indices for m in masks]), dim=0)
 
     batched_mask = BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks,
@@ -161,3 +153,51 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
         mask_mod=masks[0].mask_mod,
     )
     return batched_mask
+
+
+def mask_mixed_blocks(block_mask: BlockMask, seq_lens: Tensor) -> BlockMask:
+    """Demotes padded boundary blocks to partial blocks and applies a point-level padding mask."""
+    device = seq_lens.device
+
+    def padding_mask_mod(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
+        return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
+
+    if block_mask.full_kv_num_blocks is None:
+        return BlockMask.from_kv_blocks(
+            kv_num_blocks=block_mask.kv_num_blocks.to(device),
+            kv_indices=block_mask.kv_indices.to(device),
+            full_kv_num_blocks=None,
+            full_kv_indices=None,
+            BLOCK_SIZE=block_mask.BLOCK_SIZE,
+            mask_mod=padding_mask_mod,
+        )
+
+    full_kv_num = block_mask.full_kv_num_blocks.to(device).clone()
+    full_kv_idx = block_mask.full_kv_indices.to(device).clone()
+    block_size = block_mask.BLOCK_SIZE[0]
+
+    for b in range(seq_lens.shape[0]):
+        num_fully_valid_blocks = seq_lens[b] // block_size
+        valid_q_mask = slice(None, num_fully_valid_blocks)
+
+        # Query block contains padding -> demote to partial block
+        full_kv_idx[b, :, num_fully_valid_blocks:] = -1
+        full_kv_num[b, :, num_fully_valid_blocks:] = 0
+
+        # Key/Value block contains padding -> remove from full blocks list
+        invalid_kv_mask = full_kv_idx[b, :, valid_q_mask] >= num_fully_valid_blocks
+        full_kv_idx[b, :, valid_q_mask][invalid_kv_mask] = -1
+
+        # Recompute valid full block counts for the fully valid query blocks
+        full_kv_num[b, :, valid_q_mask] = (
+            (full_kv_idx[b, :, valid_q_mask] != -1).sum(dim=-1).to(full_kv_num.dtype)
+        )
+
+    return BlockMask.from_kv_blocks(
+        kv_num_blocks=block_mask.kv_num_blocks.to(device),
+        kv_indices=block_mask.kv_indices.to(device),
+        full_kv_num_blocks=full_kv_num,
+        full_kv_indices=full_kv_idx,
+        BLOCK_SIZE=block_mask.BLOCK_SIZE,
+        mask_mod=padding_mask_mod,
+    )
