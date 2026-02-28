@@ -19,3 +19,15 @@ The preprocessing pipeline follows these steps:
 
 6. **Map Slides to Nuclei** (`metadata_mapping.py`)  
    Creates a mapping between slide IDs, patient IDs, Mirax files, carcinoma status, and the nuclei segmentation folders.
+
+### AMACR Ground Truth
+
+7. **Tissue Masks** (`tissue_masks.py`, `tissue_masks_erode_edges.py`)  
+   Computes tissue masks for filtering out the staining at the borders of tissue sections.
+ 
+8. **AMACR Mask** (`amacr_masks.py`)  
+   Computes AMACR mask by isolating the stain using adaptive color deconvolution, hysteresis thresholding, and morphological cleaning.
+
+9. **AMACR Mask Refinement** (`amacr_masks_refinement.py`)  
+   Filters out artifacts and dilates the mask to obtain AMACR-based annotation masks.
+

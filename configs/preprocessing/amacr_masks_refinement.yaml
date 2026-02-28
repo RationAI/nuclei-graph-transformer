@@ -1,0 +1,29 @@
+# @package _global_
+
+refinement_params:
+  noise_removal_radius: ???
+  min_pre_dilation_area: ???
+  dilation_disk_size: ???
+  max_hole_size: ???
+  min_final_object_size: ???
+  cleanup_scale: ???
+
+tile_size: 8192
+target_scale: 4 # downsampling factor (4 corresponds to level 2 for slides with 0.25 MPP at level 0)
+max_concurrent: 6 # TODO
+metadata_uri: ${dataset.mlflow_uris.exploration}
+raw_masks_uri: ${dataset.mlflow_uris.masks.amacr.raw}
+eroded_tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue.eroded}
+mlflow_artifact_path: amacr_masks_refined
+
+metadata:
+  run_name: "🎭 AMACR Masks, Refined: ${dataset.name}"
+  hyperparams:
+    noise_removal_radius: ${refinement_params.noise_removal_radius}
+    min_pre_dilation_area: ${refinement_params.min_pre_dilation_area}
+    dilation_disk_size: ${refinement_params.dilation_disk_size}
+    max_hole_size: ${refinement_params.max_hole_size}
+    min_final_object_size: ${refinement_params.min_final_object_size}
+    cleanup_scale: ${refinement_params.cleanup_scale}
+    tile_size: ${tile_size}
+    target_scale: ${target_scale}
