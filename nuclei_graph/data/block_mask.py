@@ -141,6 +141,9 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
     kv_num_blocks = torch.cat([m.kv_num_blocks for m in masks], dim=0)
     kv_indices = torch.cat(_pad_indices([m.kv_indices for m in masks]), dim=0)
 
+    assert all(m.full_kv_num_blocks is not None for m in masks)
+    assert all(m.full_kv_indices is not None for m in masks)
+
     full_kv_num_blocks = torch.cat([m.full_kv_num_blocks for m in masks], dim=0)
     full_kv_indices = torch.cat(_pad_indices([m.full_kv_indices for m in masks]), dim=0)
 
@@ -162,7 +165,7 @@ def mask_mixed_blocks(block_mask: BlockMask, seq_lens: Tensor) -> BlockMask:
     def padding_mask_mod(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
         return (q_idx < seq_lens[b]) & (kv_idx < seq_lens[b])
 
-    if block_mask.full_kv_num_blocks is None:
+    if block_mask.full_kv_num_blocks is None or block_mask.full_kv_indices is None:
         return BlockMask.from_kv_blocks(
             kv_num_blocks=block_mask.kv_num_blocks.to(device),
             kv_indices=block_mask.kv_indices.to(device),
@@ -177,7 +180,7 @@ def mask_mixed_blocks(block_mask: BlockMask, seq_lens: Tensor) -> BlockMask:
     block_size = block_mask.BLOCK_SIZE[0]
 
     for b in range(seq_lens.shape[0]):
-        num_fully_valid_blocks = seq_lens[b] // block_size
+        num_fully_valid_blocks = int((seq_lens[b] // block_size).item())
         valid_q_mask = slice(None, num_fully_valid_blocks)
 
         # Query block contains padding -> demote to partial block
