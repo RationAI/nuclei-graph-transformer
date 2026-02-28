@@ -33,7 +33,6 @@ model: {}
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "smaller arch"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
     cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
