@@ -40,9 +40,7 @@ class PredictionsCallback(Callback):
         predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
         nuclei.loc[keep_indices.cpu().numpy(), "prediction"] = predicted_labels
 
-        # some nuclei may not have predictions (nuclei that have a very close neighbor
-        # (< eps) are removed in NucleiDataset due to assumptions in graph construction);
-        # we use nearest neighbor interpolation to fill in the missing predictions
+        # interpolate missing nuclei (eps-close neighbors dropped in the NucleiDataset)
         if nuclei["prediction"].isna().any():
             valid = nuclei.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())

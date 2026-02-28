@@ -58,7 +58,7 @@ class PredictionMasksCallback(Callback):
         predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
         nuclei.loc[keep_indices.cpu().numpy(), "prediction"] = predicted_labels
 
-        # interpolate missing nuclei
+        # interpolate missing nuclei (eps-close neighbors dropped in the NucleiDataset)
         if nuclei["prediction"].isna().any():
             valid = nuclei.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())
