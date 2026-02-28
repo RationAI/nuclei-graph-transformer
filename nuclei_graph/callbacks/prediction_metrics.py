@@ -17,7 +17,7 @@ class PredictionMetricsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
     ) -> None:
-        metrics = cast("MetricCollection", pl_module.predict_metrics_global)
+        metrics = cast("MetricCollection", pl_module.predict_metrics)
         computed_metrics = metrics.compute()
 
         for key, value in computed_metrics.items():
@@ -46,5 +46,5 @@ class PredictionMetricsCallback(Callback):
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
-        metrics = cast("MetricCollection", pl_module.predict_metrics_global)
+        metrics = cast("MetricCollection", pl_module.predict_metrics)
         metrics.update(preds_sup, targets_sup.long())

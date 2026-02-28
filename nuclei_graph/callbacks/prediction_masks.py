@@ -59,7 +59,7 @@ class PredictionMasksCallback(Callback):
         predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
         nuclei.loc[keep_indices.cpu().numpy(), "prediction"] = predicted_labels
 
-        # interpolate missing nuclei
+        # interpolate missing nuclei (eps-close neighbors dropped in the NucleiDataset)
         if nuclei["prediction"].isna().any():
             valid = nuclei.dropna(subset=["prediction"])
             coords = np.stack(valid["centroid"].tolist())
@@ -79,7 +79,6 @@ class PredictionMasksCallback(Callback):
         mask = PILImage.new("L", mask_size, color=0)
         canvas = ImageDraw.Draw(mask)
 
-        # draw prediction heatmaps
         for _, row in nuclei.iterrows():
             poly = rearrange(row["polygon"], "(n c) -> n c", c=2)
             scaled_poly = [(x * scale_x, y * scale_y) for x, y in poly]
