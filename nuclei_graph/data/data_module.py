@@ -30,7 +30,7 @@ from nuclei_graph.nuclei_graph_typing import (
 
 
 EVAL_CAM_THR_TYPE = "annot_restricted_thr"
-EVAL_SUP_STRATEGY = SupervisionStrategy("positive-agreement", EVAL_CAM_THR_TYPE)
+EVAL_SUP_STRATEGY = SupervisionStrategy("agreement", EVAL_CAM_THR_TYPE)
 
 BASE_METADATA_COLS = [
     "slide_id",

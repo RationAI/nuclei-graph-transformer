@@ -138,7 +138,8 @@ class AgreementNucleiSupervision(NucleiSupervision):
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
         assert self.annot_labels is not None and self.cam_labels is not None
-        return (self.annot_labels == 1) & (self.cam_labels == 1)
+        return self.annot_labels == self.cam_labels
+        # return (self.annot_labels == 1) & (self.cam_labels == 1)
 
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
