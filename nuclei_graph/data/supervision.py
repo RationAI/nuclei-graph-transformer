@@ -97,7 +97,7 @@ class CAMNucleiSupervision(NucleiSupervision):
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
         assert self.cam_labels is not None
-        return self.cam_labels == 1
+        return self.cam_labels != -1  # self.cam_labels == 1
 
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
