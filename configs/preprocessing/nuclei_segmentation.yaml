@@ -1,0 +1,18 @@
+# @package _global_
+
+mpp: ${dataset.mpp}
+tile_extent: 2048
+overlap: 64
+batch_size: 8
+tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue}
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+output_path: ${project_path}/nuclei_segmentation
+
+metadata:
+  run_name: "Nuclei Segmentation: ${dataset.name}"
+  hyperparams:
+    mpp: ${mpp}
+    tile_extent: ${tile_extent}
+    overlap: ${overlap}
+    batch_size: ${batch_size}

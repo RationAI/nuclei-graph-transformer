@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer
+  - _self_
+
+overlap_threshold: 0.5
+positive_threshold: 0.6 # determined by pathologist
+negative_threshold: 0.4 # determined by pathologist
+
+metadata:
+  description: "CAM-based nuclei labeling with default thresholds (no assumptions for thresholding)."

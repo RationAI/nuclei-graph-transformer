@@ -1,0 +1,6 @@
+# @package _global_
+
+visualization_mode: 1
+
+metadata:
+  run_name: "Nuclei Masks — Outline Polygons: ${dataset.name}"
