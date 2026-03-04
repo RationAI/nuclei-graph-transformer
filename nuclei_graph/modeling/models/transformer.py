@@ -1,3 +1,5 @@
+import torch
+from einops import rearrange
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
@@ -33,6 +35,7 @@ class Transformer(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
+        self.batch_norm = nn.BatchNorm1d(config.efd_order * 4 + 1)  # EFDs and scale
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim, config.num_classes)
@@ -50,7 +53,14 @@ class Transformer(nn.Module):
         Returns:
             Tensor of shape (b, n, 1).
         """
-        x = self.input_proj(x)
+        to_norm = x[..., :-2]
+        angles = x[..., -2:]  # do not normalize angles
+
+        norm = self.batch_norm(rearrange(to_norm, "b n d -> (b n) d"))
+        norm = rearrange(norm, "(b n) d -> b n d", b=to_norm.size(0))
+
+        x_norm = torch.cat([norm, angles], dim=-1)
+        x = self.input_proj(x_norm)
 
         for layer in self.layers:
             x = layer(x, pos, block_mask)

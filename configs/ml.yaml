@@ -1,15 +1,15 @@
 defaults:
   - base
-  - /experiment/modeling: vanilla_transformer #predict
   - _self_
+  - /experiment/modeling: vanilla_transformer #predict
 
 seed: ${random_seed:}
 mode: ???
-checkpoint: ???
+checkpoint: null
 
 trainer:
   enable_checkpointing: true
-  max_epochs: 150
+  max_epochs: 180
   log_every_n_steps: 5
 
 data:

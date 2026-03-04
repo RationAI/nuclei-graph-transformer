@@ -1,13 +1,11 @@
 from collections.abc import Iterable
 
 import pandas as pd
-import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from pandas import DataFrame
-from torch import Tensor
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.supervision import (
@@ -18,7 +16,6 @@ from nuclei_graph.data.supervision import (
 from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
-    compute_feature_statistics,
     get_subset,
     min_count_filter,
     train_val_split,
@@ -61,7 +58,6 @@ class DataModule(LightningDataModule):
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
                 - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
-                - paths: DictConfig with key "features" containing paths to nuclei EFD representations.
 
         The choice of supervision strategy only affects positive slides during the training (fit stage).
         For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "annot_restricted_thr" CAM threshold type.
@@ -108,33 +104,12 @@ class DataModule(LightningDataModule):
             self._get_slide_labels(df),
         )
 
-    def _prepare_stats(
-        self,
-        df: DataFrame,
-        efds_path: str,
-        target_dim: int,
-        log_scales_list: list[float] | None = None,
-        efd_stats_cfg: DictConfig | None = None,
-    ) -> tuple[tuple[float, ...], dict[str, Tensor]]:
-
-        if log_scales_list is None or efd_stats_cfg is None:
-            return compute_feature_statistics(df, efds_path, target_dim)
-
-        log_scales = tuple(log_scales_list)
-        efd_stats = {
-            "mean": torch.tensor(efd_stats_cfg.mean, dtype=torch.float32)[:target_dim],
-            "std": torch.tensor(efd_stats_cfg.std, dtype=torch.float32)[:target_dim],
-        }
-        return log_scales, efd_stats
-
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
 
         sup_conf = self.uris_cfg.supervision
         annot_labels = self._load_df(sup_conf.annotation)
         metadata_uri = self.uris_cfg.metadata[mode]
-        efds_path = self.paths_cfg.features[mode]
-        target_dim = self.dataset_cfg.efd_order * 4
 
         match stage:
             case "fit" | "validate":
@@ -168,30 +143,16 @@ class DataModule(LightningDataModule):
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
-                log_scales, efd_stats = self._prepare_stats(
-                    df=train,
-                    efds_path=efds_path,
-                    target_dim=target_dim,
-                    log_scales_list=self.dataset_cfg.get("log_scale_stats", None),
-                    efd_stats_cfg=self.dataset_cfg.get("efd_stats", None),
-                )
-
                 # --- instantiate datasets ---
                 self.train = instantiate(
                     self.dataset_cfg,
                     metadata=train,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
                     supervision=sup_train,
-                    efds_path=efds_path,
                 )
                 self.val = instantiate(
                     self.dataset_cfg,
                     metadata=val,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
                     supervision=sup_val,
-                    efds_path=efds_path,
                     full_slide=True,
                 )
 
@@ -203,21 +164,10 @@ class DataModule(LightningDataModule):
                     cam_uri=sup_conf.cam[EVAL_CAM_THR_TYPE],
                     annot_labels=annot_labels,
                 )
-                log_scales, efd_stats = self._prepare_stats(
-                    df=metadata,
-                    efds_path=efds_path,
-                    target_dim=target_dim,
-                    log_scales_list=self.dataset_cfg.log_scale_stats,  # must be set
-                    efd_stats_cfg=self.dataset_cfg.efd_stats,  # must be set
-                )
-
                 dataset = instantiate(
                     self.dataset_cfg,
                     metadata=metadata,
                     supervision=sup,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
-                    efds_path=efds_path,
                     full_slide=True,
                     predict=(stage == "predict"),
                 )

@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+from numpy.typing import NDArray
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
@@ -15,10 +16,10 @@ class Crop(TypedDict):
 
 class Metadata(TypedDict):
     slide_id: str
-    slide_nuclei_path: str
     slide_path: str
-    keep_indices: Tensor
+    slide_nuclei_path: str
     perm_inverse: Tensor
+    nuclei_ids: NDArray
 
 
 Slide = Crop  # a full-slide crop

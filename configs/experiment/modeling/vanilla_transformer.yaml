@@ -2,14 +2,12 @@
 
 defaults:
   - /data/sources/prostate_cancer
-  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
   - /data/supervision@data.supervision_strategy: cam
 
 mode: fit
-checkpoint: null
 
 trainer:
   gradient_clip_val: 0.7
@@ -27,8 +25,6 @@ trainer:
 data:
   sampler_pos_thr: 0.10
   batch_size: 8
-  paths:
-    features: ${dataset.paths.features}
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
@@ -45,7 +41,8 @@ model:
   warmup_epochs: 8
   net:
     config:
-      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + sin/cos angles + scale
+      efd_order: ${data.dataset.efd_order}
+      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
       dim: 256
       hidden_dim: 1024
       num_heads: 8

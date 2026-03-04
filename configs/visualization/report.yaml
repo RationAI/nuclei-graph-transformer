@@ -64,11 +64,30 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: 6a429d49ae4e41c18f96875f0bcb9a06
-      layer_name: Predictions Nuclei
+      run_id: 03fecd4a23d446c7868c3d4cd96adcb0
+      layer_name: "Preds Agreement"
       shader_conf:
+        visible: False
         type: heatmap
         color: "#0000FF" # blue
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_masks
+      run_id: d8eb0b9b011f49bcbac5a15d81e511f4
+      layer_name: "Preds CAM"
+      shader_conf:
+        visible: False
+        type: heatmap
+        color: "#000000" # black
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_masks
+      run_id: ba070eda74d442229b63ce8bed7f1c7b
+      layer_name: "Preds Positive Agreement"
+      shader_conf:
+        visible: False
+        type: heatmap
+        color: "#00FF00" # green
 
 metadata:
   run_name: Report — Nuclei Masks
