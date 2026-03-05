@@ -1,0 +1,6 @@
+# @package _global_
+
+visualization_mode: 4
+
+metadata:
+  run_name: "Nuclei Masks — CAM-based Pseudo Labeling: ${dataset.name}"
