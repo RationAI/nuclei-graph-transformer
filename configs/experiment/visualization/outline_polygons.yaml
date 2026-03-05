@@ -1,9 +1,6 @@
 # @package _global_
 
-visualization_mode: "1"
-slides_uris:
-  - ${dataset.mlflow_uris.exploration.train}
-  - ${dataset.mlflow_uris.exploration.test}
+visualization_mode: 1
 
 metadata:
   run_name: "Nuclei Masks — Outline Polygons: ${dataset.name}"

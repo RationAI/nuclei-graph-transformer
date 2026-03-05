@@ -33,12 +33,12 @@ import torch
 from mlflow.artifacts import download_artifacts
 from numpy.typing import NDArray
 from omegaconf import DictConfig
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 from ratiopath.ray import read_slides
-from ratiopath.tiling import grid_tiles
-from ratiopath.tiling.utils import _read_openslide_tiles as read_openslide_tiles
+from ratiopath.tiling import grid_tiles, read_slide_tiles
+from ray.data.expressions import col
 from transformers import AutoImageProcessor, AutoModelForObjectDetection
 
 
@@ -270,8 +270,18 @@ def run_segmentation(
             memory=3 * 1024**3,
         )
         .repartition(target_num_rows_per_block=config.batch_size * 16)
-        .map_batches(
-            read_slide_tiles, batch_format="numpy", num_cpus=1, memory=5 * 1024**3
+        .with_column(
+            "tile",
+            read_slide_tiles(
+                col("path"),
+                col("tile_x"),
+                col("tile_y"),
+                col("tile_extent_x"),
+                col("tile_extent_y"),
+                col("level"),
+            ),
+            num_cpus=1,
+            memory=5 * 1024**3,
         )
     )
 
@@ -293,11 +303,8 @@ def run_segmentation(
     nuclei.write_parquet(str(output_dir), partition_cols=["slide_id"])
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/segmentation",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=nuclei_segmentation"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))

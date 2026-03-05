@@ -145,7 +145,7 @@ def get_local_path(uri: str | None) -> Path | None:
 @hydra.main(config_path="../configs", config_name="visualization", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    assert int(config.visualization_mode) in {1, 2, 3, 4}
+    assert config.visualization_mode in {1, 2, 3, 4}
 
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
     test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
