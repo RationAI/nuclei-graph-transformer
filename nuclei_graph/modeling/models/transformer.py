@@ -58,8 +58,8 @@ class Transformer(nn.Module):
 
         norm = self.batch_norm(rearrange(to_norm, "b n d -> (b n) d"))
         norm = rearrange(norm, "(b n) d -> b n d", b=to_norm.size(0))
-
         x_norm = torch.cat([norm, angles], dim=-1)
+
         x = self.input_proj(x_norm)
 
         for layer in self.layers:
