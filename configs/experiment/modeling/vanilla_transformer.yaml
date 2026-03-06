@@ -25,6 +25,7 @@ trainer:
 
 data:
   sampler_pos_thr: 0.10
+  balance_sampling: true
   batch_size: 8
   train_val_split_size: 0.1
   mlflow_uris:

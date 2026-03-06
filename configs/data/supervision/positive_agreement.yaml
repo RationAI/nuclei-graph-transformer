@@ -2,3 +2,4 @@ _target_: nuclei_graph.data.supervision.SupervisionStrategy
 mode: positive-agreement
 annot_uri: ${dataset.mlflow_uris.supervision.annotation}
 cam_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
+balance_sampling: null
