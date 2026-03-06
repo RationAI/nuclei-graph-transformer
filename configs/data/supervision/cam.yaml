@@ -2,4 +2,4 @@ _target_: nuclei_graph.data.supervision.SupervisionStrategy
 mode: cam
 annot_uri: ${dataset.mlflow_uris.supervision.annotation}
 cam_uri: ${dataset.mlflow_uris.supervision.cam.default_thr}
-balance_sampling: ${dataset.data.balance_sampling}
+balance_sampling: ${data.balance_sampling}
