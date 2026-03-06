@@ -25,9 +25,10 @@ def create_block_mask_from_kdtree(
     Padded points (at the end of the array) are excluded so that they neither attend to nor
     are attended by any key/value blocks. In case of mixed blocks that contain both padded
     and unpadded points (e.g. during inference), the whole block is treated as VALID and the
-    inconsistency should be resolved outside of this function (e.g., using a specified
-    `mask_mod` before the forward model pass). The reason for this is two-fold — PyTorch
-    pickling constraints and compiler performance (to avoid expensive point-level padding check).
+    inconsistency should be resolved outside of this function using a specified `mask_mod`
+    before the forward model pass for the affected blocks (see the `mask_mixed_blocks` function).
+    The reason for this is two-fold — PyTorch pickling constraints and compiler performance
+    (to avoid expensive point-level padding check).
 
     Args:
         kdtree: KDTree built over the points.
@@ -91,8 +92,9 @@ def create_block_mask_from_kdtree(
 
     kv_indices[0, rows, slot_idx] = torch.from_numpy(cols).int()
 
-    kv_num_blocks_ext = kv_num_blocks.unsqueeze(0)  # add head dim
-    kv_indices_ext = kv_indices.unsqueeze(0)  # add head dim
+    # add head dim
+    kv_num_blocks_ext = kv_num_blocks.unsqueeze(0)
+    kv_indices_ext = kv_indices.unsqueeze(0)
 
     return BlockMask.from_kv_blocks(
         kv_num_blocks=kv_num_blocks_ext,
@@ -113,7 +115,7 @@ def _pad_indices(indices_list: list[Tensor]) -> list[Tensor]:
 
 
 def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
-    """Batch a list of single-item BlockMask objects into one batched BlockMask.
+    """Batches a list of single-item BlockMask objects into one batched BlockMask.
 
     All masks must have the same sequence length and block size.
     Different neighbor counts (at the block level) are handled by padding.
@@ -159,7 +161,30 @@ def batch_block_masks(masks: list[BlockMask]) -> BlockMask:
 
 
 def mask_mixed_blocks(block_mask: BlockMask, seq_lens: Tensor) -> BlockMask:
-    """Demotes padded boundary blocks to partial blocks and applies a point-level padding mask."""
+    """Applies a point-level padding mask to the blocks that contain both valid and padded points.
+
+    It is assumed that:
+    1. the padding is always at the end of the sequence,
+    2. fully padded blocks have already been removed from the block mask (i.e. they are not
+       included in `full_kv_indices` and have `full_kv_num_blocks` set to 0).
+
+    This function updates the input BlockMask object in the following way:
+    1. The number of strictly valid blocks for each batch item `num_fully_valid_blocks` is determined.
+    2. Mixed Query Blocks: For any query block index >= `num_fully_valid_blocks`, its targets
+       in `full_kv_indices` are cleared to `-1` and `full_kv_num_blocks` to `0`. This forces
+       flex_attention to use the partial-block kernel for queries in the padded region.
+    3. Mixed Key/Value Blocks: For the fully valid query blocks, any target KV block
+       index >= `num_fully_valid_blocks` is overwritten with `-1` in `full_kv_indices`.
+    4. Updates `full_kv_num_blocks` for the valid query blocks by recounting the non-`-1` entries.
+    5. Applies point-level mask to zero out attention for `q_idx >= seq_len` or `kv_idx >= seq_len`.
+
+    Args:
+        block_mask: The batched BlockMask object to modify.
+        seq_lens: A tensor of shape (batch_size,) containing sequence lengths for each item in the batch.
+
+    Returns:
+        A new BlockMask object with updated full/partial block metadata and a padding-aware `mask_mod`.
+    """
     device = seq_lens.device
 
     def padding_mask_mod(b: Tensor, h: Tensor, q_idx: Tensor, kv_idx: Tensor) -> Tensor:
