@@ -2,7 +2,7 @@
 
 dataset:
   name: MMCI Tile-Level Annotations Data
-  mpp: 0.25
+  target_mpp: 0.25
 
   # must match across all masks in order to be displayed correctly together in xOpat
   mask_tile_width: 512
@@ -33,8 +33,8 @@ dataset:
 
     # preprocessing/metadata_mapping.py
     metadata:
-      train: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations/slides_mapping.parquet
-      test: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      train: ${mlflow_project}/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations/slides_mapping.parquet
+      test: ${mlflow_project}/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
 
     supervision:
@@ -42,5 +42,5 @@ dataset:
       annotation: ${mlflow_project}/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels
       # preprocessing/cam_labels.py
       cam:
-        annot_restricted_thr: ${mlflow_project}/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
-        default_thr: ${mlflow_project}/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
+        annot_restricted_thr: ${mlflow_project}/fb2f1afab2f347b5a3f7a3f8aba54f80/artifacts/cam_labels
+        default_thr: ${mlflow_project}/be8d6076322044ed82636b4c4418820a/artifacts/cam_labels

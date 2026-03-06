@@ -74,7 +74,6 @@ class CAMNucleiSupervision(NucleiSupervision):
 
     Regions above a certain CAM threshold are considered positive, those below a certain
     threshold are negative, and those in between are ignored.
-    The thresholds are determined by the `cam_thr_type` parameter in the `SupervisionStrategy` class.
     """
 
     def __init__(self, is_carcinoma: bool, cam_labels: Tensor | None = None):
@@ -207,8 +206,9 @@ class DatasetSupervision:
 
 
 class SupervisionStrategy:
-    def __init__(self, mode: str, cam_thr_type: str | None = None):
-        self.cam_thr_type = cam_thr_type
+    def __init__(self, mode: str, annot_uri: str, cam_uri: str | None = None):
+        self.annot_uri = annot_uri
+        self.cam_uri = cam_uri
         self.mode = mode
         self._modes = {
             "annotation": AnnotationNucleiSupervision,

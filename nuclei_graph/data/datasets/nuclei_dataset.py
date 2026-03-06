@@ -52,17 +52,17 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         """Initializes the dataset.
 
         Args:
-            metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
-                to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
-            supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
+            metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), "slide_nuclei_path" (str), "mpp_x" (float)
+                and "mpp_y" (float). If the predict mode is set to `True` then it should also have a column "slide_path" (str).
+            supervision: DatasetSupervision dataclass containing slide-level and nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
             attn_block_size: Block size for sparse attention. It must hold that `crop_size` mod `attn_block_size` is 0.
-            efd_order: Order of the elliptic fourier descriptors used for nuclei shape representation.
+            efd_order: Order of the elliptic Fourier descriptors used for nuclei shape representation.
             symmetric_block_mask: Whether to symmetrize the block mask. Defaults to False.
-            full_slide: Whether the dataset is used for full slide inference (no cropping).
-            predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
+            full_slide: Whether the dataset is used for full slide inference.
+            predict: Whether to return the metadata needed for prediction along with the data.
         """
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
@@ -195,7 +195,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         centroids = centroids[keep_indices]
         graph = build_spatial_graph(centroids)
 
-        # compute crop indices by growing a connected component on the graph starting from the center nucleus
+        # compute crop indices by growing a connected component starting from the center nucleus
         seed = int(np.argmin(np.linalg.norm(centroids - center_coords, axis=1)))
         local_crop_indices = self.find_component(seed, self.crop_size, graph, centroids)
 
@@ -206,20 +206,24 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei_path = self.metadata.iloc[idx].slide_nuclei_path
         nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
 
+        mpp_x = self.metadata.iloc[idx].mpp_x
+        mpp_y = self.metadata.iloc[idx].mpp_y
+        mpp = np.array([mpp_x, mpp_y], dtype=np.float32)
+
         # --- Create a crop ---
-        centroids = np.stack(nuclei["centroid"].tolist())
+        centroids = np.stack(nuclei["centroid"].tolist()) * mpp
 
         # get indices eligible as a seed for growing the crop component
         slide_id = self.metadata.iloc[idx].slide_id
-        nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
-        seed_mask = nuclei_sup.get_seed_mask(len(nuclei))
+        supervision = self.supervision.supervision_map[slide_id].nuclei_supervision
+        seed_mask = supervision.get_seed_mask(len(nuclei))
         valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
         # --- Compute features ---
         crop_polygons = nuclei["polygon"].iloc[crop_indices].tolist()
-        contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2)
+        contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpp
         efds = elliptic_fourier_descriptors(contours, self.efd_order)
 
         efds, angles = normalize_efd_for_rotation(efds)
@@ -240,8 +244,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # --- Get labels and supervision mask for the crop ---
         crop_indices_t = torch.from_numpy(crop_indices).long()
-        targets = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
-        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t]
+        targets = supervision.get_targets(len(nuclei))[crop_indices_t]
+        sup_mask = supervision.get_sup_mask(len(nuclei))[crop_indices_t]
 
         # --- Optimize data layout for block-sparse attention ---
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
@@ -252,7 +256,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
         crop_x = torch.from_numpy(x[perm_np].astype(np.float32))
 
-        # --- Pad to block size and create a block mask ---
+        # --- Pad and create a block mask for sparse attention---
         crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
             [crop_x, crop_pos, crop_y, crop_sup_mask]
         )

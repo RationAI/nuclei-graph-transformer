@@ -1,3 +1,4 @@
 _target_: nuclei_graph.data.supervision.SupervisionStrategy
 mode: annotation
-cam_thr_type: null
+annot_uri: ${dataset.mlflow_uris.supervision.annotation}
+cam_uri: null

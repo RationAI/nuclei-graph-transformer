@@ -15,7 +15,7 @@ class RoPE(nn.Module):
         - "Learning the RoPEs: Better 2D and 3D Position Encodings with STRING" (https://arxiv.org/abs/2502.02562)
         - "Rethinking RoPE: A Mathematical Blueprint for N-dimensional Rotary Positional Embedding" (https://arxiv.org/abs/2504.06308)
 
-    Source: Nuclei Foundational Model repository
+    Source: Nuclei Foundational Model repository by Matěj Pekár.
     """
 
     def __init__(self, dim: int, pos_dim: int = 2, theta: float = 10000.0) -> None:

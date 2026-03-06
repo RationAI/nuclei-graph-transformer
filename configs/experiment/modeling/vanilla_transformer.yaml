@@ -6,6 +6,7 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
   - /data/supervision@data.supervision_strategy: cam
+  - /data/supervision@data.eval_supervision_strategy: agreement
 
 mode: fit
 
@@ -25,6 +26,7 @@ trainer:
 data:
   sampler_pos_thr: 0.10
   batch_size: 8
+  train_val_split_size: 0.1
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
@@ -55,9 +57,9 @@ metadata:
   description: "eval on agreement sup mode"
   hyperparams:
     supervision_mode: ${data.supervision_strategy.mode}
-    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
+    train_val_split_size: ${data.train_val_split_size}
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}
