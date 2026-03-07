@@ -11,9 +11,9 @@ Assumes the following structure of input data:
 <PREDICTIONS_URI>/
     <SLIDE_NAME>.parquet (columns "id" (str), "prediction" (int))
 
-3. (Optional) Annotation labels (`preprocessing/annotation_labels.py`) for positive slides with annotations:
-<ANNOT_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and "annot_label" (int))
+3. (Optional) Heatmap labels (`preprocessing/unipolar_heatmap_labels.py`) for positive slides:
+<HEATMAP_LABELS_URI>/
+    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and <LABEL_COLUMN> (int))
 
 4. (Optional) CAM labels (`preprocessing/cam_labels.py`):
 <CAM_LABELS_URI>/
@@ -23,8 +23,8 @@ Visualization Modes:
 1) Outline: Only outline the segmented nuclei polygons.
 2) Predictions: Creates nuclei masks according to model predictions — nuclei predicted as positive are filled;
     `predictions_uri` and `pred_thr` must be provided.
-3) Annotation-based Labeling: Creates nuclei masks for positive slides according to annotation labels — nuclei
-    inside annotations are filled; `annot_labels_uri` must be provided.
+3) Heatmap-based Labeling: Creates nuclei masks for positive slides according to heatmap labels — nuclei
+    inside heatmaps are filled; `heatmap_labels_uri` must be provided.
 4) CAM-based Pseudo Labeling: Creates nuclei masks for positive slides according to CAM pseudo-labels — nuclei
     inside specified high-confidence CAM regions (positive or negative) are filled; `cam_labels_uri` must be provided.
 """
@@ -49,7 +49,8 @@ def set_filling_and_get_outline_color(
     nuclei: pd.DataFrame,
     visualization_mode: int,
     slide_path: Path,
-    annot_labels_dir: Path | None,
+    heatmap_labels_uri: Path | None,
+    label_column: str | None,
     cam_labels_dir: Path | None,
     predictions_dir: Path | None,
     pred_thr: float | None,
@@ -70,14 +71,14 @@ def set_filling_and_get_outline_color(
             nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
-        case 3:  # Annotation-based Labeling
-            assert annot_labels_dir is not None
-            annot_path = annot_labels_dir / f"{slide_path.stem}.parquet"
-            if not annot_path.exists():  # negative slide
+        case 3:  # Heatmap-based Labeling
+            assert heatmap_labels_uri is not None and label_column is not None
+            heatmap_path = heatmap_labels_uri / f"{slide_path.stem}.parquet"
+            if not heatmap_path.exists():  # negative slide
                 return nuclei, outline_color
-            annot_df = pd.read_parquet(annot_path)
-            nuclei = nuclei.merge(annot_df, on="id", how="inner")
-            nuclei.loc[nuclei["annot_label"] == 1, "fill_color"] = 255
+            heatmap_df = pd.read_parquet(heatmap_path)
+            nuclei = nuclei.merge(heatmap_df, on="id", how="inner")
+            nuclei.loc[nuclei[label_column] == 1, "fill_color"] = 255
 
         case 4:  # CAM-based Pseudo Labeling
             assert cam_labels_dir is not None
@@ -153,9 +154,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     valid_slides = slides[~slides["is_carcinoma"] | slides["has_annotation"]]
 
     label_dirs = {
-        "annot_labels_dir": get_local_path(config.get("annot_labels_uri")),
-        "cam_labels_dir": get_local_path(config.get("cam_labels_uri")),
-        "predictions_dir": get_local_path(config.get("predictions_uri")),
+        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
+        "cam_labels_dir": get_local_path(config.cam_labels_uri),
+        "predictions_dir": get_local_path(config.predictions_uri),
     }
 
     with TemporaryDirectory() as output_dir:
