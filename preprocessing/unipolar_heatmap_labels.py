@@ -13,13 +13,10 @@ Assumes the following structure of input data:
             *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
 
 2. Metadatasets for processing (`exploration/save_metadataset.py`):
-[
-    <SLIDES_METADATA_URI>.csv (columns "slide_path" (str) and "is_carcinoma" (bool)),
-    ...
-]
+[ <SLIDES_METADATA_URI>.csv (columns "slide_path" (str) and "is_carcinoma" (bool)), ...]
 
 3. (Optional) Exclusion CSVs logged in MLflow (`preprocessing/annotation_masks.py`):
-<MISSING_HEATMAPS_URI>.csv (column "slide_path" (str))
+[ <MISSING_HEATMAPS_URI>.csv (column "slide_path" (str)), ... ]
 
 4. Heatmaps or binary masks (`preprocessing/annotation_masks.py`):
 <HEATMAPS_URI>/
