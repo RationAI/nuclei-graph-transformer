@@ -4,7 +4,7 @@ defaults:
   - /data/sources/prostate_cancer
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.eval_supervision_strategy: agreement
+  - /data/supervision@data.eval_sup_strategy: predictions
 
 mode: predict
 checkpoint: mlflow-artifacts:/97/8f482a006253405885d335a0a39b483e/artifacts/checkpoints/epoch=171-step=5160/checkpoint.ckpt
@@ -53,4 +53,5 @@ metadata:
   run_name: 📊 Predictions
   description: "Predictions: [MLflow training run](${checkpoint_url})"
   hyperparams:
+    prediction_supervision_mode: ${data.eval_sup_strategy.mode}
     checkpoint: ${checkpoint}

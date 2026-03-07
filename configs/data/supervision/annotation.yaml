@@ -1,5 +1,6 @@
-_target_: nuclei_graph.data.supervision.SupervisionStrategy
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
 mode: annotation
 annot_uri: ${dataset.mlflow_uris.supervision.annotation}
-cam_uri: null
-balance_sampling: null

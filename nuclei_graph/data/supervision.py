@@ -222,6 +222,34 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
         return float(positive_sum / len(self.annot_labels))
 
 
+class PredictionNucleiSupervision(NucleiSupervision):
+    """Supervision based on model predictions (e.g., Virchow2).
+
+    This mode is intended only for testing and prediction evaluation.
+    All nuclei are supervised based on the provided prediction labels.
+    """
+
+    def __init__(self, is_carcinoma: bool, pred_labels: Tensor):
+        super().__init__(is_carcinoma)
+        self.pred_labels = pred_labels
+
+    def get_targets(self, n: int) -> Tensor:
+        if not self.is_carcinoma:
+            return torch.full((n,), 0.0, dtype=torch.float32)
+        return self.pred_labels
+
+    def get_sup_mask(self, n: int) -> Tensor:
+        return torch.full((n,), True, dtype=torch.bool)
+
+    def get_seed_mask(self, n: int) -> Tensor:
+        return torch.full((n,), True, dtype=torch.bool)  # dummy output
+
+    def get_positivity(self) -> float:
+        if not self.is_carcinoma:
+            return 0.0
+        return float(self.pred_labels.mean())
+
+
 @dataclass(frozen=True)
 class SlideSupervision:
     slide_label: int
@@ -237,12 +265,14 @@ class SupervisionStrategy:
     def __init__(
         self,
         mode: str,
-        annot_uri: str,
+        annot_uri: str | None = None,
         cam_uri: str | None = None,
+        pred_uri: str | None = None,
         balance_sampling: bool | None = None,
     ):
         self.annot_uri = annot_uri
         self.cam_uri = cam_uri
+        self.pred_uri = pred_uri
         self.mode = mode
         self.balance_sampling = balance_sampling
 
@@ -251,6 +281,7 @@ class SupervisionStrategy:
             "cam": CAMNucleiSupervision,
             "agreement": AgreementNucleiSupervision,
             "positive-agreement": PositiveAgreementNucleiSupervision,
+            "prediction": PredictionNucleiSupervision,
         }
         if mode not in self._modes:
             raise ValueError(f"Unknown supervision mode: {mode}")
@@ -260,6 +291,7 @@ class SupervisionStrategy:
         is_carcinoma: bool,
         annot_labels: Tensor | None = None,
         cam_labels: Tensor | None = None,
+        pred_labels: Tensor | None = None,
     ) -> NucleiSupervision:
         supervision = self._modes[self.mode]
         if self.mode == "annotation":
@@ -270,22 +302,29 @@ class SupervisionStrategy:
             return supervision(
                 is_carcinoma, cam_labels, annot_labels, self.balance_sampling
             )
-        else:  # positive-agreement
+        elif self.mode == "positive-agreement":
             return supervision(is_carcinoma, cam_labels, annot_labels)
+        else:  # prediction
+            return supervision(is_carcinoma, pred_labels)
 
 
 def build_supervision(
     sup_strategy: SupervisionStrategy,
-    df_annot: pd.DataFrame,
-    df_cam: pd.DataFrame | None,
     label_map: dict[str, int],
+    df_annot: pd.DataFrame | None = None,
+    df_cam: pd.DataFrame | None = None,
+    df_pred: pd.DataFrame | None = None,
 ) -> DatasetSupervision:
+    assert not (df_annot is None and df_cam is None and df_pred is None)
 
-    df_merged = (
-        pd.merge(df_annot, df_cam, on=["slide_id", "id"], how="inner", validate="1:1")
-        if df_cam is not None
-        else df_annot
-    )
+    sources = [df for df in [df_annot, df_cam, df_pred] if df is not None]
+
+    df_merged = sources[0]
+    for next_source in sources[1:]:
+        df_merged = pd.merge(
+            df_merged, next_source, on=["slide_id", "id"], how="inner", validate="1:1"
+        )
+
     df_merged = df_merged.sort_values(["slide_id", "id"])
     grouped = df_merged.groupby("slide_id")
 
@@ -295,16 +334,18 @@ def build_supervision(
             nuclei_sup = sup_strategy.create(is_carcinoma=False)
         else:
             group = grouped.get_group(slide_id)
-            annot = torch.tensor(group["annot_label"].values, dtype=torch.float32)
-            cam = (
-                torch.tensor(group["cam_label"].values, dtype=torch.float32)
-                if df_cam is not None
-                else None
-            )
-            nuclei_sup = sup_strategy.create(
-                is_carcinoma=True, annot_labels=annot, cam_labels=cam
-            )
 
+            def get_col(name, g=group):
+                if name in g.columns:
+                    return torch.tensor(g[name].values, dtype=torch.float32)
+                return None
+
+            nuclei_sup = sup_strategy.create(
+                is_carcinoma=True,
+                annot_labels=get_col("annot_label"),
+                cam_labels=get_col("cam_label"),
+                pred_labels=get_col("pred_label"),
+            )
         sup_map[slide_id] = SlideSupervision(
             slide_label=int(label), nuclei_supervision=nuclei_sup
         )
