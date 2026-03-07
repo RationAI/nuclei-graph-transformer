@@ -63,6 +63,34 @@ reporter:
         color: "#FFFF00" # yellow
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: heatmaps
+      run_id: a40c5a17026840bea1828b78af46752d
+      layer_name: Virchow2
+      shader_conf:
+        threshold: 85
+        opacity: 0.5
+        type: edge
+        color: "#800080" # violet
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: nuclei_masks
+    #   run_id: ed18fe5f770242ac90e33501f9a31643
+    #   layer_name: Annotation Labels
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     color: "#00FF00" # green
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: nuclei_masks
+    #   run_id: 454edcda5889483b8af4dccafa4bc2fb
+    #   layer_name: Virchow2 Labels
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     color: "#00FF00" # green
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
       run_id: 03fecd4a23d446c7868c3d4cd96adcb0
       layer_name: "Preds Agreement"
