@@ -7,8 +7,8 @@ defaults:
   - /data/supervision@data.eval_sup_strategy: predictions
 
 mode: predict
-checkpoint: mlflow-artifacts:/97/8f482a006253405885d335a0a39b483e/artifacts/checkpoints/epoch=171-step=5160/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/8f482a006253405885d335a0a39b483e
+checkpoint: mlflow-artifacts:/97/6ec5ae4122404e57aa062503f22da572/artifacts/checkpoints/epoch=54-step=1650/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6ec5ae4122404e57aa062503f22da572
 
 trainer:
   callbacks:
@@ -23,9 +23,10 @@ trainer:
 
 data:
   batch_size: 1
+  balance_sampling: null
   mlflow_uris:
     metadata:
-      predict: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      predict: ${dataset.mlflow_uris.metadata.test}
     supervision: ${dataset.mlflow_uris.supervision}
   dataset:
     alpha: 0.8
@@ -33,7 +34,7 @@ data:
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096
-    symmetric_block_mask: False
+    symmetric_block_mask: false
 
 model:
   lr: 1e-4

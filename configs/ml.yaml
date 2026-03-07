@@ -1,7 +1,7 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling: vanilla_transformer #predict
+  - /experiment/modeling: predict #predict vanilla_transformer
 
 seed: ${random_seed:}
 mode: ???
@@ -15,8 +15,6 @@ trainer:
 data:
   batch_size: ???
   num_workers: 10
-  paths:
-    features: ???
   mlflow_uris:
     metadata: ???
     supervision: ???

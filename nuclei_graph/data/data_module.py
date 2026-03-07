@@ -36,8 +36,8 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        sup_strategy: DictConfig | None,
         eval_sup_strategy: DictConfig,
+        sup_strategy: DictConfig | None = None,
         train_val_split_size: float = 0.1,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
@@ -48,8 +48,8 @@ class DataModule(LightningDataModule):
         Args:
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading. Defaults to 0.
-            sup_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
             eval_sup_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
+            sup_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
             train_val_split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
@@ -65,7 +65,6 @@ class DataModule(LightningDataModule):
         self.sampler_partial = sampler
         self.dataset_cfg = data_params["dataset"]
         self.uris_cfg = data_params["mlflow_uris"]
-        self.paths_cfg = data_params["paths"]
         self.positivity: dict[str, float] = {}
 
     def _load_df(self, uri: str, cols: list[str] | None = None) -> pd.DataFrame:
@@ -95,11 +94,11 @@ class DataModule(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-        assert self.train_sup is not None
         metadata_uri = self.uris_cfg.metadata[mode]
 
         match stage:
             case "fit" | "validate":
+                assert self.train_sup is not None
                 metadata = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
                 metadata = metadata.sort_values(by="slide_id").reset_index(drop=True)
 
