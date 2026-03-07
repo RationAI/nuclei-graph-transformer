@@ -41,7 +41,7 @@ class PredictionsCallback(Callback):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = f"{tmp_dir}/{metadata['slide_id']}.parquet"
-            df.to_parquet(output_path, index=False, columns=["id", "prediction"])
+            df.to_parquet(output_path, index=False)
 
             active_run = mlflow.active_run()
             assert active_run is not None
