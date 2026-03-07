@@ -27,6 +27,8 @@ dataset:
       annotation: ${mlflow_project}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/annotation_masks
       # preprocessing/merge_cam_masks.py
       cam: ${mlflow_project}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/cam_masks
+      prediction:
+        virchow2: mlflow-artifacts:/65/a40c5a17026840bea1828b78af46752d/artifacts/heatmaps
       missing:
         cam: ${mlflow_project}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/missing_cam_masks.csv
         annotation: ${mlflow_project}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
@@ -38,9 +40,12 @@ dataset:
       predict: null
 
     supervision:
-      # preprocessing/annotation_labels.py
+      # preprocessing/unipolar_heatmap_labels.py
       annotation: ${mlflow_project}/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels
       # preprocessing/cam_labels.py
       cam:
         annot_restricted_thr: ${mlflow_project}/fb2f1afab2f347b5a3f7a3f8aba54f80/artifacts/cam_labels
         default_thr: ${mlflow_project}/be8d6076322044ed82636b4c4418820a/artifacts/cam_labels
+      model_prediction:
+        # preprocessing/unipolar_heatmap_labels.py
+        virchow2: # TODO
