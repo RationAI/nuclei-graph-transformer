@@ -59,6 +59,23 @@ class WSLMetaArch(LightningModule):
         targets_sup = batch["y"]
         sup_size = targets_sup.numel()
 
+        # ------------------------------------------------------------------------------
+        n_pos = (targets_sup == 1).sum()
+        n_neg = (targets_sup == 0).sum()
+        total_sup = targets_sup.numel()
+
+        self.log_dict(
+            {
+                "train/n_pos": n_pos.float(),
+                "train/n_neg": n_neg.float(),
+                "train/pos_ratio": n_pos.float() / total_sup if total_sup > 0 else 0.0,
+            },
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+        )
+        # ------------------------------------------------------------------------------
+
         loss_sup = (
             self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
         )
