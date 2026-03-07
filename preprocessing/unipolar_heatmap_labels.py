@@ -87,10 +87,7 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
     """Loads and merges multiple metadata CSVs into a single DataFrame."""
     if not uris:
         return pd.DataFrame(columns=["slide_path"])
-    batches: list[pd.DataFrame] = []
-    for uri in uris:
-        df = pd.read_csv(Path(download_artifacts(uri)))
-        batches.append(df)
+    batches = [pd.read_csv(Path(download_artifacts(uri))) for uri in uris]
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
