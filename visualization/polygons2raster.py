@@ -50,9 +50,9 @@ def set_filling_and_get_outline_color(
     visualization_mode: int,
     slide_path: Path,
     heatmap_labels_dir: Path | None,
-    label_column: str | None,
     cam_labels_dir: Path | None,
     predictions_dir: Path | None,
+    label_column: str | None,
     pred_thr: float | None,
 ) -> tuple[pd.DataFrame, int | None]:
     nuclei["fill_color"] = None
@@ -104,13 +104,19 @@ def process_slide(
     nuclei_dir: Path,
     output_dir: Path,
     label_dirs: dict[str, Path | None],
+    label_column: str | None,
     pred_thr: float | None,
 ) -> None:
     dataset_name = slide_path.parents[0].name
     nuclei = pd.read_parquet(nuclei_dir / dataset_name / f"slide_id={slide_path.stem}")
 
     nuclei, outline_color = set_filling_and_get_outline_color(
-        nuclei, visualization_mode, slide_path, **label_dirs, pred_thr=pred_thr
+        nuclei,
+        visualization_mode,
+        slide_path,
+        **label_dirs,
+        label_column=label_column,
+        pred_thr=pred_thr,
     )
 
     with OpenSlide(slide_path) as slide:
@@ -161,11 +167,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     with TemporaryDirectory() as output_dir:
         process_items(
-            items=[
-                Path(
-                    "/mnt/data/MOU/prostate/tile_level_annotations_test/TP-2019_2623-12-1.mrxs"
-                )
-            ],  # valid_slides["slide_path"].map(Path),
+            items=valid_slides["slide_path"].map(Path),
             process_item=process_slide,
             fn_kwargs={
                 "visualization_mode": int(config.visualization_mode),
@@ -175,6 +177,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "nuclei_dir": Path(config.nuclei_path),
                 "output_dir": Path(output_dir),
                 "label_dirs": label_dirs,
+                "label_column": config.label_column,
                 "pred_thr": config.get("pred_thr", None),
             },
             max_concurrent=config.max_concurrent,
