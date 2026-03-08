@@ -2,14 +2,13 @@
 
 defaults:
   - /data/sources/prostate_cancer
-  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision_strategy: positive_agreement
+  - /data/supervision@data.eval_strategy: predictions
 
 mode: predict
-checkpoint: ${mlflow_project}/8f482a006253405885d335a0a39b483e/artifacts/checkpoints/epoch=171-step=5160/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/8f482a006253405885d335a0a39b483e
+checkpoint: mlflow-artifacts:/97/434f1b72d8d846518eded65859005da8/artifacts/checkpoints/epoch=130-step=3930/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/434f1b72d8d846518eded65859005da8
 
 trainer:
   callbacks:
@@ -24,12 +23,10 @@ trainer:
 
 data:
   batch_size: 1
-  paths:
-    features:
-      predict: ${project_path}/nuclei_efds/tile_level_annotations_test
+  balance_sampling: null
   mlflow_uris:
     metadata:
-      predict: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      predict: ${dataset.mlflow_uris.metadata.test}
     supervision: ${dataset.mlflow_uris.supervision}
   dataset:
     alpha: 0.8
@@ -37,13 +34,14 @@ data:
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096
-    symmetric_block_mask: False
+    symmetric_block_mask: false
 
 model:
   lr: 1e-4
   warmup_epochs: 8
   net:
     config:
+      efd_order: ${data.dataset.efd_order}
       node_features: ${add:${mul:4,${data.dataset.efd_order}},3}
       dim: 256
       hidden_dim: 1024
@@ -56,4 +54,5 @@ metadata:
   run_name: 📊 Predictions
   description: "Predictions: [MLflow training run](${checkpoint_url})"
   hyperparams:
+    prediction_supervision_mode: ${data.eval_strategy.mode}
     checkpoint: ${checkpoint}
