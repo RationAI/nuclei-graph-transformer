@@ -33,11 +33,11 @@ from numpy.typing import NDArray
 from omegaconf import DictConfig
 from openslide import OpenSlide
 from rationai.masks.processing import process_items
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@ray.remote
+@ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def label_slide(
     slide_path: Path,
     nuclei_dir: Path,
@@ -73,11 +73,8 @@ def label_slide(
     nuclei[["slide_id", "id", "annot_label"]].to_parquet(output_path, index=False)
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/annotation_labels",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=annotation_labels"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     annot_masks_dir = Path(download_artifacts(config.annot_masks_uri))

@@ -1,30 +1,21 @@
 # @package _global_
 
-defaults:
-  - /preprocessing: segmentation
-  - _self_
-
-visualization_mode_names:
-  "1": Outline Polygons
-  "2": Model Predictions
-  "3": Annotation-based Labeling
-  "4": CAM-based Pseudo Labeling
-
-# Note: tile sizes need to be consistent across masks to display correctly in xOpat
-mask_tile_width: 512
-mask_tile_height: 512
-predictions_uri: null # TODO
-pred_thr: # threshold for determining positive nuclei
-annot_labels_uri: mlflow-artifacts:/97/ff4a94b4f1c14c5ebc63d46f13a9e8de/artifacts/annotation_labels
-cam_labels_uri: mlflow-artifacts:/97/205869b9ca3c4a9bbe6341035e0d828f/artifacts/cam_labels
-visualization_mode: "1"
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+mpp: ${dataset.mpp}
+visualization_mode: ???
 max_concurrent: 1
-nuclei_path: ${output_path}
+annot_labels_uri: ${dataset.mlflow_uris.supervision.annotation}
+cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
+predictions_uri: null
+predictions_thr: null
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+nuclei_path: ${dataset.paths.nuclei_seg}
 mlflow_artifact_path: nuclei_masks
 
 metadata:
-  run_name: Nuclei Masks — ${visualization_mode_names.${visualization_mode}}
+  run_name: ???
   hyperparams:
     mask_tile_width: ${mask_tile_width}
     mask_tile_height: ${mask_tile_height}
-    pred_thr: ${oc.select:pred_thr, null}

@@ -25,7 +25,7 @@ import pyarrow.parquet as pq
 from mlflow.artifacts import download_artifacts
 from mlflow.data import pandas_dataset
 from omegaconf import DictConfig
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
@@ -64,11 +64,8 @@ def build_map(
         mlflow.log_input(slide_dataset, context="slides_mapping")
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/metadata_mapping",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=metadata_mapping"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     exclusion_batches: list[pd.Series] = []
