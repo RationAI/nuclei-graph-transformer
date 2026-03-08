@@ -18,7 +18,7 @@ class RoPE(nn.Module):
     Source: Nuclei Foundational Model repository by Matěj Pekár.
     """
 
-    def __init__(self, dim: int, pos_dim: int = 2, theta: float = 10000.0) -> None:
+    def __init__(self, dim: int, pos_dim: int = 2, theta: float = 1000.0) -> None:
         """Initialize RoPE module.
 
         Args:
