@@ -1,4 +1,4 @@
-from nuclei_graph.data.samplers.weighed_random_sampler import AutoWeightedRandomSampler
+from nuclei_graph.data.samplers.weighted_random_sampler import AutoWeightedRandomSampler
 
 
 __all__ = ["AutoWeightedRandomSampler"]
