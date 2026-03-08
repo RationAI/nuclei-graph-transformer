@@ -1,0 +1,6 @@
+# @package _global_
+
+visualization_mode: 3
+
+metadata:
+  run_name: "Nuclei Masks — Annotation-based Labeling: ${dataset.name}"

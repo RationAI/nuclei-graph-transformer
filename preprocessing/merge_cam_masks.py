@@ -20,15 +20,12 @@ import hydra
 import pandas as pd
 from mlflow.artifacts import download_artifacts, list_artifacts
 from omegaconf import DictConfig
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/cam_masks.yaml",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=merge_cam_masks"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
