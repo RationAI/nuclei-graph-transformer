@@ -203,20 +203,17 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return np.array(global_crop_indices, dtype=np.int64)
 
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
-        nuclei_path = self.slides.iloc[idx].slide_nuclei_path
-        nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
-
-        mpp_x = self.slides.iloc[idx].mpp_x
-        mpp_y = self.slides.iloc[idx].mpp_y
-        mpp = np.array([mpp_x, mpp_y], dtype=np.float32)
+        slide = self.slides.iloc[idx]
+        nuclei = pd.read_parquet(slide.slide_nuclei_path)
+        nuclei = nuclei.sort_values("id").reset_index(drop=True)
 
         # --- Create a crop ---
+        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
         centroids = np.stack(nuclei["centroid"].tolist()) * mpp
 
         # get indices eligible as a seed for growing the crop component
-        slide_id = self.slides.iloc[idx].slide_id
-        supervision = self.supervision.supervision_map[slide_id].nuclei_supervision
-        seed_mask = supervision.get_seed_mask(len(nuclei))
+        nuclei_sup = self.supervision.supervision_map[slide.slide_id].nuclei_supervision
+        seed_mask = nuclei_sup.get_seed_mask(len(nuclei))
         valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
@@ -244,8 +241,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # --- Get labels and supervision mask for the crop ---
         crop_indices_t = torch.from_numpy(crop_indices).long()
-        targets = supervision.get_targets(len(nuclei))[crop_indices_t]
-        sup_mask = supervision.get_sup_mask(len(nuclei))[crop_indices_t]
+        targets = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
+        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t]
 
         # --- Optimize data layout for block-sparse attention ---
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
@@ -279,9 +276,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         }
         if self.predict:
             metadata: Metadata = {
-                "slide_id": slide_id,
-                "slide_path": self.slides.iloc[idx].slide_path,
-                "slide_nuclei_path": nuclei_path,
+                "slide_id": slide.slide_id,
+                "slide_path": slide.slide_path,
+                "slide_nuclei_path": slide.slide_nuclei_path,
                 "perm_inverse": self.get_inverse_perm(perm_t),
                 "nuclei_ids": nuclei["id"].to_numpy(),
             }
