@@ -58,6 +58,7 @@ reporter:
       run_id: fb2e33383e2548c48e5bd4f2a77e47a8
       layer_name: Annotation
       shader_conf:
+        visible: False
         opacity: 0.5
         type: edge
         color: "#FFFF00" # yellow
@@ -69,22 +70,12 @@ reporter:
       shader_conf:
         threshold: 85
         opacity: 0.5
-        type: edge
-        color: "#800080" # violet
+        color: "#FF0000" #red
 
     # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: nuclei_masks
-    #   run_id: ed18fe5f770242ac90e33501f9a31643
-    #   layer_name: Annotation Labels
-    #   shader_conf:
-    #     visible: False
-    #     type: heatmap
-    #     color: "#00FF00" # green
-
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: nuclei_masks
-    #   run_id: 454edcda5889483b8af4dccafa4bc2fb
-    #   layer_name: Virchow2 Labels
+    #   dir_name: prediction_masks
+    #   run_id: 03fecd4a23d446c7868c3d4cd96adcb0
+    #   layer_name: "Preds Agreement"
     #   shader_conf:
     #     visible: False
     #     type: heatmap
@@ -92,30 +83,21 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: 03fecd4a23d446c7868c3d4cd96adcb0
-      layer_name: "Preds Agreement"
-      shader_conf:
-        visible: False
-        type: heatmap
-        color: "#0000FF" # blue
-
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: prediction_masks
-      run_id: d8eb0b9b011f49bcbac5a15d81e511f4
+      run_id: 5104f79559ac47d59eeb5cd455f2c63b
       layer_name: "Preds CAM"
       shader_conf:
         visible: False
         type: heatmap
-        color: "#000000" # black
-
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: prediction_masks
-      run_id: ba070eda74d442229b63ce8bed7f1c7b
-      layer_name: "Preds Positive Agreement"
-      shader_conf:
-        visible: False
-        type: heatmap
         color: "#00FF00" # green
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: prediction_masks
+    #   run_id: ba070eda74d442229b63ce8bed7f1c7b
+    #   layer_name: "Preds Positive Agreement"
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     color: "#00FF00" # green
 
 metadata:
   run_name: Report — Nuclei Masks
