@@ -1,13 +1,13 @@
 import heapq
 from collections.abc import Iterable
 from random import choice, randint
-from typing import TypedDict
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 from degraph import build_spatial_graph
+from einops import rearrange
 from nuclei_graph.data.supervision import DatasetSupervision
 from nuclei_graph.nuclei_graph_typing import (
     Crop,
@@ -21,6 +21,11 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 from nuclei_graph.data import create_block_mask_from_kdtree
+from nuclei_graph.data.efd import (
+    elliptic_fourier_descriptors,
+    normalize_efd_for_rotation,
+    normalize_efd_for_scale,
+)
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
@@ -28,21 +33,12 @@ type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
 type AdjacencyGraph = list[list[Neighbor]]
 
 
-class Features(TypedDict):
-    efds: Tensor
-    scales: Tensor
-    angles: Tensor
-
-
 class NucleiDataset(Dataset[Crop | PredictSlide]):
     """Dataset for nuclei point clouds from whole-slide images."""
 
     def __init__(
         self,
-        metadata: DataFrame,
-        log_scale_stats: tuple[float, float],
-        efd_stats: dict[str, Tensor],
-        efds_path: str,
+        slides: DataFrame,
         supervision: DatasetSupervision,
         crop_size: int = 4096,
         alpha: float = 0.8,
@@ -56,29 +52,22 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         """Initializes the dataset.
 
         Args:
-            metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), and "slide_nuclei_path" (str) (if the predict mode is set
-                to `True` then also "slide_path" (str)), where "slide_nuclei_path" points to parquet files containing nuclei segmentation data.
-            log_scale_stats: Tuple of (log-scale mean, log-scale std) computed across the training set for normalizing the scale feature.
-            efd_stats: Dictionary with keys "mean" and "std" containing mean and std computed across the training set for normalizing the EFD features.
-            efds_path: A path to a PyTorch binary file for each slide containing the raw EFD features, scale factor, and orientation angle for each nucleus.
-            supervision: DatasetSupervision dataclass containing nucleus-level labels for positive slides.
+            slides: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), "slide_nuclei_path" (str), "mpp_x" (float)
+                and "mpp_y" (float). If the predict mode is set to `True` then it should also have a column "slide_path" (str).
+            supervision: DatasetSupervision dataclass containing slide-level and nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
             attn_block_size: Block size for sparse attention. It must hold that `crop_size` mod `attn_block_size` is 0.
-            efd_order: Order of the elliptic fourier descriptors used for nuclei shape representation.
+            efd_order: Order of the elliptic Fourier descriptors used for nuclei shape representation.
             symmetric_block_mask: Whether to symmetrize the block mask. Defaults to False.
-            full_slide: Whether the dataset is used for full slide inference (no cropping).
-            predict: Whether to return the metadata needed for prediction ("slide_path" (str)) along with the data.
+            full_slide: Whether the dataset is used for full slide inference.
+            predict: Whether to return the metadata needed for prediction along with the data.
         """
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
         )
-        self.metadata = metadata
-        self.log_scale_mean, self.log_scale_std = log_scale_stats
-        self.efds_path = efds_path
-        self.efd_mean = efd_stats["mean"].numpy()
-        self.efd_std = efd_stats["std"].numpy()
+        self.slides = slides
         self.supervision = supervision
         self.crop_size = crop_size
         self.alpha = alpha
@@ -90,7 +79,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.predict = predict
 
     def __len__(self) -> int:
-        return len(self.metadata)
+        return len(self.slides)
 
     def find_component(
         self,
@@ -112,10 +101,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         Returns:
             list[int]: Indices of nuclei in the component.
 
-        Source: Nuclei Foundational Model repository.
+        Taken from the Nuclei Foundational Model repository.
         """
         component_indices: list[int] = []
         visited = np.zeros(len(centroids), dtype=bool)
+        allowed_set = set(allowed_indices) if allowed_indices is not None else None
 
         pq: list[PriorityQueueItem] = []
         heapq.heappush(pq, (0.0, seed_idx))
@@ -130,9 +120,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             component_indices.append(current_idx)
 
             for n_idx, edge_dist in graph[current_idx]:
-                if not visited[n_idx] and (
-                    allowed_indices is None or n_idx in allowed_indices
-                ):
+                if not visited[n_idx] and (allowed_set is None or n_idx in allowed_set):
                     start_dist = np.linalg.norm(centroids[n_idx] - start_point_coords)
                     cost = self.alpha * edge_dist + (1 - self.alpha) * start_dist
                     heapq.heappush(pq, (cost, n_idx))  # type: ignore[misc]
@@ -184,98 +172,95 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         Returns:
             np.ndarray: Selected nuclei indices for the crop.
         """
+        n = len(centroids)
         if self.full_slide:
-            return np.arange(len(centroids), dtype=int)
+            return np.arange(n, dtype=int)
+
+        center_idx = choice(valid_seeds) if valid_seeds else randint(0, n - 1)
+        center_coords = centroids[center_idx]
+        keep_indices = np.arange(len(centroids))
+
+        # heuristically limit the nuclei for graph building
+        limit = int(self.crop_size / max(1.0 - self.alpha, 1e-4))
+        if n > limit:
+            dists = np.linalg.norm(centroids - center_coords, axis=1)
+            keep_indices = np.argpartition(dists, limit - 1)[:limit]
+
+        # drop overlapping nuclei to prevent issues with graph construction
+        quantized = np.round(centroids[keep_indices] / 1e-4).astype(np.int64)
+        _, unique_local_indices = np.unique(quantized, axis=0, return_index=True)
+        keep_indices = keep_indices[np.sort(unique_local_indices)]
+
+        # build Delaunay graph
+        centroids = centroids[keep_indices]
         graph = build_spatial_graph(centroids)
-        seed_idx = (
-            choice(valid_seeds) if valid_seeds else randint(0, len(centroids) - 1)
-        )
-        return np.array(self.find_component(seed_idx, self.crop_size, graph, centroids))
 
-    def drop_eps_neighbors(
-        self, df: pd.DataFrame, eps: float = 1e-4
-    ) -> tuple[pd.DataFrame, Tensor]:
-        """Removes nuclei closer than `eps` to each other and returns the filtered DataFrame along with the indices kept.
+        # compute crop indices by growing a connected component starting from the center nucleus
+        seed = int(np.argmin(np.linalg.norm(centroids - center_coords, axis=1)))
+        local_crop_indices = self.find_component(seed, self.crop_size, graph, centroids)
 
-        One of the close neighbors is removed, the other is kept.
-        Used to prevent Delaunay triangulation from failing due to numerical
-        instabilities when nuclei are too close to each other.
-        """
-        centroids = np.stack(df["centroid"].tolist())
-        quantized = np.round(centroids / eps).astype(np.int64)
-
-        _, unique_indices = np.unique(quantized, axis=0, return_index=True)
-        unique_indices = np.sort(unique_indices)
-
-        indices_t = torch.from_numpy(unique_indices).long()
-
-        if len(df) - len(unique_indices) > 0:
-            return df.iloc[unique_indices].reset_index(drop=True), indices_t
-        return df, torch.arange(len(df)).long()
+        global_crop_indices = keep_indices[local_crop_indices]
+        return np.array(global_crop_indices, dtype=np.int64)
 
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
-        nuclei_path = self.metadata.iloc[idx].slide_nuclei_path
-        nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
-        nuclei_count = len(nuclei)
-        nuclei, keep = self.drop_eps_neighbors(nuclei)
+        slide = self.slides.iloc[idx]
+        nuclei = pd.read_parquet(slide.slide_nuclei_path)
+        nuclei = nuclei.sort_values("id").reset_index(drop=True)
 
-        # --- Prepare features ---
-        slide_id = self.metadata.iloc[idx].slide_id
-        features: Features = torch.load(f"{self.efds_path}/{slide_id}.pt")
+        # --- Create a crop ---
+        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
+        centroids = np.stack(nuclei["centroid"].tolist()) * mpp
 
-        efds = features["efds"][keep].cpu().numpy()
-        # slice EFD coefficients to the desired order (number of harmonics)
-        target_dim = self.efd_order * 4  # each harmonic has 4 coeffs
-        x = efds[:, :target_dim]
-        x = (x - self.efd_mean) / (self.efd_std + 1e-6)
+        # get indices eligible as a seed for growing the crop component
+        nuclei_sup = self.supervision.supervision_map[slide.slide_id].nuclei_supervision
+        seed_mask = nuclei_sup.get_seed_mask(len(nuclei), centroids=centroids)
+        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 
-        angles = features["angles"][keep].cpu().numpy().reshape(-1, 1)
+        crop_indices = self.get_crop_indices(centroids, valid_seeds)
+
+        # --- Compute features ---
+        crop_polygons = nuclei["polygon"].iloc[crop_indices].tolist()
+        contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpp
+        efds = elliptic_fourier_descriptors(contours, self.efd_order)
+
+        efds, angles = normalize_efd_for_rotation(efds)
         # double so that θ and θ + π map to the same values (nuclei/ellipses are symmetric)
         cos_angles = np.cos(2.0 * angles)
         sin_angles = np.sin(2.0 * angles)
 
-        scales = features["scales"][keep].cpu().numpy().reshape(-1, 1)
+        efds, scales = normalize_efd_for_scale(efds)
+        # scales have approximately log-normal distribution
         log_scales = np.log(scales + 1e-6)
-        norm_scales = (log_scales - self.log_scale_mean) / (self.log_scale_std + 1e-6)
 
-        x = np.concatenate([x, cos_angles, sin_angles, norm_scales], axis=-1)
+        efds = rearrange(efds, "n order c -> n (order c)")
+        x = np.concatenate([efds, log_scales, cos_angles, sin_angles], axis=-1)
 
-        # --- Load targets and supervision masks ---
-        nuclei_sup = self.supervision.supervision_map[slide_id].nuclei_supervision
-
-        targets = nuclei_sup.get_targets(nuclei_count)[keep]
-        sup_mask = nuclei_sup.get_sup_mask(nuclei_count)[keep]
-        seed_mask = nuclei_sup.get_seed_mask(nuclei_count)[keep]
-
-        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
-
-        # --- Create a crop ---
-        centroids = np.stack(nuclei["centroid"].tolist())
-        crop_indices_np = self.get_crop_indices(centroids, valid_seeds)
-
-        # --- Prepare positional encoding ---
-        crop_centroids = centroids[crop_indices_np]
+        # --- Prepare positions for RoPE ---
+        crop_centroids = centroids[crop_indices]
         crop_pos_np = crop_centroids - crop_centroids.mean(axis=0)
+
+        # --- Get labels and supervision mask for the crop ---
+        crop_indices_t = torch.from_numpy(crop_indices).long()
+        targets = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
+        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t]
 
         # --- Optimize data layout for block-sparse attention ---
         perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
-
         perm_t = torch.from_numpy(perm_np).long()
-        crop_indices_t = torch.from_numpy(crop_indices_np).long()
 
-        crop_y = targets[crop_indices_t][perm_t]
-        crop_sup_mask = sup_mask[crop_indices_t][perm_t]
+        crop_y = targets[perm_t]
+        crop_sup_mask = sup_mask[perm_t]
         crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
-        crop_x = torch.from_numpy(x[crop_indices_np][perm_np].astype(np.float32))
+        crop_x = torch.from_numpy(x[perm_np].astype(np.float32))
 
-        # --- Pad to block size and create a block mask ---
+        # --- Pad and create a block mask for sparse attention---
         crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
             [crop_x, crop_pos, crop_y, crop_sup_mask]
         )
         crop_block_mask = create_block_mask_from_kdtree(
             kdtree=KDTree(crop_pos_np[perm_np], leafsize=self.attn_block_size),
             points=crop_pos.cpu().numpy(),
-            n_points_unpadded=len(crop_indices_np),
+            n_points_unpadded=len(crop_indices),
             k=self.k,
             block_size=self.attn_block_size,
             symmetric=self.symmetric_block_mask,
@@ -287,15 +272,15 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             "y": crop_y[crop_sup_mask],  # (num_supervised, )
             "sup_mask": crop_sup_mask.bool(),  # (n, )
             "block_mask": crop_block_mask,
-            "seq_len": torch.tensor(len(crop_indices_np), dtype=torch.int32),
+            "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
         }
         if self.predict:
             metadata: Metadata = {
-                "slide_id": slide_id,
-                "slide_nuclei_path": nuclei_path,
-                "slide_path": self.metadata.iloc[idx].slide_path,
-                "keep_indices": keep,
+                "slide_id": slide.slide_id,
+                "slide_path": slide.slide_path,
+                "slide_nuclei_path": slide.slide_nuclei_path,
                 "perm_inverse": self.get_inverse_perm(perm_t),
+                "nuclei_ids": nuclei["id"].to_numpy(),
             }
             return PredictSlide(slide=crop, metadata=metadata)
         return crop

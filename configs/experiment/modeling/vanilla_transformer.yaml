@@ -2,22 +2,21 @@
 
 defaults:
   - /data/sources/prostate_cancer
-  - /data/sources@data.dataset: # TODO
   - /model/models@model.net: # TODO
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision_strategy: # TODO
+  - /data/samplers@data.sampler: # TODO
+  - /data/supervision@data.train_strategy: # TODO
+  - /data/supervision@data.eval_strategy: # TODO
 
 mode: fit
-checkpoint: null
 
 trainer: {}
 
 data:
-  sampler_pos_thr: 0.20
+  sampler_pos_thr: # TODO
+  balance_sampling: # TODO
   batch_size: 8
-  paths:
-    features: ${dataset.paths.features}
+  split_size: 0.1
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
@@ -33,11 +32,13 @@ model: {}
 
 metadata:
   run_name: "Train: Self Attention Transformer"
+  description: ""
   hyperparams:
-    supervision_mode: ${data.supervision_strategy.mode}
-    cam_thr_type: ${oc.select:data.supervision_strategy.cam_thr_type,null}
+    train_supervision_mode: ${data.train_strategy.mode}
+    validation_supervision_mode: ${data.eval_strategy.mode}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
+    split_size: ${data.split_size}
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}
