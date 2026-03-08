@@ -1,10 +1,16 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 import torch
+from numpy.typing import NDArray
+from scipy.spatial import KDTree
 from torch import Tensor
 from tqdm import tqdm
+
+
+Coords = NDArray[np.float32]
 
 
 class NucleiSupervision(ABC):
@@ -26,30 +32,40 @@ class NucleiSupervision(ABC):
         """Returns supervision mask (True for confident labels)."""
 
     @abstractmethod
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         """Returns indices eligible as seeds for crop generation.
 
         Negative slides should return all True, while positive slides
-        are expected to return confident positives.
+        are expected to return confident positives or a balanced subset
+        if `balance_sampling` is True.
+
+        Centroids are expected to be in the micron units as they are used
+        for distance-based balancing of seeds.
         """
 
     @abstractmethod
     def get_positivity(self) -> float:
         """Returns the fraction of positive nuclei [0.0, 1.0]."""
 
-    def balance_seeds(self, pos_mask: Tensor, neg_mask: Tensor) -> Tensor:
-        """Balances seeds by matching the number of negatives to positives.
-
-        This function randomly samples a subset of the negative seeds so that their count
-        exactly matches the positive seeds. If the number of negative seeds is less than or
-        equal to the positive seeds, no downsampling is performed.
+    def balance_seeds(
+        self,
+        pos_mask: Tensor,
+        neg_mask: Tensor,
+        centroids: Coords,
+        inner_radius: float = 30.0,
+        outer_radius: float = 200.0,
+    ) -> Tensor:
+        """Prioritizes negative seeds that are close to positive clusters.
 
         Args:
-            pos_mask (Tensor): Boolean tensor indicating valid positive nuclei.
-            neg_mask (Tensor): Boolean tensor indicating valid negative nuclei.
+            pos_mask: Boolean mask of positive nuclei.
+            neg_mask: Boolean mask of negative nuclei.
+            centroids: (N, 2) array of nucleus centroids in micron units.
+            inner_radius: Distance (in microns) within which negatives are most likely to be selected.
+            outer_radius: Distance (in microns) beyond which negatives are unlikely to be selected.
 
         Returns:
-            Tensor: The balanced seed mask.
+            Boolean mask of selected seeds, including all positives and a balanced subset of negatives.
         """
         n_pos = int(pos_mask.sum().item())
         n_neg = int(neg_mask.sum().item())
@@ -57,13 +73,32 @@ class NucleiSupervision(ABC):
         if n_pos == 0 or n_neg <= n_pos:
             return pos_mask | neg_mask
 
-        neg_indices = torch.nonzero(neg_mask, as_tuple=False).squeeze(1)
+        pos_indices = torch.nonzero(pos_mask).squeeze(1).cpu().numpy()
+        neg_indices = torch.nonzero(neg_mask).squeeze(1).cpu().numpy()
 
-        perm = torch.randperm(n_neg)[:n_pos]
-        selected_neg_indices = neg_indices[perm]
+        pos_coords = centroids[pos_indices]
+        neg_coords = centroids[neg_indices]
 
-        balanced_mask = pos_mask.clone()
-        balanced_mask[selected_neg_indices] = True
+        # build KDTree for positives to find distances for all negatives
+        tree = KDTree(pos_coords)
+        dist, _ = tree.query(neg_coords, k=1)  # distance to the nearest positive
+
+        # set high weight for negatives in the boundary zone (Gaussian with mu=inner_radius and std=outer_radius/2)
+        weights = np.exp(-((dist - inner_radius) ** 2) / (2 * (outer_radius / 2) ** 2))
+
+        # ensure far-away negatives have a small probability of being selected
+        weights = weights + 1e-5
+
+        # normalize to get a probability distribution
+        weights /= weights.sum()
+        # get as many negatives as positives, sampled according to the weights
+        selected_neg_sub_indices = np.random.choice(
+            len(neg_indices), size=n_pos, replace=False, p=weights
+        )
+        selected_neg_indices = neg_indices[selected_neg_sub_indices]
+
+        balanced_mask = pos_mask.clone()  # include all positives
+        balanced_mask[torch.from_numpy(selected_neg_indices).to(pos_mask.device)] = True
 
         return balanced_mask
 
@@ -85,7 +120,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
             return torch.full((n,), True, dtype=torch.bool)
         return self.annot_labels == 1
 
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
         return self.annot_labels == 1
@@ -122,14 +157,15 @@ class CAMNucleiSupervision(NucleiSupervision):
             return torch.full((n,), True, dtype=torch.bool)
         return self.cam_labels != -1
 
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
 
+        assert centroids is not None
         if self.balance_sampling:
             pos_mask = self.cam_labels == 1
             neg_mask = self.cam_labels == 0
-            return self.balance_seeds(pos_mask, neg_mask)
+            return self.balance_seeds(pos_mask, neg_mask, centroids)
 
         return self.cam_labels != -1
 
@@ -166,14 +202,15 @@ class AgreementNucleiSupervision(NucleiSupervision):
             return torch.full((n,), True, dtype=torch.bool)
         return self.annot_labels == self.cam_labels
 
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
 
+        assert centroids is not None
         if self.balance_sampling:
             pos_mask = (self.annot_labels == 1) & (self.cam_labels == 1)
             neg_mask = (self.annot_labels == 0) & (self.cam_labels == 0)
-            return self.balance_seeds(pos_mask, neg_mask)
+            return self.balance_seeds(pos_mask, neg_mask, centroids)
 
         return self.annot_labels == self.cam_labels
 
@@ -210,7 +247,7 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
             return torch.full((n,), True, dtype=torch.bool)
         return (self.annot_labels == 1) & (self.cam_labels == 1)
 
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
         return (self.annot_labels == 1) & (self.cam_labels == 1)
@@ -241,7 +278,7 @@ class PredictionNucleiSupervision(NucleiSupervision):
     def get_sup_mask(self, n: int) -> Tensor:
         return torch.full((n,), True, dtype=torch.bool)
 
-    def get_seed_mask(self, n: int) -> Tensor:
+    def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         return torch.full((n,), True, dtype=torch.bool)  # dummy output
 
     def get_positivity(self) -> float:

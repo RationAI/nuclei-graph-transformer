@@ -213,7 +213,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # get indices eligible as a seed for growing the crop component
         nuclei_sup = self.supervision.supervision_map[slide.slide_id].nuclei_supervision
-        seed_mask = nuclei_sup.get_seed_mask(len(nuclei))
+        seed_mask = nuclei_sup.get_seed_mask(len(nuclei), centroids=centroids)
         valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
 
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
