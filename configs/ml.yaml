@@ -1,18 +1,18 @@
 defaults:
   - base
-  - /experiment/modeling: vanilla_transformer
   - _self_
+  - /experiment/modeling: vanilla_transformer
 
 seed: ${random_seed:}
 mode: ???
-checkpoint: ???
+checkpoint: null
 
 trainer:
   enable_checkpointing: true
-  max_epochs: 150
+  max_epochs: 180
   log_every_n_steps: 5
 
-data: {}
+data: # TODO
 
 model:
   lr: ???
