@@ -2,29 +2,34 @@
 
 defaults:
   - /data/sources/prostate_cancer
-  - /data/sources@data.dataset: prostate_cancer_stats
   - /model/models@model.net: # TODO
   - /data/datasets@data.dataset: # TODO
   - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.supervision_strategy: # TODO
+  - /data/supervision@data.train_strategy: # TODO
+  - /data/supervision@data.eval_strategy: # TODO
 
 mode: fit
-checkpoint: null
 
 trainer: # TODO
 
 data:
-  sampler_pos_thr: # TODO
+  sampler_pos_thr: 0.02 # slightly above the 10th percentile of pos scores across the train set for the "cam" supervision
+  balance_sampling: true
   batch_size: 8
-  paths:
-    features: ${dataset.paths.features}
+  split_size: 0.1
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
   dataset: # TODO
+
 model: # TODO
 
 metadata:
   run_name: "Train: Self Attention Transformer"
+  description: "eval on agreement sup mode"
   hyperparams:
+    train_supervision_mode: ${data.train_strategy.mode}
+    validation_supervision_mode: ${data.eval_strategy.mode}
+    sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
+    split_size: ${data.split_size}

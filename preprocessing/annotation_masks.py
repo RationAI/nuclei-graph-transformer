@@ -30,7 +30,7 @@ from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import write_big_tiff
 from rationai.masks.processing import process_items
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 from ratiopath.parsers import ASAPParser
@@ -57,7 +57,7 @@ def filter_carcinoma(slide_path: Path) -> list[BaseGeometry]:
     return [result] if isinstance(result, Polygon) else result.geoms
 
 
-@ray.remote
+@ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def process_slide(
     slide_path: Path,
     level: int,
@@ -100,11 +100,8 @@ def process_slide(
     )
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="preprocessing/annotation_masks.yaml",
-    version_base=None,
-)
+@with_cli_args(["+preprocessing=annotation_masks"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_df = pd.read_csv(download_artifacts(config.train_metadata_uri))

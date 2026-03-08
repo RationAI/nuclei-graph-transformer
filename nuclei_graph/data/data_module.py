@@ -1,27 +1,18 @@
 from collections.abc import Iterable
 
 import pandas as pd
-import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
-from nuclei_graph.data.supervision import (
-    DatasetSupervision,
-    SupervisionStrategy,
-    build_supervision,
-)
+from nuclei_graph.data.supervision import build_supervision
 from omegaconf import DictConfig
-from pandas import DataFrame
-from torch import Tensor
+from ratiopath.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
-    compute_feature_statistics,
-    get_subset,
     min_count_filter,
-    train_val_split,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
@@ -29,14 +20,13 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
-EVAL_CAM_THR_TYPE = "annot_restricted_thr"
-EVAL_SUP_STRATEGY = SupervisionStrategy("positive-agreement", EVAL_CAM_THR_TYPE)
-
 BASE_METADATA_COLS = [
     "slide_id",
     "is_carcinoma",
     "slide_nuclei_path",
     "slide_path",
+    "mpp_x",
+    "mpp_y",
 ]
 
 TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
@@ -46,7 +36,9 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        supervision_strategy: DictConfig,
+        eval_strategy: DictConfig,
+        train_strategy: DictConfig | None = None,
+        split_size: float = 0.1,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **data_params: DictConfig,
@@ -56,187 +48,117 @@ class DataModule(LightningDataModule):
         Args:
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading. Defaults to 0.
-            supervision_strategy: An DictConfig defining the type of supervision to use for positive slides.
+            eval_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
+            train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
+            split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
                 - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
-                - paths: DictConfig with key "features" containing paths to nuclei EFD representations.
-
-        The choice of supervision strategy only affects positive slides during the training (fit stage).
-        For validation, testing, and prediction the default is "positive-agreement" supervision strategy and "annot_restricted_thr" CAM threshold type.
         """
         super().__init__()
         self.batch_size = batch_size
-        self.sup_strategy = instantiate(supervision_strategy)
+        self.train_strategy = instantiate(train_strategy)
+        self.eval_strategy = instantiate(eval_strategy)
+        self.split_size = split_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
         self.dataset_cfg = data_params["dataset"]
         self.uris_cfg = data_params["mlflow_uris"]
-        self.paths_cfg = data_params["paths"]
         self.positivity: dict[str, float] = {}
-
-    def _get_slide_labels(
-        self, df: DataFrame, label_col: str = "is_carcinoma"
-    ) -> dict[str, int]:
-        return {str(k): int(v) for k, v in df.set_index("slide_id")[label_col].items()}
 
     def _load_df(self, uri: str, cols: list[str] | None = None) -> pd.DataFrame:
         path = download_artifacts(uri)
         return pd.read_parquet(path, columns=cols)
 
-    def _prepare_supervision(
-        self,
-        df: DataFrame,
-        strategy: SupervisionStrategy,
-        cam_uri: str | None,
-        annot_labels: DataFrame,
-    ) -> DatasetSupervision:
-        slide_ids = set(df["slide_id"])
+    def _get_labels_df(
+        self, uri: str | None, slide_ids: set[str] | None = None
+    ) -> pd.DataFrame | None:
+        if uri is None:
+            return None
+        df = self._load_df(uri)
+        return df[df["slide_id"].isin(slide_ids)] if slide_ids is not None else df
 
-        cam_labels = (
-            self._load_df(cam_uri).pipe(get_subset, slide_ids)
-            if cam_uri is not None
-            else None
-        )
-        annot_labels = annot_labels.pipe(get_subset, slide_ids)
-
-        return build_supervision(
-            strategy,
-            annot_labels,
-            cam_labels,
-            self._get_slide_labels(df),
-        )
-
-    def _prepare_stats(
-        self,
-        df: DataFrame,
-        efds_path: str,
-        target_dim: int,
-        log_scales_list: list[float] | None = None,
-        efd_stats_cfg: DictConfig | None = None,
-    ) -> tuple[tuple[float, ...], dict[str, Tensor]]:
-
-        if log_scales_list is None or efd_stats_cfg is None:
-            return compute_feature_statistics(df, efds_path, target_dim)
-
-        log_scales = tuple(log_scales_list)
-        efd_stats = {
-            "mean": torch.tensor(efd_stats_cfg.mean, dtype=torch.float32)[:target_dim],
-            "std": torch.tensor(efd_stats_cfg.std, dtype=torch.float32)[:target_dim],
+    def _get_sup(self, strategy, slide_df, slide_ids=None):
+        slide_label_map = {
+            str(k): int(v)
+            for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
-        return log_scales, efd_stats
+        return build_supervision(
+            sup_strategy=strategy,
+            label_map=slide_label_map,
+            df_annot=self._get_labels_df(strategy.annot_uri, slide_ids),
+            df_cam=self._get_labels_df(strategy.cam_uri, slide_ids),
+            df_pred=self._get_labels_df(strategy.pred_uri, slide_ids),
+        )
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-
-        sup_conf = self.uris_cfg.supervision
-        annot_labels = self._load_df(sup_conf.annotation)
-        metadata_uri = self.uris_cfg.metadata[mode]
-        efds_path = self.paths_cfg.features[mode]
-        target_dim = self.dataset_cfg.efd_order * 4
+        slides_uri = self.uris_cfg.metadata[mode]
 
         match stage:
             case "fit" | "validate":
-                metadata = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
+                assert self.train_strategy is not None
+                slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
+                slides_df = slides_df.sort_values(by="slide_id").reset_index(drop=True)
 
-                # --- split train/val ---
-                train, val = train_val_split(metadata)
-                train = min_count_filter(train, self.dataset_cfg.crop_size)
-
-                # --- load supervision ---
-                cam_uri = (
-                    sup_conf.cam[self.sup_strategy.cam_thr_type]
-                    if self.sup_strategy.cam_thr_type is not None
-                    else None
-                )
-                sup_train = self._prepare_supervision(
-                    df=train,
-                    strategy=self.sup_strategy,
-                    cam_uri=cam_uri,
-                    annot_labels=annot_labels,
-                )
-                sup_val = self._prepare_supervision(
-                    df=val,
-                    strategy=EVAL_SUP_STRATEGY,
-                    cam_uri=sup_conf.cam[EVAL_CAM_THR_TYPE],
-                    annot_labels=annot_labels,
+                train_df, validation_df = train_test_split(
+                    slides_df,
+                    test_size=self.split_size,
+                    random_state=42,
+                    stratify=slides_df["is_carcinoma"],
+                    groups=slides_df["patient_id"],
                 )
 
-                # --- compute statistics for sampler and normalization ---
+                train_df = train_df.reset_index(drop=True)
+                train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
+
+                ids = set(train_df["slide_id"])
+                sup_train = self._get_sup(self.train_strategy, train_df, ids)
                 self.positivity = {
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
-                log_scales, efd_stats = self._prepare_stats(
-                    df=train,
-                    efds_path=efds_path,
-                    target_dim=target_dim,
-                    log_scales_list=self.dataset_cfg.get("log_scale_stats", None),
-                    efd_stats_cfg=self.dataset_cfg.get("efd_stats", None),
+
+                self.train_dataset = instantiate(
+                    self.dataset_cfg,
+                    slides=train_df,
+                    supervision=sup_train,
                 )
 
-                # --- instantiate datasets ---
-                self.train = instantiate(
+                validation_df = validation_df.reset_index(drop=True)
+                ids = set(validation_df["slide_id"])
+                self.validation_dataset = instantiate(
                     self.dataset_cfg,
-                    metadata=train,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
-                    supervision=sup_train,
-                    efds_path=efds_path,
-                )
-                self.val = instantiate(
-                    self.dataset_cfg,
-                    metadata=val,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
-                    supervision=sup_val,
-                    efds_path=efds_path,
+                    slides=validation_df,
+                    supervision=self._get_sup(self.eval_strategy, validation_df, ids),
                     full_slide=True,
                 )
 
             case "test" | "predict":
-                metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
-                sup = self._prepare_supervision(
-                    df=metadata,
-                    strategy=EVAL_SUP_STRATEGY,
-                    cam_uri=sup_conf.cam[EVAL_CAM_THR_TYPE],
-                    annot_labels=annot_labels,
-                )
-                log_scales, efd_stats = self._prepare_stats(
-                    df=metadata,
-                    efds_path=efds_path,
-                    target_dim=target_dim,
-                    log_scales_list=self.dataset_cfg.log_scale_stats,  # must be set
-                    efd_stats_cfg=self.dataset_cfg.efd_stats,  # must be set
-                )
-
+                slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
                 dataset = instantiate(
                     self.dataset_cfg,
-                    metadata=metadata,
-                    supervision=sup,
-                    log_scale_stats=log_scales,
-                    efd_stats=efd_stats,
-                    efds_path=efds_path,
+                    slides=slides_df,
+                    supervision=self._get_sup(self.eval_strategy, slides_df),
                     full_slide=True,
                     predict=(stage == "predict"),
                 )
-
                 if stage == "test":
-                    self.test = dataset
+                    self.test_dataset = dataset
                 else:
-                    self.predict = dataset
+                    self.predict_dataset = dataset
 
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = (
             instantiate(self.sampler_partial, slides_positivity=self.positivity)(
-                dataset=self.train
+                dataset=self.train_dataset
             )
             if self.sampler_partial is not None
             else None
         )
         return DataLoader(
-            self.train,
+            self.train_dataset,
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
@@ -248,7 +170,7 @@ class DataModule(LightningDataModule):
 
     def val_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
-            self.val,
+            self.validation_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
@@ -256,7 +178,7 @@ class DataModule(LightningDataModule):
 
     def test_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
-            self.test,
+            self.test_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
@@ -264,7 +186,7 @@ class DataModule(LightningDataModule):
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
         return DataLoader(
-            self.predict,
+            self.predict_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn_predict,

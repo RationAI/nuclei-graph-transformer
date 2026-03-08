@@ -1,11 +1,11 @@
 defaults:
   - base
-  - /experiment/modeling: vanilla_transformer
   - _self_
+  - /experiment/modeling: vanilla_transformer #predict vanilla_transformer
 
 seed: ${random_seed:}
 mode: ???
-checkpoint: ???
+checkpoint: null
 
 trainer: {}
 
