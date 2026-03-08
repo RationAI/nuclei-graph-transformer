@@ -2,14 +2,14 @@
 
 defaults:
   - /data/sources/prostate_cancer
-  - /data/sources@data.dataset: # TODO
   - /model/models@model.net: # TODO
   - /data/datasets@data.dataset: # TODO
   - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.supervision_strategy: positive_agreement # annotation, cam, agreement
+  - /data/supervision@data.train_strategy: cam # cam agreement positive-agreement annotation
+  - /data/supervision@data.eval_strategy: agreement
+
 
 mode: fit
-checkpoint: null
 
 trainer: {}
 

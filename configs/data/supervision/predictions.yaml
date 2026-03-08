@@ -1,0 +1,6 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+mode: prediction
+pred_uri: ${dataset.mlflow_uris.supervision.model_prediction.virchow2}
