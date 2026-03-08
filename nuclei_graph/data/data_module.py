@@ -94,12 +94,12 @@ class DataModule(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-        metadata_uri = self.uris_cfg.metadata[mode]
+        slides_uri = self.uris_cfg.metadata[mode]
 
         match stage:
             case "fit" | "validate":
                 assert self.train_strategy is not None
-                slides_df = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
+                slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
                 slides_df = slides_df.sort_values(by="slide_id").reset_index(drop=True)
 
                 train_df, validation_df = train_test_split(
@@ -136,7 +136,7 @@ class DataModule(LightningDataModule):
                 )
 
             case "test" | "predict":
-                slides_df = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
+                slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
                 dataset = instantiate(
                     self.dataset_cfg,
                     slides=slides_df,
