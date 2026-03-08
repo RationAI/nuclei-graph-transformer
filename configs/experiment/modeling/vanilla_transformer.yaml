@@ -24,7 +24,7 @@ trainer:
       patience: 30
 
 data:
-  sampler_pos_thr: 0.02
+  sampler_pos_thr: 0.02 # slightly above the 10th percentile of pos scores across the train set for the "cam" supervision
   balance_sampling: true
   batch_size: 8
   split_size: 0.1
