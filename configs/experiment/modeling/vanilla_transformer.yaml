@@ -13,8 +13,8 @@ mode: fit
 trainer: # TODO
 
 data:
-  sampler_pos_thr: 0.02 # slightly above the 10th percentile of pos scores across the train set for the "cam" supervision
-  balance_sampling: true
+  sampler_pos_thr: 0.02
+  balance_sampling: # TODO
   batch_size: 8
   split_size: 0.1
   mlflow_uris:
@@ -26,7 +26,7 @@ model: # TODO
 
 metadata:
   run_name: "Train: Self Attention Transformer"
-  description: "eval on agreement sup mode"
+  description: test run
   hyperparams:
     train_supervision_mode: ${data.train_strategy.mode}
     validation_supervision_mode: ${data.eval_strategy.mode}
