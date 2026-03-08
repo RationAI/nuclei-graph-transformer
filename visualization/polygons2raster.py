@@ -40,7 +40,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import process_items, write_big_tiff
-from rationai.mlkit import autolog
+from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 
@@ -137,18 +137,15 @@ def process_slide(
     )
 
 
-def get_local_path(uri: str) -> Path | None:
+def get_local_path(uri: str | None) -> Path | None:
     return Path(download_artifacts(uri)) if uri is not None else None
 
 
-@hydra.main(
-    config_path="../configs",
-    config_name="visualization/polygons2raster",
-    version_base=None,
-)
+@with_cli_args(["+visualization=polygons2raster"])
+@hydra.main(config_path="../configs", config_name="visualization", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    assert int(config.visualization_mode) in {1, 2, 3, 4}
+    assert config.visualization_mode in {1, 2, 3, 4}
 
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
     test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))

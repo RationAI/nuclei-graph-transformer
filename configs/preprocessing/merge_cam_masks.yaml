@@ -1,0 +1,9 @@
+# @package _global_
+
+uris: ???
+train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
+test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+mlflow_artifact_path: cam_masks
+
+metadata:
+  run_name: "🎭 CAM Masks: ${dataset.name}"
