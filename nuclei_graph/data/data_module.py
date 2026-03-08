@@ -36,9 +36,9 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        eval_sup_strategy: DictConfig,
-        sup_strategy: DictConfig | None = None,
-        train_val_split_size: float = 0.1,
+        eval_strategy: DictConfig,
+        train_strategy: DictConfig | None = None,
+        split_size: float = 0.1,
         num_workers: int = 0,
         sampler: DictConfig | None = None,
         **data_params: DictConfig,
@@ -48,9 +48,9 @@ class DataModule(LightningDataModule):
         Args:
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading. Defaults to 0.
-            eval_sup_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
-            sup_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
-            train_val_split_size: Proportion of the training data to use for validation. Defaults to 0.1.
+            eval_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
+            train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
+            split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
@@ -58,9 +58,9 @@ class DataModule(LightningDataModule):
         """
         super().__init__()
         self.batch_size = batch_size
-        self.train_sup = instantiate(sup_strategy)
-        self.eval_sup = instantiate(eval_sup_strategy)
-        self.train_val_split_size = train_val_split_size
+        self.train_strategy = instantiate(train_strategy)
+        self.eval_strategy = instantiate(eval_strategy)
+        self.split_size = split_size
         self.num_workers = num_workers
         self.sampler_partial = sampler
         self.dataset_cfg = data_params["dataset"]
@@ -98,64 +98,67 @@ class DataModule(LightningDataModule):
 
         match stage:
             case "fit" | "validate":
-                assert self.train_sup is not None
-                metadata = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
-                metadata = metadata.sort_values(by="slide_id").reset_index(drop=True)
+                assert self.train_strategy is not None
+                slides_df = self._load_df(metadata_uri, cols=TRAIN_METADATA_COLS)
+                slides_df = slides_df.sort_values(by="slide_id").reset_index(drop=True)
 
-                train, val = train_test_split(
-                    metadata,
-                    test_size=self.train_val_split_size,
+                train_df, validation_df = train_test_split(
+                    slides_df,
+                    test_size=self.split_size,
                     random_state=42,
-                    stratify=metadata["is_carcinoma"],
-                    groups=metadata["patient_id"],
+                    stratify=slides_df["is_carcinoma"],
+                    groups=slides_df["patient_id"],
                 )
 
-                val = val.reset_index(drop=True)
-                train = train.reset_index(drop=True)
-                train = min_count_filter(train, self.dataset_cfg.crop_size)
+                train_df = train_df.reset_index(drop=True)
+                train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
 
-                sup_train = self._get_sup(self.train_sup, train, set(train["slide_id"]))
+                ids = set(train_df["slide_id"])
+                sup_train = self._get_sup(self.train_strategy, train_df, ids)
                 self.positivity = {
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
                     for slide_id, slide_sup in sup_train.supervision_map.items()
                 }
 
-                self.train = instantiate(
+                self.train_dataset = instantiate(
                     self.dataset_cfg,
-                    metadata=train,
+                    slides=train_df,
                     supervision=sup_train,
                 )
-                self.val = instantiate(
+
+                validation_df = validation_df.reset_index(drop=True)
+                ids = set(validation_df["slide_id"])
+                self.validation_dataset = instantiate(
                     self.dataset_cfg,
-                    metadata=val,
-                    supervision=self._get_sup(self.eval_sup, val, set(val["slide_id"])),
+                    slides=validation_df,
+                    supervision=self._get_sup(self.eval_strategy, validation_df, ids),
                     full_slide=True,
                 )
 
             case "test" | "predict":
-                metadata = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
+                slides_df = self._load_df(metadata_uri, cols=BASE_METADATA_COLS)
                 dataset = instantiate(
                     self.dataset_cfg,
-                    metadata=metadata,
-                    supervision=self._get_sup(self.eval_sup, metadata),
+                    slides=slides_df,
+                    supervision=self._get_sup(self.eval_strategy, slides_df),
                     full_slide=True,
                     predict=(stage == "predict"),
                 )
                 if stage == "test":
-                    self.test = dataset
+                    self.test_dataset = dataset
                 else:
-                    self.predict = dataset
+                    self.predict_dataset = dataset
 
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = (
             instantiate(self.sampler_partial, slides_positivity=self.positivity)(
-                dataset=self.train
+                dataset=self.train_dataset
             )
             if self.sampler_partial is not None
             else None
         )
         return DataLoader(
-            self.train,
+            self.train_dataset,
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
@@ -167,7 +170,7 @@ class DataModule(LightningDataModule):
 
     def val_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
-            self.val,
+            self.validation_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
@@ -175,7 +178,7 @@ class DataModule(LightningDataModule):
 
     def test_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
-            self.test,
+            self.test_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn,
@@ -183,7 +186,7 @@ class DataModule(LightningDataModule):
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
         return DataLoader(
-            self.predict,
+            self.predict_dataset,
             batch_size=1,
             num_workers=0,
             collate_fn=collate_fn_predict,

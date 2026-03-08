@@ -1,7 +1,7 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling: predict #predict vanilla_transformer
+  - /experiment/modeling: vanilla_transformer #predict vanilla_transformer
 
 seed: ${random_seed:}
 mode: ???

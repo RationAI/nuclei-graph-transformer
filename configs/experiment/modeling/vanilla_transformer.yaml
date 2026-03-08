@@ -5,8 +5,8 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.sup_strategy: cam # agreement positive-agreement annotation
-  - /data/supervision@data.eval_sup_strategy: agreement
+  - /data/supervision@data.train_strategy: cam # agreement positive-agreement annotation
+  - /data/supervision@data.eval_strategy: agreement
 
 mode: fit
 
@@ -27,7 +27,7 @@ data:
   sampler_pos_thr: 0.10
   balance_sampling: true
   batch_size: 8
-  train_val_split_size: 0.1
+  split_size: 0.1
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
@@ -57,11 +57,11 @@ metadata:
   run_name: "Train: Self Attention Transformer"
   description: "eval on agreement sup mode"
   hyperparams:
-    train_supervision_mode: ${data.sup_strategy.mode}
-    validation_supervision_mode: ${data.eval_sup_strategy.mode}
+    train_supervision_mode: ${data.train_strategy.mode}
+    validation_supervision_mode: ${data.eval_strategy.mode}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
     batch_size: ${data.batch_size}
-    train_val_split_size: ${data.train_val_split_size}
+    split_size: ${data.split_size}
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}

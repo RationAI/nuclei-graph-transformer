@@ -38,7 +38,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
     def __init__(
         self,
-        metadata: DataFrame,
+        slides: DataFrame,
         supervision: DatasetSupervision,
         crop_size: int = 4096,
         alpha: float = 0.8,
@@ -52,7 +52,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         """Initializes the dataset.
 
         Args:
-            metadata: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), "slide_nuclei_path" (str), "mpp_x" (float)
+            slides: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), "slide_nuclei_path" (str), "mpp_x" (float)
                 and "mpp_y" (float). If the predict mode is set to `True` then it should also have a column "slide_path" (str).
             supervision: DatasetSupervision dataclass containing slide-level and nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
@@ -67,7 +67,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
         )
-        self.metadata = metadata
+        self.slides = slides
         self.supervision = supervision
         self.crop_size = crop_size
         self.alpha = alpha
@@ -79,7 +79,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.predict = predict
 
     def __len__(self) -> int:
-        return len(self.metadata)
+        return len(self.slides)
 
     def find_component(
         self,
@@ -203,18 +203,18 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return np.array(global_crop_indices, dtype=np.int64)
 
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
-        nuclei_path = self.metadata.iloc[idx].slide_nuclei_path
+        nuclei_path = self.slides.iloc[idx].slide_nuclei_path
         nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
 
-        mpp_x = self.metadata.iloc[idx].mpp_x
-        mpp_y = self.metadata.iloc[idx].mpp_y
+        mpp_x = self.slides.iloc[idx].mpp_x
+        mpp_y = self.slides.iloc[idx].mpp_y
         mpp = np.array([mpp_x, mpp_y], dtype=np.float32)
 
         # --- Create a crop ---
         centroids = np.stack(nuclei["centroid"].tolist()) * mpp
 
         # get indices eligible as a seed for growing the crop component
-        slide_id = self.metadata.iloc[idx].slide_id
+        slide_id = self.slides.iloc[idx].slide_id
         supervision = self.supervision.supervision_map[slide_id].nuclei_supervision
         seed_mask = supervision.get_seed_mask(len(nuclei))
         valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
@@ -280,7 +280,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         if self.predict:
             metadata: Metadata = {
                 "slide_id": slide_id,
-                "slide_path": self.metadata.iloc[idx].slide_path,
+                "slide_path": self.slides.iloc[idx].slide_path,
                 "slide_nuclei_path": nuclei_path,
                 "perm_inverse": self.get_inverse_perm(perm_t),
                 "nuclei_ids": nuclei["id"].to_numpy(),
