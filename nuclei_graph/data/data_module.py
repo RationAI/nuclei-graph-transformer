@@ -1,11 +1,14 @@
 from collections.abc import Iterable
 
 import pandas as pd
-from nuclei_graph.data.supervision import DatasetSupervision, SupervisionStrategy
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
-from nuclei_graph.data.supervision import build_supervision
+from nuclei_graph.data.supervision import (
+    DatasetSupervision,
+    SupervisionStrategy,
+    build_supervision,
+)
 from omegaconf import DictConfig
 from ratiopath.model_selection import train_test_split
 from torch.utils.data import DataLoader
