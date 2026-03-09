@@ -297,6 +297,13 @@ class SlideSupervision:
 class DatasetSupervision:
     supervision_map: dict[str, SlideSupervision]
 
+    @property
+    def positivity_map(self) -> dict[str, float]:
+        return {
+            slide_id: slide_sup.nuclei_supervision.get_positivity()
+            for slide_id, slide_sup in self.supervision_map.items()
+        }
+
 
 class SupervisionStrategy:
     def __init__(

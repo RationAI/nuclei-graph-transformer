@@ -118,22 +118,18 @@ class DataModule(LightningDataModule):
                     groups=slides_df["patient_id"],
                 )
                 train_df = train_df.reset_index(drop=True)
-                validation_df = validation_df.reset_index(drop=True)
-
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
                 train_sup = self._get_supervision(
                     self.train_strategy, train_df, set(train_df["slide_id"])
                 )
-                self.positivity = {
-                    slide_id: slide_sup.nuclei_supervision.get_positivity()
-                    for slide_id, slide_sup in train_sup.supervision_map.items()
-                }
+                self.positivity = train_sup.positivity_map
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
                     slides=train_df,
                     supervision=train_sup,
                 )
 
+                validation_df = validation_df.reset_index(drop=True)
                 validation_sup = self._get_supervision(
                     self.eval_strategy, validation_df, set(validation_df["slide_id"])
                 )
