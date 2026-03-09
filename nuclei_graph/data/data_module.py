@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
 import pandas as pd
+from data.supervision import DatasetSupervision, SupervisionStrategy
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
@@ -47,10 +48,10 @@ class DataModule(LightningDataModule):
 
         Args:
             batch_size: Batch size for training.
-            num_workers: Number of workers for data loading. Defaults to 0.
             eval_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
             train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
             split_size: Proportion of the training data to use for validation. Defaults to 0.1.
+            num_workers: Number of workers for data loading. Defaults to 0.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
@@ -62,24 +63,30 @@ class DataModule(LightningDataModule):
         self.eval_strategy = instantiate(eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
-        self.sampler_partial = sampler
+        self.sampler_cfg = sampler
         self.dataset_cfg = data_params["dataset"]
-        self.uris_cfg = data_params["mlflow_uris"]
+        self.mlflow_uris_cfg = data_params["mlflow_uris"]
         self.positivity: dict[str, float] = {}
 
-    def _load_df(self, uri: str, cols: list[str] | None = None) -> pd.DataFrame:
-        path = download_artifacts(uri)
-        return pd.read_parquet(path, columns=cols)
-
-    def _get_labels_df(
-        self, uri: str | None, slide_ids: set[str] | None = None
+    def _load_df(
+        self,
+        uri: str | None,
+        slide_ids: set[str] | None = None,
+        cols: list[str] | None = None,
     ) -> pd.DataFrame | None:
         if uri is None:
             return None
-        df = self._load_df(uri)
-        return df[df["slide_id"].isin(slide_ids)] if slide_ids is not None else df
+        df = pd.read_parquet(download_artifacts(uri), columns=cols)
+        if slide_ids is not None:
+            return df[df["slide_id"].isin(slide_ids)].reset_index(drop=True)
+        return df
 
-    def _get_sup(self, strategy, slide_df, slide_ids=None):
+    def _get_supervision(
+        self,
+        strategy: SupervisionStrategy,
+        slide_df: pd.DataFrame,
+        slide_ids: set[str] | None = None,
+    ) -> DatasetSupervision:
         slide_label_map = {
             str(k): int(v)
             for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
@@ -87,20 +94,21 @@ class DataModule(LightningDataModule):
         return build_supervision(
             sup_strategy=strategy,
             label_map=slide_label_map,
-            df_annot=self._get_labels_df(strategy.annot_uri, slide_ids),
-            df_cam=self._get_labels_df(strategy.cam_uri, slide_ids),
-            df_pred=self._get_labels_df(strategy.pred_uri, slide_ids),
+            df_annot=self._load_df(strategy.annot_uri, slide_ids),
+            df_cam=self._load_df(strategy.cam_uri, slide_ids),
+            df_pred=self._load_df(strategy.pred_uri, slide_ids),
         )
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-        slides_uri = self.uris_cfg.metadata[mode]
+        slides_uri = self.mlflow_uris_cfg.metadata[mode]
 
         match stage:
             case "fit" | "validate":
                 assert self.train_strategy is not None
+
                 slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
-                slides_df = slides_df.sort_values(by="slide_id").reset_index(drop=True)
+                assert slides_df is not None
 
                 train_df, validation_df = train_test_split(
                     slides_df,
@@ -109,38 +117,43 @@ class DataModule(LightningDataModule):
                     stratify=slides_df["is_carcinoma"],
                     groups=slides_df["patient_id"],
                 )
-
                 train_df = train_df.reset_index(drop=True)
-                train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
+                validation_df = validation_df.reset_index(drop=True)
 
-                ids = set(train_df["slide_id"])
-                sup_train = self._get_sup(self.train_strategy, train_df, ids)
+                train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
+                train_sup = self._get_supervision(
+                    self.train_strategy, train_df, set(train_df["slide_id"])
+                )
                 self.positivity = {
                     slide_id: slide_sup.nuclei_supervision.get_positivity()
-                    for slide_id, slide_sup in sup_train.supervision_map.items()
+                    for slide_id, slide_sup in train_sup.supervision_map.items()
                 }
-
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
                     slides=train_df,
-                    supervision=sup_train,
+                    supervision=train_sup,
                 )
 
-                validation_df = validation_df.reset_index(drop=True)
-                ids = set(validation_df["slide_id"])
+                validation_sup = self._get_supervision(
+                    self.eval_strategy, validation_df, set(validation_df["slide_id"])
+                )
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
                     slides=validation_df,
-                    supervision=self._get_sup(self.eval_strategy, validation_df, ids),
+                    supervision=validation_sup,
                     full_slide=True,
                 )
 
             case "test" | "predict":
                 slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
+                assert slides_df is not None
+                ids = set(slides_df["slide_id"])
+                sup = self._get_supervision(self.eval_strategy, slides_df, ids)
+
                 dataset = instantiate(
                     self.dataset_cfg,
                     slides=slides_df,
-                    supervision=self._get_sup(self.eval_strategy, slides_df),
+                    supervision=sup,
                     full_slide=True,
                     predict=(stage == "predict"),
                 )
@@ -150,13 +163,10 @@ class DataModule(LightningDataModule):
                     self.predict_dataset = dataset
 
     def train_dataloader(self) -> Iterable[Batch]:
-        sampler = (
-            instantiate(self.sampler_partial, slides_positivity=self.positivity)(
-                dataset=self.train_dataset
-            )
-            if self.sampler_partial is not None
-            else None
-        )
+        sampler = None
+        if self.sampler_cfg is not None:
+            partial = instantiate(self.sampler_cfg, slides_positivity=self.positivity)
+            sampler = partial(dataset=self.train_dataset)
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
