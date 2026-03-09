@@ -117,6 +117,7 @@ class DataModule(LightningDataModule):
                     stratify=slides_df["is_carcinoma"],
                     groups=slides_df["patient_id"],
                 )
+
                 train_df = train_df.reset_index(drop=True)
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
                 train_sup = self._get_supervision(
