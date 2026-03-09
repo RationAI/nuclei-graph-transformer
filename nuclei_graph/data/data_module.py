@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 import pandas as pd
-from data.supervision import DatasetSupervision, SupervisionStrategy
+from nuclei_graph.data.supervision import DatasetSupervision, SupervisionStrategy
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
