@@ -181,31 +181,35 @@ class DataModule(LightningDataModule):
         )
 
     def val_dataloader(self) -> Iterable[Batch]:
+        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.validation_dataset,
             batch_size=1,
-            num_workers=2,
-            persistent_workers=self.num_workers > 0,
-            prefetch_factor=2 if self.num_workers > 0 else None,
+            num_workers=n_workers,
+            persistent_workers=n_workers > 0,
+            prefetch_factor=2 if n_workers > 0 else None,
+            pin_memory=True,
             collate_fn=collate_fn,
         )
 
     def test_dataloader(self) -> Iterable[Batch]:
+        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.test_dataset,
             batch_size=1,
-            num_workers=2,
-            persistent_workers=self.num_workers > 0,
-            prefetch_factor=2 if self.num_workers > 0 else None,
+            num_workers=n_workers,
+            persistent_workers=n_workers > 0,
+            prefetch_factor=2 if n_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
+        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
-            num_workers=2,
-            persistent_workers=self.num_workers > 0,
-            prefetch_factor=2 if self.num_workers > 0 else None,
+            num_workers=n_workers,
+            persistent_workers=n_workers > 0,
+            prefetch_factor=2 if n_workers > 0 else None,
             collate_fn=collate_fn_predict,
         )
