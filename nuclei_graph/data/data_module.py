@@ -44,6 +44,7 @@ class DataModule(LightningDataModule):
         train_strategy: DictConfig | None = None,
         split_size: float = 0.1,
         num_workers: int = 0,
+        max_eval_workers: int = 2,
         sampler: DictConfig | None = None,
         **data_params: DictConfig,
     ) -> None:
@@ -55,6 +56,7 @@ class DataModule(LightningDataModule):
             train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
             split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             num_workers: Number of workers for data loading. Defaults to 0.
+            max_eval_workers: Maximum number of workers for evaluation data loading. Defaults to 2.
             sampler: Sampler configuration for training data loader. Defaults to None.
             **data_params: Additional parameters expected to contain keys:
                 - dataset: DictConfig for instantiation of a Torch Dataset.
@@ -66,6 +68,7 @@ class DataModule(LightningDataModule):
         self.eval_strategy = instantiate(eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
+        self.max_eval_workers = max_eval_workers
         self.sampler_cfg = sampler
         self.dataset_cfg = data_params["dataset"]
         self.mlflow_uris_cfg = data_params["mlflow_uris"]
@@ -181,35 +184,32 @@ class DataModule(LightningDataModule):
         )
 
     def val_dataloader(self) -> Iterable[Batch]:
-        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.validation_dataset,
             batch_size=1,
-            num_workers=n_workers,
-            persistent_workers=n_workers > 0,
-            prefetch_factor=2 if n_workers > 0 else None,
+            num_workers=self.max_eval_workers,
+            persistent_workers=self.max_eval_workers > 0,
+            prefetch_factor=2 if self.max_eval_workers > 0 else None,
             pin_memory=True,
             collate_fn=collate_fn,
         )
 
     def test_dataloader(self) -> Iterable[Batch]:
-        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.test_dataset,
             batch_size=1,
-            num_workers=n_workers,
-            persistent_workers=n_workers > 0,
-            prefetch_factor=2 if n_workers > 0 else None,
+            num_workers=self.max_eval_workers,
+            persistent_workers=self.max_eval_workers > 0,
+            prefetch_factor=2 if self.max_eval_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
-        n_workers = min(self.num_workers, 2) if self.num_workers > 0 else 0
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
-            num_workers=n_workers,
-            persistent_workers=n_workers > 0,
-            prefetch_factor=2 if n_workers > 0 else None,
+            num_workers=self.max_eval_workers,
+            persistent_workers=self.max_eval_workers > 0,
+            prefetch_factor=2 if self.max_eval_workers > 0 else None,
             collate_fn=collate_fn_predict,
         )
