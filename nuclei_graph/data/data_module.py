@@ -174,6 +174,8 @@ class DataModule(LightningDataModule):
             shuffle=sampler is None,
             collate_fn=collate_fn,
             drop_last=True,
+            prefetch_factor=2,
+            pin_memory=True,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
         )
@@ -182,7 +184,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.validation_dataset,
             batch_size=1,
-            num_workers=0,
+            num_workers=2,
+            persistent_workers=self.num_workers > 0,
+            prefetch_factor=2 if self.num_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
@@ -190,7 +194,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.test_dataset,
             batch_size=1,
-            num_workers=0,
+            num_workers=2,
+            persistent_workers=self.num_workers > 0,
+            prefetch_factor=2 if self.num_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
@@ -198,6 +204,8 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
-            num_workers=0,
+            num_workers=2,
+            persistent_workers=self.num_workers > 0,
+            prefetch_factor=2 if self.num_workers > 0 else None,
             collate_fn=collate_fn_predict,
         )
