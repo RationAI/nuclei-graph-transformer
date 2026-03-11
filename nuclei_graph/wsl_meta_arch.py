@@ -1,6 +1,7 @@
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
@@ -73,7 +74,7 @@ class WSLMetaArch(LightningModule):
 
         weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
 
-        loss_sup = self.bce(
+        loss_sup = F.binary_cross_entropy_with_logits(
             logits_sup,
             targets_sup,
             weight=weights,
