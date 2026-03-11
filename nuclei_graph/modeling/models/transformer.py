@@ -1,5 +1,4 @@
 import torch
-from einops import rearrange
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
