@@ -132,7 +132,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
 
 
 class CAMNucleiSupervision(NucleiSupervision):
-    """Supervision based on CAM labels.
+    """Supervision based on CAM labels only.
 
     Regions above a certain CAM threshold are considered positive, those below a certain
     threshold are negative, and those in between are ignored.
@@ -259,32 +259,42 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
         return float(positive_sum / len(self.annot_labels))
 
 
-class PredictionNucleiSupervision(NucleiSupervision):
-    """Supervision based on model predictions (e.g., Virchow2).
+class DenseNucleiSupervision(NucleiSupervision):
+    """Supervision where all provided nuclei are confidently labeled.
 
-    This mode is intended only for testing and prediction evaluation.
-    All nuclei are supervised based on the provided prediction labels.
+    Intended for dense nucleus-level training or prediction evaluation
+    (e.g.using Virchow2 predictions).
     """
 
-    def __init__(self, is_carcinoma: bool, pred_labels: Tensor):
-        super().__init__(is_carcinoma)
-        self.pred_labels = pred_labels
+    def __init__(
+        self, is_carcinoma: bool, labels: Tensor, balance_sampling: bool | None = False
+    ):
+        super().__init__(is_carcinoma, balance_sampling)
+        self.labels = labels
 
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
             return torch.full((n,), 0.0, dtype=torch.float32)
-        return self.pred_labels
+        return self.labels
 
     def get_sup_mask(self, n: int) -> Tensor:
         return torch.full((n,), True, dtype=torch.bool)
 
     def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
-        return torch.full((n,), True, dtype=torch.bool)  # dummy output
+        if not self.is_carcinoma:
+            return torch.ones(n, dtype=torch.bool)
+
+        if self.balance_sampling and centroids is not None:
+            pos_mask = self.labels == 1
+            neg_mask = self.labels == 0
+            return self.balance_seeds(pos_mask, neg_mask, centroids)
+
+        return torch.ones(n, dtype=torch.bool)
 
     def get_positivity(self) -> float:
         if not self.is_carcinoma:
             return 0.0
-        return float(self.pred_labels.mean())
+        return float(self.labels.mean())
 
 
 @dataclass(frozen=True)
@@ -311,12 +321,12 @@ class SupervisionStrategy:
         mode: str,
         annot_uri: str | None = None,
         cam_uri: str | None = None,
-        pred_uri: str | None = None,
+        dense_uri: str | None = None,
         balance_sampling: bool | None = None,
     ):
         self.annot_uri = annot_uri
         self.cam_uri = cam_uri
-        self.pred_uri = pred_uri
+        self.dense_uri = dense_uri
         self.mode = mode
         self.balance_sampling = balance_sampling
 
@@ -325,7 +335,7 @@ class SupervisionStrategy:
             "cam": CAMNucleiSupervision,
             "agreement": AgreementNucleiSupervision,
             "positive-agreement": PositiveAgreementNucleiSupervision,
-            "prediction": PredictionNucleiSupervision,
+            "dense": DenseNucleiSupervision,
         }
         if mode not in self._modes:
             raise ValueError(f"Unknown supervision mode: {mode}")
@@ -335,7 +345,7 @@ class SupervisionStrategy:
         is_carcinoma: bool,
         annot_labels: Tensor | None = None,
         cam_labels: Tensor | None = None,
-        pred_labels: Tensor | None = None,
+        dense_labels: Tensor | None = None,
     ) -> NucleiSupervision:
         supervision = self._modes[self.mode]
         if self.mode == "annotation":
@@ -348,8 +358,8 @@ class SupervisionStrategy:
             )
         elif self.mode == "positive-agreement":
             return supervision(is_carcinoma, cam_labels, annot_labels)
-        else:  # prediction
-            return supervision(is_carcinoma, pred_labels)
+        else:  # dense supervision
+            return supervision(is_carcinoma, dense_labels)
 
 
 def build_supervision(
@@ -357,11 +367,11 @@ def build_supervision(
     label_map: dict[str, int],
     df_annot: pd.DataFrame | None = None,
     df_cam: pd.DataFrame | None = None,
-    df_pred: pd.DataFrame | None = None,
+    df_dense: pd.DataFrame | None = None,
 ) -> DatasetSupervision:
-    assert not (df_annot is None and df_cam is None and df_pred is None)
+    assert not (df_annot is None and df_cam is None and df_dense is None)
 
-    sources = [df for df in [df_annot, df_cam, df_pred] if df is not None]
+    sources = [df for df in [df_annot, df_cam, df_dense] if df is not None]
 
     df_merged = sources[0]
     for next_source in sources[1:]:
@@ -388,7 +398,7 @@ def build_supervision(
                 is_carcinoma=True,
                 annot_labels=get_col("annot_label"),
                 cam_labels=get_col("cam_label"),
-                pred_labels=get_col("pred_label"),
+                dense_labels=get_col("pred_label"),
             )
         sup_map[slide_id] = SlideSupervision(
             slide_label=int(label), nuclei_supervision=nuclei_sup

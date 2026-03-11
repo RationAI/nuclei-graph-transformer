@@ -99,7 +99,7 @@ class DataModule(LightningDataModule):
             label_map=slide_label_map,
             df_annot=self._load_df(strategy.annot_uri, slide_ids),
             df_cam=self._load_df(strategy.cam_uri, slide_ids),
-            df_pred=self._load_df(strategy.pred_uri, slide_ids),
+            df_dense=self._load_df(strategy.dense_uri, slide_ids),
         )
 
     def setup(self, stage: str) -> None:

@@ -57,29 +57,36 @@ class WSLMetaArch(LightningModule):
         logits = self(batch).squeeze(-1)
         logits_sup = logits[batch["sup_mask"]]
         targets_sup = batch["y"]
+
         sup_size = targets_sup.numel()
+        if sup_size == 0:  # empty supervision batch
+            return logits.sum() * 0.0
 
-        # ------------------------------------------------------------------------------
-        n_pos = (targets_sup == 1).sum()
-        n_neg = (targets_sup == 0).sum()
-        total_sup = targets_sup.numel()
+        n_pos = (targets_sup == 1).sum().float()
+        n_neg = (targets_sup == 0).sum().float()
+        num_classes = (n_pos > 0).float() + (n_neg > 0).float()
+        total_sup = float(sup_size)
 
+        # compute weights s.t. sum(positive weights) == sum(negative weights)
+        weight_pos = total_sup / (num_classes * n_pos.clamp(min=1.0))
+        weight_neg = total_sup / (num_classes * n_neg.clamp(min=1.0))
+
+        weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
+
+        loss_sup = self.bce(
+            logits_sup,
+            targets_sup,
+            weight=weights,
+        )
         self.log_dict(
             {
-                "train/n_pos": n_pos.float(),
-                "train/n_neg": n_neg.float(),
-                "train/pos_ratio": n_pos.float() / total_sup if total_sup > 0 else 0.0,
+                "train/pos_ratio": n_pos / total_sup if total_sup > 0 else 0.0,
+                "train/sup_size": total_sup,
             },
             on_step=False,
             on_epoch=True,
             prog_bar=True,
         )
-        # ------------------------------------------------------------------------------
-
-        loss_sup = (
-            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
-        )
-        self.log_dict({"train/sup_size": sup_size}, on_step=True)
         self.log(
             "train/loss",
             loss_sup,
@@ -92,13 +99,11 @@ class WSLMetaArch(LightningModule):
 
     def validation_step(self, batch: Batch) -> None:
         logits = self(batch).squeeze(-1)
-        sup_mask = batch["sup_mask"]
-        logits_sup = logits[sup_mask]
-
+        logits_sup = logits[batch["sup_mask"]]
         targets_sup = batch["y"]
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:
+        if sup_size == 0:  # empty supervision batch
             return None
 
         loss = self.bce(logits_sup, targets_sup)
@@ -142,13 +147,11 @@ class WSLMetaArch(LightningModule):
 
     def test_step(self, batch: Batch) -> None:
         logits = self(batch).squeeze(-1)
-        sup_mask = batch["sup_mask"]
-        logits_sup = logits[sup_mask]
-
+        logits_sup = logits[batch["sup_mask"]]
         targets_sup = batch["y"]
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:
+        if sup_size == 0:  # empty supervision batch
             return None
 
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
