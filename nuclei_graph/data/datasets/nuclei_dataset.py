@@ -158,7 +158,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return perm_inverse
 
     def get_crop_indices(
-        self, centroids: NDArray[np.float64], valid_seeds: list[int]
+        self, centroids: NDArray[np.float32], valid_seeds: list[int]
     ) -> NDArray[np.int64]:
         """Selects nuclei indices for a crop by growing a connected component on the spatial graph.
 
@@ -208,7 +208,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei = nuclei.sort_values("id").reset_index(drop=True)
 
         # --- Create a crop ---
-        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float64)
+        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
         centroids = np.stack(list(nuclei["centroid"])) * mpp
 
         # get indices eligible as a seed for growing the crop component
@@ -221,7 +221,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # --- Compute features ---
         crop_polygons = np.stack(list(nuclei["polygon"].iloc[crop_indices]))
         contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpp
-        efds = elliptic_fourier_descriptors(contours, self.efd_order)
+        efds = elliptic_fourier_descriptors(contours.astype(np.float64), self.efd_order)
 
         efds, angles = normalize_efd_for_rotation(efds)
         # double so that θ and θ + π map to the same values (nuclei/ellipses are symmetric)
