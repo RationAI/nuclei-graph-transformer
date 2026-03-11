@@ -53,15 +53,13 @@ class Transformer(nn.Module):
         Returns:
             Tensor of shape (b, n, 1).
         """
-        to_norm = x[..., :-2]
-        angles = x[..., -2:]  # do not normalize angles
+        to_norm = x[..., :-2]  # do not normalize  angles
+        angles = x[..., -2:]
 
-        norm = self.batch_norm(rearrange(to_norm, "b n d -> (b n) d"))
-        norm = rearrange(norm, "(b n) d -> b n d", b=to_norm.size(0))
-        x_norm = torch.cat([norm, angles], dim=-1)
+        norm = self.batch_norm(to_norm.transpose(1, 2)).transpose(1, 2)
+        x = torch.cat([norm, angles], dim=-1)
 
-        x = self.input_proj(x_norm)
-
+        x = self.input_proj(x)
         for layer in self.layers:
             x = layer(x, pos, block_mask)
 
