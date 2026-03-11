@@ -10,7 +10,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 
-Coords = NDArray[np.float32]
+Coords = NDArray[np.float64]
 
 
 class NucleiSupervision(ABC):
@@ -81,7 +81,7 @@ class NucleiSupervision(ABC):
 
         # build KDTree for positives to find distances for all negatives
         tree = KDTree(pos_coords)
-        dist, _ = tree.query(neg_coords, k=1)  # distance to the nearest positive
+        dist, _ = tree.query(neg_coords, k=1, workers=-1)  # dist to nearest positive
 
         # set high weight for negatives in the boundary zone (Gaussian with mu=inner_radius and std=outer_radius/2)
         weights = np.exp(-((dist - inner_radius) ** 2) / (2 * (outer_radius / 2) ** 2))
@@ -359,7 +359,7 @@ class SupervisionStrategy:
         elif self.mode == "positive-agreement":
             return supervision(is_carcinoma, cam_labels, annot_labels)
         else:  # dense supervision
-            return supervision(is_carcinoma, dense_labels)
+            return supervision(is_carcinoma, dense_labels, self.balance_sampling)
 
 
 def build_supervision(

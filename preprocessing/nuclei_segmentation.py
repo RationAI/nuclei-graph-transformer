@@ -27,7 +27,6 @@ from typing import Any, TypedDict
 import hydra
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 import ray
 import torch
 from mlflow.artifacts import download_artifacts
@@ -214,31 +213,6 @@ def filter_tissue_tiles(tile_record: TileRecord, tissue_masks_dir: Path) -> bool
             return True
 
     return False
-
-
-def read_slide_tiles(batch: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-    """Reads a batch of tiles grouped by slide."""
-    paths = batch["path"]
-    unique_paths = np.unique(paths)
-
-    tiles = np.empty(len(paths), dtype=object)
-
-    for p in unique_paths:
-        group = np.where(paths == p)[0]
-
-        kwargs = {
-            "tile_x": pa.array(batch["tile_x"][group]),
-            "tile_y": pa.array(batch["tile_y"][group]),
-            "tile_extent_x": pa.array(batch["tile_extent_x"][group]),
-            "tile_extent_y": pa.array(batch["tile_extent_y"][group]),
-            "level": pa.array(batch["level"][group]),
-        }
-
-        with OpenSlide(str(p)) as slide:
-            tiles[group] = list(read_openslide_tiles(slide, **kwargs))
-
-    batch["tile"] = tiles
-    return batch
 
 
 def run_segmentation(

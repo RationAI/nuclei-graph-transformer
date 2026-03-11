@@ -158,7 +158,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return perm_inverse
 
     def get_crop_indices(
-        self, centroids: NDArray[np.float32], valid_seeds: list[int]
+        self, centroids: NDArray[np.float64], valid_seeds: list[int]
     ) -> NDArray[np.int64]:
         """Selects nuclei indices for a crop by growing a connected component on the spatial graph.
 
@@ -208,8 +208,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei = nuclei.sort_values("id").reset_index(drop=True)
 
         # --- Create a crop ---
-        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
-        centroids = np.stack(nuclei["centroid"].tolist()) * mpp
+        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float64)
+        centroids = np.stack(list(nuclei["centroid"])) * mpp
 
         # get indices eligible as a seed for growing the crop component
         nuclei_sup = self.supervision.supervision_map[slide.slide_id].nuclei_supervision
@@ -219,7 +219,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
         # --- Compute features ---
-        crop_polygons = nuclei["polygon"].iloc[crop_indices].tolist()
+        crop_polygons = np.stack(list(nuclei["polygon"].iloc[crop_indices]))
         contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpp
         efds = elliptic_fourier_descriptors(contours, self.efd_order)
 
