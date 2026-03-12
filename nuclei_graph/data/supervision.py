@@ -10,7 +10,7 @@ from torch import Tensor
 from tqdm import tqdm
 
 
-Coords = NDArray[np.float32]
+type Coords = NDArray[np.float32]
 
 
 class NucleiSupervision(ABC):

@@ -1,0 +1,57 @@
+# @package _global_
+
+defaults:
+  - /model/meta_archs: ???
+  - /model/models@model.net: ???
+  - /data/datasets@data.dataset: ???
+  - /data/supervision@data.eval_strategy: ???
+
+mode: predict
+checkpoint: ???
+checkpoint_url: ???
+dataset: ???
+
+trainer:
+  callbacks:
+    - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
+    - _target_: nuclei_graph.callbacks.PredictionsCallback
+      mlflow_artifact_path: "predictions"
+    - _target_: nuclei_graph.callbacks.PredictionMasksCallback
+      level: 2
+      mask_tile_width: 512
+      mask_tile_height: 512
+      mlflow_artifact_path: "prediction_masks"
+
+data:
+  batch_size: 1
+  balance_sampling: null
+  mlflow_uris:
+    metadata:
+      predict: ${dataset.mlflow_uris.metadata.test}
+    supervision: ${dataset.mlflow_uris.supervision}
+  dataset:
+    alpha: ???
+    k: ???
+    attn_block_size: ???
+    efd_order: ???
+    crop_size: ???
+    symmetric_block_mask: ???
+
+model:
+  lr: ???
+  warmup_epochs: ???
+  net:
+    config:
+      dim: ???
+      hidden_dim: ???
+      num_heads: ???
+      num_layers: ???
+      num_classes: ???
+      dropout: ???
+
+metadata:
+  run_name: ???
+  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  hyperparams:
+    prediction_supervision_mode: ${data.eval_strategy.mode}
+    checkpoint: ${checkpoint}

@@ -1,6 +1,6 @@
 import heapq
 from collections.abc import Iterable
-from random import choice, randint
+from random import choice, randrange
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from pandas import DataFrame
 from scipy.spatial import KDTree
 from torch import Tensor
+from torch.nn.attention.flex_attention import BlockMask
 from torch.utils.data import Dataset
 
 from nuclei_graph.data import create_block_mask_from_kdtree
@@ -20,17 +21,15 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from nuclei_graph.data.supervision import DatasetSupervision
-from nuclei_graph.nuclei_graph_typing import (
-    Crop,
-    Metadata,
-    PredictSlide,
-)
+from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
+from nuclei_graph.nuclei_graph_typing import Crop, Metadata, PredictSlide, Targets
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
 type Neighbor = tuple[int, float]  # (node_idx, edge_distance)
 type AdjacencyGraph = list[list[Neighbor]]
+
+type Coords = NDArray[np.float32]
 
 
 class NucleiDataset(Dataset[Crop | PredictSlide]):
@@ -41,6 +40,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         slides: DataFrame,
         supervision: DatasetSupervision,
         crop_size: int = 4096,
+        crop_pos_thr: float | None = 0.75,
         alpha: float = 0.8,
         k: int = 64,
         attn_block_size: int = 128,
@@ -48,6 +48,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         symmetric_block_mask: bool = False,
         full_slide: bool = False,
         predict: bool = False,
+        mil: bool = False,
     ) -> None:
         """Initializes the dataset.
 
@@ -56,6 +57,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
                 and "mpp_y" (float). If the predict mode is set to `True` then it should also have a column "slide_path" (str).
             supervision: DatasetSupervision dataclass containing slide-level and nucleus-level labels for positive slides.
             crop_size: Number of nuclei in a crop (sample) during training.
+            crop_pos_thr: Minimum ratio of positive nuclei in the crop to consider it as a valid positive sample during training.
             alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
             k: Number of neighbors for sparse attention.
             attn_block_size: Block size for sparse attention. It must hold that `crop_size` mod `attn_block_size` is 0.
@@ -63,6 +65,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             symmetric_block_mask: Whether to symmetrize the block mask. Defaults to False.
             full_slide: Whether the dataset is used for full slide inference.
             predict: Whether to return the metadata needed for prediction along with the data.
+            mil: whether to return slide-level labels for multiple-instance learning. If False, nucleus-level labels are returned.
         """
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
@@ -70,6 +73,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.slides = slides
         self.supervision = supervision
         self.crop_size = crop_size
+        self.crop_pos_thr = crop_pos_thr
         self.alpha = alpha
         self.k = k
         self.attn_block_size = attn_block_size
@@ -77,6 +81,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.symmetric_block_mask = symmetric_block_mask
         self.full_slide = full_slide
         self.predict = predict
+        self.mil = mil
+        self.pos_slide_indices = np.where(self.slides["is_carcinoma"])[0].tolist()
 
     def __len__(self) -> int:
         return len(self.slides)
@@ -86,7 +92,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         seed_idx: int,
         k: int,
         graph: AdjacencyGraph,
-        centroids: NDArray[np.float32],
+        centroids: Coords,
         allowed_indices: NDArray[np.int64] | None = None,
     ) -> list[int]:
         """Grows a connected component of up to `k` nuclei starting from a seed index.
@@ -158,7 +164,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return perm_inverse
 
     def get_crop_indices(
-        self, centroids: NDArray[np.float32], valid_seeds: list[int]
+        self, centroids: Coords, valid_seeds: list[int]
     ) -> NDArray[np.int64]:
         """Selects nuclei indices for a crop by growing a connected component on the spatial graph.
 
@@ -176,7 +182,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         if self.full_slide:
             return np.arange(n, dtype=int)
 
-        center_idx = choice(valid_seeds) if valid_seeds else randint(0, n - 1)
+        center_idx = choice(valid_seeds) if valid_seeds else randrange(n)
         center_coords = centroids[center_idx]
         keep_indices = np.arange(len(centroids))
 
@@ -202,25 +208,17 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         global_crop_indices = keep_indices[local_crop_indices]
         return np.array(global_crop_indices, dtype=np.int64)
 
-    def __getitem__(self, idx: int) -> Crop | PredictSlide:
-        slide = self.slides.iloc[idx]
-        nuclei = pd.read_parquet(slide.slide_nuclei_path)
-        nuclei = nuclei.sort_values("id").reset_index(drop=True)
-
-        # --- Create a crop ---
-        mpp = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
-        centroids = np.stack(list(nuclei["centroid"])) * mpp
-
-        # get indices eligible as a seed for growing the crop component
-        nuclei_sup = self.supervision.supervision_map[slide.slide_id].nuclei_supervision
-        seed_mask = nuclei_sup.get_seed_mask(len(nuclei), centroids=centroids)
-        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
-
-        crop_indices = self.get_crop_indices(centroids, valid_seeds)
-
-        # --- Compute features ---
-        crop_polygons = np.stack(list(nuclei["polygon"].iloc[crop_indices]))
-        contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpp
+    def get_crop_features(
+        self,
+        nuclei: pd.DataFrame,
+        centroids: np.ndarray,
+        crop_indices: np.ndarray,
+        mpp_x: float,
+        mpp_y: float,
+    ) -> tuple[Tensor, Tensor, BlockMask, np.ndarray]:
+        crop_polygons = nuclei["polygon"].iloc[crop_indices].tolist()
+        mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
+        contours = rearrange(crop_polygons, "b (v d) -> b v d", d=2) * mpps
         efds = elliptic_fourier_descriptors(contours.astype(np.float64), self.efd_order)
 
         efds, angles = normalize_efd_for_rotation(efds)
@@ -229,47 +227,170 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         sin_angles = np.sin(2.0 * angles)
 
         efds, scales = normalize_efd_for_scale(efds)
-        # scales have approximately log-normal distribution
+        # nuclei scales have approximately log-normal distribution
         log_scales = np.log(scales + 1e-6)
 
         efds = rearrange(efds, "n order c -> n (order c)")
         x = np.concatenate([efds, log_scales, cos_angles, sin_angles], axis=-1)
 
-        # --- Prepare positions for RoPE ---
+        # prepare positions for RoPE
         crop_centroids = centroids[crop_indices]
         crop_pos_np = crop_centroids - crop_centroids.mean(axis=0)
 
-        # --- Get labels and supervision mask for the crop ---
-        crop_indices_t = torch.from_numpy(crop_indices).long()
-        targets = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
-        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t]
+        # optimize data layout for a block-sparse attention
+        perm = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
+        crop_pos_t = torch.from_numpy(crop_pos_np[perm]).float()
+        crop_x = torch.from_numpy(x[perm].astype(np.float32))
 
-        # --- Optimize data layout for block-sparse attention ---
-        perm_np = KDTree(crop_centroids, leafsize=self.attn_block_size).indices
-        perm_t = torch.from_numpy(perm_np).long()
+        crop_x, crop_pos = self.pad_to_block_size([crop_x, crop_pos_t])
 
-        crop_y = targets[perm_t]
-        crop_sup_mask = sup_mask[perm_t]
-        crop_pos = torch.from_numpy(crop_pos_np[perm_np]).float()
-        crop_x = torch.from_numpy(x[perm_np].astype(np.float32))
-
-        # --- Pad and create a block mask for sparse attention---
-        crop_x, crop_pos, crop_y, crop_sup_mask = self.pad_to_block_size(
-            [crop_x, crop_pos, crop_y, crop_sup_mask]
-        )
         crop_block_mask = create_block_mask_from_kdtree(
-            kdtree=KDTree(crop_pos_np[perm_np], leafsize=self.attn_block_size),
+            kdtree=KDTree(crop_pos_np[perm], leafsize=self.attn_block_size),
             points=crop_pos.cpu().numpy(),
             n_points_unpadded=len(crop_indices),
             k=self.k,
             block_size=self.attn_block_size,
             symmetric=self.symmetric_block_mask,
         )
+        return crop_x, crop_pos, crop_block_mask, perm
+
+    def sample_positive_crop(
+        self,
+        valid_seeds: list[int],
+        centroids: np.ndarray,
+        targets: Tensor,
+        tree: KDTree,
+    ) -> NDArray[np.int64] | None:
+        assert self.crop_pos_thr is not None
+
+        for _ in range(10):
+            seed_idx = choice(valid_seeds)
+
+            # heuristic via Euclidean circle
+            _, neighbor_idx = tree.query(centroids[seed_idx], k=self.crop_size)
+            tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / self.crop_size
+
+            self.heuristic_threshold = max(0.0, self.crop_pos_thr - 0.15)
+            if tumor_ratio < self.heuristic_threshold:
+                continue
+
+            crop_indices = self.get_crop_indices(centroids, [seed_idx])
+            crop_targets = targets[torch.from_numpy(crop_indices).long()]
+            tumor_ratio = (crop_targets == 1).sum().item() / len(crop_targets)
+
+            if tumor_ratio >= self.crop_pos_thr:
+                return crop_indices
+
+        return None
+
+    def get_targets(
+        self,
+        crop_label: float,
+        nuclei_sup: NucleiSupervision,
+        n: int,
+        crop_indices: torch.Tensor,
+        perm: torch.Tensor,
+    ) -> Targets:
+        if self.mil:
+            return {
+                "nuclei": None,
+                "graph": torch.tensor([crop_label], dtype=torch.float32),
+            }
+        targets = nuclei_sup.get_targets(n)
+        crop_nuclei_y = targets[crop_indices][perm]
+        crop_nuclei_y_padded = self.pad_to_block_size(crop_nuclei_y)[0]
+        return {"nuclei": crop_nuclei_y_padded, "graph": None}
+
+    def get_sup_mask(
+        self,
+        n: int,
+        nuclei_sup: NucleiSupervision,
+        indices: torch.Tensor,
+        perm: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.mil:
+            return torch.ones(1, dtype=torch.bool)  # dummy mask
+        sup_mask = nuclei_sup.get_sup_mask(n)[indices]
+        return self.pad_to_block_size(sup_mask[perm])[0]
+
+    def get_nuclei(self, slide: pd.Series) -> pd.DataFrame:
+        nuclei = pd.read_parquet(slide.slide_nuclei_path)
+        nuclei = nuclei.sort_values("id").reset_index(drop=True)
+        return nuclei
+
+    def get_centroids(
+        self, nuclei: pd.DataFrame, mpp_x: float, mpp_y: float
+    ) -> np.ndarray:
+        mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
+        return np.stack(nuclei["centroid"].tolist()) * mpps
+
+    def get_nuclei_supervision(self, slide_id: str) -> NucleiSupervision:
+        return self.supervision.supervision_map[slide_id].nuclei_supervision
+
+    def __getitem__(self, idx: int) -> Crop | PredictSlide:
+        slide = self.slides.iloc[idx]
+
+        nuclei = self.get_nuclei(slide)
+        n = len(nuclei)
+        centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
+        nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
+
+        # get indices eligible as a seed for growing the crop component
+        seed_mask = nuclei_sup.get_seed_mask(n, centroids=centroids)
+        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
+
+        # generate a crop
+        crop_indices = self.get_crop_indices(centroids, valid_seeds)
+        crop_label = float(slide.is_carcinoma)  # default is slide-level label
+
+        if slide.is_carcinoma and self.mil and not (self.full_slide or self.predict):
+            assert self.crop_pos_thr is not None
+
+            curr_idx = None
+            crop_indices = None
+            while True:  # if a positive slide was chosen, ensure the generated crop has enough positive nuclei
+                if curr_idx is not None:
+                    slide = self.slides.iloc[curr_idx]
+
+                    nuclei = self.get_nuclei(slide)
+                    n = len(nuclei)
+                    centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
+
+                    nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
+                    seed_mask = nuclei_sup.get_seed_mask(n, centroids=centroids)
+                    valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
+
+                targets = nuclei_sup.get_targets(n)
+                tree = KDTree(centroids)
+                crop_indices = self.sample_positive_crop(
+                    valid_seeds, centroids, targets, tree
+                )
+
+                if crop_indices is not None:
+                    break
+
+                curr_idx = choice(self.pos_slide_indices)
+
+        crop_x, crop_pos, crop_block_mask, perm = self.get_crop_features(
+            nuclei, centroids, crop_indices, slide.mpp_x, slide.mpp_y
+        )
+
+        crop_indices_t = torch.from_numpy(crop_indices).long()
+        perm_t = torch.from_numpy(perm).long()
+
+        crop_y: Targets = self.get_targets(
+            crop_label=crop_label,
+            nuclei_sup=nuclei_sup,
+            n=n,
+            crop_indices=crop_indices_t,
+            perm=perm_t,
+        )
+        crop_sup_mask = self.get_sup_mask(n, nuclei_sup, crop_indices_t, perm_t)
 
         crop: Crop = {
             "x": crop_x,  # (n, efd_order * 4 + 3)
             "pos": crop_pos,  # (n, 2)
-            "y": crop_y[crop_sup_mask],  # (num_supervised, )
+            "y": crop_y,  # (num_supervised, )
             "sup_mask": crop_sup_mask.bool(),  # (n, )
             "block_mask": crop_block_mask,
             "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),

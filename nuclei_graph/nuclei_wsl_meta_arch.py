@@ -16,13 +16,10 @@ from torchmetrics.classification import (
 )
 
 from nuclei_graph.data.block_mask import mask_mixed_blocks
-from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    PredictBatch,
-)
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs, PredictBatch
 
 
-class WSLMetaArch(LightningModule):
+class NucleiWSLMetaArch(LightningModule):
     def __init__(self, lr: float, warmup_epochs: int, net: nn.Module) -> None:
         super().__init__()
         self.lr = lr
@@ -45,48 +42,42 @@ class WSLMetaArch(LightningModule):
         self.val_step_losses: list[Tensor] = []
         self.val_step_sizes: list[int] = []
 
-    def forward(self, batch: Batch) -> Tensor:
+    def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
 
         # in case of validation/test/pediction stage we have to handle mixed blocks
         if not self.training:
             block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
-        return self.net(batch["x"], batch["pos"], block_mask)
+        return self.net(batch["x"], batch["pos"], block_mask, batch["seq_len"])
 
     def training_step(self, batch: Batch) -> Tensor:
-        logits = self(batch).squeeze(-1)
-        logits_sup = logits[batch["sup_mask"]]
-        targets_sup = batch["y"]
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
+
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
             return logits.sum() * 0.0
 
+        # compute weights s.t. sum(positive weights) == sum(negative weights)
         n_pos = (targets_sup == 1).sum().float()
         n_neg = (targets_sup == 0).sum().float()
         num_classes = (n_pos > 0).float() + (n_neg > 0).float()
-        total_sup = float(sup_size)
 
-        # compute weights s.t. sum(positive weights) == sum(negative weights)
-        weight_pos = total_sup / (num_classes * n_pos.clamp(min=1.0))
-        weight_neg = total_sup / (num_classes * n_neg.clamp(min=1.0))
-
+        weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
+        weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
         weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
+
+        pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
+        self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
 
         loss_sup = F.binary_cross_entropy_with_logits(
             logits_sup,
             targets_sup,
             weight=weights,
-        )
-        self.log_dict(
-            {
-                "train/pos_ratio": n_pos / total_sup if total_sup > 0 else 0.0,
-                "train/sup_size": total_sup,
-            },
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
         )
         self.log(
             "train/loss",
@@ -94,29 +85,31 @@ class WSLMetaArch(LightningModule):
             on_step=True,
             on_epoch=True,
             prog_bar=True,
-            batch_size=sup_size,
+            batch_size=int(sup_size),
         )
         return loss_sup
 
     def validation_step(self, batch: Batch) -> None:
-        logits = self(batch).squeeze(-1)
-        logits_sup = logits[batch["sup_mask"]]
-        targets_sup = batch["y"]
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
+
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
             return None
 
-        loss = self.bce(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
-            loss,
+            loss_sup,
             on_epoch=True,
             prog_bar=True,
             batch_size=sup_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
-        self.val_step_losses.append(loss.detach() * sup_size)
+        self.val_step_losses.append(loss_sup.detach() * sup_size)
         self.val_step_sizes.append(sup_size)
 
     def on_validation_epoch_end(self) -> None:
@@ -147,14 +140,23 @@ class WSLMetaArch(LightningModule):
             self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
-        logits = self(batch).squeeze(-1)
-        logits_sup = logits[batch["sup_mask"]]
-        targets_sup = batch["y"]
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
+
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
             return None
-
+        loss_sup = self.bce(logits_sup, targets_sup)
+        self.log(
+            "test/loss",
+            loss_sup,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=sup_size,
+        )
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
@@ -162,7 +164,7 @@ class WSLMetaArch(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictBatch) -> Tensor:
+    def predict_step(self, batch: PredictBatch) -> Outputs:
         return self(batch["slides"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:

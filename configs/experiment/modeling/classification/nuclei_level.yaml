@@ -1,0 +1,42 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer
+  - /model/meta_archs: nuclei_wsl
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/supervision@data.train_strategy: cam # cam agreement positive_agreement annotation
+  - /data/supervision@data.eval_strategy: agreement
+
+trainer:
+  gradient_clip_val: 0.7
+
+data:
+  sampler_pos_thr: 0.05
+  balance_sampling: true
+  batch_size: 16
+  split_size: 0.1
+  dataset:
+    crop_size: 4096
+    alpha: 0.8
+    k: 64
+    attn_block_size: 128
+    efd_order: 10
+    symmetric_block_mask: False
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      num_classes: 1
+      dropout: 0.10
+
+metadata:
+  run_name: "Train: Nucleus-level WSL Self Attention Transformer"
+  description: ""
