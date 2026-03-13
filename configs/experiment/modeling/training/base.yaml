@@ -1,16 +1,6 @@
 # @package _global_
 
-defaults:
-  - /model/meta_archs: ???
-  - /model/models@model.net: ???
-  - /data/datasets@data.dataset: ???
-  - /data/samplers@data.sampler: ???
-  - /data/supervision@data.train_strategy: ???
-  - /data/supervision@data.eval_strategy: ???
-
 mode: fit
-
-dataset: ???
 
 trainer:
   callbacks:
@@ -24,32 +14,17 @@ trainer:
       patience: 35
 
 data:
-  sampler_pos_thr: ???
-  balance_sampling: ???
-  batch_size: ???
-  split_size: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
-  dataset:
-    crop_size: ???
-    alpha: ???
-    k: ???
-    attn_block_size: ???
-    efd_order: ???
-    symmetric_block_mask: ???
 
 model:
-  lr: ???
-  warmup_epochs: ???
   net:
     config:
-      dim: ???
-      hidden_dim: ???
-      num_heads: ???
-      num_layers: ???
-      num_classes: ???
-      dropout: ???
+      efd_order: ${data.dataset.efd_order}
+      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},1} # efd_order * 4 + scale
+      num_classes: 1
 
 metadata:
   run_name: ???

@@ -1,11 +1,12 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling: vanilla_transformer #predict vanilla_transformer
+  - /experiment/modeling: /training/nuclei_level # /training/crop_level /inference/crop_level /training/nuclei_level /inference/nuclei_level
 
 seed: ${random_seed:}
 mode: ???
 checkpoint: null
+dataset: ???
 
 trainer:
   enable_checkpointing: true
@@ -14,12 +15,17 @@ trainer:
 
 data:
   batch_size: ???
+  split_size: ???
+  balance_sampling: ???
   num_workers: 10
   eval_num_workers: 2
   mlflow_uris:
     metadata: ???
     supervision: ???
   dataset: ???
+  supervision:
+    train_strategy: ???
+    eval_strategy: ???
 
 model:
   lr: ???

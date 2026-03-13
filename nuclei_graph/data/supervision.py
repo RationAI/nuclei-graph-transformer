@@ -15,37 +15,49 @@ type Coords = NDArray[np.float32]
 
 class NucleiSupervision(ABC):
     def __init__(self, is_carcinoma: bool, balance_sampling: bool | None = None):
-        """Abstract base class for nucleus-level supervision.
-
-        The logic in subclasses only differs for the positive slides. For negative slides,
-        all nuclei are implicitly assigned a target label of 0.0 and are fully supervised.
-        """
         self.is_carcinoma = is_carcinoma
         self.balance_sampling = balance_sampling
 
     @abstractmethod
     def get_targets(self, n: int) -> Tensor:
-        """Returns nucleus-level targets."""
+        """Returns nucleus-level targets.
+
+        Args:
+            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
+
+        Returns:
+            Tensor of shape (n,): Target labels for each nucleus.
+        """
 
     @abstractmethod
     def get_sup_mask(self, n: int) -> Tensor:
-        """Returns supervision mask (True for confident labels)."""
+        """Returns supervision mask (True for confident labels).
+
+        Args:
+            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
+
+        Returns:
+            Boolean tensor of shape (n,): True for nuclei with confident labels.
+        """
 
     @abstractmethod
     def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         """Returns indices eligible as seeds for crop generation.
 
-        Negative slides should return all True, while positive slides
-        are expected to return confident positives or a balanced subset
-        if `balance_sampling` is True.
+        Negative slides should return all True, while positive slides are expected to return
+        confident positives or a balanced subset if `balance_sampling` is True.
 
-        Centroids are expected to be in the micron units as they are used
-        for distance-based balancing of seeds.
+        Args:
+            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
+            centroids: (n, 2) array of nucleus centroids in micron units.
+
+        Returns:
+            Boolean tensor of shape (n,): True for nuclei eligible as seeds for crop generation.
         """
 
     @abstractmethod
     def get_positivity(self) -> float:
-        """Returns the fraction of positive nuclei [0.0, 1.0]."""
+        """Returns the fraction of positive nuclei in [0.0, 1.0]."""
 
     def balance_seeds(
         self,

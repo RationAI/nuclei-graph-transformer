@@ -1,7 +1,2 @@
 # @package _global_
-
-defaults:
-  - /model/meta_archs/base@_here_
-  - _self_
-
 _target_: nuclei_graph.nuclei_mil_meta_arch.NucleiMILMetaArch

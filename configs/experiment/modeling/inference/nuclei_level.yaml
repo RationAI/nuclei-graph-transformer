@@ -1,11 +1,13 @@
 # @package _global_
 
 defaults:
+  - /experiment/modeling/inference/base@_here_
   - /data/sources/prostate_cancer
-  - /model/meta_archs: nuclei_wsl
+  - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.eval_strategy: predictions
+  - _self_
 
 checkpoint: mlflow-artifacts:/97/434f1b72d8d846518eded65859005da8/artifacts/checkpoints/epoch=130-step=3930/checkpoint.ckpt
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/434f1b72d8d846518eded65859005da8
@@ -29,7 +31,6 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      num_classes: 1
       dropout: 0.10
 
 metadata:

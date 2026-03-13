@@ -8,11 +8,7 @@ from omegaconf import DictConfig
 from ratiopath.model_selection import train_test_split
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.supervision import (
-    DatasetSupervision,
-    SupervisionStrategy,
-    build_supervision,
-)
+from nuclei_graph.data.supervision import SupervisionStrategy, build_supervision
 from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
@@ -74,36 +70,50 @@ class DataModule(LightningDataModule):
         self.mlflow_uris_cfg = data_params["mlflow_uris"]
         self.positivity: dict[str, float] = {}
 
+    def _filter_df(
+        self, df: pd.DataFrame | None, slide_ids: set[str]
+    ) -> pd.DataFrame | None:
+        if df is None:
+            return None
+        return df[df["slide_id"].isin(slide_ids)].reset_index(drop=True)
+
     def _load_df(
-        self,
-        uri: str | None,
-        slide_ids: set[str] | None = None,
-        cols: list[str] | None = None,
+        self, uri: str | None, cols: list[str] | None = None
     ) -> pd.DataFrame | None:
         if uri is None:
             return None
-        df = pd.read_parquet(download_artifacts(uri), columns=cols)
-        if slide_ids is not None:
-            return df[df["slide_id"].isin(slide_ids)].reset_index(drop=True)
-        return df
+        return pd.read_parquet(download_artifacts(uri), columns=cols)
 
-    def _get_supervision(
-        self,
-        strategy: SupervisionStrategy,
-        slide_df: pd.DataFrame,
-        slide_ids: set[str] | None = None,
-    ) -> DatasetSupervision:
-        slide_label_map = {
+    def _get_label_map(self, slide_df: pd.DataFrame) -> dict[str, int]:
+        return {
             str(k): int(v)
             for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
-        return build_supervision(
-            sup_strategy=strategy,
-            label_map=slide_label_map,
-            df_annot=self._load_df(strategy.annot_uri, slide_ids),
-            df_cam=self._load_df(strategy.cam_uri, slide_ids),
-            df_dense=self._load_df(strategy.dense_uri, slide_ids),
-        )
+
+    def _load_supervision_dfs(
+        self, *strategies: SupervisionStrategy
+    ) -> dict[str, pd.DataFrame | None]:
+        """Loads supervision DataFrames required by the provided strategies.
+
+        Args:
+            *strategies: List of SupervisionStrategy objects.
+
+        Returns:
+            dict[str, pd.DataFrame | None]: A dictionary containing the loaded DataFrames
+                with keys "df_annot", "df_cam", and "df_dense". Values are None if no
+                corresponding URI was found across any of the provided strategies.
+        """
+        valid = [s for s in strategies if s is not None]
+
+        annot_uri = next((s.annot_uri for s in valid if s.annot_uri), None)
+        cam_uri = next((s.cam_uri for s in valid if s.cam_uri), None)
+        dense_uri = next((s.dense_uri for s in valid if s.dense_uri), None)
+
+        return {
+            "df_annot": self._load_df(annot_uri),
+            "df_cam": self._load_df(cam_uri),
+            "df_dense": self._load_df(dense_uri),
+        }
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
@@ -126,9 +136,21 @@ class DataModule(LightningDataModule):
 
                 train_df = train_df.reset_index(drop=True)
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                train_sup = self._get_supervision(
-                    self.train_strategy, train_df, set(train_df["slide_id"])
+
+                sup_dfs = self._load_supervision_dfs(
+                    self.train_strategy, self.eval_strategy
                 )
+                train_ids = set(train_df["slide_id"])
+                train_sup_dfs = {
+                    k: self._filter_df(v, train_ids) for k, v in sup_dfs.items()
+                }
+
+                train_sup = build_supervision(
+                    sup_strategy=self.train_strategy,
+                    label_map=self._get_label_map(train_df),
+                    **train_sup_dfs,
+                )
+
                 self.positivity = train_sup.positivity_map
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
@@ -137,9 +159,16 @@ class DataModule(LightningDataModule):
                 )
 
                 validation_df = validation_df.reset_index(drop=True)
-                validation_sup = self._get_supervision(
-                    self.eval_strategy, validation_df, set(validation_df["slide_id"])
+                validation_ids = set(validation_df["slide_id"])
+                validation_sup_dfs = {
+                    k: self._filter_df(v, validation_ids) for k, v in sup_dfs.items()
+                }
+                validation_sup = build_supervision(
+                    sup_strategy=self.eval_strategy,
+                    label_map=self._get_label_map(validation_df),
+                    **validation_sup_dfs,
                 )
+
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
                     slides=validation_df,
@@ -150,9 +179,16 @@ class DataModule(LightningDataModule):
             case "test" | "predict":
                 slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
                 assert slides_df is not None
-                ids = set(slides_df["slide_id"])
-                sup = self._get_supervision(self.eval_strategy, slides_df, ids)
 
+                sup_dfs = self._load_supervision_dfs(self.eval_strategy)
+                ids = set(slides_df["slide_id"])
+                eval_sup_dfs = {k: self._filter_df(v, ids) for k, v in sup_dfs.items()}
+
+                sup = build_supervision(
+                    sup_strategy=self.eval_strategy,
+                    label_map=self._get_label_map(slides_df),
+                    **eval_sup_dfs,
+                )
                 dataset = instantiate(
                     self.dataset_cfg,
                     slides=slides_df,
@@ -177,7 +213,7 @@ class DataModule(LightningDataModule):
             shuffle=sampler is None,
             collate_fn=collate_fn,
             drop_last=True,
-            prefetch_factor=2,
+            prefetch_factor=2 if self.num_workers > 0 else None,
             pin_memory=True,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
