@@ -6,7 +6,8 @@ defaults:
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.eval_strategy: predictions
+  - /data/supervision@data.train_strategy: annotation
+  - /data/supervision@data.eval_strategy: annotation
   - _self_
 
 checkpoint: # TODO

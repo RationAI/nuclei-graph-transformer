@@ -128,9 +128,7 @@ class AnnotationNucleiSupervision(NucleiSupervision):
         return self.annot_labels
 
     def get_sup_mask(self, n: int) -> Tensor:
-        if not self.is_carcinoma:
-            return torch.full((n,), True, dtype=torch.bool)
-        return self.annot_labels == 1
+        return torch.full((n,), True, dtype=torch.bool)
 
     def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:

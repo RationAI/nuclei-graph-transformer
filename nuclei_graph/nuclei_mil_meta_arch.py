@@ -6,7 +6,7 @@ from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     BinaryAUROC,
     BinaryAveragePrecision,
@@ -23,6 +23,17 @@ from nuclei_graph.nuclei_graph_typing import (
 
 
 class NucleiMILMetaArch(LightningModule):
+    def _create_metrics(self, prefix: str) -> MetricCollection:
+        return MetricCollection(
+            {
+                "precision": BinaryPrecision(),
+                "recall": BinaryRecall(),
+                "AUROC": BinaryAUROC(),
+                "AUPRC": BinaryAveragePrecision(),
+            },
+            prefix=prefix,
+        )
+
     def __init__(self, lr: float, warmup_epochs: int, net: nn.Module) -> None:
         super().__init__()
         self.lr = lr
@@ -30,20 +41,18 @@ class NucleiMILMetaArch(LightningModule):
         self.net = net
         self.bce = nn.BCEWithLogitsLoss()
 
-        metrics: dict[str, Metric | MetricCollection] = {
-            "precision": BinaryPrecision(),
-            "recall": BinaryRecall(),
-            "AUROC": BinaryAUROC(),
-            "AUPRC": BinaryAveragePrecision(),
-        }
-        self.val_metrics = MetricCollection(metrics, prefix="validation/")
-        self.test_metrics = MetricCollection(metrics, prefix="test/")
-        self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
+        self.val_graph_metrics = self._create_metrics("validation/graph/")
+        self.test_graph_metrics = self._create_metrics("test/graph/")
+        self.predict_graph_metrics = self._create_metrics("prediction/graph/")
 
-        self.best_val_loss = float("inf")
-        self.best_val_metrics: dict[str, Tensor] = {}
-        self.val_step_losses: list[Tensor] = []
-        self.val_step_sizes: list[int] = []
+        self.val_nuclei_metrics = self._create_metrics("validation/nuclei/")
+        self.test_nuclei_metrics = self._create_metrics("test/nuclei/")
+        self.predict_nuclei_metrics = self._create_metrics("prediction/nuclei/")
+
+        self.best_val_graph_loss = float("inf")
+        self.best_val_graph_metrics: dict[str, Tensor] = {}
+        self.val_step_graph_losses: list[Tensor] = []
+        self.val_step_graph_sizes: list[int] = []
 
     def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
@@ -55,88 +64,156 @@ class NucleiMILMetaArch(LightningModule):
         return self.net(batch["x"], batch["pos"], block_mask, batch["seq_len"])
 
     def training_step(self, batch: Batch) -> Tensor:
-        targets = batch["y"]["graph"]
-        assert targets is not None
-        targets = targets.view(-1)
+        targets_graph = batch["y"]["graph"]
+        assert targets_graph is not None
+        targets_graph = targets_graph.view(-1)
 
-        logits = self(batch)["graph"].view(-1)
+        logits_graph = self(batch)["graph"].view(-1)
 
-        loss = self.bce(logits, targets)
+        loss_graph = self.bce(logits_graph, targets_graph)
+
         self.log(
-            "train/loss",
-            loss,
+            "train/graph/loss",
+            loss_graph,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
-            batch_size=targets.size(0),
+            batch_size=targets_graph.size(0),
         )
-        return loss
+        return loss_graph
 
     def validation_step(self, batch: Batch) -> None:
-        targets = batch["y"]["graph"]
-        assert targets is not None
-        targets = targets.view(-1)
+        logits = self(batch)
 
-        logits = self(batch)["graph"].view(-1)
+        # graph-level metrics
+        targets_graph = batch["y"]["graph"]
+        assert targets_graph is not None
+        targets_graph = targets_graph.view(-1)
 
-        loss = self.bce(logits, targets)
+        logits_graph = logits["graph"].view(-1)
+
+        loss_graph = self.bce(logits_graph, targets_graph)
         self.log(
-            "validation/loss",
-            loss,
+            "validation/graph/loss",
+            loss_graph,
             on_epoch=True,
             prog_bar=True,
-            batch_size=targets.size(0),
+            batch_size=targets_graph.size(0),
         )
-        self.val_metrics.update(torch.sigmoid(logits), targets.long())
+        self.val_graph_metrics.update(torch.sigmoid(logits_graph), targets_graph.long())
 
-        batch_size = targets.size(0)
-        self.val_step_losses.append(loss.detach() * batch_size)
-        self.val_step_sizes.append(batch_size)
+        batch_size = targets_graph.size(0)
+        self.val_step_graph_losses.append(loss_graph.detach() * batch_size)
+        self.val_step_graph_sizes.append(batch_size)
+
+        # nuclei-level metrics
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
+
+        logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
+
+        sup_size = targets_sup.numel()
+        if sup_size == 0:  # empty supervision batch
+            return None
+
+        loss_sup = self.bce(logits_sup, targets_sup)
+        self.log(
+            "validation/nuclei/loss",
+            loss_sup,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=sup_size,
+        )
+        self.val_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_validation_epoch_end(self) -> None:
-        metrics = self.val_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True)
-        self.val_metrics.reset()
+        # compute and reset nuclei-level metrics
+        nuclei_metrics = self.val_nuclei_metrics.compute()
+        self.log_dict(nuclei_metrics, on_epoch=True, prog_bar=True)
+        self.val_nuclei_metrics.reset()
 
-        if not self.val_step_losses:
+        # compute and reset graph-level metrics
+        graph_metrics = self.val_graph_metrics.compute()
+        self.log_dict(graph_metrics, on_epoch=True, prog_bar=True)
+        self.val_graph_metrics.reset()
+
+        if not self.val_step_graph_losses:
             return
 
-        total_loss = torch.stack(self.val_step_losses).sum()
-        total_size = sum(self.val_step_sizes)
+        # compute the best validation graph loss
+        total_loss = torch.stack(self.val_step_graph_losses).sum()
+        total_size = sum(self.val_step_graph_sizes)
         val_loss = (total_loss / total_size).item()
 
-        self.val_step_losses.clear()
-        self.val_step_sizes.clear()
+        self.val_step_graph_losses.clear()
+        self.val_step_graph_sizes.clear()
 
-        if val_loss < self.best_val_loss:
-            self.best_val_loss = val_loss
+        if val_loss < self.best_val_graph_loss:
+            self.best_val_graph_loss = val_loss
+            val_loss_name = "best/validation/graph/loss"
             best_metrics: dict[str, Tensor] = {
-                "best/validation/loss": torch.tensor(val_loss, dtype=torch.float32),
-                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
+                val_loss_name: torch.tensor(val_loss, dtype=torch.float32),
+                "best/graph/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
             }
-            for k, v in metrics.items():
-                best_metrics[f"best/{k}"] = v
+            for k, v in graph_metrics.items():
+                clean_key = k.replace("validation/", "best/")
+                best_metrics[clean_key] = v
 
-            self.best_val_metrics = best_metrics
+            self.best_val_graph_metrics = best_metrics
             self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
-        targets = batch["y"]["graph"]
-        assert targets is not None
-        targets = targets.view(-1)
+        logits = self(batch)
 
-        logits = self(batch)["graph"].view(-1)
+        # graph-level metrics
+        targets_graph = batch["y"]["graph"]
+        assert targets_graph is not None
+        targets_graph = targets_graph.view(-1)
 
-        loss = self.bce(logits, targets)
+        logits_graph = logits["graph"].view(-1)
+
+        loss_graph = self.bce(logits_graph, targets_graph)
         self.log(
-            "test/loss", loss, on_epoch=True, prog_bar=True, batch_size=targets.size(0)
+            "test/graph/loss",
+            loss_graph,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=targets_graph.size(0),
         )
-        self.test_metrics.update(torch.sigmoid(logits), targets.long())
+        self.test_graph_metrics.update(
+            torch.sigmoid(logits_graph), targets_graph.long()
+        )
+
+        # nuclei-level metrics
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
+
+        logits_nuclei = logits["nuclei"]
+        logits_sup = logits_nuclei[batch["sup_mask"]].squeeze(-1)
+
+        sup_size = targets_sup.numel()
+        if sup_size == 0:  # empty supervision batch
+            return None
+        loss_sup = self.bce(logits_sup, targets_sup)
+        self.log(
+            "test/nuclei/loss",
+            loss_sup,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=sup_size,
+        )
+        self.test_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
-        metrics = self.test_metrics.compute()
-        self.log_dict(metrics, on_epoch=True, prog_bar=True)
-        self.test_metrics.reset()
+        # compute and reset graph-level metrics
+        graph_metrics = self.test_graph_metrics.compute()
+        self.log_dict(graph_metrics, on_epoch=True, prog_bar=True)
+        self.test_graph_metrics.reset()
+
+        # compute and reset nuclei-level metrics
+        nuclei_metrics = self.test_nuclei_metrics.compute()
+        self.log_dict(nuclei_metrics, on_epoch=True, prog_bar=True)
+        self.test_nuclei_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Outputs:
         return self(batch["slides"])
