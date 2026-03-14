@@ -40,5 +40,5 @@ model:
       dropout: 0.10
 
 metadata:
-  run_name: "Train: Crop-level Supervised Self Attention Transformer"
+  run_name: "Train: Crop-level SL Self Attention Transformer"
   description: ""
