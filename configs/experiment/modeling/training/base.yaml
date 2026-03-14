@@ -1,0 +1,22 @@
+# @package _global_
+
+mode: fit
+
+trainer: # TODO
+
+data:
+  split_size: ???
+  balance_sampling: ???
+  mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
+    supervision: ${dataset.mlflow_uris.supervision}
+
+model: # TODO
+
+metadata:
+  run_name: ???
+  hyperparams:
+    sampler_positivity_threshold: ${oc.select:data.sampler_pos_thr,null}
+    batch_size: ${data.batch_size}
+    split_size: ${data.split_size}
+    balance_sampling: ${data.balance_sampling}
