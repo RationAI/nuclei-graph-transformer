@@ -2,7 +2,7 @@
 
 mode: fit
 
-early_stopping_key: ???
+monitor: ???
 
 trainer:
   accumulate_grad_batches: 1
@@ -10,10 +10,10 @@ trainer:
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
-      monitor: validation/loss
+      monitor: ${monitor}
       mode: min
     - _target_: lightning.pytorch.callbacks.EarlyStopping
-      monitor: ${early_stopping_key}
+      monitor: ${monitor}
       mode: min
       patience: 35
 
