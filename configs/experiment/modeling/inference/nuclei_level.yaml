@@ -12,6 +12,17 @@ defaults:
 checkpoint: mlflow-artifacts:/97/61fba54911614186a4a769db6d02f394/artifacts/checkpoints/epoch=97-step=1470/checkpoint.ckpt
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/61fba54911614186a4a769db6d02f394
 
+trainer:
+  callbacks:
+    - _target_: nuclei_graph.callbacks.WSLPredictionMetricsCallback
+    - _target_: nuclei_graph.callbacks.WSLPredictionsCallback
+      mlflow_artifact_path: "predictions"
+    - _target_: nuclei_graph.callbacks.WSLPredictionMasksCallback
+      level: 2
+      mask_tile_width: 512
+      mask_tile_height: 512
+      mlflow_artifact_path: "prediction_masks"
+
 data:
   batch_size: 1
   dataset:

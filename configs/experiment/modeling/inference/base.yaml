@@ -6,15 +6,7 @@ checkpoint: ???
 checkpoint_url: ???
 
 trainer:
-  callbacks:
-    - _target_: nuclei_graph.callbacks.PredictionMetricsCallback
-    - _target_: nuclei_graph.callbacks.PredictionsCallback
-      mlflow_artifact_path: "predictions"
-    - _target_: nuclei_graph.callbacks.PredictionMasksCallback
-      level: 2
-      mask_tile_width: 512
-      mask_tile_height: 512
-      mlflow_artifact_path: "prediction_masks"
+  callbacks: ???
 
 data:
   batch_size: 1
