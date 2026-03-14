@@ -24,7 +24,7 @@ data:
     metadata: ???
     supervision: ???
   dataset: ???
-  supervision: # nucleus-level
+  supervision:
     train_strategy: ???
     eval_strategy: ???
 
