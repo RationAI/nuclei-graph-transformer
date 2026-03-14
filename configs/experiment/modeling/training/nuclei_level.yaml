@@ -23,7 +23,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 32
+    k: 64
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
@@ -41,4 +41,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "k=32"
+  description: ""
