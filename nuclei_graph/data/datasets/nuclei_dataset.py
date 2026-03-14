@@ -278,6 +278,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         targets: Tensor,
         tree: KDTree,
         max_attempts: int = 10,
+        margin: float = 0.15,
     ) -> NDArray[np.int64] | None:
         """Attempts to sample a crop of nuclei containing a fraction of positive nuclei above `crop_pos_thr`.
 
@@ -287,6 +288,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             targets: Nuclei-level labels.
             tree: Pre-computed KDTree of nuclei centroids for fast neighbor queries.
             max_attempts: Maximum number of random sampling attempts.
+            margin: Margin to relax the heuristic threshold for positive crop sampling.
 
         Returns:
             np.ndarray: The indices of the sampled crop if successful.
@@ -301,7 +303,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             _, neighbor_idx = tree.query(centroids[seed_idx], k=self.crop_size)
             tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / self.crop_size
 
-            heuristic_threshold = max(0.0, self.crop_pos_thr - 0.15)
+            heuristic_threshold = max(0.0, self.crop_pos_thr - margin)
             if tumor_ratio < heuristic_threshold:
                 continue
 
@@ -379,10 +381,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_sup_mask = sup_mask[crop_indices][perm]
         return self.pad_to_block_size([crop_sup_mask])[0]
 
-    def get_nuclei(self, slide: pd.Series) -> pd.DataFrame:
-        nuclei = pd.read_parquet(slide.slide_nuclei_path)
-        nuclei = nuclei.sort_values("id").reset_index(drop=True)
-        return nuclei
+    def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
+        nuclei = pd.read_parquet(nuclei_path)
+        return nuclei.sort_values("id").reset_index(drop=True)
 
     def get_centroids(
         self, nuclei: pd.DataFrame, mpp_x: float, mpp_y: float
@@ -396,7 +397,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
         slide = self.slides.iloc[idx]
 
-        nuclei = self.get_nuclei(slide)
+        nuclei = self.get_nuclei(slide.slide_nuclei_path)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
         nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
 
@@ -416,7 +417,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
                 if curr_idx is not None:
                     slide = self.slides.iloc[curr_idx]
 
-                    nuclei = self.get_nuclei(slide)
+                    nuclei = self.get_nuclei(slide.slide_nuclei_path)
                     centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
                     nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
 

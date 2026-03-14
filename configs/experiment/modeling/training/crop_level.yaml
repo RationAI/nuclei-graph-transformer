@@ -8,7 +8,7 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
   - /data/supervision@data.train_strategy: annotation
-  - /data/supervision@data.eval_strategy: null
+  - /data/supervision@data.eval_strategy: annotation
   - _self_
 
 trainer:
@@ -26,6 +26,7 @@ data:
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
+    mil: true
 
 model:
   lr: 1e-4

@@ -1,7 +1,7 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling/training: nuclei_level # crop_level nuclei_level
+  - /experiment/modeling/training: crop_level # crop_level nuclei_level
   # - /experiment/modeling/inference: nuclei_level
 
 seed: ${random_seed:}
@@ -24,7 +24,7 @@ data:
     metadata: ???
     supervision: ???
   dataset: ???
-  supervision:
+  supervision: # nucleus-level
     train_strategy: ???
     eval_strategy: ???
 

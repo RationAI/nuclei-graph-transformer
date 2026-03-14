@@ -21,6 +21,7 @@ data:
     efd_order: 10
     crop_size: 4096
     symmetric_block_mask: false
+    mil: true
 
 model:
   lr: 1e-4
