@@ -13,6 +13,7 @@ class Config(PretrainedConfig):
         self_attn: DictConfig,
         efd_order: int,
         node_features: int,
+        norm_dim: int,
         dim: int,
         hidden_dim: int,
         num_heads: int,
@@ -25,6 +26,7 @@ class Config(PretrainedConfig):
         self.self_attn = self_attn
         self.efd_order = efd_order
         self.node_features = node_features
+        self.norm_dim = norm_dim
         self.dim = dim
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads

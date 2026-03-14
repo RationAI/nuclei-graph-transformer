@@ -1,5 +1,5 @@
 import torch
-from einops import rearrange
+from nuclei_graph.nuclei_graph_typing import Outputs
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
@@ -35,12 +35,20 @@ class Transformer(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
-        self.batch_norm = nn.BatchNorm1d(config.efd_order * 4 + 1)  # EFDs and scale
+        self.batch_norm = nn.BatchNorm1d(config.norm_dim)
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
-        self.class_head = nn.Linear(config.dim, config.num_classes)
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+        self.class_head = nn.Linear(config.dim, config.num_classes)
+        self.attn_head = nn.Sequential(
+            nn.Linear(config.dim, config.dim // 2),
+            nn.Tanh(),
+            nn.Linear(config.dim // 2, 1),
+        )
+
+    def forward(
+        self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_len: Tensor
+    ) -> Outputs:
         """Forward pass of the Transformer model.
 
         Args:
@@ -49,21 +57,41 @@ class Transformer(nn.Module):
             block_mask: Batched BlockMask object for sparse attention with layouts
                 - kv_num_blocks of shape (b, 1, num_blocks), num_blocks = n // block_size
                 - kv_indices of shape (b, 1, num_blocks, max_num_blocks)
+            seq_len: Length of the sequences before padding, shape (b,).
 
         Returns:
-            Tensor of shape (b, n, 1).
+            Dictionary containing the graph logits, nuclei logits, and attention weights.
         """
-        to_norm = x[..., :-2]
-        angles = x[..., -2:]  # do not normalize angles
+        norm_dim = self.batch_norm.num_features
+        to_norm = x[..., :norm_dim]
+        not_to_norm = x[..., norm_dim:]
 
-        norm = self.batch_norm(rearrange(to_norm, "b n d -> (b n) d"))
-        norm = rearrange(norm, "(b n) d -> b n d", b=to_norm.size(0))
-        x_norm = torch.cat([norm, angles], dim=-1)
+        norm = self.batch_norm(to_norm.transpose(1, 2)).transpose(1, 2)
+        x = torch.cat([norm, not_to_norm], dim=-1)
 
-        x = self.input_proj(x_norm)
-
+        x = self.input_proj(x)
         for layer in self.layers:
             x = layer(x, pos, block_mask)
 
         x = self.final_norm(x)
-        return self.class_head(x)
+
+        nuclei_preds = self.class_head(x)  # (b, n, num_classes)
+        attn_scores = self.attn_head(x)  # (b, n, 1)
+
+        # compute mask for valid tokens based on seq_len
+        valid_mask = (
+            torch.arange(x.shape[1], device=x.device)[None, :] < seq_len[:, None]
+        )
+        valid_mask = valid_mask.unsqueeze(-1)  # (b, n, 1)
+
+        # mask out padded tokens before softmax
+        attn_scores = attn_scores.masked_fill(~valid_mask, float("-inf"))
+        attn_weights = torch.softmax(attn_scores, dim=1)
+
+        graph_pred = torch.sum(attn_weights * nuclei_preds, dim=1)
+
+        return Outputs(
+            graph=graph_pred,  # (b, num_classes)
+            nuclei=nuclei_preds,  # (b, n, num_classes)
+            attn_weights=attn_weights,  # (b, n, 1)
+        )

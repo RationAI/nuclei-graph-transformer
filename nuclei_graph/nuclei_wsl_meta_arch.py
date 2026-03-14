@@ -1,6 +1,7 @@
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
@@ -15,13 +16,10 @@ from torchmetrics.classification import (
 )
 
 from nuclei_graph.data.block_mask import mask_mixed_blocks
-from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    PredictBatch,
-)
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs, PredictBatch
 
 
-class WSLMetaArch(LightningModule):
+class NucleiWSLMetaArch(LightningModule):
     def __init__(self, lr: float, warmup_epochs: int, net: nn.Module) -> None:
         super().__init__()
         self.lr = lr
@@ -44,56 +42,74 @@ class WSLMetaArch(LightningModule):
         self.val_step_losses: list[Tensor] = []
         self.val_step_sizes: list[int] = []
 
-    def forward(self, batch: Batch) -> Tensor:
+    def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
 
         # in case of validation/test/pediction stage we have to handle mixed blocks
         if not self.training:
             block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
-        return self.net(batch["x"], batch["pos"], block_mask)
+        return self.net(batch["x"], batch["pos"], block_mask, batch["seq_len"])
 
     def training_step(self, batch: Batch) -> Tensor:
-        logits = self(batch).squeeze(-1)
-        logits_sup = logits[batch["sup_mask"]]
-        targets_sup = batch["y"]
-        sup_size = targets_sup.numel()
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
 
-        loss_sup = (
-            self.bce(logits_sup, targets_sup) if sup_size > 0 else logits.sum() * 0.0
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+
+        sup_size = targets_sup.numel()
+        if sup_size == 0:  # empty supervision batch
+            return logits.sum() * 0.0
+
+        # compute weights s.t. sum(positive weights) == sum(negative weights)
+        n_pos = (targets_sup == 1).sum().float()
+        n_neg = (targets_sup == 0).sum().float()
+        num_classes = (n_pos > 0).float() + (n_neg > 0).float()
+
+        weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
+        weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
+        weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
+
+        pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
+        self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
+
+        loss_sup = F.binary_cross_entropy_with_logits(
+            logits_sup,
+            targets_sup,
+            weight=weights,
         )
-        self.log_dict({"train/sup_size": sup_size}, on_step=True)
         self.log(
             "train/loss",
             loss_sup,
             on_step=True,
             on_epoch=True,
             prog_bar=True,
-            batch_size=sup_size,
+            batch_size=int(sup_size),
         )
         return loss_sup
 
     def validation_step(self, batch: Batch) -> None:
-        logits = self(batch).squeeze(-1)
-        sup_mask = batch["sup_mask"]
-        logits_sup = logits[sup_mask]
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
 
-        targets_sup = batch["y"]
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:
+        if sup_size == 0:  # empty supervision batch
             return None
 
-        loss = self.bce(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/loss",
-            loss,
+            loss_sup,
             on_epoch=True,
             prog_bar=True,
             batch_size=sup_size,
         )
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
-        self.val_step_losses.append(loss.detach() * sup_size)
+        self.val_step_losses.append(loss_sup.detach() * sup_size)
         self.val_step_sizes.append(sup_size)
 
     def on_validation_epoch_end(self) -> None:
@@ -115,7 +131,7 @@ class WSLMetaArch(LightningModule):
             self.best_val_loss = val_loss
             best_metrics: dict[str, Tensor] = {
                 "best/validation/loss": torch.tensor(val_loss, dtype=torch.float32),
-                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
+                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.float32),
             }
             for k, v in metrics.items():
                 best_metrics[f"best/{k}"] = v
@@ -124,16 +140,23 @@ class WSLMetaArch(LightningModule):
             self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
-        logits = self(batch).squeeze(-1)
-        sup_mask = batch["sup_mask"]
-        logits_sup = logits[sup_mask]
+        targets_sup = batch["y"]["nuclei"]
+        assert targets_sup is not None
 
-        targets_sup = batch["y"]
+        logits = self(batch)["nuclei"]
+        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:
+        if sup_size == 0:  # empty supervision batch
             return None
-
+        loss_sup = self.bce(logits_sup, targets_sup)
+        self.log(
+            "test/loss",
+            loss_sup,
+            on_epoch=True,
+            prog_bar=True,
+            batch_size=sup_size,
+        )
         self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
@@ -141,21 +164,16 @@ class WSLMetaArch(LightningModule):
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictBatch) -> Tensor:
+    def predict_step(self, batch: PredictBatch) -> Outputs:
         return self(batch["slides"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
-        decay_params = []
-        no_decay_params = []
-
-        for param in self.net.parameters():
-            if not param.requires_grad:
-                continue
-            if getattr(param, "_no_weight_decay", False) or param.ndim <= 1:
-                no_decay_params.append(param)
-            else:
-                decay_params.append(param)
-
+        no_decay_params = [
+            w
+            for n, w in self.net.named_parameters()
+            if w.requires_grad and (w.ndim <= 1 or ".rope." in n)
+        ]
+        decay_params = list(set(self.net.parameters()).difference(no_decay_params))
         return [
             {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},

@@ -1,0 +1,40 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/prostate_cancer
+  - /model/meta_archs@model: nuclei_mil
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets@data.dataset: # TODO
+  - /data/samplers@data.sampler: # TODO
+  - /data/supervision@data.train_strategy: # TODO
+  - /data/supervision@data.eval_strategy: # TODO
+  - _self_
+
+monitor: validation/graph/loss
+
+trainer:
+  gradient_clip_val: 0.7
+  accumulate_grad_batches: 3
+
+data:
+  sampler_pos_thr: # TODO
+  balance_sampling: # TODO
+  batch_size: 16
+  split_size: 0.1
+  dataset: # TODO
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      dropout: 0.10
+
+metadata:
+  run_name: "Train: Crop-level SL Self Attention Transformer"
+  description: ""

@@ -1,5 +1,3 @@
-from typing import Any, cast
-
 import torch
 from einops import rearrange, repeat
 from torch import Tensor, nn
@@ -32,8 +30,6 @@ class RoPE(nn.Module):
         self.P = orthogonal(
             nn.Linear(dim, dim, bias=False), orthogonal_map="householder"
         )
-        cast("Any", self.P).parametrizations.weight.original._no_weight_decay = True
-        cast("Any", self.freqs)._no_weight_decay = True
 
     @torch.autocast("cuda", dtype=torch.float32)
     def forward(self, x: Tensor, positions: Tensor) -> Tensor:
