@@ -1,6 +1,6 @@
 # @package _global_
 
-mpp: ${dataset.mpp}
+mpp: ${dataset.target_mpp}
 tile_extent: 2048
 overlap: 64
 batch_size: 8
