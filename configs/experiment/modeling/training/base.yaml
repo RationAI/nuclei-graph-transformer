@@ -2,8 +2,6 @@
 
 mode: fit
 
-monitor: ???
-
 trainer: # TODO
 
 data:

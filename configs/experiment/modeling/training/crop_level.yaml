@@ -11,8 +11,6 @@ defaults:
   - /data/supervision@data.eval_strategy: # TODO
   - _self_
 
-monitor: # TODO
-
 trainer: # TODO
 
 data:
