@@ -316,67 +316,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         return None
 
-    def get_crop_targets(
-        self,
-        n: int,
-        crop_label: float,
-        nuclei_sup: NucleiSupervision,
-        crop_sup_mask: torch.Tensor,
-        crop_indices: torch.Tensor,
-        perm: torch.Tensor,
-    ) -> Targets:
-        """Constructs the target dictionary for the crop.
-
-        Args:
-            n: The number of nuclei in the slide.
-            crop_label: The slide-level or heuristically derived crop-level label.
-            nuclei_sup: Nuclei-level supervision.
-            crop_sup_mask: Supervision mask for nuclei in the crop.
-            crop_indices: Tensor of indices defining which nuclei are included in the crop.
-            perm: Tensor containing the KDTree permutation applied to the input sequence.
-
-        Returns:
-            A dictionary containing:
-                - "nuclei": Padded tensor of nuclei-level targets.
-                - "graph": Tensor of the slide/crop-level target if MIL, else None.
-        """
-        targets = nuclei_sup.get_targets(n)
-        crop_targets = targets[crop_indices][perm]
-        crop_targets_padded = self.pad_to_block_size([crop_targets])[0]
-        crop_targets_sup = crop_targets_padded[crop_sup_mask]  # (num_supervised, )
-
-        if not self.mil:
-            return {"nuclei": crop_targets_sup, "graph": None}
-
-        crop_label_t = torch.tensor([crop_label], dtype=torch.float32)
-        return {"nuclei": crop_targets_sup, "graph": crop_label_t}
-
-    def get_crop_sup_mask(
-        self,
-        n: int,
-        nuclei_sup: NucleiSupervision,
-        crop_indices: torch.Tensor,
-        perm: torch.Tensor,
-    ) -> torch.Tensor:
-        """Returns the supervision mask for all nuclei in the crop.
-
-        In case of crop-level supervision, a dummy mask is returned.
-
-        Args:
-            n: The number of nuclei in the slide.
-            nuclei_sup: Nuclei-level supervision.
-            crop_indices: Tensor of indices defining which nuclei belong to the crop.
-            perm: Tensor containing the KDTree permutation applied to the input sequence.
-
-        Returns:
-            torch.Tensor: A padded boolean tensor representing the supervision mask.
-        """
-        if self.mil:
-            return torch.ones(1, dtype=torch.bool)
-        sup_mask = nuclei_sup.get_sup_mask(n)
-        crop_sup_mask = sup_mask[crop_indices][perm]
-        return self.pad_to_block_size([crop_sup_mask])[0]
-
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
         nuclei = pd.read_parquet(nuclei_path)
         return nuclei.sort_values("id").reset_index(drop=True)
@@ -409,7 +348,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
             curr_idx = None
             crop_indices = None
-            while True:  # if a positive slide was chosen, ensure the generated crop has enough positive nuclei
+            while True:  # if a positive slide was chosen, ensure that crop has enough positive nuclei
                 if curr_idx is not None:
                     slide = self.slides.iloc[curr_idx]
 
@@ -433,23 +372,33 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         else:
             crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
+        # compute embeddings, positions, and a block mask, all permuted according
+        # to the KDTree to optimize data layout for sparse attention
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
         crop_centroids = centroids[crop_indices]
-
         crop_x, crop_pos, crop_block_mask, perm = self.get_features(
             crop_polygons, crop_centroids, slide.mpp_x, slide.mpp_y
         )
 
+        # get supervision mask for nuclei in the crop
         crop_indices_t = torch.from_numpy(crop_indices).long()
         perm_t = torch.from_numpy(perm).long()
 
-        crop_sup_mask = self.get_crop_sup_mask(
-            len(nuclei), nuclei_sup, crop_indices_t, perm_t
-        )
-        crop_y: Targets = self.get_crop_targets(
-            len(nuclei), crop_label, nuclei_sup, crop_sup_mask, crop_indices_t, perm_t
-        )
+        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))
+        crop_sup_mask = self.pad_to_block_size([sup_mask[crop_indices_t][perm_t]])[0]
 
+        # get targets for nuclei in the crop and the crop-level target if MIL
+        targets = nuclei_sup.get_targets(len(nuclei))
+        crop_targets = self.pad_to_block_size([targets[crop_indices_t][perm_t]])[0]
+        crop_targets = crop_targets[crop_sup_mask]  # (num_supervised, )
+
+        if not self.mil:
+            crop_y: Targets = {"nuclei": crop_targets, "graph": None}
+        else:
+            crop_label_t = torch.tensor([crop_label], dtype=torch.float32)
+            crop_y: Targets = {"nuclei": crop_targets, "graph": crop_label_t}
+
+        # create a sample
         crop: Crop = {
             "x": crop_x,  # (n, efd_order * 4 + 3)
             "pos": crop_pos,  # (n, 2)
