@@ -392,11 +392,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_targets = self.pad_to_block_size([targets[crop_indices_t][perm_t]])[0]
         crop_targets = crop_targets[crop_sup_mask]  # (num_supervised, )
 
-        if not self.mil:
-            crop_y: Targets = {"nuclei": crop_targets, "graph": None}
-        else:
-            crop_label_t = torch.tensor([crop_label], dtype=torch.float32)
-            crop_y: Targets = {"nuclei": crop_targets, "graph": crop_label_t}
+        crop_y: Targets = {"nuclei": crop_targets, "graph": None}
+        if self.mil:
+            crop_y["graph"] = torch.tensor([crop_label], dtype=torch.float32)
 
         # create a sample
         crop: Crop = {
