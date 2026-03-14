@@ -140,10 +140,8 @@ class DataModule(LightningDataModule):
                 sup_dfs = self._load_supervision_dfs(
                     self.train_strategy, self.eval_strategy
                 )
-                train_ids = set(train_df["slide_id"])
-                train_sup_dfs = {
-                    k: self._filter_df(v, train_ids) for k, v in sup_dfs.items()
-                }
+                ids = set(train_df["slide_id"])
+                train_sup_dfs = {k: self._filter_df(v, ids) for k, v in sup_dfs.items()}
 
                 train_sup = build_supervision(
                     sup_strategy=self.train_strategy,
@@ -159,9 +157,9 @@ class DataModule(LightningDataModule):
                 )
 
                 validation_df = validation_df.reset_index(drop=True)
-                validation_ids = set(validation_df["slide_id"])
+                ids = set(validation_df["slide_id"])
                 validation_sup_dfs = {
-                    k: self._filter_df(v, validation_ids) for k, v in sup_dfs.items()
+                    k: self._filter_df(v, ids) for k, v in sup_dfs.items()
                 }
                 validation_sup = build_supervision(
                     sup_strategy=self.eval_strategy,

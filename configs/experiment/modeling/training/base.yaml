@@ -37,7 +37,7 @@ metadata:
   hyperparams:
     train_supervision_mode: ${data.train_strategy.mode}
     validation_supervision_mode: ${data.eval_strategy.mode}
-    sampler_positivity_threshold: ${data.sampler_pos_thr}
+    sampler_positivity_threshold: ${oc.select:data.sampler_pos_thr,null}
     gradient_clip_val: ${trainer.gradient_clip_val}
     accumulate_grad_batches: ${trainer.accumulate_grad_batches}
     batch_size: ${data.batch_size}

@@ -12,7 +12,7 @@ class Targets(TypedDict):
 
 class Crop(TypedDict):
     x: Tensor  # node features
-    pos: Tensor  # positional features (coordinates + rotation)
+    pos: Tensor  # positional features
     y: Targets  # labels
     sup_mask: Tensor  # supervision mask
     block_mask: BlockMask  # attention mask
