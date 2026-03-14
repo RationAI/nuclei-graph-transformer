@@ -153,7 +153,9 @@ class NucleiMILMetaArch(LightningModule):
             val_loss_name = "best/validation/graph/loss"
             best_metrics: dict[str, Tensor] = {
                 val_loss_name: torch.tensor(val_loss, dtype=torch.float32),
-                "best/graph/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
+                "best/graph/epoch": torch.tensor(
+                    self.current_epoch, dtype=torch.float32
+                ),
             }
             for k, v in graph_metrics.items():
                 clean_key = k.replace("validation/", "best/")

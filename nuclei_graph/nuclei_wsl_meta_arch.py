@@ -131,7 +131,7 @@ class NucleiWSLMetaArch(LightningModule):
             self.best_val_loss = val_loss
             best_metrics: dict[str, Tensor] = {
                 "best/validation/loss": torch.tensor(val_loss, dtype=torch.float32),
-                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.int64),
+                "best/epoch": torch.tensor(self.current_epoch, dtype=torch.float32),
             }
             for k, v in metrics.items():
                 best_metrics[f"best/{k}"] = v
