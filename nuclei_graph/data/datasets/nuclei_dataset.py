@@ -65,7 +65,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             symmetric_block_mask: Whether to symmetrize the block mask. Defaults to False.
             full_slide: Whether the dataset is used for full slide inference.
             predict: Whether to return the metadata needed for prediction along with the data.
-            mil: whether to return slide-level labels for multiple-instance learning. If False, nucleus-level labels are returned.
+            mil: whether to also return slide-level labels for multiple-instance learning along with the nucleus-level labels.
         """
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
