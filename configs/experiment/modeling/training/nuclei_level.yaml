@@ -40,4 +40,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: ""
+  description: "without acc grad batches"
