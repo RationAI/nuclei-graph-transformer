@@ -327,9 +327,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
     ) -> Targets:
         """Constructs the target dictionary for the crop.
 
-        The result depends on the type of supervision (MIL vs dense) specified for the dataset.
-        For MIL, only the slide/crop-level label is returned, otherwise it returns the nucleus-level targets.
-
         Args:
             n: The number of nuclei in the slide.
             crop_label: The slide-level or heuristically derived crop-level label.
@@ -340,20 +337,19 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         Returns:
             A dictionary containing:
-                - "nuclei": Padded tensor of nuclei-level targets (if dense), or None (if MIL).
-                - "graph": Tensor of the slide/crop-level target (if MIL), or None (if dense).
+                - "nuclei": Padded tensor of nuclei-level targets.
+                - "graph": Tensor of the slide/crop-level target if MIL, else None.
         """
-        if self.mil:
-            return {
-                "nuclei": None,
-                "graph": torch.tensor([crop_label], dtype=torch.float32),
-            }
         targets = nuclei_sup.get_targets(n)
         crop_targets = targets[crop_indices][perm]
         crop_targets_padded = self.pad_to_block_size([crop_targets])[0]
         crop_targets_sup = crop_targets_padded[crop_sup_mask]  # (num_supervised, )
 
-        return {"nuclei": crop_targets_sup, "graph": None}
+        if not self.mil:
+            return {"nuclei": crop_targets_sup, "graph": None}
+
+        crop_label_t = torch.tensor([crop_label], dtype=torch.float32)
+        return {"nuclei": crop_targets_sup, "graph": crop_label_t}
 
     def get_crop_sup_mask(
         self,

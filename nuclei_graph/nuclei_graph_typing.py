@@ -6,8 +6,8 @@ from torch.nn.attention.flex_attention import BlockMask
 
 
 class Targets(TypedDict):
+    nuclei: Tensor
     graph: Tensor | None
-    nuclei: Tensor | None
 
 
 class Crop(TypedDict):

@@ -14,12 +14,11 @@ from nuclei_graph.nuclei_graph_typing import (
 
 def collate_fn(batch: Iterable[Crop]) -> Batch:
     batch = list(batch)
-    graph_targets = [b["y"]["graph"] for b in batch if b["y"]["graph"] is not None]
-    nuclei_targets = [b["y"]["nuclei"] for b in batch if b["y"]["nuclei"] is not None]
 
+    graph_targets = [b["y"]["graph"] for b in batch if b["y"]["graph"] is not None]
     batched_y: Targets = {
         "graph": torch.stack(graph_targets, dim=0) if graph_targets else None,
-        "nuclei": torch.cat(nuclei_targets, dim=0) if nuclei_targets else None,
+        "nuclei": torch.cat([b["y"]["nuclei"] for b in batch], dim=0),  # variable size
     }
     return {
         "x": torch.stack([b["x"] for b in batch], dim=0),
