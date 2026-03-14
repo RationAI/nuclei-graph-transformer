@@ -1,0 +1,34 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/prostate_cancer
+  - /model/meta_archs@model: # TODO
+  - /model/models@model.net: # TODO
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/samplers@data.sampler: # TODO
+  - /data/supervision@data.train_strategy: # TODO
+  - /data/supervision@data.eval_strategy: # TODO
+  - _self_
+
+trainer: # TODO
+
+data:
+  sampler_pos_thr: # TODO
+  balance_sampling: # TODO
+  batch_size: 16
+  split_size: 0.1
+  dataset:
+    crop_size: 4096
+    alpha: 0.8
+    k: 64
+    attn_block_size: 128
+    efd_order: 10
+    symmetric_block_mask: false
+    mil: true
+
+model: # TODO
+
+metadata:
+  run_name: "Train: Crop-level SL Self Attention Transformer"
+  description: ""
