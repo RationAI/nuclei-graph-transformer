@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.train_strategy: cam # cam agreement positive_agreement annotation
+  - /data/supervision@data.train_strategy: agreement # cam agreement positive_agreement annotation
   - /data/supervision@data.eval_strategy: agreement
   - _self_
 
@@ -22,7 +22,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 32
+    k: 64
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
@@ -40,4 +40,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "without acc grad batches, k=32"
+  description: "without acc grad batches"
