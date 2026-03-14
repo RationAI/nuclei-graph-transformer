@@ -257,11 +257,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         perm = KDTree(centroids, leafsize=self.attn_block_size).indices
         pos_t = torch.from_numpy(pos_np[perm]).float()
 
-        x = torch.from_numpy(x[perm].astype(np.float32))
+        x_t = torch.from_numpy(x[perm].astype(np.float32))
 
-        x, pos = self.pad_to_block_size([x, pos_t])
+        x_t, pos = self.pad_to_block_size([x_t, pos_t])
 
-        block_mask = create_block_mask_from_kdtree(
+        block_mask: BlockMask = create_block_mask_from_kdtree(
             kdtree=KDTree(pos_np[perm], leafsize=self.attn_block_size),
             points=pos.cpu().numpy(),
             n_points_unpadded=len(polygons),
@@ -269,7 +269,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             block_size=self.attn_block_size,
             symmetric=self.symmetric_block_mask,
         )
-        return x, pos, block_mask, perm
+        return x_t, pos, block_mask, perm
 
     def sample_positive_crop(
         self,
