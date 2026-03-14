@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 import torch
@@ -18,9 +17,6 @@ from torchmetrics.classification import (
 
 from nuclei_graph.data.block_mask import mask_mixed_blocks
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs, PredictBatch
-
-
-log = logging.getLogger(__name__)
 
 
 class NucleiWSLMetaArch(LightningModule):
@@ -178,7 +174,6 @@ class NucleiWSLMetaArch(LightningModule):
             if w.requires_grad and (w.ndim <= 1 or ".rope." in n)
         ]
         decay_params = list(set(self.net.parameters()).difference(no_decay_params))
-        log.info(f"Number of no-decay params: {no_decay_params}")
         return [
             {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},

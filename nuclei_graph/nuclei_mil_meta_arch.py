@@ -225,7 +225,6 @@ class NucleiMILMetaArch(LightningModule):
             if w.requires_grad and (w.ndim <= 1 or ".rope." in n)
         ]
         decay_params = list(set(self.net.parameters()).difference(no_decay_params))
-        print(no_decay_params)
         return [
             {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},
