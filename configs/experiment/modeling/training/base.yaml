@@ -3,6 +3,8 @@
 mode: fit
 
 trainer:
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
   callbacks:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
@@ -32,6 +34,8 @@ metadata:
     train_supervision_mode: ${data.train_strategy.mode}
     validation_supervision_mode: ${data.eval_strategy.mode}
     sampler_positivity_threshold: ${data.sampler_pos_thr}
+    gradient_clip_val: ${trainer.gradient_clip_val}
+    accumulate_grad_batches: ${trainer.accumulate_grad_batches}
     batch_size: ${data.batch_size}
     split_size: ${data.split_size}
     crop_size: ${data.dataset.crop_size}
