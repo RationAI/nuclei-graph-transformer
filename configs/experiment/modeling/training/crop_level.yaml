@@ -11,6 +11,8 @@ defaults:
   - /data/supervision@data.eval_strategy: annotation
   - _self_
 
+early_stopping_key: validation/graph/loss
+
 trainer:
   gradient_clip_val: 0.7
   accumulate_grad_batches: 3

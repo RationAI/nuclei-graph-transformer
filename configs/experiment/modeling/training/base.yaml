@@ -2,6 +2,8 @@
 
 mode: fit
 
+early_stopping_key: ???
+
 trainer:
   accumulate_grad_batches: 1
   gradient_clip_val: null
@@ -11,7 +13,7 @@ trainer:
       monitor: validation/loss
       mode: min
     - _target_: lightning.pytorch.callbacks.EarlyStopping
-      monitor: validation/loss
+      monitor: ${early_stopping_key}
       mode: min
       patience: 35
 
