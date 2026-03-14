@@ -4,9 +4,8 @@ import mlflow
 import pandas as pd
 import torch
 from lightning import Callback, LightningModule, Trainer
-from torch import Tensor
 
-from nuclei_graph.nuclei_graph_typing import PredictBatch
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class PredictionsCallback(Callback):
@@ -21,14 +20,14 @@ class PredictionsCallback(Callback):
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Tensor,
+        outputs: Outputs,
         batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
 
-        logits = outputs[0].squeeze(-1)  # (n,)
+        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
         seq_len = batch["slides"]["seq_len"][0].item()
         logits_unpadded = logits[:seq_len]
         logits_ordered = logits_unpadded[metadata["perm_inverse"]]

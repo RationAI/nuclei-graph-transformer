@@ -1,8 +1,8 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling/training: crop_level # crop_level nuclei_level
-  # - /experiment/modeling/inference: nuclei_level
+  # - /experiment/modeling/training: crop_level # crop_level nuclei_level
+  - /experiment/modeling/inference: nuclei_level
 
 seed: ${random_seed:}
 mode: ???
@@ -16,8 +16,6 @@ trainer:
 
 data:
   batch_size: ???
-  split_size: ???
-  balance_sampling: ???
   num_workers: 10
   eval_num_workers: 2
   mlflow_uris:

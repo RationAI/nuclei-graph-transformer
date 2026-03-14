@@ -18,6 +18,8 @@ trainer:
       patience: 35
 
 data:
+  split_size: ???
+  balance_sampling: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
@@ -40,6 +42,7 @@ metadata:
     accumulate_grad_batches: ${trainer.accumulate_grad_batches}
     batch_size: ${data.batch_size}
     split_size: ${data.split_size}
+    balance_sampling: ${data.balance_sampling}
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}

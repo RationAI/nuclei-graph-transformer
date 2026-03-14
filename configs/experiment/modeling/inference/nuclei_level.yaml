@@ -6,11 +6,11 @@ defaults:
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.eval_strategy: predictions
+  - /data/supervision@data.eval_strategy: dense
   - _self_
 
-checkpoint: mlflow-artifacts:/97/434f1b72d8d846518eded65859005da8/artifacts/checkpoints/epoch=130-step=3930/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/434f1b72d8d846518eded65859005da8
+checkpoint: mlflow-artifacts:/97/61fba54911614186a4a769db6d02f394/artifacts/checkpoints/epoch=97-step=1470/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/61fba54911614186a4a769db6d02f394
 
 data:
   batch_size: 1

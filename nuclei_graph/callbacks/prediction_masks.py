@@ -12,9 +12,8 @@ from openslide import OpenSlide
 from PIL import Image as PILImage
 from PIL import ImageDraw
 from rationai.masks import slide_resolution, write_big_tiff
-from torch import Tensor
 
-from nuclei_graph.nuclei_graph_typing import PredictBatch
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class PredictionMasksCallback(Callback):
@@ -36,7 +35,7 @@ class PredictionMasksCallback(Callback):
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Tensor,
+        outputs: Outputs,
         batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
@@ -57,7 +56,7 @@ class PredictionMasksCallback(Callback):
         canvas = ImageDraw.Draw(mask)
 
         # extract and align predictions
-        logits = outputs[0].squeeze(-1)  # (n,)
+        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
         seq_len = batch["slides"]["seq_len"][0].item()
         logits_unpadded = logits[:seq_len]
         logits_ordered = logits_unpadded[metadata["perm_inverse"]]

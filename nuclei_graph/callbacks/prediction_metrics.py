@@ -3,10 +3,9 @@ from typing import cast
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
-from torch import Tensor
 from torchmetrics import MetricCollection
 
-from nuclei_graph.nuclei_graph_typing import PredictBatch
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class PredictionMetricsCallback(Callback):
@@ -31,18 +30,18 @@ class PredictionMetricsCallback(Callback):
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Tensor,
+        outputs: Outputs,
         batch: PredictBatch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
         slide = batch["slides"]  # batch size is 1
-        targets_sup = slide["y"]
+        targets_sup = slide["y"]["nuclei"]
 
         if targets_sup.numel() == 0:
             return
 
-        logits_sup = outputs.squeeze(-1)[slide["sup_mask"]]
+        logits_sup = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
