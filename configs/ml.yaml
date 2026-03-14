@@ -1,22 +1,25 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling: vanilla_transformer
+  - /experiment/modeling/training: nuclei_level # crop_level nuclei_level
 
 seed: ${random_seed:}
 mode: ???
 checkpoint: null
+dataset: ???
 
 trainer: {}
 
 data:
   batch_size: ???
   num_workers: 10
-  paths:
-    features: ???
+  eval_num_workers: 2
   mlflow_uris:
     metadata: ???
     supervision: ???
   dataset: ???
+  supervision:
+    train_strategy: ???
+    eval_strategy: ???
 
 model: {}
