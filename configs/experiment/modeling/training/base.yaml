@@ -38,6 +38,7 @@ metadata:
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}
     attn_block_size: ${data.dataset.attn_block_size}
+    symmetric_block_mask: ${data.dataset.symmetric_block_mask}
     efd_order: ${data.dataset.efd_order}
     lr: ${model.lr}
     warmup_epochs: ${model.warmup_epochs}
