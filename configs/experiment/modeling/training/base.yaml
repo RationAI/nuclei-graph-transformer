@@ -1,0 +1,20 @@
+# @package _global_
+
+mode: fit
+
+trainer: # TODO
+data:
+  split_size: ???
+  balance_sampling: ???
+  mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
+    supervision: ${dataset.mlflow_uris.supervision}
+
+model: # TODO
+
+metadata:
+  run_name: ???
+  hyperparams:
+    train_supervision_mode: ${data.train_strategy.mode}
+    validation_supervision_mode: ${data.eval_strategy.mode}
+    balance_sampling: ${data.balance_sampling}
