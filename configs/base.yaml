@@ -1,13 +1,14 @@
 defaults:
-  - base
+  - hydra: default
+  - logger: mlflow
   - _self_
 
-seed: ${random_seed:}
-mode: ???
-checkpoint: null
+data_path: /mnt/data/MOU/prostate
+project_path: /mnt/projects/nuclei_based_wsi_analysis
+mlflow_project: mlflow-artifacts:/97
 
-trainer: {}
-
-data: {}
-
-model: {}
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: ???
+  description: ""
+  hyperparams: {}
