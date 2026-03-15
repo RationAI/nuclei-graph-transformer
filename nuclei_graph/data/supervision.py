@@ -31,7 +31,7 @@ class NucleiSupervision(ABC):
 
     @abstractmethod
     def get_sup_mask(self, n: int) -> Tensor:
-        """Returns supervision mask (True for confident labels).
+        """Returns supervision mask.
 
         Args:
             n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
