@@ -15,7 +15,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.EarlyStopping
       monitor: ${monitor}
       mode: min
-      patience: 35
+      patience: 50
 
 data:
   split_size: ???
