@@ -118,9 +118,15 @@ class NucleiSupervision(ABC):
 class AnnotationNucleiSupervision(NucleiSupervision):
     """Supervision based on rough pathologist annotations."""
 
-    def __init__(self, is_carcinoma: bool, annot_labels: Tensor):
-        super().__init__(is_carcinoma)
+    def __init__(
+        self,
+        is_carcinoma: bool,
+        annot_labels: Tensor,
+        balance_sampling: bool | None = True,
+    ):
+        super().__init__(is_carcinoma, balance_sampling)
         self.annot_labels = annot_labels
+        self.balance_sampling = self.balance_sampling
 
     def get_targets(self, n: int) -> Tensor:
         if not self.is_carcinoma:
