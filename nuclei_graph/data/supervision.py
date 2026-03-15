@@ -31,7 +31,7 @@ class NucleiSupervision(ABC):
 
     @abstractmethod
     def get_sup_mask(self, n: int) -> Tensor:
-        """Returns supervision mask (True for confident labels).
+        """Returns supervision mask.
 
         Args:
             n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
@@ -133,6 +133,13 @@ class AnnotationNucleiSupervision(NucleiSupervision):
     def get_seed_mask(self, n: int, centroids: Coords | None = None) -> Tensor:
         if not self.is_carcinoma:
             return torch.ones(n, dtype=torch.bool)
+
+        assert centroids is not None
+        if self.balance_sampling:
+            pos_mask = self.annot_labels == 1
+            neg_mask = self.annot_labels == 0
+            return self.balance_seeds(pos_mask, neg_mask, centroids)
+
         return self.annot_labels == 1
 
     def get_positivity(self) -> float:
