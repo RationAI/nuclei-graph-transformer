@@ -30,3 +30,4 @@ rationai-kube-jobs = { git = "ssh://git@gitlab.ics.muni.cz/rationai/infrastructu
 [dependency-groups]
 dev = ["mypy", "ruff"]
 job = ["rationai-kube-jobs"]
+test = ["pytest", "pytest-cov"]
