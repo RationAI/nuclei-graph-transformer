@@ -9,7 +9,7 @@ submit_job(
     memory="4Gi",
     public=False,
     script=[
-        "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
+        "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
         "uv run -m preprocessing.merge_cam_masks +experiment=preprocessing/cam_masks/...",
