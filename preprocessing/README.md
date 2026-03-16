@@ -8,7 +8,7 @@ The preprocessing pipeline follows these steps:
 2. **Annotation Masks** (`annotation_masks.py`)  
    Generates binary masks for annotated carcinoma regions using XML annotation files by expert pathologists. 
 
-3. **Annotation-based Nuclei Labeling** (`annotation_labels.py`)  
+3. **Annotation-based Nuclei Labeling** (`unipolar_heatmap_labels.py`)  
    Assigns labels to segmented nuclei by checking polygon overlap with expert annotation masks.
 
 4. **CAM Masks Preparation** (`merge_cam_masks.py`)  
@@ -18,4 +18,4 @@ The preprocessing pipeline follows these steps:
    Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus (for loss weighting, etc.).
 
 6. **Map Slides to Nuclei** (`metadata_mapping.py`)  
-   Creates a mapping between slide IDs, patient IDs, Mirax files, carcinoma status, and the nuclei segmentation folders.
+   Creates a mapping of slides' metadata necessary for downstream modeling.
