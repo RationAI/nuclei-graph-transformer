@@ -8,8 +8,6 @@ import torch
 import torch.nn.functional as F
 from degraph import build_spatial_graph
 from einops import rearrange
-from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
-from nuclei_graph.nuclei_graph_typing import Crop, Metadata, PredictSlide, Targets
 from numpy.typing import NDArray
 from pandas import DataFrame
 from scipy.spatial import KDTree
@@ -23,6 +21,8 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
+from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
+from nuclei_graph.nuclei_graph_typing import Crop, Metadata, PredictSlide, Targets
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
