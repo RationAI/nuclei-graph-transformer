@@ -285,8 +285,7 @@ class PositiveAgreementNucleiSupervision(NucleiSupervision):
 class DenseNucleiSupervision(NucleiSupervision):
     """Supervision where all provided nuclei are confidently labeled.
 
-    Intended for dense nucleus-level training or prediction evaluation
-    (e.g.using Virchow2 predictions).
+    Intended for dense nucleus-level training or model prediction-based evaluation.
     """
 
     def __init__(
@@ -392,6 +391,21 @@ def build_supervision(
     df_cam: pd.DataFrame | None = None,
     df_dense: pd.DataFrame | None = None,
 ) -> DatasetSupervision:
+    """Constructs Supervision objects for each slide based on the provided strategy and DataFrames with supervision data.
+
+    Args:
+        sup_strategy (SupervisionStrategy): Strategy specifying which nuclei supervision type to use.
+        label_map (dict[str, int]): Mapping from slide IDs to slide-level labels (0 for negative, 1 for positive).
+        df_annot (pd.DataFrame | None, optional): DataFrame containing pathologist annotation labels per nucleus.
+            Must have columns `slide_id`, `id`, and `annot_label`. Defaults to None.
+        df_cam (pd.DataFrame | None, optional): DataFrame containing CAM-based labels per nucleus.
+            Must have columns `slide_id`, `id`, and `cam_label`. Defaults to None.
+        df_dense (pd.DataFrame | None, optional): DataFrame containing dense prediction labels per nucleus.
+            Must have columns `slide_id`, `id`, and `pred_label`. Defaults to None.
+
+    Returns:
+        DatasetSupervision: Object containing a mapping from slide IDs to `SlideSupervision` instances.
+    """
     assert not (df_annot is None and df_cam is None and df_dense is None)
 
     sources = [df for df in [df_annot, df_cam, df_dense] if df is not None]
