@@ -44,8 +44,8 @@ dataset:
       annotation: ${mlflow_project}/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels
       # preprocessing/cam_labels.py
       cam:
-        annot_restricted_thr: ${mlflow_project}/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
-        default_thr: ${mlflow_project}/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
+        annot_restricted_thr: ${mlflow_project}/fb2f1afab2f347b5a3f7a3f8aba54f80/artifacts/cam_labels
+        default_thr: ${mlflow_project}/be8d6076322044ed82636b4c4418820a/artifacts/cam_labels
       model_prediction:
         # preprocessing/unipolar_heatmap_labels.py
-        virchow2: ${mlflow_project}/201619e5d640496eb61fbb2f67abca87/artifacts/prediction_labels
+        virchow2: ${mlflow_project}/7b6a77318105425ea7326616d9519d54/artifacts/prediction_labels
