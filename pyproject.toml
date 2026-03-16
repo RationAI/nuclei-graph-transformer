@@ -28,4 +28,4 @@ rationai-masks = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/
 
 [dependency-groups]
 dev = ["mypy", "ruff"]
-test = ["pytest", "pytest-cov"]
+tests = ["pytest", "pytest-cov"]
