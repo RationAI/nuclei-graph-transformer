@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+import numpy as np
 from numpy.typing import NDArray
 from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
@@ -24,7 +25,7 @@ class Metadata(TypedDict):
     slide_path: str
     slide_nuclei_path: str
     perm_inverse: Tensor
-    nuclei_ids: NDArray
+    nuclei_ids: NDArray[np.str_]
 
 
 class Outputs(TypedDict):
