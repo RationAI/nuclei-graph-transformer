@@ -25,7 +25,7 @@
 
 ## 🏗️ Architecture & Reproducibility 
 - **Hydra Configs (`configs/`):** Reproducibility is paramount. If a PR introduces a new module, model architecture, or preprocessing step, check if the author has updated or created the corresponding YAML configuration. Remind them if it seems missing.
-- **Experiment Tracking (MLflow):** When PRs add new loss functions, evaluation metrics, or training loops in `nuclei-graph/`, ensure that these new metrics are properly logged to MLflow.
+- **Experiment Tracking (MLflow):** When PRs add new loss functions, evaluation metrics, or training loops in `nuclei_graph/`, ensure that these new metrics are properly logged to MLflow.
 - **Repository Structure:**
   - `exploration/`: These are data exploration scripts.
   - `preprocessing/`: Ensure that data transformations (nuclei segmentation, annotation masks) are logically sound.
