@@ -343,7 +343,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_label = float(slide.is_carcinoma)
 
         # generate a crop
-        if slide.is_carcinoma and self.mil and not (self.full_slide or self.predict):
+        if slide.is_carcinoma and self.mil and not self.full_slide:
             assert self.crop_pos_thr is not None
 
             curr_idx = None
