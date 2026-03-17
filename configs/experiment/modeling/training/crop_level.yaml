@@ -5,10 +5,10 @@ defaults:
   - /data/sources/prostate_cancer
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: # TODO
-  - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.train_strategy: # TODO
-  - /data/supervision@data.eval_strategy: # TODO
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/supervision@data.train_strategy: annotation
+  - /data/supervision@data.eval_strategy: annotation
   - _self_
 
 monitor: validation/graph/loss
@@ -18,11 +18,18 @@ trainer:
   accumulate_grad_batches: 3
 
 data:
-  sampler_pos_thr: # TODO
-  balance_sampling: # TODO
+  sampler_pos_thr: 0.05
+  balance_sampling: true
   batch_size: 16
   split_size: 0.1
-  dataset: # TODO
+  dataset:
+    crop_size: 4096
+    alpha: 0.8
+    k: 64
+    attn_block_size: 128
+    efd_order: 10
+    symmetric_block_mask: false
+    mil: true
 
 model:
   lr: 1e-4
