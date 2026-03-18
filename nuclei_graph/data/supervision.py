@@ -12,6 +12,14 @@ from tqdm import tqdm
 
 type Coords = NDArray[np.float32]
 
+SOURCE_MAP = {
+    "annotation": {"annot_df": "annot_uri"},
+    "cam": {"cam_df": "cam_uri"},
+    "agreement": {"annot_df": "annot_uri", "cam_df": "cam_uri"},
+    "positive-agreement": {"annot_df": "annot_uri", "cam_df": "cam_uri"},
+    "dense": {"dense_df": "dense_uri"},
+}
+
 
 class NucleiSupervision(ABC):
     def __init__(self, is_carcinoma: bool, balance_sampling: bool | None = False):
@@ -23,7 +31,7 @@ class NucleiSupervision(ABC):
         """Returns nucleus-level targets.
 
         Args:
-            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
+            n: Number of nuclei in the whole slide.
 
         Returns:
             Tensor of shape (n,): Target labels for each nucleus.
@@ -31,10 +39,10 @@ class NucleiSupervision(ABC):
 
     @abstractmethod
     def get_sup_mask(self, n: int) -> Tensor:
-        """Returns supervision mask.
+        """Returns nucleus-level supervision mask.
 
         Args:
-            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
+            n: Number of nuclei in the whole slide.
 
         Returns:
             Boolean tensor of shape (n,): True for nuclei with confident labels.
@@ -48,8 +56,8 @@ class NucleiSupervision(ABC):
         confident positives or a balanced subset if `balance_sampling` is True.
 
         Args:
-            n: Number of nuclei in the whole slide. Used to return a full tensor for negative slides.
-            centroids: (n, 2) array of nucleus centroids in micron units.
+            n: Number of nuclei in the whole slide.
+            centroids: (n, 2) array of nuclei centroids in micron units.
 
         Returns:
             Boolean tensor of shape (n,): True for nuclei eligible as seeds for crop generation.
@@ -349,7 +357,9 @@ class SupervisionStrategy:
         self.annot_uri = annot_uri
         self.cam_uri = cam_uri
         self.dense_uri = dense_uri
+
         self.mode = mode
+        self.required_sources = SOURCE_MAP[mode]
         self.balance_sampling = balance_sampling
 
         self._modes = {
@@ -359,6 +369,7 @@ class SupervisionStrategy:
             "positive-agreement": PositiveAgreementNucleiSupervision,
             "dense": DenseNucleiSupervision,
         }
+
         if mode not in self._modes:
             raise ValueError(f"Unknown supervision mode: {mode}")
 
@@ -387,28 +398,20 @@ class SupervisionStrategy:
 def build_supervision(
     sup_strategy: SupervisionStrategy,
     label_map: dict[str, int],
-    df_annot: pd.DataFrame | None = None,
-    df_cam: pd.DataFrame | None = None,
-    df_dense: pd.DataFrame | None = None,
+    sup_dfs: dict[str, pd.DataFrame | None],
 ) -> DatasetSupervision:
     """Constructs Supervision objects for each slide based on the provided strategy and DataFrames with supervision data.
 
     Args:
         sup_strategy (SupervisionStrategy): Strategy specifying which nuclei supervision type to use.
         label_map (dict[str, int]): Mapping from slide IDs to slide-level labels (0 for negative, 1 for positive).
-        df_annot (pd.DataFrame | None, optional): DataFrame containing pathologist annotation labels per nucleus.
-            Must have columns `slide_id`, `id`, and `annot_label`. Defaults to None.
-        df_cam (pd.DataFrame | None, optional): DataFrame containing CAM-based labels per nucleus.
-            Must have columns `slide_id`, `id`, and `cam_label`. Defaults to None.
-        df_dense (pd.DataFrame | None, optional): DataFrame containing dense prediction labels per nucleus.
-            Must have columns `slide_id`, `id`, and `pred_label`. Defaults to None.
+        sup_dfs (dict[str, pd.DataFrame | None]): Dictionary containing dataframes with supervision data.
 
     Returns:
         DatasetSupervision: Object containing a mapping from slide IDs to `SlideSupervision` instances.
     """
-    assert not (df_annot is None and df_cam is None and df_dense is None)
-
-    sources = [df for df in [df_annot, df_cam, df_dense] if df is not None]
+    assert any(df is not None for df in sup_dfs.values())
+    sources = [df for df in sup_dfs.values() if df is not None]
 
     df_merged = sources[0]
     for next_source in sources[1:]:

@@ -92,34 +92,29 @@ class DataModule(LightningDataModule):
             for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
 
-    def _load_supervision_dfs(
+    def _load_sup_sources(
         self, *strategies: SupervisionStrategy
     ) -> dict[str, pd.DataFrame | None]:
-        """Loads supervision DataFrames required by the provided strategies avoiding repeated downloads.
+        """Loads sources required by supervision strategies.
 
-        Assumes that for each supervision type, the URI is identical across all provided strategies.
-
-        Args:
-            *strategies: List of SupervisionStrategy objects.
-
-        Returns:
-            dict[str, pd.DataFrame | None]: A dictionary containing the loaded DataFrames
-                with keys "df_annot", "df_cam", and "df_dense". Values are None if no
-                corresponding URI was found across any of the provided strategies.
+        Assumes uris under the same attribute across strategies are shared.
         """
 
-        def _get_shared_uri(
-            strategies: list[SupervisionStrategy], attr: str
-        ) -> str | None:
-            uris = {getattr(s, attr) for s in strategies if getattr(s, attr)}
+        def _get_shared_uri(strats: list[SupervisionStrategy], attr: str) -> str | None:
+            uris = {getattr(s, attr) for s in strats if getattr(s, attr)}
             assert len(uris) <= 1, f"Multiple URIs found for {attr}."
             return next(iter(uris)) if uris else None
 
-        valid = list(filter(None, strategies))
+        valid_strategies = list(filter(None, strategies))
+
+        source_map = {
+            df_key: uri
+            for strategy in valid_strategies
+            for df_key, uri in strategy.required_sources.items()
+        }
         return {
-            "df_annot": self._load_df(_get_shared_uri(valid, "annot_uri")),
-            "df_cam": self._load_df(_get_shared_uri(valid, "cam_uri")),
-            "df_dense": self._load_df(_get_shared_uri(valid, "dense_uri")),
+            df_key: self._load_df(_get_shared_uri(valid_strategies, uri))
+            for df_key, uri in source_map.items()
         }
 
     def _prepare_supervision(
@@ -129,12 +124,10 @@ class DataModule(LightningDataModule):
         strategy: SupervisionStrategy,
     ) -> DatasetSupervision:
         ids = set(slides_df["slide_id"])
-        filtered = {k: self._filter_df(v, ids) for k, v in sup_dfs.items()}
-
         return build_supervision(
             sup_strategy=strategy,
             label_map=self._get_label_map(slides_df),
-            **filtered,
+            sup_dfs={k: self._filter_df(v, ids) for k, v in sup_dfs.items()},
         )
 
     def setup(self, stage: str) -> None:
@@ -159,7 +152,7 @@ class DataModule(LightningDataModule):
                 validation_df = validation_df.reset_index(drop=True)
 
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                sup_dfs = self._load_supervision_dfs(
+                sup_dfs = self._load_sup_sources(
                     self.train_strategy, self.eval_strategy
                 )
                 train_sup = self._prepare_supervision(
@@ -185,7 +178,7 @@ class DataModule(LightningDataModule):
             case "test" | "predict":
                 slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
                 assert slides_df is not None
-                sup_dfs = self._load_supervision_dfs(self.eval_strategy)
+                sup_dfs = self._load_sup_sources(self.eval_strategy)
                 sup = self._prepare_supervision(slides_df, sup_dfs, self.eval_strategy)
                 dataset = instantiate(
                     self.dataset_cfg,
