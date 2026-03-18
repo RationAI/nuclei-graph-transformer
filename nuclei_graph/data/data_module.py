@@ -52,8 +52,6 @@ class DataModule(LightningDataModule):
 
         Args:
             batch_size: Batch size for training.
-            eval_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
-            train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
             split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             num_workers: Number of workers for data loading. Defaults to 0.
             max_eval_workers: Maximum number of workers for evaluation data loading. Defaults to 2.
