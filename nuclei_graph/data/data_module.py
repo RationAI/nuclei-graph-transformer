@@ -96,8 +96,8 @@ class DataModule(LightningDataModule):
         self, strategy: SupervisionStrategy
     ) -> dict[str, pd.DataFrame | None]:
         return {
-            df_key: self._load_df(uri)
-            for df_key, uri in strategy.required_sources.items()
+            df_key: self._load_df(getattr(strategy, uri_attr))
+            for df_key, uri_attr in strategy.required_sources.items()
         }
 
     def _prepare_supervision(
