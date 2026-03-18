@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,12 @@ SOURCE_MAP = {
     "agreement": {"annot_df": "annot_uri", "cam_df": "cam_uri"},
     "positive-agreement": {"annot_df": "annot_uri", "cam_df": "cam_uri"},
     "dense": {"dense_df": "dense_uri"},
+}
+
+COLUMN_MAP = {
+    "annot_df": "annot_label",
+    "cam_df": "cam_label",
+    "dense_df": "pred_label",
 }
 
 
@@ -413,33 +420,39 @@ def build_supervision(
     assert any(df is not None for df in sup_dfs.values())
     sources = [df for df in sup_dfs.values() if df is not None]
 
-    df_merged = sources[0]
-    for next_source in sources[1:]:
-        df_merged = pd.merge(
-            df_merged, next_source, on=["slide_id", "id"], how="inner", validate="1:1"
+    df = (
+        reduce(
+            lambda left, right: pd.merge(
+                left, right, on=["slide_id", "id"], how="inner", validate="1:1"
+            ),
+            sources,
         )
-
-    df_merged = df_merged.sort_values(["slide_id", "id"])
-    grouped = df_merged.groupby("slide_id")
+        .sort_values(["slide_id", "id"])
+        .groupby("slide_id")
+    )
 
     sup_map = {}
     for slide_id, label in tqdm(label_map.items(), desc="Building Supervision"):
         if label == 0:
             nuclei_sup = sup_strategy.create(is_carcinoma=False)
         else:
-            group = grouped.get_group(slide_id)
+            group = df.get_group(slide_id)
 
-            def get_col(name, g=group):
-                if name in g.columns:
-                    return torch.tensor(g[name].values, dtype=torch.float32)
-                return None
+            def get_labels(df_key: str, group: pd.DataFrame) -> Tensor | None:
+                col = COLUMN_MAP[df_key]
+                return (
+                    torch.tensor(group[col].values, dtype=torch.float32)
+                    if col in group
+                    else None
+                )
 
             nuclei_sup = sup_strategy.create(
                 is_carcinoma=True,
-                annot_labels=get_col("annot_label"),
-                cam_labels=get_col("cam_label"),
-                dense_labels=get_col("pred_label"),
+                annot_labels=get_labels("annot_df", group),
+                cam_labels=get_labels("cam_df", group),
+                dense_labels=get_labels("dense_df", group),
             )
+
         sup_map[slide_id] = SlideSupervision(
             slide_label=int(label), nuclei_supervision=nuclei_sup
         )
