@@ -344,7 +344,7 @@ class SupervisionStrategy:
         annot_uri: str | None = None,
         cam_uri: str | None = None,
         dense_uri: str | None = None,
-        balance_sampling: bool | None = None,
+        balance_sampling: bool | None = False,
     ):
         self.annot_uri = annot_uri
         self.cam_uri = cam_uri
