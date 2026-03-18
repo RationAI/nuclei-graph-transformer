@@ -17,7 +17,7 @@ from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
     min_count_filter,
-    min_positive_nuclei_filter,
+    min_positive_count_filter,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
@@ -87,19 +87,15 @@ class DataModule(LightningDataModule):
             return None
         return pd.read_parquet(download_artifacts(uri), columns=cols)
 
-    def _get_label_map(self, slide_df: pd.DataFrame) -> dict[str, int]:
+    def _get_carcinoma_map(self, slide_df: pd.DataFrame) -> dict[str, bool]:
         return {
-            str(k): int(v)
-            for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
+            str(k): v for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
 
     def _load_sup_sources(
         self, strategy: SupervisionStrategy
     ) -> dict[str, pd.DataFrame | None]:
-        return {
-            df_key: self._load_df(getattr(strategy, uri_attr))
-            for df_key, uri_attr in strategy.required_sources.items()
-        }
+        return {uri_key: self._load_df(uri) for uri_key, uri in strategy.uris.items()}
 
     def _prepare_supervision(
         self,
@@ -109,8 +105,8 @@ class DataModule(LightningDataModule):
     ) -> DatasetSupervision:
         ids = set(slides_df["slide_id"])
         return build_supervision(
-            sup_strategy=strategy,
-            label_map=self._get_label_map(slides_df),
+            strategy=strategy,
+            carcinoma_map=self._get_carcinoma_map(slides_df),
             sup_dfs={k: self._filter_df(v, ids) for k, v in sup_dfs.items()},
         )
 
@@ -146,8 +142,8 @@ class DataModule(LightningDataModule):
                     min_pos_count = (
                         self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
                     )
-                    train_df = min_positive_nuclei_filter(
-                        train_df, min_pos_count, self.positivity
+                    train_df = min_positive_count_filter(
+                        train_df, min_pos_count, train_sup.sup_pos_count_map
                     )
                 self.train_dataset = instantiate(
                     self.dataset_cfg,

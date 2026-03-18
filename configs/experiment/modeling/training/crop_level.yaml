@@ -15,7 +15,7 @@ monitor: validation/graph/loss
 
 trainer:
   gradient_clip_val: 0.7
-  accumulate_grad_batches: 3
+  #accumulate_grad_batches: 3
 
 data:
   batch_size: 16
