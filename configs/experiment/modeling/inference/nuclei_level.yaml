@@ -6,7 +6,7 @@ defaults:
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.eval_strategy: dense
+  - /data/supervision@data.supervision.eval_strategy: dense
   - _self_
 
 checkpoint: mlflow-artifacts:/97/61fba54911614186a4a769db6d02f394/artifacts/checkpoints/epoch=97-step=1470/checkpoint.ckpt

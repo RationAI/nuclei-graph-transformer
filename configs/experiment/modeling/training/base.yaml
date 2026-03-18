@@ -31,14 +31,14 @@ metadata:
   hyperparams:
     train_supervision_mode: ${data.train_strategy.mode}
     validation_supervision_mode: ${data.eval_strategy.mode}
-    sampler_positivity_threshold: ${oc.select:data.sampler.positivity_thr,null}
-    sampler_pos_slide_ratio: ${oc.select:data.sampler.pos_slide_ratio,null}
-    sampler_replacement: ${oc.select:data.sampler.replacement,null}
+    sampler_positivity_threshold: ${data.sampler.positivity_thr}
+    sampler_pos_slide_ratio: ${data.sampler.pos_slide_ratio}
+    sampler_replacement: ${data.sampler.replacement}
     gradient_clip_val: ${trainer.gradient_clip_val}
     accumulate_grad_batches: ${trainer.accumulate_grad_batches}
     batch_size: ${data.batch_size}
     split_size: ${data.split_size}
-    balance_sampling: ${data.balance_sampling}
+    balance_sampling: ${data.supervision.balance_sampling}
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
     k: ${data.dataset.k}

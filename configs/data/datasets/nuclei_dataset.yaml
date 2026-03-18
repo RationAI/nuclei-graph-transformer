@@ -1,9 +1,9 @@
 # @package _global_
 
 _target_: nuclei_graph.data.datasets.NucleiDataset
-crop_size: ???
-alpha: ???
-k: ???
-attn_block_size: ???
-efd_order: ???
-symmetric_block_mask: ???
+crop_size: ${data.dataset.crop_size}
+alpha: ${data.dataset.alpha}
+k: ${data.dataset.k}
+attn_block_size: ${data.dataset.attn_block_size}
+efd_order: ${data.dataset.efd_order}
+symmetric_block_mask: ${data.dataset.symmetric_block_mask}

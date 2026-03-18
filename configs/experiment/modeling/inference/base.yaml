@@ -16,6 +16,7 @@ data:
     supervision: ${dataset.mlflow_uris.supervision}
   supervision:
     train_strategy: null
+    balance_sampling: null
 
 model:
   net:

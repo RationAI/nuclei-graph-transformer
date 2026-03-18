@@ -30,6 +30,7 @@ data:
     mil: true
   sampler:
     positivity_thr: 0.05
+    balance_sampling: true
 
 model:
   lr: 1e-4

@@ -29,6 +29,7 @@ data:
     symmetric_block_mask: false
   sampler:
     positivity_thr: 0.05
+    balance_sampling: true
 
 model:
   lr: 3e-4
