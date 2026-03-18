@@ -30,7 +30,6 @@ data:
     mil: true
   sampler:
     positivity_thr: 0.05
-    pos_slide_ratio: 0.5
   supervision:
     balance_sampling: true
 
@@ -47,4 +46,3 @@ model:
 
 metadata:
   run_name: "Train: Crop-level SL Self Attention Transformer"
-  description: ""
