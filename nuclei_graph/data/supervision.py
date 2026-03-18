@@ -420,7 +420,7 @@ def build_supervision(
     assert any(df is not None for df in sup_dfs.values())
     sources = [df for df in sup_dfs.values() if df is not None]
 
-    df = (
+    sup_groups = (
         reduce(
             lambda left, right: pd.merge(
                 left, right, on=["slide_id", "id"], how="inner", validate="1:1"
@@ -436,7 +436,7 @@ def build_supervision(
         if label == 0:
             nuclei_sup = sup_strategy.create(is_carcinoma=False)
         else:
-            group = df.get_group(slide_id)
+            group = sup_groups.get_group(slide_id)
 
             def get_labels(df_key: str, group: pd.DataFrame) -> Tensor | None:
                 col = COLUMN_MAP[df_key]
