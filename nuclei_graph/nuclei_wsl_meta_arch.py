@@ -64,12 +64,12 @@ class NucleiWSLMetaArch(LightningModule):
 
         # compute weights s.t. sum(positive weights) == sum(negative weights)
         n_pos = (targets_sup == 1).sum().float()
-        n_neg = (targets_sup == 0).sum().float()
-        num_classes = (n_pos > 0).float() + (n_neg > 0).float()
+        # n_neg = (targets_sup == 0).sum().float()
+        # num_classes = (n_pos > 0).float() + (n_neg > 0).float()
 
-        weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
-        weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
-        weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
+        # weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
+        # weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
+        # weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
 
         pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
         self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
@@ -77,7 +77,7 @@ class NucleiWSLMetaArch(LightningModule):
         loss_sup = F.binary_cross_entropy_with_logits(
             logits_sup,
             targets_sup,
-            weight=weights,
+            # weight=weights,
         )
         self.log(
             "train/loss",
