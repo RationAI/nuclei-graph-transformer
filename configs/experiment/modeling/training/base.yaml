@@ -29,8 +29,8 @@ model:
 metadata:
   run_name: ???
   hyperparams:
-    train_supervision_mode: ${data.train_strategy.mode}
-    validation_supervision_mode: ${data.eval_strategy.mode}
+    train_supervision_mode: ${data.supervision.train_strategy.mode}
+    validation_supervision_mode: ${data.supervision.eval_strategy.mode}
     sampler_positivity_threshold: ${data.sampler.positivity_thr}
     sampler_pos_slide_ratio: ${data.sampler.pos_slide_ratio}
     sampler_replacement: ${data.sampler.replacement}
