@@ -52,9 +52,9 @@ class DataModule(LightningDataModule):
 
         Args:
             batch_size: Batch size for training.
-            split_size: Proportion of the training data to use for validation. Defaults to 0.1.
-            num_workers: Number of workers for data loading. Defaults to 0.
-            max_eval_workers: Maximum number of workers for evaluation data loading. Defaults to 2.
+            split_size: Proportion of the training data to use for validation.
+            num_workers: Number of workers for data loading.
+            max_eval_workers: Maximum number of workers for evaluation data loading.
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
