@@ -26,7 +26,6 @@ data:
   supervision:
     train_strategy: ???
     eval_strategy: ???
-    balance_sampling: ???
 
 model:
   lr: ???

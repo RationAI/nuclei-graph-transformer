@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision.train_strategy: cam # cam agreement positive_agreement annotation
+  - /data/supervision@data.supervision.train_strategy: cam # cam agreement annotation
   - /data/supervision@data.supervision.eval_strategy: agreement
   - _self_
 
@@ -27,11 +27,10 @@ data:
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
+    mil: false
   sampler:
-    positivity_thr: 0.05
-    pos_slide_ratio: 0.5
-  supervision:
-    balance_sampling: true
+    positivity_thr: 0.05 # avoid considering a slide with very few positive nuclei as positive
+    pos_slide_ratio: 0.75
 
 model:
   lr: 1e-4
@@ -46,4 +45,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "training with boundary positive-slide boundary negative sampling"
+  description: "training with balanced seed-sampling"

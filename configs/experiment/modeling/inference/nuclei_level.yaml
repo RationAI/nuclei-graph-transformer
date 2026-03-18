@@ -32,10 +32,9 @@ data:
     efd_order: 10
     crop_size: 4096
     symmetric_block_mask: false
+    mil: false
 
 model:
-  lr: 1e-4
-  warmup_epochs: 8
   net:
     config:
       dim: 256

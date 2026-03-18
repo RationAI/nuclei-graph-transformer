@@ -11,9 +11,9 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
         self,
         dataset: NucleiDataset,
         slides_positivity: dict[str, float],
-        positivity_thr: float = 0.0,
-        replacement: bool = True,
-        pos_slide_ratio: float = 0.50,
+        positivity_thr: float,
+        replacement: bool,
+        pos_slide_ratio: float,
     ):
         """Weighted Random Sampler with weights based on the class distribution.
 

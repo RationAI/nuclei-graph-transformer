@@ -22,6 +22,7 @@ data:
   split_size: 0.1
   dataset:
     crop_size: 4096
+    crop_pos_thr: 0.75
     alpha: 0.8
     k: 64
     attn_block_size: 128
@@ -29,9 +30,8 @@ data:
     symmetric_block_mask: false
     mil: true
   sampler:
-    positivity_thr: 0.05
-  supervision:
-    balance_sampling: true
+    positivity_thr: 0.0
+    pos_slide_ratio: 0.5
 
 model:
   lr: 1e-4

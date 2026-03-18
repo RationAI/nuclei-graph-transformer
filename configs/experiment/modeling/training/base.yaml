@@ -32,7 +32,6 @@ metadata:
     # supervision
     train_supervision_mode: ${data.supervision.train_strategy.mode}
     validation_supervision_mode: ${data.supervision.eval_strategy.mode}
-    balance_sampling: ${data.supervision.balance_sampling}
 
     # sampler
     sampler_positivity_threshold: ${oc.select:data.sampler.positivity_thr,null}

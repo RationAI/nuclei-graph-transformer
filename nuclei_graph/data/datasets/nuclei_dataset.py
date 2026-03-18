@@ -70,6 +70,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         assert crop_size % attn_block_size == 0, (
             "`crop_size` must be divisible by `attn_block_size`."
         )
+        assert not mil or (mil and crop_pos_thr is not None)
         self.slides = slides
         self.supervision = supervision
         self.crop_size = crop_size
@@ -280,38 +281,25 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         max_attempts: int = 10,
         margin: float = 0.15,
     ) -> NDArray[np.int64] | None:
-        """Attempts to sample a crop of nuclei containing a fraction of positive nuclei above `crop_pos_thr`.
+        """Attempts to sample a positive crop of nuclei around a random valid seed.
 
-        Args:
-            valid_seeds: List of indices eligible to be the center seed of the crop.
-            centroids: Array of (x, y) nuclei coordinates.
-            targets: Nuclei-level labels.
-            tree: Pre-computed KDTree of nuclei centroids for fast neighbor queries.
-            max_attempts: Maximum number of random sampling attempts.
-            margin: Margin to relax the heuristic threshold for positive crop sampling.
-
-        Returns:
-            np.ndarray: The indices of the sampled crop if successful.
-            None: If `max_attempts` random sampling attempts fail to find a crop meeting the threshold.
+        Ensures the crop contains a fraction of positive nuclei above `self.crop_pos_thr`.
         """
         assert self.crop_pos_thr is not None
-
         for _ in range(max_attempts):
             seed_idx = choice(valid_seeds)
 
             # heuristic via Euclidean circle
             _, neighbor_idx = tree.query(centroids[seed_idx], k=self.crop_size)
-            tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / self.crop_size
-
-            heuristic_threshold = max(0.0, self.crop_pos_thr - margin)
-            if tumor_ratio < heuristic_threshold:
+            est_tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / self.crop_size
+            if est_tumor_ratio < max(0.0, self.crop_pos_thr - margin):
                 continue
 
             crop_indices = self.get_crop_indices(centroids, [seed_idx])
             crop_targets = targets[torch.from_numpy(crop_indices).long()]
             tumor_ratio = (crop_targets == 1).sum().item() / len(crop_targets)
 
-            if tumor_ratio >= self.crop_pos_thr:
+            if tumor_ratio > self.crop_pos_thr:
                 return crop_indices
 
         return None
@@ -331,48 +319,51 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
     def __getitem__(self, idx: int) -> Crop | PredictSlide:
         slide = self.slides.iloc[idx]
-
         nuclei = self.get_nuclei(slide.slide_nuclei_path)
-        centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
         nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
-
-        # get indices eligible as a seed for growing the crop component
-        seed_mask = nuclei_sup.get_seed_mask(len(nuclei), centroids)
-        valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
+        centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
         crop_label = float(slide.is_carcinoma)
+        pos_seeds = nuclei_sup.get_pos_seeds(len(nuclei))
+        neg_seeds = nuclei_sup.get_neg_seeds(len(nuclei))
 
         # generate a crop
-        if slide.is_carcinoma and self.mil and not self.full_slide:
+        if slide.is_carcinoma and not self.full_slide:
             assert self.crop_pos_thr is not None
 
-            curr_idx = None
-            crop_indices = None
-            while True:  # if a positive slide was chosen, ensure that crop has enough positive nuclei
+            curr_idx, crop_indices = None, None
+            while self.mil:  # ensure each crop from positive slide has positivity above `self.crop_pos_thr`
                 if curr_idx is not None:
                     slide = self.slides.iloc[curr_idx]
-
                     nuclei = self.get_nuclei(slide.slide_nuclei_path)
-                    centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
                     nuclei_sup = self.get_nuclei_supervision(slide.slide_id)
+                    centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
-                    seed_mask = nuclei_sup.get_seed_mask(len(nuclei), centroids)
-                    valid_seeds = torch.nonzero(seed_mask).flatten().tolist()
-
-                targets = nuclei_sup.get_targets(len(nuclei))
-                tree = KDTree(centroids)
                 crop_indices = self.sample_positive_crop(
-                    valid_seeds, centroids, targets, tree
+                    valid_seeds=nuclei_sup.get_pos_seeds(len(nuclei)),
+                    centroids=centroids,
+                    targets=nuclei_sup.get_targets(len(nuclei)),
+                    tree=KDTree(centroids),
                 )
-
                 if crop_indices is not None:
                     break
-
                 curr_idx = choice(self.pos_slide_indices)
-        else:
-            crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
-        # compute embeddings, positions, and a block mask, all permuted according
+            # For nucleus-level (WSL) training we want to sample (roughly) 50% positive crops and 50% negative crops,
+            # where 25% of negative crops are from positive slides and 25% of negative crops are from negative slides.
+            # This means that 75% of the time a positive slide should be sampled (it is assumed a sampler is set properly),
+            # and in case a positive slide is sampled, 2/3 of the time we select a positive seed and 1/3 of the time
+            # we select a negative seed for the crop generation.
+            if not self.mil:
+                use_pos_seed = torch.rand(1).item() < (2.0 / 3.0)
+                valid_seeds = pos_seeds if use_pos_seed else neg_seeds
+                crop_indices = self.get_crop_indices(centroids, valid_seeds)
+
+        else:  # a negative slide or inference
+            crop_indices = self.get_crop_indices(centroids, neg_seeds)
+
+        assert crop_indices is not None
+        # compute embeddings, positions, and block mask, all permuted according
         # to the KDTree to optimize data layout for sparse attention
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
         crop_centroids = centroids[crop_indices]
@@ -383,11 +374,10 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # get supervision mask for nuclei in the crop
         crop_indices_t = torch.from_numpy(crop_indices).long()
         perm_t = torch.from_numpy(perm).long()
-
         sup_mask = nuclei_sup.get_sup_mask(len(nuclei))
         crop_sup_mask = self.pad_to_block_size([sup_mask[crop_indices_t][perm_t]])[0]
 
-        # get targets for nuclei in the crop and the crop-level target if MIL
+        # get targets for nuclei in the crop and also the crop-level target if MIL
         targets = nuclei_sup.get_targets(len(nuclei))
         crop_targets = self.pad_to_block_size([targets[crop_indices_t][perm_t]])[0]
         crop_targets = crop_targets[crop_sup_mask]  # (num_supervised, )

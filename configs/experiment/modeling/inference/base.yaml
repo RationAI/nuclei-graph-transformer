@@ -16,9 +16,10 @@ data:
     supervision: ${dataset.mlflow_uris.supervision}
   supervision:
     train_strategy: null
-    balance_sampling: null
 
 model:
+  lr: 1e-4
+  warmup_epochs: 8
   net:
     config:
       efd_order: ${data.dataset.efd_order}

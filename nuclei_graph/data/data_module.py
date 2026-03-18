@@ -17,6 +17,7 @@ from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
     min_count_filter,
+    min_positive_nuclei_filter,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
@@ -140,6 +141,14 @@ class DataModule(LightningDataModule):
                     train_df, train_sup_dfs, self.train_strategy
                 )
                 self.positivity = train_sup.positivity_map
+
+                if self.dataset_cfg.mil:
+                    min_pos_count = (
+                        self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
+                    )
+                    train_df = min_positive_nuclei_filter(
+                        train_df, min_pos_count, self.positivity
+                    )
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
                     slides=train_df,
