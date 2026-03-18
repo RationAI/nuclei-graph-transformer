@@ -93,28 +93,11 @@ class DataModule(LightningDataModule):
         }
 
     def _load_sup_sources(
-        self, *strategies: SupervisionStrategy
+        self, strategy: SupervisionStrategy
     ) -> dict[str, pd.DataFrame | None]:
-        """Loads sources required by supervision strategies.
-
-        Assumes uris under the same attribute across strategies are shared.
-        """
-
-        def _get_shared_uri(strats: list[SupervisionStrategy], attr: str) -> str | None:
-            uris = {getattr(s, attr) for s in strats if getattr(s, attr)}
-            assert len(uris) <= 1, f"Multiple URIs found for {attr}."
-            return next(iter(uris)) if uris else None
-
-        valid_strategies = list(filter(None, strategies))
-
-        source_map = {
-            df_key: uri
-            for strategy in valid_strategies
-            for df_key, uri in strategy.required_sources.items()
-        }
         return {
-            df_key: self._load_df(_get_shared_uri(valid_strategies, uri))
-            for df_key, uri in source_map.items()
+            df_key: self._load_df(uri)
+            for df_key, uri in strategy.required_sources.items()
         }
 
     def _prepare_supervision(
@@ -152,11 +135,9 @@ class DataModule(LightningDataModule):
                 validation_df = validation_df.reset_index(drop=True)
 
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                sup_dfs = self._load_sup_sources(
-                    self.train_strategy, self.eval_strategy
-                )
+                train_sup_dfs = self._load_sup_sources(self.train_strategy)
                 train_sup = self._prepare_supervision(
-                    train_df, sup_dfs, self.train_strategy
+                    train_df, train_sup_dfs, self.train_strategy
                 )
                 self.positivity = train_sup.positivity_map
                 self.train_dataset = instantiate(
@@ -165,8 +146,9 @@ class DataModule(LightningDataModule):
                     supervision=train_sup,
                 )
 
+                validation_sup_dfs = self._load_sup_sources(self.eval_strategy)
                 validation_sup = self._prepare_supervision(
-                    validation_df, sup_dfs, self.eval_strategy
+                    validation_df, validation_sup_dfs, self.eval_strategy
                 )
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
