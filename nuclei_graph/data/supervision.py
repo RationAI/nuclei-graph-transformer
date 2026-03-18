@@ -14,7 +14,7 @@ type Coords = NDArray[np.float32]
 
 
 class NucleiSupervision(ABC):
-    def __init__(self, is_carcinoma: bool, balance_sampling: bool | None = None):
+    def __init__(self, is_carcinoma: bool, balance_sampling: bool | None = True):
         self.is_carcinoma = is_carcinoma
         self.balance_sampling = balance_sampling
 

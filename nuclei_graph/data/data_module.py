@@ -40,13 +40,13 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        eval_strategy: DictConfig,
-        train_strategy: DictConfig | None = None,
-        split_size: float = 0.1,
-        num_workers: int = 0,
-        max_eval_workers: int = 2,
+        split_size: float,
+        num_workers: int,
+        max_eval_workers: int,
+        mlflow_uris: DictConfig,
+        dataset: DictConfig,
+        supervision: DictConfig,
         sampler: DictConfig | None = None,
-        **data_params: DictConfig,
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
@@ -57,21 +57,21 @@ class DataModule(LightningDataModule):
             split_size: Proportion of the training data to use for validation. Defaults to 0.1.
             num_workers: Number of workers for data loading. Defaults to 0.
             max_eval_workers: Maximum number of workers for evaluation data loading. Defaults to 2.
+            mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
+            dataset: A DictConfig defining the dataset configuration to instantiate.
+            supervision: A DictConfig containing the training and evaluation supervision strategies.
             sampler: Sampler configuration for training data loader. Defaults to None.
-            **data_params: Additional parameters expected to contain keys:
-                - dataset: DictConfig for instantiation of a Torch Dataset.
-                - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
         """
         super().__init__()
         self.batch_size = batch_size
-        self.train_strategy = instantiate(train_strategy)
-        self.eval_strategy = instantiate(eval_strategy)
+        self.train_strategy = instantiate(supervision.train_strategy)
+        self.eval_strategy = instantiate(supervision.eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
         self.max_eval_workers = max_eval_workers
         self.sampler_cfg = sampler
-        self.dataset_cfg = data_params["dataset"]
-        self.mlflow_uris_cfg = data_params["mlflow_uris"]
+        self.dataset_cfg = dataset
+        self.mlflow_uris_cfg = mlflow_uris
         self.positivity: dict[str, float] = {}
 
     def _filter_df(
