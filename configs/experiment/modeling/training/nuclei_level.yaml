@@ -15,10 +15,10 @@ monitor: validation/loss
 
 trainer:
   gradient_clip_val: 0.7
-  accumulate_grad_batches: 3
+  #accumulate_grad_batches: 3
 
 data:
-  batch_size: 16
+  batch_size: 64
   split_size: 0.1
   dataset:
     crop_size: 4096
