@@ -42,7 +42,7 @@ class DataModule(LightningDataModule):
         batch_size: int,
         split_size: float,
         num_workers: int,
-        max_eval_workers: int,
+        eval_num_workers: int,
         mlflow_uris: DictConfig,
         dataset: DictConfig,
         supervision: DictConfig,
@@ -54,7 +54,7 @@ class DataModule(LightningDataModule):
             batch_size: Batch size for training.
             split_size: Proportion of the training data to use for validation.
             num_workers: Number of workers for data loading.
-            max_eval_workers: Maximum number of workers for evaluation data loading.
+            eval_num_workers: Maximum number of workers for evaluation data loading.
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
@@ -66,7 +66,7 @@ class DataModule(LightningDataModule):
         self.eval_strategy = instantiate(supervision.eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
-        self.max_eval_workers = max_eval_workers
+        self.eval_num_workers = eval_num_workers
         self.sampler_cfg = sampler
         self.dataset_cfg = dataset
         self.mlflow_uris_cfg = mlflow_uris
@@ -214,9 +214,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.validation_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             pin_memory=True,
             collate_fn=collate_fn,
         )
@@ -225,9 +225,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.test_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
@@ -235,8 +235,8 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=collate_fn_predict,
         )
