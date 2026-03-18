@@ -46,3 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Crop-level SL Self Attention Transformer"
+  description: ""

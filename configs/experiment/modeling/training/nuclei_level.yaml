@@ -46,3 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
+  description: "training with boundary positive-slide boundary negative sampling"
