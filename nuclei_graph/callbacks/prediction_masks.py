@@ -8,11 +8,12 @@ import pyvips
 import torch
 from einops import rearrange
 from lightning import Callback, LightningModule, Trainer
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 from openslide import OpenSlide
 from PIL import Image as PILImage
 from PIL import ImageDraw
 from rationai.masks import slide_resolution, write_big_tiff
+
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class WSLPredictionMasksCallback(Callback):

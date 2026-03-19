@@ -18,6 +18,8 @@ data:
     train_strategy: null
 
 model:
+  lr: 1e-4
+  warmup_epochs: 8
   net:
     config:
       efd_order: ${data.dataset.efd_order}
@@ -29,5 +31,5 @@ metadata:
   run_name: ???
   description: "Predictions: [MLflow training run](${checkpoint_url})"
   hyperparams:
-    prediction_supervision_mode: ${data.eval_strategy.mode}
+    prediction_supervision_mode: ${data.supervision.eval_strategy.mode}
     checkpoint: ${checkpoint}

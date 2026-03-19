@@ -3,8 +3,9 @@ from typing import cast
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 from torchmetrics import MetricCollection
+
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class WSLPredictionMetricsCallback(Callback):

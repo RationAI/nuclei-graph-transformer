@@ -6,8 +6,7 @@ defaults:
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.train_strategy: annotation
-  - /data/supervision@data.eval_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
 checkpoint: # TODO
@@ -36,8 +35,6 @@ data:
     mil: true
 
 model:
-  lr: 1e-4
-  warmup_epochs: 8
   net:
     config:
       dim: 256
@@ -49,6 +46,3 @@ model:
 metadata:
   run_name: "📊 Predictions: Crop-level Supervised Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
-  hyperparams:
-    prediction_supervision_mode: ${data.eval_strategy.mode}
-    checkpoint: ${checkpoint}
