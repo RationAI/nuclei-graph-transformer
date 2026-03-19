@@ -70,6 +70,16 @@ reporter:
       shader_conf:
         threshold: 85
         opacity: 0.5
+        type: edge
+        color: "#0000FF" # blue
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: dbf30cff69bb44958ac2bcb2a2d50192
+      layer_name: Segmented Nuclei
+      shader_conf:
+        threshold: 85
+        opacity: 0.5
         color: "#FF0000" #red
 
     # - _target_: report.masks.RunIDMlflowMaskRetriever

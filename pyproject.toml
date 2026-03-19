@@ -39,6 +39,5 @@ rationai-tiling = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology
 rationai-kube-jobs = { git = "ssh://git@gitlab.ics.muni.cz/rationai/infrastructure/kube-jobs" }
 
 [dependency-groups]
-dev = ["mypy", "pre-commit", "ruff"]
+dev = ["mypy", "ruff"]
 test = ["pytest", "pytest-cov"]
-job = ["rationai-kube-jobs"]
