@@ -33,6 +33,7 @@ def normalize_efd_for_scale(
     """Normalizes the size of EFD coefficients and extracts the scale."""
     a1, c1 = coeffs[:, 0, 0], coeffs[:, 0, 2]
     scale = np.sqrt(a1**2 + c1**2)
+    scale = np.maximum(scale, np.finfo(np.float64).eps)
     normalized_coeffs = coeffs / scale[:, None, None]
     return normalized_coeffs, scale[:, None]
 
