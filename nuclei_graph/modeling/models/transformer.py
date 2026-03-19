@@ -1,10 +1,10 @@
 import torch
-from nuclei_graph.nuclei_graph_typing import Outputs
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
+from nuclei_graph.nuclei_graph_typing import Outputs
 
 
 class Layer(nn.Module):
