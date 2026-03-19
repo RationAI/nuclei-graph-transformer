@@ -98,7 +98,7 @@ def elliptic_fourier_descriptors(
     contour = np.concatenate((contour, contour[:, :1]), axis=1)  # close the contour
 
     dxy = np.diff(contour, axis=1)
-    dt = np.linalg.norm(dxy, axis=2)
+    dt = np.linalg.norm(dxy, axis=2) + np.finfo(np.float64).eps
     t = np.concatenate([np.zeros((contour.shape[0], 1)), np.cumsum(dt, axis=1)], axis=1)
     T = t[:, -1:, None]
 
