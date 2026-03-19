@@ -297,7 +297,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
             crop_indices = self.get_crop_indices(centroids, [seed_idx])
             crop_targets = targets[torch.from_numpy(crop_indices).long()]
-            tumor_ratio = (crop_targets == 1).sum().item() / len(crop_targets)
+            tumor_ratio = (crop_targets == 1).sum().item() / len(crop_indices)
 
             if tumor_ratio > self.crop_pos_thr:
                 return crop_indices
