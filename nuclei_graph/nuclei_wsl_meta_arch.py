@@ -168,12 +168,17 @@ class NucleiWSLMetaArch(LightningModule):
         return self(batch["slides"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
-        no_decay_params = [
-            w
-            for n, w in self.net.named_parameters()
-            if w.requires_grad and (w.ndim <= 1 or ".rope." in n)
-        ]
-        decay_params = list(set(self.net.parameters()).difference(no_decay_params))
+        decay_params = []
+        no_decay_params = []
+
+        for n, w in self.net.named_parameters():
+            if not w.requires_grad:
+                continue
+            if w.ndim <= 1 or ".rope." in n:
+                no_decay_params.append(w)
+            else:
+                decay_params.append(w)
+
         return [
             {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},
