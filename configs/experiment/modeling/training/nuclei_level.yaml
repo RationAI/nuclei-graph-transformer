@@ -3,20 +3,15 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer
-  - /model/meta_archs@model: # TODO
-  - /model/models@model.net: # TODO
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.train_strategy: # TODO
-  - /data/supervision@data.eval_strategy: # TODO
   - _self_
+
+monitor: validation/loss
 
 trainer: # TODO
 
 data:
-  sampler_pos_thr: # TODO
-  balance_sampling: # TODO
-  batch_size: 16
+  batch_size: 32
   split_size: 0.1
   dataset:
     crop_size: 4096
@@ -25,6 +20,8 @@ data:
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
+    mil: false
+  sampler: # TODO
 
 model: # TODO
 
