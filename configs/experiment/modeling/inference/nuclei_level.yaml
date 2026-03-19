@@ -9,8 +9,8 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: dense
   - _self_
 
-checkpoint: mlflow-artifacts:/97/61fba54911614186a4a769db6d02f394/artifacts/checkpoints/epoch=97-step=1470/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/61fba54911614186a4a769db6d02f394
+checkpoint: mlflow-artifacts:/97/d5f9c90a8e7348329688bdcf67ef10fc/artifacts/checkpoints/epoch=73-step=1628/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/d5f9c90a8e7348329688bdcf67ef10fc
 
 trainer:
   callbacks:
@@ -46,6 +46,3 @@ model:
 metadata:
   run_name: "📊 Predictions: Nucleus-level WSL Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
-  hyperparams:
-    prediction_supervision_mode: ${data.eval_strategy.mode}
-    checkpoint: ${checkpoint}

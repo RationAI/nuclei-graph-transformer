@@ -46,6 +46,3 @@ model:
 metadata:
   run_name: "📊 Predictions: Crop-level Supervised Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
-  hyperparams:
-    prediction_supervision_mode: ${data.eval_strategy.mode}
-    checkpoint: ${checkpoint}
