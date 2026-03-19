@@ -370,13 +370,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # get supervision mask for nuclei in the crop
         crop_indices_t = torch.from_numpy(crop_indices).long()
         perm_t = torch.from_numpy(perm).long()
-        sup_mask = nuclei_sup.get_sup_mask(len(nuclei))
-        crop_sup_mask = self.pad_to_block_size([sup_mask[crop_indices_t][perm_t]])[0]
+        crop_sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t][perm_t]
 
         # get targets for nuclei in the crop and also the crop-level target if MIL
         targets = nuclei_sup.get_targets(len(nuclei))
-        crop_targets = self.pad_to_block_size([targets[crop_indices_t][perm_t]])[0]
-        crop_targets = crop_targets[crop_sup_mask]  # (num_supervised, )
+        crop_targets = targets[crop_indices_t][perm_t][crop_sup_mask]  # (num_sup, )
 
         crop_y: Targets = {"nuclei": crop_targets, "graph": None}
         if self.mil:
@@ -386,7 +384,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             "x": crop_x,  # (n, efd_order * 4 + 3)
             "pos": crop_pos,  # (n, 2)
             "y": crop_y,
-            "sup_mask": crop_sup_mask.bool(),  # (n, )
+            "sup_mask": self.pad_to_block_size([crop_sup_mask])[0].bool(),  # (n, )
             "block_mask": crop_block_mask,
             "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
         }
