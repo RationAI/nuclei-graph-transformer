@@ -1,6 +1,0 @@
-defaults:
-  - /data/supervision/base@_here_
-  - _self_
-
-mode: dense
-dense_uri: ${dataset.mlflow_uris.supervision.model_prediction.virchow2}

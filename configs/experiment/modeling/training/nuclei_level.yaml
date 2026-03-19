@@ -3,22 +3,19 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer
-  - /model/meta_archs@model: # TODO
-  - /model/models@model.net: # TODO
-  - /data/datasets@data.dataset: # TODO
-  - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.train_strategy: cam # cam agreement positive_agreement annotation
-  - /data/supervision@data.eval_strategy: agreement
+  - /data/supervision@data.supervision.train_strategy: annotation # cam agreement annotation
+  - /data/supervision@data.supervision.eval_strategy: agreement
   - _self_
+
+monitor: validation/loss
 
 trainer: # TODO
 
 data:
-  sampler_pos_thr: # TODO
-  balance_sampling: true
-  batch_size: 16
+  batch_size: 32
   split_size: 0.1
   dataset: # TODO
+  sampler: # TODO
 
 model: # TODO
 

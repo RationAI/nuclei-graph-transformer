@@ -2,19 +2,35 @@
 
 mode: fit
 
+monitor: ???
+
 trainer: # TODO
+
 data:
   split_size: ???
-  balance_sampling: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
+  supervision:
+    train_strategy: ???
 
 model: # TODO
 
 metadata:
   run_name: ???
   hyperparams:
-    train_supervision_mode: ${data.train_strategy.mode}
-    validation_supervision_mode: ${data.eval_strategy.mode}
-    balance_sampling: ${data.balance_sampling}
+    # supervision
+    train_supervision_mode: ${data.supervision.train_strategy.mode}
+    validation_supervision_mode: ${data.supervision.eval_strategy.mode}
+
+    # sampler
+    # TODO
+
+    # training
+    # TODO
+
+    # dataset
+    # TODO
+
+    # model
+    # TODO
