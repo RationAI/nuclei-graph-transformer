@@ -3,22 +3,20 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer
-  - /model/meta_archs@model: # TODO
-  - /model/models@model.net: # TODO
-  - /data/datasets@data.dataset: # TODO
-  - /data/samplers@data.sampler: # TODO
-  - /data/supervision@data.train_strategy: # TODO
-  - /data/supervision@data.eval_strategy: # TODO
+  - /data/samplers@data.sampler: weighted_random_sampler
   - _self_
+
+monitor: validation/graph/loss
 
 trainer: # TODO
 
 data:
-  sampler_pos_thr: 0.05
-  balance_sampling: # TODO
-  batch_size: 16
+  batch_size: 32
   split_size: 0.1
   dataset: # TODO
+  sampler:
+    positivity_thr: 0.0
+    pos_slide_ratio: 0.5
 
 model: # TODO
 

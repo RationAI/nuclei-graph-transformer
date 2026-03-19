@@ -2,21 +2,36 @@
 
 mode: fit
 
+monitor: ???
+
 trainer: # TODO
 
 data:
   split_size: ???
-  balance_sampling: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
+  supervision:
+    train_strategy: ???
 
 model: # TODO
 
 metadata:
   run_name: ???
   hyperparams:
-    sampler_positivity_threshold: ${oc.select:data.sampler_pos_thr,null}
-    batch_size: ${data.batch_size}
-    split_size: ${data.split_size}
-    balance_sampling: ${data.balance_sampling}
+    # supervision
+    # TODO
+
+    # sampler
+    sampler_positivity_threshold: ${oc.select:data.sampler.positivity_thr,null}
+    sampler_pos_slide_ratio: ${oc.select:data.sampler.pos_slide_ratio,null}
+    sampler_replacement: ${oc.select:data.sampler.replacement,null}
+
+    # training
+    # TODO
+
+    # dataset
+    # TODO
+
+    # model
+    # TODO

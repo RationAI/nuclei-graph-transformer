@@ -1,8 +1,8 @@
 from collections.abc import Iterable
 
 import torch
-from nuclei_graph.data.block_mask import batch_block_masks
 
+from nuclei_graph.data.block_mask import batch_block_masks
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
     Crop,

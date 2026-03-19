@@ -19,7 +19,6 @@ data:
     supervision: ???
   dataset: ???
   supervision:
-    train_strategy: ???
     eval_strategy: ???
 
 model: {}

@@ -17,6 +17,7 @@ from nuclei_graph.data.utils import (
     collate_fn,
     collate_fn_predict,
     min_count_filter,
+    min_positive_count_filter,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
@@ -40,38 +41,40 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        eval_strategy: DictConfig,
-        train_strategy: DictConfig | None = None,
-        split_size: float = 0.1,
-        num_workers: int = 0,
-        max_eval_workers: int = 2,
+        num_workers: int,
+        eval_num_workers: int,
+        mlflow_uris: DictConfig,
+        dataset: DictConfig,
+        supervision: DictConfig,
+        split_size: float | None = None,
         sampler: DictConfig | None = None,
-        **data_params: DictConfig,
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
         Args:
             batch_size: Batch size for training.
-            eval_strategy: A DictConfig defining the type of supervision to use for evaluation (validation or test/predict).
-            train_strategy: A DictConfig defining the type of supervision to use for positive slides during training.
-            split_size: Proportion of the training data to use for validation. Defaults to 0.1.
-            num_workers: Number of workers for data loading. Defaults to 0.
-            max_eval_workers: Maximum number of workers for evaluation data loading. Defaults to 2.
+            num_workers: Number of workers for data loading.
+            eval_num_workers: Maximum number of workers for evaluation data loading.
+            mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
+            dataset: A DictConfig defining the dataset configuration to instantiate.
+            supervision: A DictConfig containing the training and evaluation supervision strategies.
+            split_size: Proportion of the training data to use for validation.
             sampler: Sampler configuration for training data loader. Defaults to None.
-            **data_params: Additional parameters expected to contain keys:
-                - dataset: DictConfig for instantiation of a Torch Dataset.
-                - mlflow_uris: DictConfig with MLflow keys "supervision" and "metadata" containing URIs for respective artifacts.
         """
         super().__init__()
         self.batch_size = batch_size
-        self.train_strategy = instantiate(train_strategy)
-        self.eval_strategy = instantiate(eval_strategy)
+        self.train_strategy = (
+            instantiate(supervision.train_strategy)
+            if supervision.train_strategy is not None
+            else None
+        )
+        self.eval_strategy = instantiate(supervision.eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
-        self.max_eval_workers = max_eval_workers
+        self.eval_num_workers = eval_num_workers
         self.sampler_cfg = sampler
-        self.dataset_cfg = data_params["dataset"]
-        self.mlflow_uris_cfg = data_params["mlflow_uris"]
+        self.dataset_cfg = dataset
+        self.mlflow_uris_cfg = mlflow_uris
         self.positivity: dict[str, float] = {}
 
     def _filter_df(
@@ -88,41 +91,15 @@ class DataModule(LightningDataModule):
             return None
         return pd.read_parquet(download_artifacts(uri), columns=cols)
 
-    def _get_label_map(self, slide_df: pd.DataFrame) -> dict[str, int]:
+    def _get_carcinoma_map(self, slide_df: pd.DataFrame) -> dict[str, bool]:
         return {
-            str(k): int(v)
-            for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
+            str(k): v for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
 
-    def _load_supervision_dfs(
-        self, *strategies: SupervisionStrategy
+    def _load_sup_sources(
+        self, strategy: SupervisionStrategy
     ) -> dict[str, pd.DataFrame | None]:
-        """Loads supervision DataFrames required by the provided strategies avoiding repeated downloads.
-
-        Assumes that for each supervision type, the URI is identical across all provided strategies.
-
-        Args:
-            *strategies: List of SupervisionStrategy objects.
-
-        Returns:
-            dict[str, pd.DataFrame | None]: A dictionary containing the loaded DataFrames
-                with keys "df_annot", "df_cam", and "df_dense". Values are None if no
-                corresponding URI was found across any of the provided strategies.
-        """
-
-        def _get_shared_uri(
-            strategies: list[SupervisionStrategy], attr: str
-        ) -> str | None:
-            uris = {getattr(s, attr) for s in strategies if getattr(s, attr)}
-            assert len(uris) <= 1, f"Multiple URIs found for {attr}."
-            return next(iter(uris)) if uris else None
-
-        valid = list(filter(None, strategies))
-        return {
-            "df_annot": self._load_df(_get_shared_uri(valid, "annot_uri")),
-            "df_cam": self._load_df(_get_shared_uri(valid, "cam_uri")),
-            "df_dense": self._load_df(_get_shared_uri(valid, "dense_uri")),
-        }
+        return {uri_key: self._load_df(uri) for uri_key, uri in strategy.uris.items()}
 
     def _prepare_supervision(
         self,
@@ -131,12 +108,10 @@ class DataModule(LightningDataModule):
         strategy: SupervisionStrategy,
     ) -> DatasetSupervision:
         ids = set(slides_df["slide_id"])
-        filtered = {k: self._filter_df(v, ids) for k, v in sup_dfs.items()}
-
         return build_supervision(
-            sup_strategy=strategy,
-            label_map=self._get_label_map(slides_df),
-            **filtered,
+            strategy=strategy,
+            carcinoma_map=self._get_carcinoma_map(slides_df),
+            sup_dfs={k: self._filter_df(v, ids) for k, v in sup_dfs.items()},
         )
 
     def setup(self, stage: str) -> None:
@@ -145,7 +120,7 @@ class DataModule(LightningDataModule):
 
         match stage:
             case "fit" | "validate":
-                assert self.train_strategy is not None
+                assert self.train_strategy is not None and self.split_size is not None
 
                 slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
                 assert slides_df is not None
@@ -161,21 +136,28 @@ class DataModule(LightningDataModule):
                 validation_df = validation_df.reset_index(drop=True)
 
                 train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                sup_dfs = self._load_supervision_dfs(
-                    self.train_strategy, self.eval_strategy
-                )
+                train_sup_dfs = self._load_sup_sources(self.train_strategy)
                 train_sup = self._prepare_supervision(
-                    train_df, sup_dfs, self.train_strategy
+                    train_df, train_sup_dfs, self.train_strategy
                 )
                 self.positivity = train_sup.positivity_map
+
+                if self.dataset_cfg.mil:
+                    min_pos_count = (
+                        self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
+                    )
+                    train_df = min_positive_count_filter(
+                        train_df, min_pos_count, train_sup.pos_count_map
+                    )
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
                     slides=train_df,
                     supervision=train_sup,
                 )
 
+                validation_sup_dfs = self._load_sup_sources(self.eval_strategy)
                 validation_sup = self._prepare_supervision(
-                    validation_df, sup_dfs, self.eval_strategy
+                    validation_df, validation_sup_dfs, self.eval_strategy
                 )
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
@@ -187,7 +169,7 @@ class DataModule(LightningDataModule):
             case "test" | "predict":
                 slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
                 assert slides_df is not None
-                sup_dfs = self._load_supervision_dfs(self.eval_strategy)
+                sup_dfs = self._load_sup_sources(self.eval_strategy)
                 sup = self._prepare_supervision(slides_df, sup_dfs, self.eval_strategy)
                 dataset = instantiate(
                     self.dataset_cfg,
@@ -223,9 +205,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.validation_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             pin_memory=True,
             collate_fn=collate_fn,
         )
@@ -234,9 +216,9 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.test_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=collate_fn,
         )
 
@@ -244,8 +226,8 @@ class DataModule(LightningDataModule):
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
-            num_workers=self.max_eval_workers,
-            persistent_workers=self.max_eval_workers > 0,
-            prefetch_factor=2 if self.max_eval_workers > 0 else None,
+            num_workers=self.eval_num_workers,
+            persistent_workers=self.eval_num_workers > 0,
+            prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=collate_fn_predict,
         )
