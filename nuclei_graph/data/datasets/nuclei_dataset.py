@@ -134,10 +134,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return component_indices
 
     def pad_to_block_size(self, tensors: Iterable[Tensor]) -> list[Tensor]:
-        """Pads tensors along dim-0 so that their size is divisible by `attn_block_size`.
-
-        Padding is applied at the end and preserves all other dimensions.
-        """
+        """Pads tensors along dim-0 so that their size is divisible by `attn_block_size`."""
         tensors = list(tensors)
 
         t_size = tensors[0].size(0)
@@ -283,7 +280,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
     ) -> NDArray[np.int64] | None:
         """Attempts to sample a positive crop of nuclei around a random valid seed.
 
-        Ensures the crop contains a fraction of positive nuclei above `self.crop_pos_thr`.
+        Ensures it contains a fraction of positive nuclei above `self.crop_pos_thr`.
         """
         assert self.crop_pos_thr is not None
         for _ in range(max_attempts):
@@ -332,7 +329,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             assert self.crop_pos_thr is not None
 
             curr_idx, crop_indices = None, None
-            while self.mil:  # ensure each crop from positive slide has positivity above `self.crop_pos_thr`
+            while self.mil:  # ensure that crop positivity ≥ `crop_pos_thr`
                 if curr_idx is not None:
                     slide = self.slides.iloc[curr_idx]
                     nuclei = self.get_nuclei(slide.slide_nuclei_path)
@@ -349,11 +346,10 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
                     break
                 curr_idx = choice(self.pos_slide_indices)
 
-            # For nucleus-level (WSL) training we want to sample (roughly) 50% positive crops and 50% negative crops,
-            # where 25% of negative crops are from positive slides and 25% of negative crops are from negative slides.
-            # This means that 75% of the time a positive slide should be sampled (it is assumed a sampler is set properly),
-            # and in case a positive slide is sampled, 2/3 of the time we select a positive seed and 1/3 of the time
-            # we select a negative seed for the crop generation.
+            # Target crop distribution:
+            # 50% positive, 25% negative (from pos slides), 25% negative (from neg slides).
+            # Assuming the slide sampler yields 75% positive slides, to achieve this we
+            # select a positive seed 2/3 of the time.
             if not self.mil:
                 use_pos_seed = torch.rand(1).item() < (2.0 / 3.0)
                 valid_seeds = pos_seeds if use_pos_seed else neg_seeds
@@ -386,7 +382,6 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         if self.mil:
             crop_y["graph"] = torch.tensor([crop_label], dtype=torch.float32)
 
-        # create a sample
         crop: Crop = {
             "x": crop_x,  # (n, efd_order * 4 + 3)
             "pos": crop_pos,  # (n, 2)
