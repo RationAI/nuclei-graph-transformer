@@ -66,10 +66,11 @@ def normalize_efd_for_starting_point(
         return coeffs
 
     a1, b1, c1, d1 = coeffs[mask, 0].T
+    masked_coeffs = coeffs[mask]
     harmonic_indices = np.arange(1, coeffs.shape[1] + 1)
     theta = 0.5 * np.arctan2(2.0 * (a1 * b1 + c1 * d1), a1**2 - b1**2 + c1**2 - d1**2)
 
-    rotated = _phase_shift_efd(coeffs[mask], theta, harmonic_indices)
+    rotated = _phase_shift_efd(masked_coeffs, theta, harmonic_indices)
 
     # Condition for pi rotation
     pi_mask = (rotated[:, 0, 0] < 0.0) | (
@@ -77,7 +78,7 @@ def normalize_efd_for_starting_point(
     )
     if np.any(pi_mask):
         rotated[pi_mask] = _phase_shift_efd(
-            coeffs[mask & pi_mask], theta[pi_mask] + np.pi, harmonic_indices
+            masked_coeffs[pi_mask], theta[pi_mask] + np.pi, harmonic_indices
         )
 
     coeffs[mask] = rotated
