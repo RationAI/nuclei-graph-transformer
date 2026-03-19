@@ -70,7 +70,7 @@ class NucleiSupervision(ABC):
 
         return float((targets[mask] == 1).float().mean())
 
-    def get_sup_pos_count(self) -> int:
+    def get_pos_count(self) -> int:
         """Returns the number of confident (supervised) positive nuclei."""
         if not self.is_carcinoma:
             return 0
@@ -160,9 +160,9 @@ class DatasetSupervision:
         }
 
     @property
-    def sup_pos_count_map(self) -> dict[str, int]:
+    def pos_count_map(self) -> dict[str, int]:
         return {
-            slide_id: slide_sup.nuclei_supervision.get_sup_pos_count()
+            slide_id: slide_sup.nuclei_supervision.get_pos_count()
             for slide_id, slide_sup in self.supervision_map.items()
         }
 

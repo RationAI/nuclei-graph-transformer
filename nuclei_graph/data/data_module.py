@@ -147,7 +147,7 @@ class DataModule(LightningDataModule):
                         self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
                     )
                     train_df = min_positive_count_filter(
-                        train_df, min_pos_count, train_sup.sup_pos_count_map
+                        train_df, min_pos_count, train_sup.pos_count_map
                     )
                 self.train_dataset = instantiate(
                     self.dataset_cfg,
