@@ -15,10 +15,11 @@ trainer:
 
 data:
   split_size: ???
-  balance_sampling: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
+  supervision:
+    train_strategy: ???
 
 model:
   net:
@@ -31,10 +32,23 @@ model:
 metadata:
   run_name: ???
   hyperparams:
+    # supervision
+    # TODO
+
+    # sampler
+    # TODO
+
+    # training
     gradient_clip_val: ${trainer.gradient_clip_val}
     accumulate_grad_batches: ${trainer.accumulate_grad_batches}
     batch_size: ${data.batch_size}
     split_size: ${data.split_size}
+
+    # dataset
+    # TODO
+
+    # model
+    efd_order: ${data.dataset.efd_order}
     lr: ${model.lr}
     warmup_epochs: ${model.warmup_epochs}
     dim: ${model.net.config.dim}
