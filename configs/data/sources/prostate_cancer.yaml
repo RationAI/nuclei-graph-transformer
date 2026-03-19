@@ -48,4 +48,4 @@ dataset:
         default_thr: ${mlflow_project}/be8d6076322044ed82636b4c4418820a/artifacts/cam_labels
       model_prediction:
         # preprocessing/unipolar_heatmap_labels.py
-        virchow2: ${mlflow_project}/3c2d82071bd643b197d273991d0eabb9/artifacts/prediction_labels
+        virchow2: ${mlflow_project}/7b6a77318105425ea7326616d9519d54/artifacts/prediction_labels
