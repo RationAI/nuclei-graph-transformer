@@ -348,8 +348,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
             # Target crop distribution:
             # 50% positive, 25% negative (from pos slides), 25% negative (from neg slides).
-            # Assuming the slide sampler yields 75% positive slides, to achieve this we
-            # select a positive seed 2/3 of the time.
+            # Assuming the slide sampler yields 75% positive slides, we select a positive
+            # seed 2/3 of the time.
             if not self.mil:
                 use_pos_seed = torch.rand(1).item() < (2.0 / 3.0)
                 valid_seeds = pos_seeds if use_pos_seed else neg_seeds
