@@ -1,0 +1,16 @@
+# @package _global_
+
+heatmap_uri: ???
+metadata_uris: ???
+exclude_slides_uris: null
+overlap_threshold: ???
+positive_threshold: ??? # in [0, 1]
+label_column: ???
+nuclei_path: ${dataset.paths.nuclei_seg}
+max_concurrent: 6
+mlflow_artifact_path: ???
+
+metadata:
+  run_name: ???
+  hyperparams:
+    overlap_threshold: ${overlap_threshold}

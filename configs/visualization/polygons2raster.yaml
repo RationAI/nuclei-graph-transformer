@@ -5,7 +5,8 @@ mask_tile_height: ${dataset.mask_tile_height}
 mpp: ${dataset.target_mpp}
 visualization_mode: ???
 max_concurrent: 1
-annot_labels_uri: ${dataset.mlflow_uris.supervision.annotation}
+heatmap_labels_uri: null
+label_column: null
 cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
 predictions_uri: null
 predictions_thr: null
