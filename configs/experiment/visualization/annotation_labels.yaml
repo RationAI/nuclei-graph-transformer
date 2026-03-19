@@ -1,6 +1,8 @@
 # @package _global_
 
 visualization_mode: 3
+heatmap_labels_uri: ${dataset.mlflow_uris.supervision.annotation}
+label_column: annot_label
 
 metadata:
   run_name: "Nuclei Masks — Annotation-based Labeling: ${dataset.name}"
