@@ -57,7 +57,7 @@ class NucleiMILMetaArch(LightningModule):
     def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
 
-        # in case of validation/test/pediction stage we have to handle mixed blocks
+        # in case of validation/test/prediction stage we have to handle mixed blocks
         if not self.training:
             block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
