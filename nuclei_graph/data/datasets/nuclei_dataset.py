@@ -324,12 +324,12 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         pos_seeds = nuclei_sup.get_pos_seeds(len(nuclei))
         neg_seeds = nuclei_sup.get_neg_seeds(len(nuclei))
 
-        # generate a crop
+        # Generate a crop
         if slide.is_carcinoma and not self.full_slide:
             assert self.crop_pos_thr is not None
 
             curr_idx, crop_indices = None, None
-            while self.mil:  # ensure that crop positivity ≥ `crop_pos_thr`
+            while self.mil:  # ensure crop positivity ≥ `crop_pos_thr`
                 if curr_idx is not None:
                     slide = self.slides.iloc[curr_idx]
                     nuclei = self.get_nuclei(slide.slide_nuclei_path)
@@ -355,24 +355,21 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
                 valid_seeds = pos_seeds if use_pos_seed else neg_seeds
                 crop_indices = self.get_crop_indices(centroids, valid_seeds)
 
-        else:  # a negative slide or inference
+        else:  # negative slide or inference
             crop_indices = self.get_crop_indices(centroids, neg_seeds)
 
         assert crop_indices is not None
-        # compute embeddings, positions, and block mask, all permuted according
-        # to the KDTree to optimize data layout for sparse attention
+
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
         crop_centroids = centroids[crop_indices]
         crop_x, crop_pos, crop_block_mask, perm = self.get_features(
             crop_polygons, crop_centroids, slide.mpp_x, slide.mpp_y
         )
 
-        # get supervision mask for nuclei in the crop
         crop_indices_t = torch.from_numpy(crop_indices).long()
         perm_t = torch.from_numpy(perm).long()
         crop_sup_mask = nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t][perm_t]
 
-        # get targets for nuclei in the crop and also the crop-level target if MIL
         targets = nuclei_sup.get_targets(len(nuclei))
         crop_targets = targets[crop_indices_t][perm_t][crop_sup_mask]  # (num_sup, )
 
