@@ -3,20 +3,16 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import ClassVar
 
-import numpy as np
 import pandas as pd
 import torch
-from numpy.typing import NDArray
 from torch import Tensor
 from tqdm import tqdm
 
 
-type Coords = NDArray[np.float32]
-
 COL_TO_KWARG = {
     "annot_label": "annot_labels",
     "cam_label": "cam_labels",
-    "label": "labels",
+    "pred_label": "pred_labels",
 }
 
 
@@ -79,18 +75,32 @@ class NucleiSupervision(ABC):
         return int(((targets == 1) & mask).sum().item())
 
 
-class AnnotationNucleiSupervision(NucleiSupervision):
+class DenseNucleiSupervision(NucleiSupervision):
+    """Supervision where all provided nuclei are confidently labeled."""
+
+    def __init__(self, is_carcinoma: bool, labels: Tensor):
+        super().__init__(is_carcinoma)
+        self.labels = labels
+
+    def _get_targets(self) -> Tensor:
+        return self.labels
+
+    def _get_sup_mask(self) -> Tensor:
+        return torch.ones(len(self.labels), dtype=torch.bool)
+
+
+class AnnotationNucleiSupervision(DenseNucleiSupervision):
     """Supervision based on rough pathologist annotations."""
 
     def __init__(self, is_carcinoma: bool, annot_labels: Tensor):
-        super().__init__(is_carcinoma)
-        self.annot_labels = annot_labels
+        super().__init__(is_carcinoma, labels=annot_labels)
 
-    def _get_targets(self) -> Tensor:
-        return self.annot_labels
 
-    def _get_sup_mask(self) -> Tensor:
-        return torch.ones(len(self.annot_labels), dtype=torch.bool)
+class PredictionNucleiSupervision(DenseNucleiSupervision):
+    """Supervision based on model predictions."""
+
+    def __init__(self, is_carcinoma: bool, pred_labels: Tensor):
+        super().__init__(is_carcinoma, labels=pred_labels)
 
 
 class CAMNucleiSupervision(NucleiSupervision):
@@ -128,20 +138,6 @@ class AgreementNucleiSupervision(NucleiSupervision):
         return self.annot_labels == self.cam_labels
 
 
-class DenseNucleiSupervision(NucleiSupervision):
-    """Supervision where all provided nuclei are confidently labeled."""
-
-    def __init__(self, is_carcinoma: bool, labels: Tensor):
-        super().__init__(is_carcinoma)
-        self.labels = labels
-
-    def _get_targets(self) -> Tensor:
-        return self.labels
-
-    def _get_sup_mask(self) -> Tensor:
-        return torch.ones(len(self.labels), dtype=torch.bool)
-
-
 @dataclass(frozen=True)
 class SlideSupervision:
     slide_label: int
@@ -172,7 +168,7 @@ class SupervisionStrategy:
         "annotation": (AnnotationNucleiSupervision, ["annot_labels"]),
         "cam": (CAMNucleiSupervision, ["cam_labels"]),
         "agreement": (AgreementNucleiSupervision, ["annot_labels", "cam_labels"]),
-        "dense": (DenseNucleiSupervision, ["labels"]),
+        "prediction": (PredictionNucleiSupervision, ["pred_labels"]),
     }
 
     def __init__(self, mode: str, **uris):
