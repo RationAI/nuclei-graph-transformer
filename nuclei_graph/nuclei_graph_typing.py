@@ -42,7 +42,7 @@ class PredictSlide(TypedDict):
     metadata: Metadata
 
 
-Batch = Slide  # batched slides
+Batch = Crop  # batched crops/slides
 
 
 class PredictBatch(TypedDict):
