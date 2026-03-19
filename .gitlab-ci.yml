@@ -1,9 +1,0 @@
-include:
-  project: rationai/digital-pathology/templates/ci-templates
-  file:
-    - Python-Lint.gitlab-ci.yml
-    - Pytest.gitlab-ci.yml
-
-stages:
-  - lint
-  - test
