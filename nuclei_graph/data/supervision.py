@@ -96,8 +96,8 @@ class AnnotationNucleiSupervision(NucleiSupervision):
 class CAMNucleiSupervision(NucleiSupervision):
     """Supervision based on CAM labels only.
 
-    Regions above a certain CAM threshold are considered positive, those below a certain
-    threshold are negative, and those in between are ignored.
+    Regions above a certain CAM threshold (1) are considered positive, those below
+    a certain threshold (0) are negative, and those in between (-1) are ignored.
     """
 
     def __init__(self, is_carcinoma: bool, cam_labels: Tensor):
@@ -114,7 +114,7 @@ class CAMNucleiSupervision(NucleiSupervision):
 class AgreementNucleiSupervision(NucleiSupervision):
     """Supervision based on the consensus between Annotations and CAM labels.
 
-    The supervision mask is only valid where the annotation exactly matches the CAM label.
+    The supervision mask is only valid where the annotation matches the CAM label.
     """
 
     def __init__(self, is_carcinoma: bool, cam_labels: Tensor, annot_labels: Tensor):
