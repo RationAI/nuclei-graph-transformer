@@ -171,13 +171,13 @@ class SupervisionStrategy:
         "prediction": (PredictionNucleiSupervision, ["pred_labels"]),
     }
 
-    def __init__(self, mode: str, **uris):
+    def __init__(self, mode: str, **uris: str | None):
         self.mode = mode
         self.uris = uris
         if mode not in self.STRATEGY_MAP:
             raise ValueError(f"Unknown mode: {mode}")
 
-    def create(self, is_carcinoma: bool, **all_labels) -> NucleiSupervision:
+    def create(self, is_carcinoma: bool, **all_labels: Tensor) -> NucleiSupervision:
         sup_class, required_keys = self.STRATEGY_MAP[self.mode]
         filtered_labels = {k: all_labels[k] for k in required_keys}
 
