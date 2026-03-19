@@ -14,9 +14,12 @@ trainer:
       mode: min
 
 data:
+  split_size: ???
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
+  supervision:
+    train_strategy: ???
 
 model:
   net:

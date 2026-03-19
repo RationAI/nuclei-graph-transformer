@@ -41,29 +41,33 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        split_size: float,
         num_workers: int,
         eval_num_workers: int,
         mlflow_uris: DictConfig,
         dataset: DictConfig,
         supervision: DictConfig,
+        split_size: float | None = None,
         sampler: DictConfig | None = None,
     ) -> None:
         """Lightning DataModule for nuclei point cloud datasets with weak supervision.
 
         Args:
             batch_size: Batch size for training.
-            split_size: Proportion of the training data to use for validation.
             num_workers: Number of workers for data loading.
             eval_num_workers: Maximum number of workers for evaluation data loading.
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
+            split_size: Proportion of the training data to use for validation.
             sampler: Sampler configuration for training data loader. Defaults to None.
         """
         super().__init__()
         self.batch_size = batch_size
-        self.train_strategy = instantiate(supervision.train_strategy)
+        self.train_strategy = (
+            instantiate(supervision.train_strategy)
+            if supervision.train_strategy is not None
+            else None
+        )
         self.eval_strategy = instantiate(supervision.eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
@@ -116,7 +120,7 @@ class DataModule(LightningDataModule):
 
         match stage:
             case "fit" | "validate":
-                assert self.train_strategy is not None
+                assert self.train_strategy is not None and self.split_size is not None
 
                 slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
                 assert slides_df is not None
