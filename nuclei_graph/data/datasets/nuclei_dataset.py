@@ -199,7 +199,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         centroids = centroids[keep_indices]
         graph = build_spatial_graph(centroids)
 
-        # compute crop indices by growing a connected component starting from the center nucleus
+        # grow a connected component starting from the center nucleus
         seed = int(np.argmin(np.linalg.norm(centroids - center_coords, axis=1)))
         local_crop_indices = self.find_component(seed, self.crop_size, graph, centroids)
 
