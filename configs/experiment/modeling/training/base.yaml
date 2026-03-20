@@ -62,4 +62,4 @@ metadata:
     hidden_dim: ${model.net.config.hidden_dim}
     num_heads: ${model.net.config.num_heads}
     num_layers: ${model.net.config.num_layers}
-    dropout: ${model.net.config.dropout}
+    drop_path_rate: ${model.net.config.drop_path_rate}
