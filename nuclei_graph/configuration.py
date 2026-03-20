@@ -19,7 +19,7 @@ class Config(PretrainedConfig):
         num_heads: int,
         num_layers: int,
         num_classes: int,
-        dropout: float,
+        drop_path_rate: float,
         **kwargs: Any,
     ) -> None:
         self.ffn = ffn
@@ -32,5 +32,5 @@ class Config(PretrainedConfig):
         self.num_heads = num_heads
         self.num_layers = num_layers
         self.num_classes = num_classes
-        self.dropout = dropout
+        self.drop_path_rate = drop_path_rate
         super().__init__(**kwargs)
