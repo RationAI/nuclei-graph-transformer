@@ -64,30 +64,17 @@ def label_slide(
     nuclei[["slide_id", "id", "annot_label"]].to_parquet(output_path, index=False)
 
 
-def uris2df(uris: list[str] | None) -> pd.DataFrame:
-    """Loads and merges multiple metadata CSVs into a single DataFrame."""
-    if not uris:
-        return pd.DataFrame(columns=["slide_id"])
-    batches = [pd.read_csv(Path(download_artifacts(uri))) for uri in uris]
-    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_id"])
-
-
 @with_cli_args(["+preprocessing=annotation_labels"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-
-    valid_mask = (slides["is_carcinoma"] == 1) & slides["annotation"]
-    valid_slides = slides[valid_mask]
-
-    items_to_process = valid_slides[
-        ["slide_id", "data_provider", "extent_x", "extent_y"]
-    ].to_dict("records")
+    valid_slides = slides[slides["is_carcinoma"] & slides["annotation"]]
+    valid_slides = valid_slides[["slide_id", "data_provider", "extent_x", "extent_y"]]
 
     with TemporaryDirectory() as tmp_dir:
         process_items(
-            items=items_to_process,
+            items=valid_slides.to_dict("records"),
             process_item=label_slide,
             fn_kwargs={
                 "nuclei_dir": Path(config.nuclei_path),
