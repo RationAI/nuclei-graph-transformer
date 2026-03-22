@@ -1,0 +1,8 @@
+# @package _global_
+
+train_csv: ${dataset.paths.wsi_data.train.metadata}
+train_images: ${dataset.paths.wsi_data.train.slides}
+train_label_masks: ${dataset.paths.masks.annotation}
+
+metadata:
+  run_name: "Exploration: ${dataset.name}"

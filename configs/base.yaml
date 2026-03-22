@@ -3,7 +3,7 @@ defaults:
   - logger: mlflow
   - _self_
 
-data_path: /mnt/data/MOU/prostate
+data_path: /mnt/data
 project_path: /mnt/projects/nuclei_based_wsi_analysis
 mlflow_project: mlflow-artifacts:/97
 

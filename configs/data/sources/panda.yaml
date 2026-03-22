@@ -1,0 +1,22 @@
+# @package _global_
+
+dataset:
+  name: PANDA
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+
+  paths:
+    wsi_data:
+      train:
+        slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+        metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+      test: null
+
+    masks:
+      annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+
+  mlflow_uris:
+    exploration:
+      train: ${mlflow_project}/91f0c25a53174fb78fa32eceaf754dc4/artifacts/panda/slides_metadata.csv
+      test: null
