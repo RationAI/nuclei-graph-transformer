@@ -1,7 +1,7 @@
 """Script for discrete annotation-based nuclei labeling on the PANDA dataset.
 
 Each nucleus is assigned a binary label (1/0) indicating if the fraction of cancerous
-vertices (annotation label ≥ 3 for Radboud and ≥ 2 for Karolinska) is ≥ `overlap_threshold`.
+vertices (annotation label >= 3 for Radboud and >= 2 for Karolinska) is >= `overlap_threshold`.
 """
 
 from pathlib import Path
@@ -16,7 +16,6 @@ from einops import rearrange
 from mlflow.artifacts import download_artifacts
 from numpy.typing import NDArray
 from omegaconf import DictConfig
-from openslide import OpenSlide
 from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
@@ -24,24 +23,23 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 @ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def label_slide(
-    slide_info: dict,
+    metadata: dict,
     nuclei_dir: Path,
-    heatmaps_dir: Path,
+    annots_dir: Path,
     output_dir: Path,
     overlap_thr: float,
 ) -> None:
-    slide_id = slide_info["id"]
+    slide_id = metadata["slide_id"]
+    wsi_extent_x, wsi_extent_y = metadata["extent_x"], metadata["extent_y"]
+    provider = metadata["data_provider"]
+
     nuclei_path = nuclei_dir / f"slide_id={slide_id}"
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     nuclei["slide_id"] = slide_id
 
-    mask_path = heatmaps_dir / f"{slide_id}_mask.tiff"
+    mask_path = annots_dir / f"{slide_id}_mask.tiff"
     mask: NDArray[np.uint8] = tifffile.imread(mask_path).squeeze()
     mask_extent_y, mask_extent_x = mask.shape
-
-    slide_path = slide_info["slide_path"]
-    with OpenSlide(slide_path) as slide:
-        wsi_extent_x, wsi_extent_y = slide.dimensions
 
     scale_x = mask_extent_x / wsi_extent_x
     scale_y = mask_extent_y / wsi_extent_y
@@ -53,7 +51,6 @@ def label_slide(
 
     annot_labels = mask[y_coords, x_coords]
 
-    provider = slide_info["data_provider"]
     if provider == "radboud":
         is_carcinoma_vertex = annot_labels >= 3
     else:  # karolinska
@@ -70,23 +67,27 @@ def label_slide(
 def uris2df(uris: list[str] | None) -> pd.DataFrame:
     """Loads and merges multiple metadata CSVs into a single DataFrame."""
     if not uris:
-        return pd.DataFrame(columns=["id"])
+        return pd.DataFrame(columns=["slide_id"])
     batches = [pd.read_csv(Path(download_artifacts(uri))) for uri in uris]
-    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["id"])
+    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_id"])
 
 
-@with_cli_args(["+preprocessing=panda/mask_labels"])
-@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
+@with_cli_args(["+preprocessing=annotation_labels"])
+@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    slides = uris2df(config.metadata_uris)
+    slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
 
     valid_mask = (slides["is_carcinoma"] == 1) & slides["annotation"]
     valid_slides = slides[valid_mask]
 
+    items_to_process = valid_slides[
+        ["slide_id", "data_provider", "extent_x", "extent_y"]
+    ].to_dict("records")
+
     with TemporaryDirectory() as tmp_dir:
         process_items(
-            items=valid_slides[["slide_path", "data_provider"]].to_dict("records"),
+            items=items_to_process,
             process_item=label_slide,
             fn_kwargs={
                 "nuclei_dir": Path(config.nuclei_path),

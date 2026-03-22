@@ -1,0 +1,25 @@
+# @package _global_
+
+dataset:
+  name: PANDA
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+
+  paths:
+    wsi_data:
+      train:
+        slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+        metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+        slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
+      test: null
+
+    nuclei_seg: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+
+    masks:
+      annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+
+  mlflow_uris:
+    exploration:
+      train: ${mlflow_project}/926589f787a745248e7e104d5d0b5170/artifacts/panda/slides_metadata.csv
+      test: null
