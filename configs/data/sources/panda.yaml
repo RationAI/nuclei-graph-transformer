@@ -11,7 +11,10 @@ dataset:
       train:
         slides: ${data_path}/Public/Public/prostate/PANDA/train_images
         metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+        slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
       test: null
+
+    nuclei_seg: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
