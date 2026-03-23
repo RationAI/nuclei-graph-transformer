@@ -14,8 +14,9 @@ defaults:
 monitor: validation/loss
 
 trainer:
+  max_epochs: 250
   gradient_clip_val: 0.7
-  #accumulate_grad_batches: 3
+  accumulate_grad_batches: 2
 
 data:
   batch_size: 32
@@ -41,7 +42,7 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.10
+      drop_path_rate: 0.15
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
