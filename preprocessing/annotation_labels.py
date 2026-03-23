@@ -38,7 +38,11 @@ def label_slide(
     nuclei["slide_id"] = slide_id
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
-    mask: NDArray[np.uint8] = tifffile.imread(mask_path).squeeze()
+    mask: NDArray[np.uint8] = tifffile.imread(mask_path)
+    if mask.ndim == 3:  # values are repeated across channels, take the first one
+        mask = mask[..., 0] if mask.shape[-1] == 3 else mask.squeeze()
+    else:
+        mask = mask.squeeze()
     mask_extent_y, mask_extent_x = mask.shape
 
     scale_x = mask_extent_x / wsi_extent_x
