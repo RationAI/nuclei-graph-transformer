@@ -30,10 +30,11 @@ def label_slide(
     overlap_thr: float,
 ) -> None:
     slide_id = metadata["slide_id"]
+    id = metadata["id"]  # ID of the slide in the nuclei seg dataset
     wsi_extent_x, wsi_extent_y = metadata["extent_x"], metadata["extent_y"]
     provider = metadata["data_provider"]
 
-    nuclei_path = nuclei_dir / f"slide_id={slide_id}"
+    nuclei_path = nuclei_dir / f"slide_id={id}"
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     nuclei["slide_id"] = slide_id
 
@@ -70,7 +71,9 @@ def label_slide(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
     valid_slides = slides[slides["is_carcinoma"] & slides["annotation"]]
-    valid_slides = valid_slides[["slide_id", "data_provider", "extent_x", "extent_y"]]
+    valid_slides = valid_slides[
+        ["slide_id", "id", "data_provider", "extent_x", "extent_y"]
+    ]
 
     with TemporaryDirectory() as tmp_dir:
         process_items(
