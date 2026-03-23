@@ -20,12 +20,13 @@ from ratiopath.openslide import OpenSlide
 @ray.remote(num_cpus=1)
 def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
     slide_path = slides_dir / f"{slide_id}.tiff"
-    mask_path = annots_dir / f"{slide_id}_mask.tiff"
 
     is_wsi_valid = False
     try:
         with OpenSlide(str(slide_path)) as wsi:
-            _, _ = wsi.dimensions
+            _, _ = wsi.dimensions  # check the file is readable
+
+            # check for empty slides
             thumb = wsi.get_thumbnail(size=(512, 512)).convert("L")
             thumb_array = np.array(thumb)
             tissue_ratio = np.mean(thumb_array < np.percentile(thumb_array, 95))
@@ -38,6 +39,8 @@ def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
     except Exception as e:
         print(f"Error for slide {slide_path}: {e}")
         is_wsi_valid = False
+
+    mask_path = annots_dir / f"{slide_id}_mask.tiff"
 
     annot_status = "missing"
     if mask_path.exists():
@@ -122,7 +125,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         df_path=Path(config.train_csv),
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
-        properties_path=Path(config.slides_properties),
+        properties_path=Path(config.slides_properties),  # from segmentation step
         max_concurrent=config.max_concurrent,
     )
 
