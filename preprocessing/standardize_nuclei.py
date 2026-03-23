@@ -6,6 +6,7 @@ to Cartesian polygons and generates a globally unique ID for each nucleus.
 
 import hashlib
 from pathlib import Path
+from typing import Any
 
 import hydra
 import numpy as np
@@ -19,10 +20,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
 @ray.remote(num_cpus=1, memory=(1 * 1024**3))
-def standardize_nuclei(
-    item: dict,
-    output_dir: Path,
-) -> None:
+def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
     partition = item["nuclei_partition"]
     slide_id = item["slide_id"]
 
