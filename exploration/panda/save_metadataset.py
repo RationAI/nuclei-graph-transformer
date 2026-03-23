@@ -139,7 +139,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         summary_df.to_csv(Path(output_dir, "summary.csv"), index=False)
 
         if error_logs:
-            with open(Path(output_dir, "validation_errors.log"), "w") as f:
+            with open(Path(output_dir, "errors.txt"), "w") as f:
                 f.write("\n".join(error_logs))
 
         logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
