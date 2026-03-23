@@ -1,7 +1,7 @@
 """Script for discrete annotation-based nuclei labeling on the PANDA dataset.
 
-Each nucleus is assigned a binary label (1/0) indicating if the fraction of cancerous
-vertices (annotation label >= 3 for Radboud and >= 2 for Karolinska) is >= `overlap_threshold`.
+Each nucleus is assigned a binary label (1/0) indicating if the fraction of its vertices and
+the annotation (annotation label >= 3 for Radboud and >= 2 for Karolinska) is >= `overlap_threshold`.
 """
 
 from pathlib import Path
