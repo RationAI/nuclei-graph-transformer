@@ -1,0 +1,8 @@
+# @package _global_
+
+nuclei_source_path: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+output_path: ${project_path}/nuclei_segmentation/PANDA
+metadata_uri: ${dataset.mlflow_uris.exploration.train}
+
+metadata:
+  run_name: "Nuclei Data Standardization"
