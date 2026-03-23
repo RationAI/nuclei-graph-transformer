@@ -4,7 +4,6 @@ train_csv: ${dataset.paths.wsi_data.train.metadata}
 train_images: ${dataset.paths.wsi_data.train.slides}
 train_label_masks: ${dataset.paths.masks.annotation}
 slides_properties: ${dataset.paths.wsi_data.train.slides_properties}
-nuclei_path: ${dataset.paths.nuclei_seg_raw}
 
 metadata:
   run_name: "Exploration: ${dataset.name}"
