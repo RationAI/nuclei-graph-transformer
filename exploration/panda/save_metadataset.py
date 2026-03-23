@@ -33,7 +33,7 @@ def extract_properties(slide_path: Path) -> dict[str, Any]:
 @ray.remote(num_cpus=1)
 def validate_sample(
     slide_id: str, slides_dir: Path, annots_dir: Path
-) -> dict[str, Any]:
+) -> dict[str, str | bool]:
     slide_path = slides_dir / f"{slide_id}.tiff"
     error_msg = ""
 
@@ -61,7 +61,7 @@ def validate_sample(
             )
         except Exception as e:
             msg = f"MASK_CORRUPTED: {slide_id} - {e!s}"
-            error_msg = f"{error_msg} | {msg}" if error_msg else msg
+            error_msg = f"{error_msg}\n{msg}" if error_msg else msg
             annot_status = "corrupted"
 
     return {
