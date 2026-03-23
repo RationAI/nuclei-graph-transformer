@@ -18,30 +18,28 @@ from ratiopath.openslide import OpenSlide
 
 
 @ray.remote(num_cpus=1)
-def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
+def validate_sample(
+    slide_id: str, slides_dir: Path, annots_dir: Path
+) -> dict[str, str | bool]:
     slide_path = slides_dir / f"{slide_id}.tiff"
+    error_msg: str = ""
 
     is_wsi_valid = False
     try:
         with OpenSlide(str(slide_path)) as wsi:
-            _, _ = wsi.dimensions  # check the file is readable
-
-            # check for empty slides
+            _, _ = wsi.dimensions
             thumb = wsi.get_thumbnail(size=(512, 512)).convert("L")
             thumb_array = np.array(thumb)
             tissue_ratio = np.mean(thumb_array < np.percentile(thumb_array, 95))
-
             is_wsi_valid = tissue_ratio > 0.001
 
             if not is_wsi_valid:
-                print(f"Low tissue ratio for {slide_path}: {tissue_ratio:.4f}")
-
+                error_msg = f"SLIDE_EMPTY: {slide_id} (ratio: {tissue_ratio:.4f})"
     except Exception as e:
-        print(f"Error for slide {slide_path}: {e}")
+        error_msg = f"SLIDE_ERROR: {slide_id} - {e!s}"
         is_wsi_valid = False
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
-
     annot_status = "missing"
     if mask_path.exists():
         try:
@@ -49,16 +47,19 @@ def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
             if mask is not None and mask.size > 0:
                 annot_status = "valid"
             else:
-                print(f"Empty mask for {mask_path}")
+                msg = f"MASK_EMPTY: {slide_id}"
+                error_msg = f"{error_msg} | {msg}" if error_msg else msg
                 annot_status = "corrupted"
         except Exception as e:
-            print(f"Error for mask {mask_path}: {e}")
+            msg = f"MASK_CORRUPTED: {slide_id} - {e!s}"
+            error_msg = f"{error_msg} | {msg}" if error_msg else msg
             annot_status = "corrupted"
 
     return {
         "slide_id": slide_id,
         "is_wsi_valid": is_wsi_valid,
         "annot_status": annot_status,
+        "error_msg": error_msg,
     }
 
 
@@ -68,20 +69,25 @@ def get_dataframes(
     annots_dir: Path,
     properties_path: Path,
     max_concurrent: int,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     df = pd.read_csv(df_path)
     df.rename(columns={"image_id": "slide_id"}, inplace=True)
 
     validation_results = process_items(
-        items=df["slide_id"],
-        process_item=validate_sample,
+        items=df["slide_id"].tolist(),
+        process_item=validate_sample,  # type: ignore[arg-type]
         fn_kwargs={"slides_dir": slides_dir, "annots_dir": annots_dir},
         max_concurrent=max_concurrent,
     )
 
     valid_df = pd.DataFrame(validation_results)
-    df = df.merge(valid_df, on="slide_id", how="left")
 
+    error_logs = (
+        valid_df[valid_df["error_msg"].notna()]["error_msg"].astype(str).tolist()
+    )
+    valid_df = valid_df.drop(columns=["error_msg"])
+
+    df = df.merge(valid_df, on="slide_id", how="left")
     df["slide_path"] = df["slide_id"].apply(lambda id: str(slides_dir / f"{id}.tiff"))
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["annotation"] = df["annot_status"] != "missing"
@@ -113,25 +119,29 @@ def get_dataframes(
         "mpp_x",
         "mpp_y",
     ]
-
-    return final_df[final_cols], summary_df
+    return final_df[final_cols], summary_df, error_logs
 
 
 @with_cli_args(["+exploration=panda/save_metadataset"])
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    df, summary_df = get_dataframes(
+    df, summary_df, error_logs = get_dataframes(
         df_path=Path(config.train_csv),
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
-        properties_path=Path(config.slides_properties),  # from segmentation step
+        properties_path=Path(config.slides_properties),
         max_concurrent=config.max_concurrent,
     )
 
     with TemporaryDirectory() as output_dir:
         df.to_csv(Path(output_dir, "slides_metadata.csv"), index=False)
         summary_df.to_csv(Path(output_dir, "summary.csv"), index=False)
+
+        if error_logs:
+            with open(Path(output_dir, "validation_errors.log"), "w") as f:
+                f.write("\n".join(error_logs))
+
         logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
         slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
         mlflow.log_input(slide_dataset, context="slides_metadata")
