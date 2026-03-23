@@ -1,19 +1,4 @@
-"""This script generates a CSV metadataset file for the `PANDA Challenge` Dataset.
-
-The metadata extracted for each slide are:
-    - `slide_id` (str): 32-character hex string identifier for each slide.
-    - `slide_path` (str): The path to the slide image.
-    - `id` (str): ID of the slide in the parquet dataset with segmented nuclei.
-    - `data_provider` (str): 'radboud' or 'karolinska'.
-    - `is_carcinoma` (bool): True if the slide contains carcinoma based on the provided ISUP grade, else False.
-    - `annotation` (bool): True if the annotation exists.
-    - `extent_x` (float): The width of the slide.
-    - `extent_y` (float): The height of the slide.
-    - `mpp_x` (float): Microns per pixel in the x direction.
-    - `mpp_y` (float): Microns per pixel in the y direction.
-
-The resulting CSV files along with their summaries are logged as artifacts to MLflow.
-"""
+"""This script generates a CSV metadataset file for the PANDA Challenge Dataset."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -32,6 +17,7 @@ def get_dataframes(
     slides_dir: Path,
     annots_dir: Path,
     properties_path: Path,
+    nuclei_dir: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(df_path)
     df.rename(columns={"image_id": "slide_id"}, inplace=True)
@@ -40,21 +26,15 @@ def get_dataframes(
     def check_slide(slide_id: str) -> bool:
         return (slides_dir / f"{slide_id}.tiff").exists()
 
+    exists_slide = df["slide_id"].apply(check_slide)
+    df = df[exists_slide].reset_index(drop=True)
+
     def check_mask(slide_id: str) -> bool:
         return (annots_dir / f"{slide_id}_mask.tiff").exists()
 
-    exists_mask = df["slide_id"].apply(check_slide)
-    df = df[exists_mask].reset_index(drop=True)
     df["annotation"] = df["slide_id"].apply(check_mask)
+
     df["is_carcinoma"] = df["isup_grade"] > 0
-
-    summary_df = (
-        df.groupby(["data_provider", "is_carcinoma", "isup_grade"])
-        .agg(Total_Slides=("slide_id", "count"), Annotations=("annotation", "sum"))
-        .reset_index()
-    )
-
-    df = df[["slide_id", "data_provider", "is_carcinoma", "annotation", "slide_path"]]
 
     properties_df = pd.read_parquet(
         properties_path,
@@ -66,6 +46,35 @@ def get_dataframes(
     final_df = df.merge(
         properties_df, left_on="slide_id", right_on="slide_id", how="left"
     )
+
+    def check_nuclei(id: str) -> bool:
+        if pd.isna(id):
+            return False
+        return (nuclei_dir / f"slide_id={id}").exists()
+
+    exists_nuclei = final_df["id"].apply(check_nuclei)
+    final_df = final_df[exists_nuclei].reset_index(drop=True)
+
+    summary_df = (
+        final_df.groupby(["data_provider", "is_carcinoma", "isup_grade"])
+        .agg(Total_Slides=("slide_id", "count"), Annotations=("annotation", "sum"))
+        .reset_index()
+    )
+
+    final_cols = [
+        "slide_id",  # 32-character hex string identifier for each slide
+        "slide_path",
+        "id",  # ID of the slide in the parquet dataset with segmented nuclei
+        "data_provider",  # 'radboud' or 'karolinska'
+        "is_carcinoma",  # True if the slide contains carcinoma based on the ISUP grade
+        "annotation",  # True if the annotation exists
+        "extent_x",
+        "extent_y",
+        "mpp_x",
+        "mpp_y",
+    ]
+    final_df = final_df[final_cols]
+
     return final_df, summary_df
 
 
@@ -78,6 +87,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
         properties_path=Path(config.slides_properties),
+        nuclei_dir=Path(config.nuclei_path),
     )
 
     with TemporaryDirectory() as output_dir:
