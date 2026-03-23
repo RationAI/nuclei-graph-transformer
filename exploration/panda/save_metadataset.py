@@ -37,13 +37,13 @@ def get_dataframes(
     df.rename(columns={"image_id": "slide_id"}, inplace=True)
     df["slide_path"] = df["slide_id"].apply(lambda x: str(slides_dir / f"{x}.tiff"))
 
-    def check_image(slide_id: str) -> bool:
+    def check_slide(slide_id: str) -> bool:
         return (slides_dir / f"{slide_id}.tiff").exists()
 
     def check_mask(slide_id: str) -> bool:
         return (annots_dir / f"{slide_id}_mask.tiff").exists()
 
-    exists_mask = df["slide_id"].apply(check_image)
+    exists_mask = df["slide_id"].apply(check_slide)
     df = df[exists_mask].reset_index(drop=True)
     df["annotation"] = df["slide_id"].apply(check_mask)
     df["is_carcinoma"] = df["isup_grade"] > 0
