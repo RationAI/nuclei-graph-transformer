@@ -74,7 +74,7 @@ def label_slide(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
     to_process = slides[slides["is_carcinoma"] & slides["annotation"]]
-    to_process = to_process[["slide_id", "id", "data_provider", "extent_x", "extent_y"]]
+    to_process = to_process[["slide_id", "data_provider", "extent_x", "extent_y"]]
 
     with TemporaryDirectory() as tmp_dir:
         process_items(
