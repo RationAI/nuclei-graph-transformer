@@ -75,7 +75,7 @@ def get_dataframes(
 
     validation_results = process_items(
         items=df["slide_id"].tolist(),
-        process_item=validate_sample,  # type: ignore[arg-type]
+        process_item=validate_sample,  # type: ignore[arg-type, func-returns-value]
         fn_kwargs={"slides_dir": slides_dir, "annots_dir": annots_dir},
         max_concurrent=max_concurrent,
     )
