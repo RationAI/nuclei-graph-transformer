@@ -76,7 +76,7 @@ def get_dataframes(
     df_path: Path,
     slides_dir: Path,
     annots_dir: Path,
-    properties_path: Path | None,
+    properties_path: str | None,
     max_concurrent: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     df = pd.read_csv(df_path).rename(columns={"image_id": "slide_id"})
@@ -145,7 +145,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         df_path=Path(config.train_csv),
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
-        properties_path=Path(config.slides_properties),
+        properties_path=config.slides_properties,
         max_concurrent=config.max_concurrent,
     )
 
