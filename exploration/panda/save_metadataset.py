@@ -18,8 +18,7 @@ from ratiopath.openslide import OpenSlide
 
 
 @ray.remote(num_cpus=1)
-def validate_sample(item: dict, slides_dir: Path, annots_dir: Path) -> dict:
-    slide_id = item["slide_id"]
+def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
     slide_path = slides_dir / f"{slide_id}.tiff"
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
 
@@ -71,7 +70,7 @@ def get_dataframes(
     df.rename(columns={"image_id": "slide_id"}, inplace=True)
 
     validation_results = process_items(
-        items=df[["slide_id"]].to_dict("records"),
+        items=df["slide_id"],
         process_item=validate_sample,
         fn_kwargs={"slides_dir": slides_dir, "annots_dir": annots_dir},
         max_concurrent=max_concurrent,

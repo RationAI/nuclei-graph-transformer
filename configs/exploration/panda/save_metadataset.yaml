@@ -4,7 +4,7 @@ train_csv: ${dataset.paths.wsi_data.train.metadata}
 train_images: ${dataset.paths.wsi_data.train.slides}
 train_label_masks: ${dataset.paths.masks.annotation}
 slides_properties: ${dataset.paths.wsi_data.train.slides_properties}
-max_concurrent: 8
+max_concurrent: 16
 
 metadata:
   run_name: "Exploration: ${dataset.name}"
