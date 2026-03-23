@@ -64,7 +64,8 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
 
     for row in metadata.itertuples(index=False):
         slide_dir = nuclei_dir / f"slide_id={row.id}"
-        for parquet_file in slide_dir.glob("*.parquet"):
+        partition_files = list(slide_dir.glob("*.parquet"))
+        for parquet_file in partition_files:
             items_to_process.append(
                 {
                     "nuclei_partition": parquet_file,
