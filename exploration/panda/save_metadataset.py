@@ -46,10 +46,10 @@ def validate_sample(slide_id: str, slides_dir: Path, annots_dir: Path) -> dict:
     if mask_path.exists():
         try:
             mask = tifffile.imread(str(mask_path))
-            if mask is not None and mask.size > 0 and np.max(mask) != 0:
+            if mask is not None and mask.size > 0:
                 annot_status = "valid"
             else:
-                print(f"Empty or invalid mask for {mask_path}")
+                print(f"Empty mask for {mask_path}")
                 annot_status = "corrupted"
         except Exception as e:
             print(f"Error for mask {mask_path}: {e}")
