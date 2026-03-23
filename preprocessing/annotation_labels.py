@@ -30,11 +30,10 @@ def label_slide(
     overlap_thr: float,
 ) -> None:
     slide_id = metadata["slide_id"]
-    id = metadata["id"]  # ID of the slide in the nuclei seg dataset
     wsi_extent_x, wsi_extent_y = metadata["extent_x"], metadata["extent_y"]
     provider = metadata["data_provider"]
 
-    nuclei_path = nuclei_dir / f"slide_id={id}"
+    nuclei_path = nuclei_dir / f"slide_id={slide_id}"
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     nuclei["slide_id"] = slide_id
 
@@ -70,14 +69,12 @@ def label_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-    valid_slides = slides[slides["is_carcinoma"] & slides["annotation"]]
-    valid_slides = valid_slides[
-        ["slide_id", "id", "data_provider", "extent_x", "extent_y"]
-    ]
+    to_process = slides[slides["is_carcinoma"] & slides["annotation"]]
+    to_process = to_process[["slide_id", "id", "data_provider", "extent_x", "extent_y"]]
 
     with TemporaryDirectory() as tmp_dir:
         process_items(
-            items=valid_slides.to_dict("records"),
+            items=to_process.to_dict("records"),
             process_item=label_slide,
             fn_kwargs={
                 "nuclei_dir": Path(config.nuclei_path),

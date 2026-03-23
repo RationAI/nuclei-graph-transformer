@@ -3,9 +3,6 @@
 dataset:
   name: PANDA
 
-  mask_tile_width: 512
-  mask_tile_height: 512
-
   paths:
     wsi_data:
       train:
@@ -14,12 +11,13 @@ dataset:
         slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
       test: null
 
-    nuclei_seg: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+    nuclei_seg_raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+    nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
 
   mlflow_uris:
     exploration:
-      train: ${mlflow_project}/926589f787a745248e7e104d5d0b5170/artifacts/panda/slides_metadata.csv
+      train: ${mlflow_project}/7016eaeb3af7491a9442f4f71347e927/artifacts/panda/slides_metadata.csv
       test: null
