@@ -3,7 +3,7 @@
 dataset:
   name: MMCI Tile-Level Annotations Data
   mpp: 0.25
-  
+
   mask_tile_width: 512
   mask_tile_height: 512
 
@@ -15,7 +15,7 @@ dataset:
     nuclei_seg: ${project_path}/nuclei_segmentation
 
   mlflow_uris:
-    # exploration/prostate_cancer/save_metadataset.py
+    # preprocessing/exploration/prostate_cancer/save_metadataset.py
     exploration:
       train: ${mlflow_project}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
       test: ${mlflow_project}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations_test/slides_metadata.csv
