@@ -1,13 +1,4 @@
 # @package _global_
 
-exclude_slides_uris:
-  - ${dataset.mlflow_uris.masks.missing.annotation}
-  - ${dataset.mlflow_uris.masks.missing.cam}
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-train_data_path: ${dataset.paths.wsi_data.train}
-test_data_path: ${dataset.paths.wsi_data.test}
-nuclei_seg_path: ${dataset.paths.nuclei_seg}
-
 metadata:
   run_name: "📁 Metadataset Mapping: ${dataset.name}"

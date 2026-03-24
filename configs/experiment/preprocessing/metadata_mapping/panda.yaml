@@ -1,0 +1,8 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration.train}
+nuclei_path: ${dataset.paths.nuclei_seg}

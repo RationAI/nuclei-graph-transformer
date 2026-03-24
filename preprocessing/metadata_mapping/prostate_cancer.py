@@ -65,7 +65,7 @@ def build_map(
 
 
 @with_cli_args(["+preprocessing=metadata_mapping"])
-@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
+@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     exclusion_batches: list[pd.Series] = []
