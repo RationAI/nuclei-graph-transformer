@@ -6,7 +6,7 @@ defaults:
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: prediction # annotation prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - _self_
 
 checkpoint: mlflow-artifacts:/97/35849b705f7e4212b7023dc37ccfcc08/artifacts/checkpoints/epoch=158-step=3498/checkpoint.ckpt
@@ -17,11 +17,11 @@ trainer:
     - _target_: nuclei_graph.callbacks.WSLPredictionMetricsCallback
     - _target_: nuclei_graph.callbacks.WSLPredictionsCallback
       mlflow_artifact_path: "predictions"
-    # - _target_: nuclei_graph.callbacks.WSLPredictionMasksCallback
-    #   level: 2
-    #   mask_tile_width: 512
-    #   mask_tile_height: 512
-    #   mlflow_artifact_path: "prediction_masks"
+    - _target_: nuclei_graph.callbacks.WSLPredictionMasksCallback
+      level: 2
+      mask_tile_width: 512
+      mask_tile_height: 512
+      mlflow_artifact_path: "prediction_masks"
 
 data:
   batch_size: 1
@@ -44,5 +44,5 @@ model:
       drop_path_rate: 0.10
 
 metadata:
-  run_name: "📊 Predictions: Nucleus-level WSL Classifier (CAM sup, Annot eval)"
+  run_name: "📊 Predictions: Nucleus-level WSL Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"

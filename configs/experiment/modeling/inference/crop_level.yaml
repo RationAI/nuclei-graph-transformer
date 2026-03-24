@@ -9,8 +9,8 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
-checkpoint: # TODO
-checkpoint_url: # TODO
+checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
 
 trainer:
   callbacks:
