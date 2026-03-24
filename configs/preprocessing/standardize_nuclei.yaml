@@ -3,7 +3,7 @@
 metadata_uri: ${dataset.mlflow_uris.exploration.train}
 nuclei_source_path: ${dataset.paths.nuclei_seg_radial}
 max_concurrent: 10
-output_path: ${project_path}/nuclei_segmentation/PANDA
+output_path: ${dataset.paths.nuclei_seg}
 
 metadata:
   run_name: "Nuclei Data Standardization"
