@@ -1,4 +1,5 @@
 import torch
+from timm.layers.drop import DropPath
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
@@ -8,7 +9,7 @@ from nuclei_graph.nuclei_graph_typing import Outputs
 
 
 class Layer(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
         self.self_attn = RotarySparseAttention(
             dim=config.dim, num_heads=config.num_heads
@@ -18,23 +19,32 @@ class Layer(nn.Module):
         self.pre_attn_norm = nn.RMSNorm(config.dim)
         self.pre_ffn_norm = nn.RMSNorm(config.dim)
 
-        self.attn_dropout = nn.Dropout(config.dropout)
-        self.ffn_dropout = nn.Dropout(config.dropout)
+        self.drop_path = (
+            DropPath(drop_prob=drop_path_rate)
+            if drop_path_rate > 0.0
+            else nn.Identity()
+        )
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         y = self.pre_attn_norm(x)
-        x = x + self.attn_dropout(self.self_attn(y, pos, block_mask))
+        x = x + self.drop_path(self.self_attn(y, pos, block_mask))
 
         y = self.pre_ffn_norm(x)
-        x = x + self.ffn_dropout(self.ffn(y))
+        x = x + self.drop_path(self.ffn(y))
         return x
 
 
 class Transformer(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
+        dpr = [
+            x.item()
+            for x in torch.linspace(0, config.drop_path_rate, config.num_layers)
+        ]
+        self.layers = nn.ModuleList(
+            Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
+        )
 
-        self.layers = nn.ModuleList(Layer(config) for _ in range(config.num_layers))
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
