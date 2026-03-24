@@ -73,7 +73,12 @@ def label_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-    to_process = slides[slides["is_carcinoma"] & slides["annotation"]]
+    to_process = slides[
+        slides["is_carcinoma"]
+        & slides["annotation"]
+        & ~slides["is_annotation_corrupted"]
+        & slides["is_wsi_valid"]
+    ]
     to_process = to_process[["slide_id", "data_provider", "extent_x", "extent_y"]]
 
     with TemporaryDirectory() as tmp_dir:
