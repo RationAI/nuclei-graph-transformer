@@ -12,10 +12,10 @@ import pandas as pd
 import ray
 import tifffile
 from omegaconf import DictConfig
-from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
+from tqdm import tqdm
 
 
 def extract_properties(slide_path: Path) -> dict[str, Any]:
@@ -33,9 +33,9 @@ def extract_properties(slide_path: Path) -> dict[str, Any]:
 @ray.remote(num_cpus=1)
 def validate_sample(
     slide_id: str, slides_dir: Path, annots_dir: Path
-) -> dict[str, str | bool]:
+) -> dict[str, str | bool | None]:
     slide_path = slides_dir / f"{slide_id}.tiff"
-    error_msg = ""
+    error_msg = None
 
     is_wsi_valid = False
     try:
@@ -77,17 +77,22 @@ def get_dataframes(
     slides_dir: Path,
     annots_dir: Path,
     properties_path: str | None,
-    max_concurrent: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     df = pd.read_csv(df_path).rename(columns={"image_id": "slide_id"})
 
-    validation_results = process_items(
-        items=df["slide_id"].tolist(),
-        process_item=validate_sample,  # type: ignore[arg-type, func-returns-value]
-        fn_kwargs={"slides_dir": slides_dir, "annots_dir": annots_dir},
-        max_concurrent=max_concurrent,
-    )
-    df = df.merge(pd.DataFrame(validation_results), on="slide_id", how="left")
+    futures = [
+        validate_sample.remote(slide_id, slides_dir, annots_dir)
+        for slide_id in df["slide_id"].tolist()
+    ]
+
+    results = []
+    with tqdm(total=len(futures), desc="Validating Slides") as pbar:
+        while futures:
+            done, futures = ray.wait(futures, num_returns=min(10, len(futures)))
+            results.extend(ray.get(done))
+            pbar.update(len(done))
+
+    df = df.merge(pd.DataFrame(results), on="slide_id", how="left")
 
     if properties_path is not None:
         properties_df = pd.read_parquet(properties_path)
@@ -107,7 +112,7 @@ def get_dataframes(
         df = pd.concat([df, properties_cols], axis=1).drop(columns=["properties"])
         df["id"] = None
 
-    error_logs = df[df["error_msg"] != ""]["error_msg"].tolist()
+    error_logs = df.loc[df["error_msg"].notna(), "error_msg"].tolist()
     df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["annotation"] = df["annot_status"] != "missing"
@@ -141,12 +146,13 @@ def get_dataframes(
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    ray.init(num_cpus=config.max_concurrent)
+
     df, summary_df, error_logs = get_dataframes(
         df_path=Path(config.train_csv),
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
         properties_path=config.slides_properties,
-        max_concurrent=config.max_concurrent,
     )
 
     with TemporaryDirectory() as output_dir:
@@ -161,8 +167,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
         mlflow.log_input(slide_dataset, context="slides_metadata")
 
+    ray.shutdown()
+
 
 if __name__ == "__main__":
-    ray.init()
     main()
-    ray.shutdown()
