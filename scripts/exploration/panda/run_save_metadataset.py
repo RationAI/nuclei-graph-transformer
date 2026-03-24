@@ -14,5 +14,5 @@ submit_job(
         "uv sync --frozen",
         "uv run -m exploration.panda.save_metadataset +data=sources/panda",
     ],
-    storage=[storage.secure.DATA],
+    storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
