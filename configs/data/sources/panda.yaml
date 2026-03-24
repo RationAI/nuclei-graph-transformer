@@ -17,6 +17,7 @@ dataset:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
 
   mlflow_uris:
+    # preprocessing/exploration/panda/save_metadataset.py
     exploration:
       train: ${mlflow_project}/5126a382303b4be39ffc3200dae7056b/artifacts/panda/slides_metadata.csv
       test: null
