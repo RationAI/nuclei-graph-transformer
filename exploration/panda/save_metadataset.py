@@ -104,15 +104,15 @@ def get_dataframes(
     )
 
     final_cols = [
-        "slide_id",
+        "slide_id",  # 32-character hex string identifier for each slide
         "slide_path",
-        "id",
-        "data_provider",
-        "is_carcinoma",
-        "segmentation",
-        "annotation",
-        "is_annotation_corrupted",
-        "is_wsi_valid",
+        "id",  # ID of the slide in the parquet dataset with segmented nuclei
+        "data_provider",  # 'radboud' or 'karolinska'
+        "is_carcinoma",  # True if the slide contains carcinoma based on the ISUP grade
+        "segmentation",  # True if the segmentation file exists
+        "annotation",  # True if the annotation mask exists
+        "is_annotation_corrupted",  # True if the annotation mask is corrupted or unreadable
+        "is_wsi_valid",  # True if the whole slide image is valid and contains tissue
         "extent_x",
         "extent_y",
         "mpp_x",
