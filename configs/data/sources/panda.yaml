@@ -18,5 +18,5 @@ dataset:
 
   mlflow_uris:
     exploration:
-      train: ${mlflow_project}/e0701bd0c96344358727920b821f6eb1/artifacts/panda/slides_metadata.csv
+      train: ${mlflow_project}/5126a382303b4be39ffc3200dae7056b/artifacts/panda/slides_metadata.csv
       test: null
