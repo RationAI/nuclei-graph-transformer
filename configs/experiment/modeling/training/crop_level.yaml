@@ -24,7 +24,16 @@ data:
     mil: true
   sampler: # TODO
 
-model: # TODO
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.35
 
 metadata:
   run_name: "Train: Crop-level SL Self Attention Transformer"
