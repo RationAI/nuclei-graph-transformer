@@ -20,3 +20,9 @@ dataset:
     exploration:
       train: ${mlflow_project}/5126a382303b4be39ffc3200dae7056b/artifacts/panda/slides_metadata.csv
       test: null
+
+    # preprocessing/metadata_mapping/panda.py
+    metadata:
+      train: ${mlflow_project}/2a0034a7a59a4a0586ae88ff6a3e0fe4/artifacts/panda/slides_mapping.parquet
+      test: null
+      predict: null
