@@ -76,6 +76,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     to_process = slides[
         slides["is_carcinoma"]
         & slides["annotation"]
+        & slides["segmentation"]
         & ~slides["is_annotation_corrupted"]
         & slides["is_wsi_valid"]
     ]
