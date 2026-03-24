@@ -1,7 +1,7 @@
 # @package _global_
 
 metadata_uri: ${dataset.mlflow_uris.exploration.train}
-nuclei_source_path: ${dataset.paths.nuclei_seg_raw}
+nuclei_source_path: ${dataset.paths.nuclei_seg_radial}
 max_concurrent: 10
 output_path: ${project_path}/nuclei_segmentation/PANDA
 

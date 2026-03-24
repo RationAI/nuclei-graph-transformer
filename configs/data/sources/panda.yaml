@@ -11,7 +11,7 @@ dataset:
         slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
       test: null
 
-    nuclei_seg_raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+    nuclei_seg_radial: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
     nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
 
     masks:
@@ -19,5 +19,5 @@ dataset:
 
   mlflow_uris:
     exploration:
-      train: ${mlflow_project}/7016eaeb3af7491a9442f4f71347e927/artifacts/panda/slides_metadata.csv
+      train: ${mlflow_project}/e0701bd0c96344358727920b821f6eb1/artifacts/panda/slides_metadata.csv
       test: null
