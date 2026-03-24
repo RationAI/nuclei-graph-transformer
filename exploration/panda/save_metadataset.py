@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
 
 import hydra
 import mlflow
@@ -16,18 +15,6 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 from tqdm import tqdm
-
-
-def extract_properties(slide_path: Path) -> dict[str, Any]:
-    with OpenSlide(str(slide_path)) as slide:
-        width, height = slide.dimensions
-        mpp_x, mpp_y = slide.slide_resolution(level=0)
-        return {
-            "extent_x": width,
-            "extent_y": height,
-            "mpp_x": mpp_x,
-            "mpp_y": mpp_y,
-        }
 
 
 @ray.remote(num_cpus=1)
@@ -76,7 +63,7 @@ def get_dataframes(
     df_path: Path,
     slides_dir: Path,
     annots_dir: Path,
-    properties_path: str | None,
+    properties_path: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     df = pd.read_csv(df_path).rename(columns={"image_id": "slide_id"})
 
@@ -94,23 +81,13 @@ def get_dataframes(
 
     df = df.merge(pd.DataFrame(results), on="slide_id", how="left")
 
-    if properties_path is not None:
-        properties_df = pd.read_parquet(properties_path)
-        properties_df["slide_id"] = properties_df["path"].apply(lambda p: Path(p).stem)
-        df = df.merge(
-            properties_df[["slide_id", "id", "extent_x", "extent_y", "mpp_x", "mpp_y"]],
-            on="slide_id",
-            how="left",
-        )
-    else:
-        valid_mask = df["is_wsi_valid"]
-        df.loc[valid_mask, "properties"] = df.loc[valid_mask, "slide_id"].apply(
-            lambda sid: extract_properties(slides_dir / f"{sid}.tiff")
-        )
-        properties_cols = pd.json_normalize(df["properties"].dropna().tolist())
-        properties_cols.index = df[valid_mask].index
-        df = pd.concat([df, properties_cols], axis=1).drop(columns=["properties"])
-        df["id"] = None
+    properties_df = pd.read_parquet(properties_path)
+    properties_df["slide_id"] = properties_df["path"].apply(lambda p: Path(p).stem)
+    df = df.merge(
+        properties_df[["slide_id", "id", "extent_x", "extent_y", "mpp_x", "mpp_y"]],
+        on="slide_id",
+        how="left",
+    )
 
     error_logs = df.loc[df["error_msg"].notna(), "error_msg"].tolist()
     df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
@@ -152,7 +129,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         df_path=Path(config.train_csv),
         slides_dir=Path(config.train_images),
         annots_dir=Path(config.train_label_masks),
-        properties_path=config.slides_properties,
+        properties_path=Path(config.slides_properties),
     )
 
     with TemporaryDirectory() as output_dir:
