@@ -33,7 +33,7 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      dropout: 0.10
+      drop_path_rate: 0.15
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
