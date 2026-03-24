@@ -93,6 +93,7 @@ def get_dataframes(
     df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["annotation"] = df["annot_status"] != "missing"
+    df["segmentation"] = df["id"].notna()
     df["is_carcinoma"] = df["isup_grade"] > 0
 
     summary_df = (
@@ -108,6 +109,7 @@ def get_dataframes(
         "id",
         "data_provider",
         "is_carcinoma",
+        "segmentation",
         "annotation",
         "is_annotation_corrupted",
         "is_wsi_valid",
