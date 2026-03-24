@@ -12,6 +12,7 @@ dataset:
       test: null
 
     nuclei_seg_radial: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+    # preprocessing/nuclei_standardization.py
     nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
 
     masks:

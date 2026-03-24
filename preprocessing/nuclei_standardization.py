@@ -51,7 +51,7 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
     nuclei[["id", "polygon", "centroid"]].to_parquet(output_path, index=False)
 
 
-@with_cli_args(["+preprocessing=standardize_nuclei"])
+@with_cli_args(["+preprocessing=nuclei_standardization"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
