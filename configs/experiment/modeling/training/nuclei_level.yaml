@@ -27,7 +27,7 @@ data:
     k: 64
     attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: false
+    symmetric_block_mask: true
     mil: false
   sampler:
     positivity_thr: 0.05
@@ -46,4 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "training with balanced seed-sampling"
+  description: "symmetric mask"
