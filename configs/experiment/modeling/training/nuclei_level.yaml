@@ -16,7 +16,7 @@ monitor: validation/loss
 trainer:
   max_epochs: 300
   gradient_clip_val: 0.7
-  accumulate_grad_batches: 2
+  #accumulate_grad_batches: 2
 
 data:
   batch_size: 32
@@ -27,7 +27,7 @@ data:
     k: 32
     attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: false
+    symmetric_block_mask: true
     mil: false
   sampler:
     positivity_thr: 0.05
@@ -46,4 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "k=32"
+  description: "k=32, symmetric block mask"
