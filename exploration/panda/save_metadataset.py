@@ -97,11 +97,10 @@ def get_dataframes(
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["has_annotation"] = df["annot_status"] != "missing"
     df["has_segmentation"] = df["segmentation_id"].notna()
-    df["is_carcinoma"] = df["isup_grade"] > 0
 
     summary_df = (
         df[df["is_wsi_valid"] & ~df["is_annotation_corrupted"]]
-        .groupby(["data_provider", "is_carcinoma", "isup_grade"])
+        .groupby(["data_provider", "isup_grade", "gleason_score"])
         .agg(Total_Slides=("slide_id", "count"), Annotations=("has_annotation", "sum"))
         .reset_index()
     )
@@ -111,7 +110,8 @@ def get_dataframes(
         "slide_path",
         "segmentation_id",  # ID of the slide in the parquet dataset with segmented nuclei
         "data_provider",  # 'radboud' or 'karolinska'
-        "is_carcinoma",  # True if the slide contains carcinoma based on the ISUP grade
+        "isup_grade",
+        "gleason_score", 
         "has_segmentation",  # True if the segmentation file exists
         "has_annotation",  # True if the annotation mask exists
         "is_annotation_corrupted",  # True if the annotation mask is corrupted or unreadable
