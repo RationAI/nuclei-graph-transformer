@@ -44,13 +44,16 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     summary[f"{config.stratify_column}_ratio"] = (
         summary.groupby("set")["count"].transform(lambda x: x / x.sum()).round(3)
     )
+    total_counts = split["set"].value_counts().reset_index()
+    total_counts.columns = ["set", "total"]
 
     with tempfile.TemporaryDirectory() as output_dir:
         split[["slide_id", "set"]].to_csv(Path(output_dir) / "split.csv", index=False)
         logger.log_artifact(str(Path(output_dir) / "split.csv"))
         summary.to_csv(Path(output_dir) / "summary.csv", index=False)
         logger.log_artifact(str(Path(output_dir) / "summary.csv"))
-
+        summary_total.to_csv(Path(output_dir) / "total_counts.csv", index=False)
+        logger.log_artifact(str(Path(output_dir) / "total_counts.csv"))
 
 if __name__ == "__main__":
     main()
