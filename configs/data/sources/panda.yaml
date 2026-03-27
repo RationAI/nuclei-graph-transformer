@@ -5,11 +5,9 @@ dataset:
 
   paths:
     wsi_data:
-      train:
-        slides: ${data_path}/Public/Public/prostate/PANDA/train_images
-        metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
-        slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
-      test: null
+      slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+      metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+      slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
     nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
 

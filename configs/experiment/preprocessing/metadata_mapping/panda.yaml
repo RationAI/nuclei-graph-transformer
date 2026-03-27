@@ -5,5 +5,5 @@ defaults:
   - _self_
 
 split_uri: ${dataset.providers.radboud.split}
-metadata_uri: ${dataset.mlflow_uris.exploration.train}
+metadata_uri: ${dataset.mlflow_uris.exploration}
 nuclei_path: ${dataset.paths.nuclei_seg}
