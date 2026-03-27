@@ -5,11 +5,9 @@ dataset:
 
   paths:
     wsi_data:
-      train:
-        slides: ${data_path}/Public/Public/prostate/PANDA/train_images
-        metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
-        slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
-      test: null
+      slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+      metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+      slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
     nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
 
@@ -18,9 +16,7 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration:
-      train: # TODO
-      test: null
+    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
 
     supervision:
       # preprocessing/annotation_labels.py

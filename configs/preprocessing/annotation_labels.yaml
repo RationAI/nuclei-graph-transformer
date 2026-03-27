@@ -1,9 +1,9 @@
 # @package _global_
 
-train_label_masks: ???
+label_masks_dir: ???
 metadata_uri: ???
 overlap_threshold: ???
-nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_dir: ${dataset.paths.nuclei_seg}
 max_concurrent: 6
 mlflow_artifact_path: ???
 

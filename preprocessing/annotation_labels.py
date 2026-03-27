@@ -85,8 +85,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             items=to_process.to_dict("records"),
             process_item=label_slide,
             fn_kwargs={
-                "nuclei_dir": Path(config.nuclei_path),
-                "annots_dir": Path(config.train_label_masks),
+                "nuclei_dir": Path(config.nuclei_dir),
+                "annots_dir": Path(config.label_masks_dir),
                 "output_dir": Path(tmp_dir),
                 "overlap_thr": config.overlap_threshold,
             },

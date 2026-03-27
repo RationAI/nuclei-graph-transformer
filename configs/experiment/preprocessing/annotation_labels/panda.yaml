@@ -4,8 +4,8 @@ defaults:
   - /data/sources/panda
   - _self_
 
-train_label_masks: ${dataset.paths.masks.annotation}
-metadata_uri: ${dataset.mlflow_uris.exploration.train}
+label_masks_dir: ${dataset.paths.masks.annotation}
+metadata_uri: ${dataset.mlflow_uris.exploration}
 overlap_threshold: 0.5
 mlflow_artifact_path: annotation_labels
 
