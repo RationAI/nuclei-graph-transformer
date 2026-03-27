@@ -1,6 +1,6 @@
 # @package _global_
 
-split_size: ???
+test_size: ???
 stratify_column: ???
 restriction: # subset of the data to split, e.g. specific data provider
   subset_column: ???
@@ -11,7 +11,7 @@ mlflow_artifact_path: panda_split
 metadata:
   run_name: "Train-Test Split: ${dataset.name}"
   hyperparams:
-    split_size: ${split_size}
+    test_size: ${test_size}
     stratify_column: ${stratify_column}
     subset_column: ${restriction.subset_column}
     target_value: ${restriction.target_value}

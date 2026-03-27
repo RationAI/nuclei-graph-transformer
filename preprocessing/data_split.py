@@ -23,7 +23,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     train, test = train_test_split(
         slides,
-        test_size=config.split_size,
+        test_size=config.test_size,
         random_state=42,
         stratify=slides[config.stratify_column],
     )
