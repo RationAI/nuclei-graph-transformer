@@ -21,7 +21,7 @@ dataset:
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/1768e3c918034493915a3b402f969b2f/artifacts/split.csv
+      split: mlflow-artifacts:/97/3dd7a3a44d5743d5872a58fbe7c0de98/artifacts/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
