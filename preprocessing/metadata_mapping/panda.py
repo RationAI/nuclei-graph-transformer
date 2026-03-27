@@ -4,7 +4,6 @@ The mapping is intended to be used within the DataModule class for downstream da
 """
 
 from pathlib import Path
-from shlex import split
 from tempfile import TemporaryDirectory
 
 import hydra
@@ -27,9 +26,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = slides.merge(split, on="slide_id", how="inner")
 
     nuclei_dir = Path(config.nuclei_path)
-    nuclei_paths = slides["slide_id"].map(
-        lambda id: nuclei_dir / f"slide_id={id}"
-    )
+    nuclei_paths = slides["slide_id"].map(lambda id: nuclei_dir / f"slide_id={id}")
     nuclei_counts = nuclei_paths.map(str).apply(
         lambda path: sum(f.metadata.num_rows for f in pq.ParquetDataset(path).fragments)
     )
@@ -46,10 +43,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             "set": slides["set"],
         }
     )
-    
+
     train_df = map_df[map_df["set"] == "train"]
     test_df = map_df[map_df["set"] == "test"]
-    
+
     with TemporaryDirectory() as output_dir:
         train_path = Path(output_dir, "slides_mapping_train.parquet")
         test_path = Path(output_dir, "slides_mapping_test.parquet")
