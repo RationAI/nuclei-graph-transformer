@@ -5,7 +5,7 @@ defaults:
 
 data_path: /mnt/data
 project_path: /mnt/projects/nuclei_based_wsi_analysis
-mlflow_project_sc: mlflow-artifacts:/97 # sensiive cloud
+mlflow_project_sc: mlflow-artifacts:/97 # sensitive cloud
 mlflow_project_pc: mlflow-artifacts:/37 # public cloud
 
 metadata:
