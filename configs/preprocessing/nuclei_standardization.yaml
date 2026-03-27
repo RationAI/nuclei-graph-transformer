@@ -1,6 +1,6 @@
 # @package _global_
 
-metadata_uri: ${dataset.mlflow_uris.exploration.train}
+metadata_uri: ${dataset.mlflow_uris.exploration}
 nuclei_source_path: ${dataset.paths.nuclei_seg_radial}
 max_concurrent: 10
 output_path: ${dataset.paths.nuclei_seg}
