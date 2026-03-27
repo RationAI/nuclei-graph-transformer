@@ -21,10 +21,4 @@ dataset:
       # preprocessing/data_split.py
       split: mlflow-artifacts:/97/124ff97b6c4e4e15be2dac33072c9e8f/artifacts/split.csv
 
-      # preprocessing/metadata_mapping/panda.py
-      metadata:
-        train: # TODO
-        test: # TODO
-        predict: null
-
     karolinska:
