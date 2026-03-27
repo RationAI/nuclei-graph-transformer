@@ -127,26 +127,28 @@ def get_dataframes(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
-    df, summary_df, error_logs = get_dataframes(
-        df_path=Path(config.train_csv),
-        slides_dir=Path(config.train_images),
-        annots_dir=Path(config.train_label_masks),
-        properties_path=Path(config.slides_properties),
-    )
+    try:
+        df, summary_df, error_logs = get_dataframes(
+            df_path=Path(config.train_csv),
+            slides_dir=Path(config.train_images),
+            annots_dir=Path(config.train_label_masks),
+            properties_path=Path(config.slides_properties),
+        )
 
-    with TemporaryDirectory() as output_dir:
-        df.to_csv(Path(output_dir, "slides_metadata.csv"), index=False)
-        summary_df.to_csv(Path(output_dir, "summary.csv"), index=False)
+        with TemporaryDirectory() as output_dir:
+            df.to_csv(Path(output_dir, "slides_metadata.csv"), index=False)
+            summary_df.to_csv(Path(output_dir, "summary.csv"), index=False)
 
-        if error_logs:
-            with open(Path(output_dir, "errors.txt"), "w") as f:
-                f.write("\n".join(error_logs))
+            if error_logs:
+                with open(Path(output_dir, "errors.txt"), "w") as f:
+                    f.write("\n".join(error_logs))
 
-        logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
-        slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
-        mlflow.log_input(slide_dataset, context="slides_metadata")
+            logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
+            slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
+            mlflow.log_input(slide_dataset, context="slides_metadata")
 
-    ray.shutdown()
+    finally:
+        ray.shutdown()
 
 
 if __name__ == "__main__":
