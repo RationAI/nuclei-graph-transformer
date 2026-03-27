@@ -23,10 +23,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ]
 
     if config.restriction is not None:
-        slides = slides[
-            slides[config.restriction.provider_column]
-            == config.restriction.provider_value
-        ]
+        provider_col = config.restriction.provider_column
+        provider_val = config.restriction.provider_value
+        slides = slides[slides[provider_col] == provider_val]
 
     train, test = train_test_split(
         slides,
@@ -52,8 +51,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         logger.log_artifact(str(Path(output_dir) / "split.csv"))
         summary.to_csv(Path(output_dir) / "summary.csv", index=False)
         logger.log_artifact(str(Path(output_dir) / "summary.csv"))
-        summary_total.to_csv(Path(output_dir) / "total_counts.csv", index=False)
+        total_counts.to_csv(Path(output_dir) / "total_counts.csv", index=False)
         logger.log_artifact(str(Path(output_dir) / "total_counts.csv"))
+
 
 if __name__ == "__main__":
     main()
