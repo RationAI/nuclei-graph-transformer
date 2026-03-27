@@ -17,34 +17,34 @@ dataset:
   mlflow_uris:
     # exploration/prostate_cancer/save_metadataset.py
     exploration:
-      train: ${mlflow_project}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
-      test: ${mlflow_project}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations_test/slides_metadata.csv
+      train: ${mlflow_project_sc}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations/slides_metadata.csv
+      test: ${mlflow_project_sc}/cfb8ac28a8124aba9aa8553863302f1d/artifacts/tile_level_annotations_test/slides_metadata.csv
 
     masks:
       tissue: mlflow-artifacts:/65/4ea7cee809a2443389855facba548959/artifacts/tissue_masks
       # preprocessing/annotation_masks.py
-      annotation: ${mlflow_project}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/annotation_masks
+      annotation: ${mlflow_project_sc}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/annotation_masks
       # preprocessing/merge_cam_masks.py
-      cam: ${mlflow_project}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/cam_masks
+      cam: ${mlflow_project_sc}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/cam_masks
       prediction:
         virchow2: mlflow-artifacts:/65/a40c5a17026840bea1828b78af46752d/artifacts/heatmaps
       missing:
-        cam: ${mlflow_project}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/missing_cam_masks.csv
-        annotation: ${mlflow_project}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
+        cam: ${mlflow_project_sc}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/missing_cam_masks.csv
+        annotation: ${mlflow_project_sc}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
 
     # preprocessing/metadata_mapping.py
     metadata:
-      train: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations/slides_mapping.parquet
-      test: ${mlflow_project}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      train: ${mlflow_project_sc}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations/slides_mapping.parquet
+      test: ${mlflow_project_sc}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
 
     supervision:
       # preprocessing/unipolar_heatmap_labels.py
-      annotation: ${mlflow_project}/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels
+      annotation: ${mlflow_project_sc}/14fdc612694a4badbbe3a6d5f07775cb/artifacts/annotation_labels
       # preprocessing/cam_labels.py
       cam:
-        annot_restricted_thr: ${mlflow_project}/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
-        default_thr: ${mlflow_project}/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
+        annot_restricted_thr: ${mlflow_project_sc}/915784b60d2848b2ab794a6a34c76749/artifacts/cam_labels
+        default_thr: ${mlflow_project_sc}/9cb182c5a84f440b915ab62152180ec5/artifacts/cam_labels
       model_prediction:
         # preprocessing/unipolar_heatmap_labels.py
-        virchow2: ${mlflow_project}/201619e5d640496eb61fbb2f67abca87/artifacts/prediction_labels
+        virchow2: ${mlflow_project_sc}/201619e5d640496eb61fbb2f67abca87/artifacts/prediction_labels
