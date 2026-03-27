@@ -1,0 +1,34 @@
+# @package _global_
+
+dataset:
+  name: PANDA
+
+  paths:
+    wsi_data:
+      train:
+        slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+        metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+        slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
+      test: null
+
+    nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
+
+    masks:
+      annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+
+  mlflow_uris:
+    # preprocessing/exploration/panda/save_metadataset.py
+    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
+
+  providers:
+    radboud:
+      # preprocessing/data_split.py
+      split: mlflow-artifacts:/97/124ff97b6c4e4e15be2dac33072c9e8f/artifacts/split.csv
+
+      # preprocessing/metadata_mapping/panda.py
+      metadata:
+        train: # TODO
+        test: # TODO
+        predict: null
+
+    karolinska:
