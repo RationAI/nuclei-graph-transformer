@@ -109,7 +109,7 @@ def get_dataframes(
         "segmentation_id",  # ID of the slide in the parquet dataset with segmented nuclei
         "data_provider",  # 'radboud' or 'karolinska'
         "isup_grade",
-        "gleason_score", 
+        "gleason_score",
         "has_segmentation",  # True if the segmentation file exists
         "has_annotation",  # True if the annotation mask exists
         "is_annotation_corrupted",  # True if the annotation mask is corrupted or unreadable
