@@ -4,6 +4,7 @@ The mapping is intended to be used within the DataModule class for downstream da
 """
 
 from pathlib import Path
+from shlex import split
 from tempfile import TemporaryDirectory
 
 import hydra
@@ -23,12 +24,14 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
     valid_slides = slides[
-        slides["is_carcinoma"]
-        & slides["has_annotation"]
+        slides["has_annotation"]
         & slides["has_segmentation"]
         & ~slides["is_annotation_corrupted"]
         & slides["is_wsi_valid"]
     ]
+    
+    split = pd.read_csv(Path(download_artifacts(config.split_uri)))
+    valid_slides = slides.merge(split, on="slide_id", how="inner")
 
     nuclei_dir = Path(config.nuclei_path)
     nuclei_paths = valid_slides["slide_id"].map(
@@ -44,18 +47,35 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             "slide_path": valid_slides["slide_path"],
             "slide_nuclei_path": nuclei_paths.map(str),
             "nuclei_count": nuclei_counts.astype("Int64"),
-            "is_carcinoma": valid_slides["is_carcinoma"],
+            "is_carcinoma": valid_slides["isup_grade"] >= 1,
             "data_provider": valid_slides["data_provider"],
             "mpp_x": valid_slides["mpp_x"],
             "mpp_y": valid_slides["mpp_y"],
+            "set": valid_slides["set"],
         }
     )
+    
+    train_df = map_df[map_df["set"] == "train"]
+    test_df = map_df[map_df["set"] == "test"]
+    
     with TemporaryDirectory() as output_dir:
-        parquet_path = Path(output_dir, "slides_mapping.parquet")
-        map_df.to_parquet(parquet_path, index=False)
-        logger.log_artifact(local_path=str(parquet_path), artifact_path="panda")
-        slide_dataset = pandas_dataset.from_pandas(map_df, name="panda_map")
-        mlflow.log_input(slide_dataset, context="slides_mapping")
+        train_path = Path(output_dir, "slides_mapping_train.parquet")
+        test_path = Path(output_dir, "slides_mapping_test.parquet")
+
+        train_df.to_parquet(train_path, index=False)
+        test_df.to_parquet(test_path, index=False)
+
+        logger.log_artifact(str(train_path), artifact_path="panda")
+        logger.log_artifact(str(test_path), artifact_path="panda")
+
+        mlflow.log_input(
+            pandas_dataset.from_pandas(train_df, name="panda_map_train"),
+            context="slides_mapping_train",
+        )
+        mlflow.log_input(
+            pandas_dataset.from_pandas(test_df, name="panda_map_test"),
+            context="slides_mapping_test",
+        )
 
 
 if __name__ == "__main__":
