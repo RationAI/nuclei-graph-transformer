@@ -82,7 +82,7 @@ def get_dataframes(
     df = df.merge(pd.DataFrame(results), on="slide_id", how="left")
 
     properties_df = pd.read_parquet(properties_path)
-    properties_df["slide_id"] = properties_df["path"].apply(lambda p: Path(p).stem)
+    properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
     df = df.merge(
         properties_df[["slide_id", "id", "extent_x", "extent_y", "mpp_x", "mpp_y"]],
         on="slide_id",
@@ -90,16 +90,16 @@ def get_dataframes(
     )
 
     error_logs = df.loc[df["error_msg"].notna(), "error_msg"].tolist()
-    df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
+    df["slide_path"] = slides_dir.as_posix() + "/" + df["slide_id"] + ".tiff"
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
-    df["annotation"] = df["annot_status"] != "missing"
-    df["segmentation"] = df["id"].notna()
+    df["has_annotation"] = df["annot_status"] != "missing"
+    df["has_segmentation"] = df["id"].notna()
     df["is_carcinoma"] = df["isup_grade"] > 0
 
     summary_df = (
         df[df["is_wsi_valid"] & ~df["is_annotation_corrupted"]]
         .groupby(["data_provider", "is_carcinoma", "isup_grade"])
-        .agg(Total_Slides=("slide_id", "count"), Annotations=("annotation", "sum"))
+        .agg(Total_Slides=("slide_id", "count"), Annotations=("has_annotation", "sum"))
         .reset_index()
     )
 
@@ -109,8 +109,8 @@ def get_dataframes(
         "id",  # ID of the slide in the parquet dataset with segmented nuclei
         "data_provider",  # 'radboud' or 'karolinska'
         "is_carcinoma",  # True if the slide contains carcinoma based on the ISUP grade
-        "segmentation",  # True if the segmentation file exists
-        "annotation",  # True if the annotation mask exists
+        "has_segmentation",  # True if the segmentation file exists
+        "has_annotation",  # True if the annotation mask exists
         "is_annotation_corrupted",  # True if the annotation mask is corrupted or unreadable
         "is_wsi_valid",  # True if the whole slide image is valid and contains tissue
         "extent_x",
