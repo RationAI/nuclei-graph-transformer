@@ -18,12 +18,17 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration:
-      train: mlflow-artifacts:/97/9278b8022bf54eb894aec241088d1c93/artifacts/panda/slides_metadata.csv
-      test: null
+    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
 
-    # preprocessing/metadata_mapping/panda.py
-    metadata:
-      train: ${mlflow_project}/2a0034a7a59a4a0586ae88ff6a3e0fe4/artifacts/panda/slides_mapping.parquet
-      test: null
-      predict: null
+  providers:
+    radboud:
+      # preprocessing/data_split.py
+      split: mlflow-artifacts:/97/1768e3c918034493915a3b402f969b2f/artifacts/split.csv
+
+      # preprocessing/metadata_mapping/panda.py
+      metadata:
+        train: # TODO
+        test: # TODO
+        predict: null
+
+    karolinska:
