@@ -48,7 +48,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             "slide_nuclei_path": nuclei_paths.map(str),
             "nuclei_count": nuclei_counts.astype("Int64"),
             "is_carcinoma": valid_slides["isup_grade"] >= 1,
-            "data_provider": valid_slides["data_provider"],
             "mpp_x": valid_slides["mpp_x"],
             "mpp_y": valid_slides["mpp_y"],
             "set": valid_slides["set"],
@@ -69,11 +68,11 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         logger.log_artifact(str(test_path), artifact_path="panda")
 
         mlflow.log_input(
-            pandas_dataset.from_pandas(train_df, name="panda_map_train"),
+            pandas_dataset.from_pandas(train_df, name="map_train"),
             context="slides_mapping_train",
         )
         mlflow.log_input(
-            pandas_dataset.from_pandas(test_df, name="panda_map_test"),
+            pandas_dataset.from_pandas(test_df, name="map_test"),
             context="slides_mapping_test",
         )
 
