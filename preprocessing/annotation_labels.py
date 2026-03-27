@@ -40,9 +40,7 @@ def label_slide(
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
     mask: NDArray[np.uint8] = tifffile.imread(mask_path)
     if mask.ndim == 3:  # values are repeated across channels, take the first one
-        mask = mask[..., 0] if mask.shape[-1] == 3 else mask.squeeze()
-    else:
-        mask = mask.squeeze()
+        mask = mask[..., 0]
     mask_extent_y, mask_extent_x = mask.shape
 
     scale_x = mask_extent_x / wsi_extent_x
@@ -75,8 +73,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
     to_process = slides[
         slides["is_carcinoma"]
-        & slides["annotation"]
-        & slides["segmentation"]
+        & slides["has_annotation"]
+        & slides["has_segmentation"]
         & ~slides["is_annotation_corrupted"]
         & slides["is_wsi_valid"]
     ]
