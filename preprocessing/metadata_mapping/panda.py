@@ -1,8 +1,3 @@
-"""Script for mapping slide-level metadata for the PANDA dataset.
-
-The mapping is intended to be used within the DataModule class for downstream data loading.
-"""
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
