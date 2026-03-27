@@ -12,6 +12,17 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
+def log_input(df: pd.DataFrame, name: str, logger: MLFlowLogger) -> None:
+    with TemporaryDirectory() as temp_dir:
+        path = Path(temp_dir, f"{name}.parquet")
+        df.to_parquet(path, index=False)
+        logger.log_artifact(str(path), artifact_path="panda")
+        mlflow.log_input(
+            pandas_dataset.from_pandas(df, name=name),
+            context=f"panda/{name}",
+        )
+
+
 @with_cli_args(["+preprocessing=metadata_mapping"])
 @hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
@@ -41,28 +52,11 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     train_df = map_df[map_df["set"] == "train"]
     train_df = train_df.drop(columns=["set"])
+    log_input(train_df, "train_slides_mapping", logger)
 
     test_df = map_df[map_df["set"] == "test"]
     test_df = test_df.drop(columns=["set"])
-
-    with TemporaryDirectory() as output_dir:
-        train_path = Path(output_dir, "slides_mapping_train.parquet")
-        test_path = Path(output_dir, "slides_mapping_test.parquet")
-
-        train_df.to_parquet(train_path, index=False)
-        test_df.to_parquet(test_path, index=False)
-
-        logger.log_artifact(str(train_path), artifact_path="panda")
-        logger.log_artifact(str(test_path), artifact_path="panda")
-
-        mlflow.log_input(
-            pandas_dataset.from_pandas(train_df, name="map_train"),
-            context="slides_mapping_train",
-        )
-        mlflow.log_input(
-            pandas_dataset.from_pandas(test_df, name="map_test"),
-            context="slides_mapping_test",
-        )
+    log_input(test_df, "test_slides_mapping", logger)
 
 
 if __name__ == "__main__":
