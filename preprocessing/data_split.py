@@ -24,7 +24,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     if config.restriction is not None:
         slides = slides[
-            slides[config.restriction.provider_column] == config.restriction.provider_value
+            slides[config.restriction.provider_column]
+            == config.restriction.provider_value
         ]
 
     train, test = train_test_split(
@@ -40,9 +41,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     summary = (
         split.groupby(["set", config.stratify_column]).size().reset_index(name="count")
     )
-    summary[f"{config.stratify_column}_ratio"] = summary.groupby("set")[
-        "count"
-    ].transform(lambda x: round(x / x.sum(), 3))
+    summary[f"{config.stratify_column}_ratio"] = (
+        summary.groupby("set")["count"].transform(lambda x: x / x.sum()).round(3)
+    )
 
     with tempfile.TemporaryDirectory() as output_dir:
         split[["slide_id", "set"]].to_csv(Path(output_dir) / "split.csv", index=False)
