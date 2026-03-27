@@ -83,8 +83,11 @@ def get_dataframes(
 
     properties_df = pd.read_parquet(properties_path)
     properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
+    properties_df = properties_df.rename(columns={"id": "segmentation_id"})
     df = df.merge(
-        properties_df[["slide_id", "id", "extent_x", "extent_y", "mpp_x", "mpp_y"]],
+        properties_df[
+            ["slide_id", "segmentation_id", "extent_x", "extent_y", "mpp_x", "mpp_y"]
+        ],
         on="slide_id",
         how="left",
     )
@@ -93,7 +96,7 @@ def get_dataframes(
     df["slide_path"] = slides_dir.as_posix() + "/" + df["slide_id"] + ".tiff"
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["has_annotation"] = df["annot_status"] != "missing"
-    df["has_segmentation"] = df["id"].notna()
+    df["has_segmentation"] = df["segmentation_id"].notna()
     df["is_carcinoma"] = df["isup_grade"] > 0
 
     summary_df = (
@@ -106,7 +109,7 @@ def get_dataframes(
     final_cols = [
         "slide_id",  # 32-character hex string identifier for each slide
         "slide_path",
-        "id",  # ID of the slide in the parquet dataset with segmented nuclei
+        "segmentation_id",  # ID of the slide in the parquet dataset with segmented nuclei
         "data_provider",  # 'radboud' or 'karolinska'
         "is_carcinoma",  # True if the slide contains carcinoma based on the ISUP grade
         "has_segmentation",  # True if the segmentation file exists
