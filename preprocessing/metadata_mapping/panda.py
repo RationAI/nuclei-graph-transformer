@@ -45,7 +45,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     )
 
     train_df = map_df[map_df["set"] == "train"]
+    train_df = train_df.drop(columns=["set"])
+
     test_df = map_df[map_df["set"] == "test"]
+    test_df = test_df.drop(columns=["set"])
 
     with TemporaryDirectory() as output_dir:
         train_path = Path(output_dir, "slides_mapping_train.parquet")
