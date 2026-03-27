@@ -25,8 +25,8 @@ dataset:
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: mlflow-artifacts:/97/93ca840c165a484591f0737b3693fc46/artifacts/panda/slides_mapping_train.parquet
-        test: mlflow-artifacts:/97/93ca840c165a484591f0737b3693fc46/artifacts/panda/slides_mapping_test.parquet
+        train: mlflow-artifacts:/97/9aa3ab952f804836a429c287efc553e5/artifacts/panda/slides_mapping_train.parquet
+        test: mlflow-artifacts:/97/9aa3ab952f804836a429c287efc553e5/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
     karolinska:
