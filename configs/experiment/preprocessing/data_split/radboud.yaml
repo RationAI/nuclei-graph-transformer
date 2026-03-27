@@ -7,8 +7,8 @@ defaults:
 test_size: 0.2
 stratify_column: gleason_score
 restriction:
-  subset_column: data_provider
-  target_value: radboud
+  provider_column: data_provider
+  provider_value: radboud
 
 metadata:
-  run_name: "Train-Test Split: ${dataset.name}/${restriction.target_value}"
+  run_name: "Train-Test Split: ${dataset.name}/${restriction.provider_value}"

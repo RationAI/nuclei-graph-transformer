@@ -24,7 +24,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     if config.restriction is not None:
         slides = slides[
-            slides[config.restriction.subset_column] == config.restriction.target_value
+            slides[config.restriction.provider_column] == config.restriction.provider_value
         ]
 
     train, test = train_test_split(
