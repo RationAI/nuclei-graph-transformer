@@ -17,5 +17,5 @@ dataset:
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration:
-      train: ${mlflow_project}/5126a382303b4be39ffc3200dae7056b/artifacts/panda/slides_metadata.csv
+      train: # TODO
       test: null
