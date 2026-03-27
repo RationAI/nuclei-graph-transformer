@@ -1,5 +1,3 @@
-"""This script generates a CSV exploration metadataset for the PANDA Challenge Dataset."""
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -60,12 +58,12 @@ def validate_sample(
 
 
 def get_dataframes(
-    df_path: Path,
+    metadata_csv_path: Path,
     slides_dir: Path,
     annots_dir: Path,
-    properties_path: Path,
+    properties_pq_path: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    df = pd.read_csv(df_path).rename(columns={"image_id": "slide_id"})
+    df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
 
     futures = [
         validate_sample.remote(slide_id, slides_dir, annots_dir)
@@ -81,7 +79,7 @@ def get_dataframes(
 
     df = df.merge(pd.DataFrame(results), on="slide_id", how="left")
 
-    properties_df = pd.read_parquet(properties_path)
+    properties_df = pd.read_parquet(properties_pq_path)
     properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
     properties_df = properties_df.rename(columns={"id": "segmentation_id"})
     df = df.merge(
@@ -132,10 +130,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     try:
         df, summary_df, error_logs = get_dataframes(
-            df_path=Path(config.train_csv),
-            slides_dir=Path(config.train_images),
-            annots_dir=Path(config.train_label_masks),
-            properties_path=Path(config.slides_properties),
+            metadata_csv_path=Path(config.metadata_csv),
+            slides_dir=Path(config.slides_dir),
+            annots_dir=Path(config.label_masks_dir),
+            properties_pq_path=Path(config.slides_properties_parquet),
         )
 
         with TemporaryDirectory() as output_dir:
