@@ -15,6 +15,12 @@ from sklearn.model_selection import train_test_split
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
+    slides = slides[
+        slides["has_annotation"]
+        & slides["has_segmentation"]
+        & ~slides["is_annotation_corrupted"]
+        & slides["is_wsi_valid"]
+    ]
 
     if config.restriction is not None:
         slides = slides[
