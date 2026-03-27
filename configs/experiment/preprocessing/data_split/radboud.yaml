@@ -9,3 +9,6 @@ stratify_column: gleason_score
 restriction:
   subset_column: data_provider
   target_value: radboud
+
+metadata:
+  run_name: "Train-Test Split: ${dataset.name}/${restriction.target_value}"
