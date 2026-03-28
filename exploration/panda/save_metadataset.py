@@ -79,6 +79,7 @@ def get_dataframes(
         ): slide_id
         for slide_id in slide_ids
     }
+
     results_by_slide = {}
     with tqdm(total=len(futures), desc="Validating Slides and Annotations") as pbar:
         while futures:
@@ -87,6 +88,7 @@ def get_dataframes(
                 slide_id = futures.pop(ref)
                 results_by_slide[slide_id] = ray.get(ref)
             pbar.update(len(done))
+
     valid = {sid for sid, is_valid in results_by_slide.items() if is_valid}
     df = df[df["slide_id"].isin(valid)].reset_index(drop=True)
 
