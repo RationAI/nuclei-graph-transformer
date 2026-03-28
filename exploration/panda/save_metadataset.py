@@ -73,21 +73,21 @@ def get_dataframes(
     df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
     slide_ids = df["slide_id"].tolist()
 
-    futures = [
+    futures = {
         validate_sample.remote(
             slide_id, slides_dir, annots_dir, tissue_threshold, log_file
-        )
+        ): slide_id
         for slide_id in slide_ids
-    ]
-
-    results = []
+    }
+    results_by_slide = {}
     with tqdm(total=len(futures), desc="Validating Slides and Annotations") as pbar:
         while futures:
-            done, futures = ray.wait(futures, num_returns=min(10, len(futures)))
-            results.extend(ray.get(done))
+            done, _ = ray.wait(list(futures.keys()), num_returns=min(10, len(futures)))
+            for ref in done:
+                slide_id = futures.pop(ref)
+                results_by_slide[slide_id] = ray.get(ref)
             pbar.update(len(done))
-
-    valid = {id for id, is_valid in zip(slide_ids, results, strict=True) if is_valid}
+    valid = {sid for sid, is_valid in results_by_slide.items() if is_valid}
     df = df[df["slide_id"].isin(valid)].reset_index(drop=True)
 
     properties_df = pd.read_parquet(properties_pq_path)
