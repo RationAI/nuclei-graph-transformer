@@ -65,13 +65,11 @@ def validate_sample(
 
 def get_dataframes(
     metadata_csv_path: Path,
-    metadata_csv_path: Path,
     slides_dir: Path,
     annots_dir: Path,
     properties_pq_path: Path,
     tissue_threshold: float,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
     df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
 
     futures = [
@@ -90,13 +88,7 @@ def get_dataframes(
     properties_df = pd.read_parquet(properties_pq_path)
     properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
     properties_df = properties_df.rename(columns={"id": "segmentation_id"})
-    properties_df = pd.read_parquet(properties_pq_path)
-    properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
-    properties_df = properties_df.rename(columns={"id": "segmentation_id"})
     df = df.merge(
-        properties_df[
-            ["slide_id", "segmentation_id", "extent_x", "extent_y", "mpp_x", "mpp_y"]
-        ],
         properties_df[
             ["slide_id", "segmentation_id", "extent_x", "extent_y", "mpp_x", "mpp_y"]
         ],
@@ -109,13 +101,9 @@ def get_dataframes(
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["has_annotation"] = df["annot_status"] != "missing"
     df["has_segmentation"] = df["segmentation_id"].notna()
-    df["has_annotation"] = df["annot_status"] != "missing"
-    df["has_segmentation"] = df["segmentation_id"].notna()
 
     summary_df = (
         df[df["is_wsi_valid"] & ~df["is_annotation_corrupted"]]
-        .groupby(["data_provider", "isup_grade", "gleason_score"])
-        .agg(Total_Slides=("slide_id", "count"), Annotations=("has_annotation", "sum"))
         .groupby(["data_provider", "isup_grade", "gleason_score"])
         .agg(Total_Slides=("slide_id", "count"), Annotations=("has_annotation", "sum"))
         .reset_index()
@@ -125,12 +113,7 @@ def get_dataframes(
         "slide_id",  # 32-character hex string identifier for each slide
         "slide_path",
         "segmentation_id",  # ID of the slide in the parquet dataset with segmented nuclei
-        "segmentation_id",  # ID of the slide in the parquet dataset with segmented nuclei
         "data_provider",  # 'radboud' or 'karolinska'
-        "isup_grade",
-        "gleason_score",
-        "has_segmentation",  # True if the segmentation file exists
-        "has_annotation",  # True if the annotation mask exists
         "isup_grade",
         "gleason_score",
         "has_segmentation",  # True if the segmentation file exists
