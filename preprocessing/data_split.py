@@ -45,7 +45,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         split[["slide_id", "set"]].to_csv(Path(output_dir) / "split.csv", index=False)
         summary.to_csv(Path(output_dir) / "summary.csv", index=False)
         total_counts.to_csv(Path(output_dir) / "total_counts.csv", index=False)
-        logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
+        logger.log_artifacts(
+            local_dir=output_dir, artifact_path=config.mlflow_artifact_path
+        )
 
 
 if __name__ == "__main__":

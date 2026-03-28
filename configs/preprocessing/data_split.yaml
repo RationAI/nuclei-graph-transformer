@@ -6,7 +6,7 @@ restriction: # subset of the data to split for provider-specific splits
   provider_column: ???
   provider_value: ???
 metadata_uri: ${dataset.mlflow_uris.exploration}
-mlflow_artifact_path: split
+mlflow_artifact_path: ${dataset.name}_split
 
 metadata:
   run_name: "Train-Test Split: ${dataset.name}"

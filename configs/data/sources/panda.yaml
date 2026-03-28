@@ -23,6 +23,6 @@ dataset:
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/efa9ec56be4d4a28b15a0063ba44d188/artifacts/panda/split.csv
+      split: mlflow-artifacts:/97/635d0aaf588e41b6841d5b2ee69105d7/artifacts/radboud_split/split.csv
 
     karolinska:
