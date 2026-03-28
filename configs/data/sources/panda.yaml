@@ -19,4 +19,3 @@ dataset:
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
-    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
