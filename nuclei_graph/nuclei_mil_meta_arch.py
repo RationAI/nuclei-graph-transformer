@@ -233,7 +233,7 @@ class NucleiMILMetaArch(LightningModule):
                 decay_params.append(w)
 
         return [
-            {"params": decay_params, "weight_decay": 1e-2},
+            {"params": decay_params, "weight_decay": 0.05},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 

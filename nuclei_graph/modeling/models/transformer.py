@@ -4,7 +4,7 @@ from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
 from nuclei_graph.configuration import Config
-from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
+from nuclei_graph.modeling.layers import GatedAttention, GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import Outputs
 
 
@@ -46,15 +46,18 @@ class Transformer(nn.Module):
         )
 
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        self.input_proj = nn.Linear(config.node_features, config.dim)
+
+        self.input_proj = nn.Sequential(
+            nn.Linear(config.node_features, config.dim),
+            nn.Dropout(0.1),
+        )
         self.final_norm = nn.RMSNorm(config.dim)
 
-        self.class_head = nn.Linear(config.dim, config.num_classes)
-        self.attn_head = nn.Sequential(
-            nn.Linear(config.dim, config.dim // 2),
-            nn.Tanh(),
-            nn.Linear(config.dim // 2, 1),
+        self.class_head = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(config.dim, config.num_classes),
         )
+        self.attn_head = GatedAttention(config.dim)
 
     def forward(
         self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_len: Tensor
@@ -97,6 +100,9 @@ class Transformer(nn.Module):
         # mask out padded tokens before softmax
         attn_scores = attn_scores.masked_fill(~valid_mask, float("-inf"))
         attn_weights = torch.softmax(attn_scores, dim=1)
+        attn_weights = nn.functional.dropout(
+            attn_weights, p=0.2, training=self.training
+        )
 
         graph_pred = torch.sum(attn_weights * nuclei_preds, dim=1)
 
