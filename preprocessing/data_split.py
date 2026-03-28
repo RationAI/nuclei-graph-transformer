@@ -15,12 +15,7 @@ from sklearn.model_selection import train_test_split
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-    slides = slides[
-        slides["has_annotation"]
-        & slides["has_segmentation"]
-        & ~slides["is_annotation_corrupted"]
-        & slides["is_wsi_valid"]
-    ]
+    slides = slides[slides["has_annotation"] & slides["has_segmentation"]]
 
     if config.restriction is not None:
         provider_col = config.restriction.provider_column
@@ -48,11 +43,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     with tempfile.TemporaryDirectory() as output_dir:
         split[["slide_id", "set"]].to_csv(Path(output_dir) / "split.csv", index=False)
-        logger.log_artifact(str(Path(output_dir) / "split.csv"))
         summary.to_csv(Path(output_dir) / "summary.csv", index=False)
-        logger.log_artifact(str(Path(output_dir) / "summary.csv"))
         total_counts.to_csv(Path(output_dir) / "total_counts.csv", index=False)
-        logger.log_artifact(str(Path(output_dir) / "total_counts.csv"))
+        logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
 
 
 if __name__ == "__main__":

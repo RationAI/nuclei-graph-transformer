@@ -6,7 +6,11 @@ dataset:
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+
+      # reference ground truth information from the competition
       metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
     masks:
@@ -14,11 +18,11 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
+    exploration: mlflow-artifacts:/97/6cb82d74735d413aa492548bbb6c20d6/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/3dd7a3a44d5743d5872a58fbe7c0de98/artifacts/split.csv
+      split: mlflow-artifacts:/97/efa9ec56be4d4a28b15a0063ba44d188/artifacts/panda/split.csv
 
     karolinska:
