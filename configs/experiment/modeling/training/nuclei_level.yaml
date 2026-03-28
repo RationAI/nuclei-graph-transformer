@@ -19,15 +19,15 @@ trainer:
   #accumulate_grad_batches: 2
 
 data:
-  batch_size: 32
+  batch_size: 48
   split_size: 0.1
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: false
+    symmetric_block_mask: true
     mil: false
   sampler:
     positivity_thr: 0.05
@@ -46,4 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: ""
+  description: "k=32, symmetric block mask, bs=48"
