@@ -18,7 +18,11 @@ from tqdm import tqdm
 
 @ray.remote(num_cpus=1)
 def validate_sample(
-    slide_id: str, slides_dir: Path, annots_dir: Path, tissue_threshold: float
+    slide_id: str,
+    slides_dir: Path,
+    annots_dir: Path,
+    tissue_threshold: float,
+    log_file: Path,
 ) -> dict[str, Any]:
     """Checks validity of a slide and its corresponding annotation mask.
 
@@ -27,7 +31,11 @@ def validate_sample(
     existence and readability.
     """
     slide_path = slides_dir / f"{slide_id}.tiff"
-    errors: list[str] = []
+
+    def log(msg: str) -> None:
+        with log_file.open("a") as f:
+            f.write(msg + "\n")
+            f.flush()
 
     is_wsi_valid = False
     try:
@@ -36,10 +44,12 @@ def validate_sample(
             thumb_array = np.array(thumb)
             tissue_ratio = np.mean(thumb_array < np.percentile(thumb_array, 95))
             is_wsi_valid = tissue_ratio > tissue_threshold
+
             if not is_wsi_valid:
-                errors.append(f"SLIDE_EMPTY: {slide_id} (ratio: {tissue_ratio:.4f})")
+                log(f"SLIDE_EMPTY: {slide_id} (ratio={tissue_ratio:.4f})")
+
     except Exception as e:
-        errors.append(f"SLIDE_ERROR: {slide_id} - {e!s}")
+        log(f"SLIDE_ERROR: {slide_id} - {e!s}")
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
 
@@ -50,16 +60,16 @@ def validate_sample(
             annot_status = (
                 "valid" if (mask is not None and mask.size > 0) else "corrupted"
             )
+            if annot_status == "corrupted":
+                log(f"MASK_EMPTY: {slide_id}")
         except Exception as e:
-            msg = f"MASK_CORRUPTED: {slide_id} - {e!s}"
-            errors.append(msg)
+            log(f"MASK_CORRUPTED: {slide_id} - {e!s}")
             annot_status = "corrupted"
 
     return {
         "slide_id": slide_id,
         "is_wsi_valid": is_wsi_valid,
         "annot_status": annot_status,
-        "errors": "\n".join(errors) if errors else None,
     }
 
 
@@ -69,11 +79,14 @@ def get_dataframes(
     annots_dir: Path,
     properties_pq_path: Path,
     tissue_threshold: float,
-) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    log_file: Path,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
 
     futures = [
-        validate_sample.remote(slide_id, slides_dir, annots_dir, tissue_threshold)
+        validate_sample.remote(
+            slide_id, slides_dir, annots_dir, tissue_threshold, log_file
+        )
         for slide_id in df["slide_id"].tolist()
     ]
     results = []
@@ -88,6 +101,7 @@ def get_dataframes(
     properties_df = pd.read_parquet(properties_pq_path)
     properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
     properties_df = properties_df.rename(columns={"id": "segmentation_id"})
+
     df = df.merge(
         properties_df[
             ["slide_id", "segmentation_id", "extent_x", "extent_y", "mpp_x", "mpp_y"]
@@ -96,8 +110,7 @@ def get_dataframes(
         how="left",
     )
 
-    errors = [e for row in df["errors"].dropna() for e in row.split("\n")]
-    df["slide_path"] = (slides_dir / df["slide_id"] + ".tiff").astype(str)
+    df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
     df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
     df["has_annotation"] = df["annot_status"] != "missing"
     df["has_segmentation"] = df["segmentation_id"].notna()
@@ -125,7 +138,7 @@ def get_dataframes(
         "mpp_x",
         "mpp_y",
     ]
-    return df[final_cols], summary_df, errors
+    return df[final_cols], summary_df
 
 
 @with_cli_args(["+exploration=panda/save_metadataset"])
@@ -134,27 +147,29 @@ def get_dataframes(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
-    try:
-        df, summary_df, errors = get_dataframes(
+    with TemporaryDirectory() as output_dir:
+        log_file = Path(output_dir) / "errors.log"
+
+        df, summary_df = get_dataframes(
             metadata_csv_path=Path(config.metadata_csv),
             slides_dir=Path(config.slides_dir),
             annots_dir=Path(config.label_masks_dir),
             properties_pq_path=Path(config.slides_properties_parquet),
             tissue_threshold=config.tissue_threshold,
+            log_file=log_file,
         )
-        with TemporaryDirectory() as output_dir:
-            df.to_csv(Path(output_dir) / "slides_metadata.csv", index=False)
-            summary_df.to_csv(Path(output_dir) / "summary.csv", index=False)
 
-            if errors:
-                with open(Path(output_dir) / "errors.txt", "w") as f:
-                    f.write("\n".join(errors))
+        df.to_csv(Path(output_dir) / "slides_metadata.csv", index=False)
+        summary_df.to_csv(Path(output_dir) / "summary.csv", index=False)
 
-            logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
-            slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
-            mlflow.log_input(slide_dataset, context="slides_metadata")
-    finally:
-        ray.shutdown()
+        if log_file.exists():
+            (Path(output_dir) / "errors.txt").write_text(log_file.read_text())
+
+        logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
+        slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
+        mlflow.log_input(slide_dataset, context="slides_metadata")
+
+    ray.shutdown()
 
 
 if __name__ == "__main__":
