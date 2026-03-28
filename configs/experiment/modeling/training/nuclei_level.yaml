@@ -46,4 +46,4 @@ model:
 
 metadata:
   run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "k=32, symmetric block mask"
+  description: "k=32, symmetric block mask, bs=64"
