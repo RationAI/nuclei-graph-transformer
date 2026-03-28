@@ -1,6 +1,5 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
 
 import hydra
 import mlflow
@@ -23,7 +22,7 @@ def validate_sample(
     annots_dir: Path,
     tissue_threshold: float,
     log_file: Path,
-) -> dict[str, Any]:
+) -> bool:
     """Checks validity of a slide and its corresponding annotation mask.
 
     The slide is considered valid if it contains a sufficient amount of
@@ -37,40 +36,30 @@ def validate_sample(
             f.write(msg + "\n")
             f.flush()
 
-    is_wsi_valid = False
     try:
         with OpenSlide(str(slide_path)) as wsi:
             thumb = wsi.get_thumbnail(size=(512, 512)).convert("L")
             thumb_array = np.array(thumb)
             tissue_ratio = np.mean(thumb_array < np.percentile(thumb_array, 95))
-            is_wsi_valid = tissue_ratio > tissue_threshold
-
-            if not is_wsi_valid:
+            if tissue_ratio <= tissue_threshold:
                 log(f"SLIDE_EMPTY: {slide_id} (ratio={tissue_ratio:.4f})")
-
+                return False
     except Exception as e:
         log(f"SLIDE_ERROR: {slide_id} - {e!s}")
+        return False
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
-
-    annot_status = "missing"
     if mask_path.exists():
         try:
             mask = tifffile.imread(str(mask_path))
-            annot_status = (
-                "valid" if (mask is not None and mask.size > 0) else "corrupted"
-            )
-            if annot_status == "corrupted":
+            if mask is None or mask.size == 0:
                 log(f"MASK_EMPTY: {slide_id}")
+                return False
         except Exception as e:
             log(f"MASK_CORRUPTED: {slide_id} - {e!s}")
-            annot_status = "corrupted"
+            return False
 
-    return {
-        "slide_id": slide_id,
-        "is_wsi_valid": is_wsi_valid,
-        "annot_status": annot_status,
-    }
+    return True
 
 
 def get_dataframes(
@@ -82,13 +71,15 @@ def get_dataframes(
     log_file: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
+    slide_ids = df["slide_id"].tolist()
 
     futures = [
         validate_sample.remote(
             slide_id, slides_dir, annots_dir, tissue_threshold, log_file
         )
-        for slide_id in df["slide_id"].tolist()
+        for slide_id in slide_ids
     ]
+
     results = []
     with tqdm(total=len(futures), desc="Validating Slides and Annotations") as pbar:
         while futures:
@@ -96,7 +87,8 @@ def get_dataframes(
             results.extend(ray.get(done))
             pbar.update(len(done))
 
-    df = df.merge(pd.DataFrame(results), on="slide_id", how="left")
+    valid = {id for id, is_valid in zip(slide_ids, results, strict=True) if is_valid}
+    df = df[df["slide_id"].isin(valid)].reset_index(drop=True)
 
     properties_df = pd.read_parquet(properties_pq_path)
     properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
@@ -111,13 +103,13 @@ def get_dataframes(
     )
 
     df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.tiff"))
-    df["is_annotation_corrupted"] = df["annot_status"] == "corrupted"
-    df["has_annotation"] = df["annot_status"] != "missing"
+    df["has_annotation"] = df["slide_id"].apply(
+        lambda sid: (annots_dir / f"{sid}_mask.tiff").exists()
+    )
     df["has_segmentation"] = df["segmentation_id"].notna()
 
     summary_df = (
-        df[df["is_wsi_valid"] & ~df["is_annotation_corrupted"]]
-        .groupby(["data_provider", "isup_grade", "gleason_score"])
+        df.groupby(["data_provider", "isup_grade", "gleason_score"])
         .agg(Total_Slides=("slide_id", "count"), Annotations=("has_annotation", "sum"))
         .reset_index()
     )
@@ -131,8 +123,6 @@ def get_dataframes(
         "gleason_score",
         "has_segmentation",  # True if the segmentation file exists
         "has_annotation",  # True if the annotation mask exists
-        "is_annotation_corrupted",  # True if the annotation mask is corrupted or unreadable
-        "is_wsi_valid",  # True if the whole slide image is valid and contains tissue
         "extent_x",
         "extent_y",
         "mpp_x",
