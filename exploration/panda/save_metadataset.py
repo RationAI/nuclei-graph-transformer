@@ -41,7 +41,7 @@ def validate_sample(
             thumb = wsi.get_thumbnail(size=(512, 512)).convert("L")
             thumb_array = np.array(thumb)
             tissue_ratio = np.mean(thumb_array < np.percentile(thumb_array, 95))
-            if tissue_ratio <= tissue_threshold:
+            if tissue_ratio < tissue_threshold:
                 log(f"SLIDE_EMPTY: {slide_id} (ratio={tissue_ratio:.4f})")
                 return False
     except Exception as e:
@@ -151,9 +151,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
         df.to_csv(Path(output_dir) / "slides_metadata.csv", index=False)
         summary_df.to_csv(Path(output_dir) / "summary.csv", index=False)
-
-        if log_file.exists():
-            (Path(output_dir) / "errors.txt").write_text(log_file.read_text())
 
         logger.log_artifacts(local_dir=output_dir, artifact_path="panda")
         slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="panda")
