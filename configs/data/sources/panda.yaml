@@ -6,7 +6,11 @@ dataset:
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+
+      # reference ground truth information from the competition
       metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
     nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
@@ -16,17 +20,17 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
+    exploration: mlflow-artifacts:/97/6cb82d74735d413aa492548bbb6c20d6/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/d1ee017901244084aac045cf8b08fc10/artifacts/split.csv
+      split: mlflow-artifacts:/97/635d0aaf588e41b6841d5b2ee69105d7/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: mlflow-artifacts:/97/c43c05345a1e4e22b19fba0eb593515c/artifacts/panda/slides_mapping_train.parquet
-        test: mlflow-artifacts:/97/c43c05345a1e4e22b19fba0eb593515c/artifacts/panda/slides_mapping_test.parquet
+        train: mlflow-artifacts:/97/e730dfcc533e41a1af1188347fac2995/artifacts/panda/slides_mapping_train.parquet
+        test: mlflow-artifacts:/97/e730dfcc533e41a1af1188347fac2995/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
     karolinska:
