@@ -181,7 +181,7 @@ cam_labels/
 **Output layout**:
 ```text
 <DATASET_NAME>_split/
-  split.csv ()
+  split.csv
   summary.csv (table with aggregate statistics)
   total_counts.csv (table with slide counts for each set)
 ```
