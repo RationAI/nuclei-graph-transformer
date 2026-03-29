@@ -17,7 +17,7 @@
 - `slide_path` (`str`)
 - `is_carcinoma` (`bool`)
 - `has_annotation` (`bool`)
-- `patient_id` (`str`): 4-digit unique patient ID
+- `patient_id` (`str`): 4-digit unique patient identifier.
 - `case_id` (`str`): <year>_<patient_id>
 
 ### PANDA Challenge Exploration Script

@@ -18,7 +18,7 @@
 5. **CAM-based Nuclei Labeling** (`cam_labels.py`, [output structure](#cam-labels-output))  
    Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus (for loss weighting, etc.).
 
-6. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-output))   
+6. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-mmci-output))   
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 <a id="panda-workflow"></a>
@@ -33,7 +33,7 @@
 3. **Train-Test Split** (`data_split.py`, [output structure](#data-split-output))  
    Performs train-test split stratified by gleason scores.
 
-4. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-output))  
+4. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 ## Output Structure Overview
@@ -130,8 +130,8 @@ cam_labels/
 
 ---
 
-<a id="metadata-mapping-output"></a>
-### Metadata Mapping: `metadata_mapping.py`
+<a id="metadata-mapping-mmci-output"></a>
+### Metadata Mapping: `metadata_mapping/prostate_cancer_mmci_tl.py`
 
 **Location**: MLflow artifacts
 
@@ -143,7 +143,7 @@ cam_labels/
 
 **Parquet row schema (one row = one slide)**:
 - `slide_id` (`str`)
-- `patient_id` (`str`)
+- `patient_id` (`str`): 4-digit unique patient identifier.
 - `slide_path` (`str`)
 - `slide_nuclei_path` (`str`): Path to partitioned nuclei parquet slide folder.
 - `nuclei_count` (`int`)
@@ -208,6 +208,30 @@ annotation_labels/
 - `slide_id` (`str`)
 - `id` (`str`): Nucleus identifier.
 - `annot_label` (`int`): Binary label produced from overlap with thresholded label mask.
+<p align="right"><a href="#panda-workflow">↑ back</a></p>
+
+---
+
+<a id="metadata-mapping-panda-output"></a>
+### Metadata Mapping: `metadata_mapping/panda.py`
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+panda/
+  slides_mapping_test.parquet
+  slides_mapping_train.parquet
+```
+
+**Parquet row schema (one row = one slide)**:
+- `slide_id` (`str`)
+- `slide_path` (`str`)
+- `slide_nuclei_path` (`str`): Path to partitioned nuclei parquet slide folder.
+- `nuclei_count` (`int`)
+- `is_carcinoma` (`bool`): True if ISUP grade is > 0.
+- `mpp_x` (`float`)
+- `mpp_y` (`float`)
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
 
 ---
