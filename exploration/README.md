@@ -27,7 +27,7 @@
 **Output layout**:  
 ```text
 panda/
-  errors.log (invalid slides — empty, corrupted encoding...)
+  errors.log (invalid slides or label masks — empty, corrupted encoding...)
   slides_metadata.csv (metadata for the valid slides)
   summary.csv (aggregate statistics)
 ```
