@@ -54,7 +54,7 @@
 - `polygon` (`np.ndarray[float]`): Flattened polygon coordinates (64 points × 2 coordinates).
 - `centroid` (`np.ndarray[float]`): Nucleus centroid `(x, y)`. 
 
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### Annotation Masks: `annotation_masks.py`
@@ -68,7 +68,7 @@ annotation_masks/
   <SLIDE_NAME>.tiff (single-channel binary mask for carcinoma regions)
 missing_annotations.csv (slide paths of positive slides without annotation files)
 ```
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
@@ -87,7 +87,7 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 - `id` (`str`): Nucleus identifier.
 - `<LABEL_COLUMN>` (`int`): Binary label produced from overlap with thresholded mask.
 
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### CAM Masks Preparation: `merge_cam_masks.py`
@@ -101,7 +101,7 @@ cam_masks/
   <SLIDE_NAME>.tiff (bipolar heatmap of CAM intensities in [0, 255])
 missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 ```
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### CAM-based Nuclei Labels: `cam_labels.py`
@@ -124,7 +124,7 @@ cam_labels/
   - `-1` = uncertain.
 - `cam_score` (`float`): Mean CAM intensity sampled over nucleus polygon vertices and centroid.
 
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### Metadata Mapping: `metadata_mapping.py`
@@ -148,7 +148,7 @@ cam_labels/
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
 
-<sub>[↑ Back to workflow](#mmci-workflow)
+<sub>[↑ Back to workflow](#mmci-workflow)</sub>
 ---
 
 ### Nuclei Standardization: `nuclei_standardization.py`
@@ -167,7 +167,7 @@ cam_labels/
 - columns of the input dataset 
 - `id` (`str`): Newly generated unique nucleus hash ID.
 
-<sub>[↑ Back to workflow](#panda-workflow)
+<sub>[↑ Back to workflow](#panda-workflow)</sub>
 ---
 
 ### Train-Test Split: `data_split.py`
@@ -187,7 +187,7 @@ cam_labels/
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
 
-<sub>[↑ Back to workflow](#panda-workflow)
+<sub>[↑ Back to workflow](#panda-workflow)</sub>
 ---
 
 ### Annotation-based Nuclei Labels: `annotation_labels.py`
