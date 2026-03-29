@@ -1,7 +1,7 @@
 ## Preprocessing Workflow
 
-### MMCI Tile Level Annotations Data
 <a id="mmci-workflow"></a>
+### MMCI Tile Level Annotations Data
 
 1. **Nuclei Segmentation** (`nuclei_segmentation.py`, [output structure](#nuclei-segmentation-output))  
    Segments nuclei in whole-slide images and stores the outputs as partitioned Parquet tables.
@@ -21,8 +21,8 @@
 6. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-output))   
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
-### PANDA Challenge Dataset
 <a id="panda-workflow"></a>
+### PANDA Challenge Dataset
 
 1. **Nuclei Data Standardization** (`nuclei_standardization.py`, [output structure](#nuclei-standardization-output))  
    Standardizes nuclei segmentation files provided by a different project to match the expected structure.
@@ -38,8 +38,8 @@
 
 ## Output Structure Overview
 
-### Nuclei Segmentation: `nuclei_segmentation.py`
 <a id="nuclei-segmentation-output"></a>
+### Nuclei Segmentation: `nuclei_segmentation.py`
 
 **Location**: Disk
 
@@ -57,8 +57,8 @@
 
 ---
 
-### Annotation Masks: `annotation_masks.py`
 <a id="annotation-masks-output"></a>
+### Annotation Masks: `annotation_masks.py`
 
 **Location**: MLflow artifacts
 
@@ -72,8 +72,8 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 
 ---
 
-### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
 <a id="unipolar-labels-output"></a>
+### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
 
 **Location**: MLflow artifacts
 
@@ -91,8 +91,8 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 
 ---
 
-### CAM Masks Preparation: `merge_cam_masks.py`
 <a id="cam-masks-output"></a>
+### CAM Masks Preparation: `merge_cam_masks.py`
 
 **Location**: MLflow artifacts
 
@@ -106,8 +106,8 @@ missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 
 ---
 
-### CAM-based Nuclei Labels: `cam_labels.py`
 <a id="cam-labels-output"></a>
+### CAM-based Nuclei Labels: `cam_labels.py`
 
 **Location**: MLflow artifacts
 
@@ -130,8 +130,8 @@ cam_labels/
 
 ---
 
-### Metadata Mapping: `metadata_mapping.py`
 <a id="metadata-mapping-output"></a>
+### Metadata Mapping: `metadata_mapping.py`
 
 **Location**: MLflow artifacts
 
@@ -154,8 +154,8 @@ cam_labels/
 
 ---
 
-### Nuclei Standardization: `nuclei_standardization.py`
 <a id="nuclei-standardization-output"></a>
+### Nuclei Standardization: `nuclei_standardization.py`
 
 **Location**: Disk
 
@@ -173,8 +173,8 @@ cam_labels/
 
 ---
 
-### Train-Test Split: `data_split.py`
 <a id="data-split-output"></a>
+### Train-Test Split: `data_split.py`
 
 **Location**: MLflow artifacts
 
@@ -193,8 +193,8 @@ cam_labels/
 
 ---
 
-### Annotation-based Nuclei Labels: `annotation_labels.py`
 <a id="annotation-labels-output"></a>
+### Annotation-based Nuclei Labels: `annotation_labels.py`
 
 **Location**: MLflow artifacts
 
