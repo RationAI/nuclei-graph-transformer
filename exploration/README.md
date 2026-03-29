@@ -33,7 +33,7 @@ panda/
 ```
 
 **CSV metadata row schema (one row = one slide)**:  
-- `slide_id` (`str`): 2-character hex string identifier for each slide.
+- `slide_id` (`str`): 32-character hex string identifier for each slide.
 - `slide_path` (`str`)
 - `segmentation_id` (`str`): Identifier of the slide in the parquet dataset with segmented nuclei.
 - `data_provider` (`str`): "radboud" or "karolinska".
