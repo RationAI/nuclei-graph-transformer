@@ -49,7 +49,7 @@
    slide_id=<SLIDE_NAME>/
       *.parquet (segmented nuclei)
 ```
-**Parquet row schema (one row = one nucleus)**
+**Parquet row schema (one row = one nucleus)**:
 - `id` (`str`): Unique nucleus hash ID.
 - `polygon` (`np.ndarray[float]`): Flattened polygon coordinates (64 points × 2 coordinates).
 - `centroid` (`np.ndarray[float]`): Nucleus centroid `(x, y)`. 
@@ -83,7 +83,7 @@ missing_annotations.csv (slide paths of positive slides without annotation files
   <SLIDE_NAME>.parquet
 ```
 
-**Parquet row schema (one row = one nucleus)**
+**Parquet row schema (one row = one nucleus)**:
 - `slide_id` (`str`)
 - `id` (`str`): Nucleus identifier.
 - `<LABEL_COLUMN>` (`int`): Binary label produced from overlap with thresholded mask.
@@ -117,7 +117,7 @@ cam_labels/
   <SLIDE_NAME>.parquet 
 ```
 
-**Parquet row schema (one row = one nucleus)**
+**Parquet row schema (one row = one nucleus)**:
 - `slide_id` (`str`)
 - `id` (`str`)
 - `cam_label` (`int`):
@@ -141,7 +141,7 @@ cam_labels/
   slides_mapping.parquet
 ```
 
-**Parquet row schema (one row = one slide)**
+**Parquet row schema (one row = one slide)**:
 - `slide_id` (`str`)
 - `patient_id` (`str`)
 - `slide_path` (`str`)
@@ -166,7 +166,7 @@ cam_labels/
       *.parquet (segmented nuclei)
 ```
 
-**Parquet row schema**
+**Parquet row schema**:
 - columns of the input dataset 
 - `id` (`str`): Newly generated unique nucleus hash ID.
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
@@ -186,7 +186,7 @@ cam_labels/
   total_counts.csv (table with slide counts for each set)
 ```
 
-**Parquet row schema of `split.csv`**
+**CSV row schema of `split.csv`**:
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
@@ -204,7 +204,7 @@ annotation_labels/
   <SLIDE_NAME>.parquet 
 ```
 
-**Parquet row schema (one row = one nucleus)**
+**Parquet row schema (one row = one nucleus)**:
 - `slide_id` (`str`)
 - `id` (`str`): Nucleus identifier.
 - `annot_label` (`int`): Binary label produced from overlap with thresholded label mask.

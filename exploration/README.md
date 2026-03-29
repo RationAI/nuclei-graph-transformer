@@ -6,14 +6,14 @@
 
 **Location**: MLflow artifacts
 
-**Output layout**
+**Output layout**:
 ```text
 <DATASET_NAME>/
   slides_metadata.csv
   summary.csv (aggregate statistics)
 ```
 
-**CSV metadata row schema (one row = one slide)**
+**CSV metadata row schema (one row = one slide)**:
 - `slide_path` (`str`)
 - `is_carcinoma` (`bool`)
 - `has_annotation` (`bool`)
@@ -24,7 +24,7 @@
 
 **Location**: MLflow artifacts
 
-**Output layout**
+**Output layout**:
 ```text
 panda/
   errors.log (invalid slides — empty, corrupted encoding...)
@@ -32,7 +32,7 @@ panda/
   summary.csv (aggregate statistics)
 ```
 
-**CSV metadata row schema (one row = one slide)**
+**CSV metadata row schema (one row = one slide)**:
 -`slide_id` (`str`): 2-character hex string identifier for each slide
 -`slide_path` (`str`)
 -`segmentation_id` (`str`): Identifier of the slide in the parquet dataset with segmented nuclei
