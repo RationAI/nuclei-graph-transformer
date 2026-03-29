@@ -14,7 +14,7 @@ defaults:
 monitor: validation/graph/loss
 
 trainer:
-  max_epochs: 300
+  max_epochs: 150
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
@@ -47,4 +47,4 @@ model:
 
 metadata:
   run_name: "Train: Crop-level SL Self Attention Transformer"
-  description: "more epochs, k=32"
+  description: ""

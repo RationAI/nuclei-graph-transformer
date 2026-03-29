@@ -43,19 +43,3 @@ class RotarySparseAttention(nn.Module):
         x = rearrange(x_out, "b h n d -> b n (h d)")
 
         return self.wo(x)
-
-
-class GatedAttention(nn.Module):
-    def __init__(self, dim: int):
-        super().__init__()
-        self.attention_v = nn.Sequential(nn.Linear(dim, dim // 2), nn.Tanh())
-        self.attention_u = nn.Sequential(
-            nn.Linear(dim, dim // 2),
-            nn.Sigmoid(),
-        )
-        self.attention_weights = nn.Linear(dim // 2, 1)
-
-    def forward(self, x: Tensor) -> Tensor:
-        a_v = self.attention_v(x)
-        a_u = self.attention_u(x)
-        return self.attention_weights(a_v * a_u)
