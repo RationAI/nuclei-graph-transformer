@@ -17,7 +17,7 @@
 5. **CAM-based Nuclei Labeling** (`cam_labels.py`)  
    Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus (for loss weighting, etc.).
 
-6. **Map Slides to Nuclei** (`metadata_mapping.py`)  
+6. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`)  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 ### PANDA Challenge Dataset
@@ -31,7 +31,7 @@
 3. **Train-Test Split** (`data_split.py`)  
    Performs train-test split stratified by gleason scores.
 
-4. **Map Slides to Nuclei** (`metadata_mapping.py`)  
+4. **Map Slides to Nuclei** (`metadata_mapping/panda.py`)  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 ## Output Structure Overview
