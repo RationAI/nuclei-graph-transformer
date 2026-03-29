@@ -150,7 +150,6 @@ cam_labels/
 - `is_carcinoma` (`bool`)
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
-
 <p align="right"><a href="#mmci-workflow">↑ back</a></p>
 
 ---
@@ -170,7 +169,6 @@ cam_labels/
 **Parquet row schema**
 - columns of the input dataset 
 - `id` (`str`): Newly generated unique nucleus hash ID.
-
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
 
 ---
@@ -191,7 +189,6 @@ cam_labels/
 **Parquet row schema of `split.csv`**
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
-
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
 
 ---
@@ -211,4 +208,6 @@ annotation_labels/
 - `slide_id` (`str`)
 - `id` (`str`): Nucleus identifier.
 - `annot_label` (`int`): Binary label produced from overlap with thresholded label mask.
+<p align="right"><a href="#panda-workflow">↑ back</a></p>
 
+---
