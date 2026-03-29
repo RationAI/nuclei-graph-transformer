@@ -187,7 +187,7 @@ cam_labels/
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
 
-<sub>[↑ Back to workflow](#panda-workflow)</sub>
+<p align="right"><a href="#panda-workflow">↑ back</a></p>
 ---
 
 ### Annotation-based Nuclei Labels: `annotation_labels.py`
