@@ -16,7 +16,7 @@
 **CSV metadata row schema (one row = one slide)**:
 - `slide_path` (`str`)
 - `is_carcinoma` (`bool`)
-- `has_annotation` (`bool`)
+- `has_annotation` (`bool`): True if the annotation mask exists.
 - `patient_id` (`str`): 4-digit unique patient identifier.
 - `case_id` (`str`): A combination of year and patient_id.
 
