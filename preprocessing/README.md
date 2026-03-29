@@ -1,6 +1,7 @@
 ## Preprocessing Workflow
 
 ### MMCI Tile Level Annotations Data
+<a id="mmci-workflow"></a>
 
 1. **Nuclei Segmentation** (`nuclei_segmentation.py`, [output structure](#nuclei-segmentation-output))  
    Segments nuclei in whole-slide images and stores the outputs as partitioned Parquet tables.
@@ -21,6 +22,7 @@
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 ### PANDA Challenge Dataset
+<a id="panda-workflow"></a>
 
 1. **Nuclei Data Standardization** (`nuclei_standardization.py`, [output structure](#nuclei-standardization-output))  
    Standardizes nuclei segmentation files provided by a different project to match the expected structure.
@@ -52,6 +54,9 @@
 - `polygon` (`np.ndarray[float]`): Flattened polygon coordinates (64 points × 2 coordinates).
 - `centroid` (`np.ndarray[float]`): Nucleus centroid `(x, y)`. 
 
+[↑ Back to workflow](#mmci-workflow)
+---
+
 ### Annotation Masks: `annotation_masks.py`
 <a id="annotation-masks-output"></a>
 
@@ -63,6 +68,8 @@ annotation_masks/
   <SLIDE_NAME>.tiff (single-channel binary mask for carcinoma regions)
 missing_annotations.csv (slide paths of positive slides without annotation files)
 ```
+[↑ Back to workflow](#mmci-workflow)
+---
 
 ### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
 <a id="unipolar-labels-output"></a>
@@ -80,6 +87,8 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 - `id` (`str`): Nucleus identifier.
 - `<LABEL_COLUMN>` (`int`): Binary label produced from overlap with thresholded mask.
 
+[↑ Back to workflow](#mmci-workflow)
+---
 
 ### CAM Masks Preparation: `merge_cam_masks.py`
 <a id="cam-masks-output"></a>
@@ -92,6 +101,8 @@ cam_masks/
   <SLIDE_NAME>.tiff (bipolar heatmap of CAM intensities in [0, 255])
 missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 ```
+[↑ Back to workflow](#mmci-workflow)
+---
 
 ### CAM-based Nuclei Labels: `cam_labels.py`
 <a id="cam-labels-output"></a>
@@ -112,6 +123,9 @@ cam_labels/
   - `0` = negative CAM region overlap below negative threshold,
   - `-1` = uncertain.
 - `cam_score` (`float`): Mean CAM intensity sampled over nucleus polygon vertices and centroid.
+
+[↑ Back to workflow](#mmci-workflow)
+---
 
 ### Metadata Mapping: `metadata_mapping.py`
 <a id="metadata-mapping-output"></a>
@@ -134,6 +148,9 @@ cam_labels/
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
 
+[↑ Back to workflow](#mmci-workflow)
+---
+
 ### Nuclei Standardization: `nuclei_standardization.py`
 <a id="nuclei-standardization-output"></a>
 
@@ -149,6 +166,9 @@ cam_labels/
 **Parquet row schema**
 - columns of the input dataset 
 - `id` (`str`): Newly generated unique nucleus hash ID.
+
+[↑ Back to workflow](#panda-workflow)
+---
 
 ### Train-Test Split: `data_split.py`
 <a id="data-split-output"></a>
@@ -166,6 +186,9 @@ cam_labels/
 **Parquet row schema of `split.csv`**
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
+
+[↑ Back to workflow](#panda-workflow)
+---
 
 ### Annotation-based Nuclei Labels: `annotation_labels.py`
 <a id="annotation-labels-output"></a>
