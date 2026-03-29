@@ -20,7 +20,7 @@
 - `patient_id` (`str`): 4-digit unique patient identifier.
 - `case_id` (`str`): <year>_<patient_id>
 
-### PANDA Challenge
+### PANDA Challenge Dataset
 
 **Location**: MLflow artifacts
 
