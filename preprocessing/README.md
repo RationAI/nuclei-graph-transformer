@@ -8,8 +8,8 @@
 2. **Annotation Masks** (`annotation_masks.py`)  
    Generates binary masks for annotated carcinoma regions using XML annotation files by expert pathologists. 
 
-3. **Annotation-based Nuclei Labeling** (`unipolar_heatmap_labels.py`)  
-   Assigns labels to segmented nuclei by checking polygon overlap with expert annotation masks.
+3. **Unipolar Heatmap-based Nuclei Labeling** (`unipolar_heatmap_labels.py`)  
+   Assigns labels to segmented nuclei by checking polygon overlap with the provided (thresholded) unipolar heatmap.
 
 4. **CAM Masks Preparation** (`merge_cam_masks.py`)  
    Aggregates generated CAM masks from multiple MLflow runs into a single location for convenience.
