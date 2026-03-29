@@ -2,7 +2,7 @@
 
 ## Output Structure Overview
 
-### MMCI Tile-Level Annotations Data Exploration Script
+### MMCI Tile-Level Annotations Data
 
 **Location**: MLflow artifacts
 
@@ -20,7 +20,7 @@
 - `patient_id` (`str`): 4-digit unique patient identifier.
 - `case_id` (`str`): <year>_<patient_id>
 
-### PANDA Challenge Exploration Script
+### PANDA Challenge
 
 **Location**: MLflow artifacts
 
