@@ -6,7 +6,7 @@ defaults:
 
 split_uri: ${dataset.providers.radboud.split}
 metadata_uri: ${dataset.mlflow_uris.exploration}
-nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_path: ${dataset.paths.nuclei.standardized}
 
 metadata:
   run_name: "📁 Metadataset Mapping: ${dataset.name}/radboud"
