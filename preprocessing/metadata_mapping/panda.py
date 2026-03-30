@@ -50,13 +50,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         }
     )
 
-    train_df = map_df[map_df["set"] == "train"].copy()
-    train_df = train_df.drop(columns=["set"])
-    log_input(train_df, "slides_mapping_train", logger)
-
-    test_df = map_df[map_df["set"] == "test"].copy()
-    test_df = test_df.drop(columns=["set"])
-    log_input(test_df, "slides_mapping_test", logger)
+    for split_name in ["train", "test"]:
+        split_df = map_df[map_df["set"] == split_name].copy()
+        split_df = split_df.drop(columns=["set"])
+        log_input(split_df, f"slides_mapping_{split_name}", logger)
 
 
 if __name__ == "__main__":
