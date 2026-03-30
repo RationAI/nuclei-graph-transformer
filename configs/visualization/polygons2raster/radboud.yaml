@@ -12,7 +12,7 @@ heatmap_labels_uri: null
 label_column: null
 cam_labels_uri: null
 predictions_uri: null
-predictions_thr: null
+pred_thr: null
 metadata_uris:
   - ${dataset.providers.radboud.metadata.train}
   - ${dataset.providers.radboud.metadata.test}
