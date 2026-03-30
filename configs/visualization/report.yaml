@@ -41,7 +41,7 @@ reporter:
         params:
           threshold: 40
           opacity: 0.5
-          colorHigh: "#FFFF00" # yellow
+          colorHigh: "#00FF00" # green
           colorLow: "#FF0000" # red
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
@@ -72,7 +72,7 @@ reporter:
         threshold: 85
         opacity: 0.5
         type: edge
-        color: "#0000FF" # blue
+        color: "#FFFF00" # yellow
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
@@ -90,7 +90,7 @@ reporter:
       shader_conf:
         visible: False
         type: heatmap
-        color: "#8F00FF" # magenta
+        color: "#0000FF" # blue
 
 metadata:
   run_name: Report — Nuclei Masks
