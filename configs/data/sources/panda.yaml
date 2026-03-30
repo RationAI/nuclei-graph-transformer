@@ -1,0 +1,21 @@
+# @package _global_
+
+dataset:
+  name: PANDA
+
+  paths:
+    wsi_data:
+      slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+
+      # reference ground truth information from the competition
+      metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
+      slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
+
+    masks:
+      annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+
+  mlflow_uris:
+    # exploration/panda/save_metadataset.py
+    exploration: mlflow-artifacts:/97/6cb82d74735d413aa492548bbb6c20d6/artifacts/panda/slides_metadata.csv
