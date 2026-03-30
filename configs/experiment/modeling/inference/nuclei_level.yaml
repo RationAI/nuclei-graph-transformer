@@ -9,8 +9,8 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - _self_
 
-checkpoint: mlflow-artifacts:/97/35849b705f7e4212b7023dc37ccfcc08/artifacts/checkpoints/epoch=158-step=3498/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/35849b705f7e4212b7023dc37ccfcc08
+checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
 
 trainer:
   callbacks:
@@ -27,11 +27,11 @@ data:
   batch_size: 1
   dataset:
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096
-    symmetric_block_mask: false
+    symmetric_block_mask: true
     mil: false
 
 model:
@@ -41,8 +41,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.10
+      drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions: Nucleus-level WSL Classifier"
+  run_name: "📊 Predictions: Nucleus-level WSL Classifier (Annot Eval)"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
