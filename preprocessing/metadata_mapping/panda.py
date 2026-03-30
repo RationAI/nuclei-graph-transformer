@@ -33,8 +33,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     nuclei_dir = Path(config.nuclei_path)
     nuclei_paths = slides["slide_id"].map(lambda id: nuclei_dir / f"slide_id={id}")
-    nuclei_counts = nuclei_paths.map(str).apply(
-        lambda path: sum(f.metadata.num_rows for f in pq.ParquetDataset(path).fragments)
+    nuclei_counts = nuclei_paths.apply(
+        lambda path: pq.read_metadata(path / "nuclei.parquet").num_rows
     )
 
     map_df = pd.DataFrame(
