@@ -2,17 +2,17 @@
 
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
-mpp: ${dataset.mpp}
 visualization_mode: ???
 max_concurrent: 1
 heatmap_labels_uri: null
 label_column: null
-cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
+cam_labels_uri: null
 predictions_uri: null
 predictions_thr: null
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
-nuclei_path: ${dataset.paths.nuclei_seg}
+metadata_uris:
+  - ${dataset.providers.radboud.metadata.train}
+  - ${dataset.providers.radboud.metadata.test}
+nuclei_path: ${dataset.paths.nuclei.standardized}
 mlflow_artifact_path: nuclei_masks
 
 metadata:
