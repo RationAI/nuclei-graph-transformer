@@ -1,7 +1,8 @@
 """Script for annotation-based nuclei labeling on the PANDA dataset.
 
-Each nucleus is assigned a binary label (1/0) indicating if the fraction of its vertices and
-the annotation (annotation label >= 3 for Radboud and >= 2 for Karolinska) is >= `overlap_threshold`.
+Each nucleus is assigned a binary label (1/0) indicating if the fraction
+of its vertices and the annotation (annotation label >= 3 for Radboud
+and >= 2 for Karolinska) is >= `overlap_threshold`.
 """
 
 from pathlib import Path
@@ -71,13 +72,7 @@ def label_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-    to_process = slides[
-        slides["is_carcinoma"]
-        & slides["has_annotation"]
-        & slides["has_segmentation"]
-        & ~slides["is_annotation_corrupted"]
-        & slides["is_wsi_valid"]
-    ]
+    to_process = slides[slides["has_annotation"] & slides["has_segmentation"]]
     to_process = to_process[["slide_id", "data_provider", "extent_x", "extent_y"]]
 
     with TemporaryDirectory() as tmp_dir:

@@ -6,18 +6,25 @@ dataset:
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+
+      # reference ground truth information from the competition
       metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
-    nuclei_seg: ${project_path}/nuclei_segmentation/PANDA
+    nuclei:
+      raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+      # preprocessing/nuclei_standardization.py
+      standardized: ${project_path}/nuclei_segmentation/PANDA
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: mlflow-artifacts:/97/09f220660cd842d1af7d1fd5dbe3b8cb/artifacts/panda/slides_metadata.csv
+    exploration: mlflow-artifacts:/97/6cb82d74735d413aa492548bbb6c20d6/artifacts/panda/slides_metadata.csv
 
     supervision:
       # preprocessing/annotation_labels.py
-      annotation: # TODO
+      annotation: mlflow-artifacts:/97/6baac1c2290b489c92f1e5def07d005b/artifacts/annotation_labels
