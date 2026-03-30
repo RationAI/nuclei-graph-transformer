@@ -20,13 +20,13 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
 @ray.remote(num_cpus=1, memory=(1 * 1024**3))
-def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
-    partition = item["nuclei_partition"]
-    slide_id = item["slide_id"]
-
-    nuclei = pd.read_parquet(partition, columns=["points", "radial_distances"])
+def standardize_nuclei(
+    item: dict[str, Any], output_dir: Path, nuclei_dir: Path
+) -> None:
+    nuclei_path = nuclei_dir / f"slide_id={item['segmentation_id']}" / "nuclei.parquet"
+    nuclei = pd.read_parquet(nuclei_path, columns=["points", "radial_distances"])
     nuclei["id"] = [
-        hashlib.sha256(f"{slide_id}_{p[0]}_{p[1]}_{i}".encode()).hexdigest()
+        hashlib.sha256(f"{item['slide_id']}_{p[0]}_{p[1]}_{i}".encode()).hexdigest()
         for i, p in enumerate(nuclei["points"])
     ]
 
@@ -45,9 +45,8 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
     nuclei["polygon"] = [poly.flatten() for poly in polygons]
     nuclei["centroid"] = [c.astype(np.float32) for c in polygons.mean(axis=1)]
 
-    output_path = output_dir / f"slide_id={slide_id}" / partition.name
+    output_path = output_dir / f"slide_id={item['slide_id']}" / "nuclei.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
     nuclei[["id", "polygon", "centroid"]].to_parquet(output_path, index=False)
 
 
@@ -55,27 +54,16 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
-    nuclei_dir = Path(config.nuclei_source_path)
     metadata = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
     metadata = metadata[metadata["has_segmentation"]]
 
-    items_to_process = []
-
-    for row in metadata.itertuples(index=False):
-        slide_dir = nuclei_dir / f"slide_id={row.segmentation_id}"
-        partition_files = list(slide_dir.glob("*.parquet"))
-        for parquet_file in partition_files:
-            items_to_process.append(
-                {
-                    "slide_id": str(row.slide_id),
-                    "nuclei_partition": parquet_file,
-                }
-            )
-
     process_items(
-        items=items_to_process,
+        items=metadata[["slide_id", "segmentation_id"]].to_dict("records"),
         process_item=standardize_nuclei,
-        fn_kwargs={"output_dir": Path(config.output_path)},
+        fn_kwargs={
+            "output_dir": Path(config.output_path),
+            "nuclei_dir": Path(config.nuclei_source_path),
+        },
         max_concurrent=config.max_concurrent,
     )
 
