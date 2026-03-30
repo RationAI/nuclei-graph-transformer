@@ -23,8 +23,8 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: mlflow-artifacts:/97/6cb82d74735d413aa492548bbb6c20d6/artifacts/panda/slides_metadata.csv
+    exploration: mlflow-artifacts:/97/6c541b7ff74c4025afd27ff9e309b232/artifacts/panda/slides_metadata.csv
 
     supervision:
       # preprocessing/annotation_labels.py
-      annotation: mlflow-artifacts:/97/6baac1c2290b489c92f1e5def07d005b/artifacts/annotation_labels
+      annotation: mlflow-artifacts:/97/a1b35d497ec048f28b1468081085c29a/artifacts/annotation_labels
