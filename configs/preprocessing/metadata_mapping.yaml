@@ -1,4 +1,0 @@
-# @package _global_
-
-metadata:
-  run_name: "📁 Metadataset Mapping: ${dataset.name}"

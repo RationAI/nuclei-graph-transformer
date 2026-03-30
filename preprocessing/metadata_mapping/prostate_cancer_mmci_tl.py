@@ -64,7 +64,7 @@ def build_map(
         mlflow.log_input(slide_dataset, context="slides_mapping")
 
 
-@with_cli_args(["+preprocessing=metadata_mapping"])
+@with_cli_args(["+preprocessing=metadata_mapping/prostate_cancer_mmci_tl"])
 @hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:

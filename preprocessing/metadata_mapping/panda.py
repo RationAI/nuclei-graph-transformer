@@ -23,7 +23,7 @@ def log_input(df: pd.DataFrame, name: str, logger: MLFlowLogger) -> None:
         )
 
 
-@with_cli_args(["+preprocessing=metadata_mapping"])
+@with_cli_args(["+preprocessing=metadata_mapping/panda"])
 @hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
