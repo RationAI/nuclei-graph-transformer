@@ -64,7 +64,7 @@ def set_filling_and_get_outline_color(
 
         case 2:  # Predictions
             assert predictions_dir is not None and pred_thr is not None
-            predictions_path = predictions_dir / f"{Path(slide_path).stem}.parquet"
+            predictions_path = predictions_dir / f"{slide_path.stem}.parquet"
             if not predictions_path.exists():  # slides from the train set
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
@@ -74,7 +74,7 @@ def set_filling_and_get_outline_color(
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
             assert heatmap_labels_dir is not None and label_column is not None
-            heatmap_path = heatmap_labels_dir / f"{Path(slide_path).stem}.parquet"
+            heatmap_path = heatmap_labels_dir / f"{slide_path.stem}.parquet"
             if not heatmap_path.exists():  # negative slide
                 return nuclei, outline_color
             heatmap_df = pd.read_parquet(heatmap_path)
@@ -83,7 +83,7 @@ def set_filling_and_get_outline_color(
 
         case 4:  # CAM-based Pseudo Labeling
             assert cam_labels_dir is not None
-            cam_path = cam_labels_dir / f"{Path(slide_path).stem}.parquet"
+            cam_path = cam_labels_dir / f"{slide_path.stem}.parquet"
             if not cam_path.exists():  # negative slide
                 return nuclei, outline_color
             cam_df = pd.read_parquet(cam_path)
@@ -110,7 +110,7 @@ def process_slide(
     nuclei, outline_color = set_filling_and_get_outline_color(
         nuclei,
         visualization_mode,
-        item["slide_path"],
+        Path(item["slide_path"]),
         **label_dirs,
         label_column=label_column,
         pred_thr=pred_thr,
