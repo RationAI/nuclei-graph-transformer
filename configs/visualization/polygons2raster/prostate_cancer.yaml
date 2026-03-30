@@ -1,5 +1,9 @@
 # @package _global_
 
+defaults:
+  - /data/sources/prostate_cancer
+  - _self_
+
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 visualization_mode: ???
