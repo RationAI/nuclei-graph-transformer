@@ -39,7 +39,8 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
     cos = np.cos(2 * np.pi * t)
     sin = np.sin(2 * np.pi * t)
 
-    polar = radial_distances[..., None] * np.stack([sin, cos], axis=-1)
+    unit_circle = np.stack([cos, sin], axis=-1)
+    polar = radial_distances[..., None] * unit_circle
     polygons = points[:, None, :] + polar
 
     nuclei["polygon"] = [poly.flatten() for poly in polygons]
