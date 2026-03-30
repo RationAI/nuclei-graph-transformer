@@ -26,8 +26,8 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
 
     nuclei = pd.read_parquet(partition, columns=["points", "radial_distances"])
     nuclei["id"] = [
-        hashlib.sha256(f"{slide_id}_{partition.stem}_{i}".encode()).hexdigest()
-        for i in nuclei.index
+        hashlib.sha256(f"{slide_id}_{p[0]}_{p[1]}_{i}".encode()).hexdigest()
+        for i, p in enumerate(nuclei["points"])
     ]
 
     # convert radial distances to Cartesian coordinates
@@ -57,17 +57,18 @@ def standardize_nuclei(item: dict[str, Any], output_dir: Path) -> None:
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     nuclei_dir = Path(config.nuclei_source_path)
     metadata = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
+    metadata = metadata[metadata["has_segmentation"]]
 
     items_to_process = []
 
     for row in metadata.itertuples(index=False):
-        slide_dir = nuclei_dir / f"slide_id={row.id}"
+        slide_dir = nuclei_dir / f"slide_id={row.segmentation_id}"
         partition_files = list(slide_dir.glob("*.parquet"))
         for parquet_file in partition_files:
             items_to_process.append(
                 {
-                    "nuclei_partition": parquet_file,
                     "slide_id": str(row.slide_id),
+                    "nuclei_partition": parquet_file,
                 }
             )
 
