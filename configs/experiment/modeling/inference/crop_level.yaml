@@ -52,7 +52,7 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.10
+      drop_path_rate: 0.35
 
 metadata:
   run_name: "📊 Predictions: Crop-level Supervised Classifier"
