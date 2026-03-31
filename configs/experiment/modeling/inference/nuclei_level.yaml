@@ -14,10 +14,13 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 
 trainer:
   callbacks:
-    - _target_: nuclei_graph.callbacks.WSLPredictionMetricsCallback
-    - _target_: nuclei_graph.callbacks.WSLPredictionsCallback
+    - _target_: nuclei_graph.callbacks.predictions.WSLDatasetPredictionMetricsCallback
+      threshold: 0.5
+    - _target_: nuclei_graph.callbacks.predictions.WSLSlidePredictionMetricsCallback
+      threshold: 0.5
+    - _target_: nuclei_graph.callbacks.predictions.WSLPredictionsCallback
       mlflow_artifact_path: "predictions"
-    - _target_: nuclei_graph.callbacks.WSLPredictionMasksCallback
+    - _target_: nuclei_graph.callbacks.predictions.WSLPredictionMasksCallback
       level: 2
       mask_tile_width: 512
       mask_tile_height: 512

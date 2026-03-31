@@ -1,0 +1,3 @@
+_target_: nuclei_graph.callbacks.predictions.MILPredictionsCallback
+threshold: 0.5
+mlflow_artifact_path: "predictions"

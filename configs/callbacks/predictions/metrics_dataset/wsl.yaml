@@ -1,0 +1,2 @@
+_target_: nuclei_graph.callbacks.predictions.WSLDatasetPredictionMetricsCallback
+threshold: 0.5

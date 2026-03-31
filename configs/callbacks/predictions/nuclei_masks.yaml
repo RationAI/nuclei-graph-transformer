@@ -1,0 +1,5 @@
+_target_: nuclei_graph.callbacks.predictions.WSLPredictionMasksCallback
+level: 2
+mask_tile_width: 512
+mask_tile_height: 512
+mlflow_artifact_path: "prediction_masks"

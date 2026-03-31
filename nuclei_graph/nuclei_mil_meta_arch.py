@@ -43,11 +43,9 @@ class NucleiMILMetaArch(LightningModule):
 
         self.val_graph_metrics = self._create_metrics("validation/graph/")
         self.test_graph_metrics = self._create_metrics("test/graph/")
-        self.predict_graph_metrics = self._create_metrics("prediction/graph/")
 
         self.val_nuclei_metrics = self._create_metrics("validation/nuclei/")
         self.test_nuclei_metrics = self._create_metrics("test/nuclei/")
-        self.predict_nuclei_metrics = self._create_metrics("prediction/nuclei/")
 
         self.best_val_graph_loss = float("inf")
         self.best_val_graph_metrics: dict[str, Tensor] = {}

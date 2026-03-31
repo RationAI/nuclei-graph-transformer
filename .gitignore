@@ -135,6 +135,8 @@ venv.bak/
 *.jpg
 *.jpeg
 
+*.ipynb
+
 # Spyder project settings
 .spyderproject
 .spyproject

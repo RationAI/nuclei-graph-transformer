@@ -35,7 +35,6 @@ class NucleiWSLMetaArch(LightningModule):
         }
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
-        self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
         self.best_val_loss = float("inf")
         self.best_val_metrics: dict[str, Tensor] = {}
