@@ -28,7 +28,7 @@ data:
     k: 32
     attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: false
+    symmetric_block_mask: true
     mil: true
   sampler:
     positivity_thr: 0.0
@@ -47,4 +47,4 @@ model:
 
 metadata:
   run_name: "Train: Crop-level SL Self Attention Transformer"
-  description: ""
+  description: "symmetric block mask, k=32"
