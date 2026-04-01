@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+test_size: 0.2
+stratify_column: gleason_score
+restriction:
+  provider_column: data_provider
+  provider_value: radboud
+mlflow_artifact_path: ${restriction.provider_value}_split
+
+metadata:
+  run_name: "Train-Test Split: ${dataset.name}/${restriction.provider_value}"
