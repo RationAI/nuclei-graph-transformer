@@ -1,0 +1,9 @@
+# @package _global_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+nuclei_source_path: ${dataset.paths.nuclei.raw}
+max_concurrent: 10
+output_path: ${dataset.paths.nuclei.standardized}
+
+metadata:
+  run_name: "Nuclei Data Standardization"

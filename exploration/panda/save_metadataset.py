@@ -140,15 +140,13 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
     with TemporaryDirectory() as output_dir:
-        log_file = Path(output_dir) / "errors.log"
-
         df, summary_df = get_dataframes(
             metadata_csv_path=Path(config.metadata_csv),
             slides_dir=Path(config.slides_dir),
             annots_dir=Path(config.label_masks_dir),
             properties_pq_path=Path(config.slides_properties_parquet),
             tissue_threshold=config.tissue_threshold,
-            log_file=log_file,
+            log_file=Path(output_dir) / "errors.log",
         )
 
         df.to_csv(Path(output_dir) / "slides_metadata.csv", index=False)
