@@ -40,8 +40,7 @@ def label_slide(
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
     mask: NDArray[np.uint8] = tifffile.imread(mask_path)
-    if mask.ndim == 3:  # values are repeated across channels, take the first one
-        mask = mask[..., 0]
+    mask = mask[..., 0]  # labels are in the first channel
     mask_extent_y, mask_extent_x = mask.shape
 
     scale_x = mask_extent_x / wsi_extent_x
