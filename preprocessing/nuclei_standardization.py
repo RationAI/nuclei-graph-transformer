@@ -54,7 +54,7 @@ def standardize_nuclei(
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
-    metadata = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
+    metadata = pd.read_csv(download_artifacts(config.metadata_uri))
     metadata = metadata[metadata["has_segmentation"]]
 
     process_items(
