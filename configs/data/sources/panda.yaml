@@ -13,6 +13,11 @@ dataset:
       # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
+    nuclei:
+      raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+      # preprocessing/nuclei_standardization.py
+      standardized: ${project_path}/nuclei_segmentation/PANDA
+
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
 
@@ -23,4 +28,4 @@ dataset:
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/635d0aaf588e41b6841d5b2ee69105d7/artifacts/radboud_split/split.csv
+      split: mlflow-artifacts:/97/03e8571faa0244a387be3a51fb2576d6/artifacts/radboud_split/split.csv
