@@ -27,8 +27,8 @@ def log_input(df: pd.DataFrame, name: str, logger: MLFlowLogger) -> None:
 @hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
-    split = pd.read_csv(Path(download_artifacts(config.split_uri)))
+    slides = pd.read_csv(download_artifacts(config.metadata_uri))
+    split = pd.read_csv(download_artifacts(config.split_uri))
     slides = slides.merge(split, on="slide_id", how="inner")
 
     nuclei_dir = Path(config.nuclei_path)
