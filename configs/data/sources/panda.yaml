@@ -29,3 +29,9 @@ dataset:
     radboud:
       # preprocessing/data_split.py
       split: mlflow-artifacts:/97/03e8571faa0244a387be3a51fb2576d6/artifacts/radboud_split/split.csv
+
+      # preprocessing/metadata_mapping/panda.py
+      metadata:
+        train: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_train.parquet
+        test: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_test.parquet
+        predict: null
