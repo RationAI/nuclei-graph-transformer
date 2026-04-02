@@ -16,6 +16,11 @@ from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class WSLSlidePredictionMetricsCallback(Callback):
+    """Computes nuclei-level metrics per slide.
+
+    The metrics are also saved as a JSON table in MLflow.
+    """
+
     def __init__(self, threshold: float) -> None:
         self.slide_nuclei_metrics = NestedMetricCollection(
             metrics={
@@ -41,8 +46,7 @@ class WSLSlidePredictionMetricsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        slide = batch["slides"]  # batch size is 1
-        metadata = batch["metadata"][0]
+        slide = batch["slides"]
 
         targets_sup = slide["y"]["nuclei"]
         if targets_sup.numel() == 0:
@@ -52,6 +56,7 @@ class WSLSlidePredictionMetricsCallback(Callback):
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
+        metadata = batch["metadata"][0]  # batch size is 1
         keys = [metadata["slide_id"]] * len(preds_sup)
         self.slide_nuclei_metrics.update(preds_sup, targets_sup.long(), keys)
 
@@ -67,6 +72,11 @@ class WSLSlidePredictionMetricsCallback(Callback):
 
 
 class MILSlidePredictionMetricsCallback(Callback):
+    """Computes both nuclei-level and slide-level metrics per slide.
+
+    The metrics are also saved as a JSON table in MLflow.
+    """
+
     def __init__(self, threshold_nuclei: float, threshold_graph: float) -> None:
         self.slide_nuclei_metrics = NestedMetricCollection(
             metrics={
@@ -108,24 +118,24 @@ class MILSlidePredictionMetricsCallback(Callback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        slide = batch["slides"]  # batch size is 1
-        metadata = batch["metadata"][0]
+        slide = batch["slides"]
+        metadata = batch["metadata"][0]  # batch size is 1
 
         targets_graph = slide["y"]["graph"]
         if targets_graph is not None:
             logits_graph = outputs["graph"].view(-1)
-            targets_graph = targets_graph.view(-1)
-
             preds_graph = torch.sigmoid(logits_graph)
+
             keys = [metadata["slide_id"]] * len(preds_graph)
-            self.slide_graph_metrics.update(preds_graph, targets_graph.long(), keys)
+            self.slide_graph_metrics.update(
+                preds_graph, targets_graph.view(-1).long(), keys
+            )
 
         targets_sup = slide["y"]["nuclei"]
         if targets_sup is not None and targets_sup.numel() > 0:
             logits_sup = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
-            assert targets_sup.shape == logits_sup.shape
-
             preds_sup = torch.sigmoid(logits_sup)
+
             keys = [metadata["slide_id"]] * len(preds_sup)
             self.slide_nuclei_metrics.update(preds_sup, targets_sup.long(), keys)
 

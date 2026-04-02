@@ -18,7 +18,7 @@ from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class WSLDatasetPredictionMetricsCallback(Callback):
-    """Computes nuclei-level global metrics across the entire dataset."""
+    """Computes nuclei-level global metrics across the entire dataset and logs them to MLflow."""
 
     def __init__(self, threshold: float) -> None:
         self.dataset_nuclei_metrics = MetricCollection(
@@ -72,7 +72,7 @@ class WSLDatasetPredictionMetricsCallback(Callback):
 
 
 class MILDatasetPredictionMetricsCallback(Callback):
-    """Computes slide-level and nucleus-level metrics across the entire dataset."""
+    """Computes slide-level and nucleus-level metrics across the entire dataset and logs them to MLflow."""
 
     def __init__(self, threshold_nuclei: float, threshold_graph: float) -> None:
         self.dataset_graph_metrics = MetricCollection(
@@ -118,17 +118,17 @@ class MILDatasetPredictionMetricsCallback(Callback):
         targets_graph = slide["y"]["graph"]
         if targets_graph is not None:
             logits_graph = outputs["graph"].view(-1)
-            targets_graph = targets_graph.view(-1)
-
             preds_graph = torch.sigmoid(logits_graph)
-            self.dataset_graph_metrics.update(preds_graph, targets_graph.long())
+
+            self.dataset_graph_metrics.update(
+                preds_graph, targets_graph.view(-1).long()
+            )
 
         targets_sup = slide["y"]["nuclei"]
         if targets_sup is not None and targets_sup.numel() > 0:
             logits_sup = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
-            assert targets_sup.shape == logits_sup.shape
-
             preds_sup = torch.sigmoid(logits_sup)
+
             self.dataset_nuclei_metrics.update(preds_sup, targets_sup.long())
 
     def on_predict_epoch_end(
@@ -136,8 +136,8 @@ class MILDatasetPredictionMetricsCallback(Callback):
         trainer: Trainer,
         pl_module: LightningModule,
     ) -> None:
-        computed_graph = self.dataset_graph_metrics.compute()
-        for key, value in computed_graph.items():
+        computed_metrics = self.dataset_graph_metrics.compute()
+        for key, value in computed_metrics.items():
             metric_name = key.split("/")[-1]
 
             if "confusion_matrix" in metric_name:
@@ -145,21 +145,22 @@ class MILDatasetPredictionMetricsCallback(Callback):
                 disp_cf = ConfusionMatrixDisplay(
                     confusion_matrix=cm_array, display_labels=["Negative", "Positive"]
                 )
+
                 fig, ax = plt.subplots(figsize=(6, 5))
                 disp_cf.plot(ax=ax, cmap="Blues", colorbar=False)
-
                 plt.title("Slide-Level Confusion Matrix")
                 plt.tight_layout()
 
                 mlflow.log_figure(fig, "confusion_matrix.png")
+
                 plt.close(fig)
             else:
                 mlflow.log_metric(f"prediction/graph/{metric_name}", float(value))
 
         self.dataset_graph_metrics.reset()
 
-        computed_nuclei = self.dataset_nuclei_metrics.compute()
-        for key, value in computed_nuclei.items():
+        computed_metrics = self.dataset_nuclei_metrics.compute()
+        for key, value in computed_metrics.items():
             metric_name = key.split("/")[-1]
             mlflow.log_metric(f"prediction/nuclei/{metric_name}", float(value))
 
