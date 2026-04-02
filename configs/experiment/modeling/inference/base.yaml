@@ -6,7 +6,7 @@ checkpoint: ???
 checkpoint_url: ???
 
 trainer:
-  callbacks: ???
+  callbacks: []
 
 data:
   batch_size: 1

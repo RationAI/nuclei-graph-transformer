@@ -7,32 +7,15 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/predictions/metrics_dataset@+trainer.callbacks: mil
+  - /callbacks/predictions/metrics_slide@+trainer.callbacks: mil
+  - /callbacks/predictions/labels@+trainer.callbacks: mil
+  - /callbacks/predictions@+trainer.callbacks: nuclei_masks
+  - /callbacks/attention@+trainer.callbacks: nuclei_masks
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
-
-trainer:
-  callbacks:
-    - _target_: nuclei_graph.callbacks.predictions.MILDatasetPredictionMetricsCallback
-      threshold_nuclei: 0.5
-      threshold_graph: 0.5
-    - _target_: nuclei_graph.callbacks.predictions.MILSlidePredictionMetricsCallback
-      threshold_nuclei: 0.5
-      threshold_graph: 0.5
-    - _target_: nuclei_graph.callbacks.predictions.MILPredictionsCallback
-      threshold: 0.5
-      mlflow_artifact_path: "predictions"
-    - _target_: nuclei_graph.callbacks.predictions.MILAttentionMasksCallback
-      level: 2
-      mask_tile_width: 512
-      mask_tile_height: 512
-      mlflow_artifact_path: "attention_masks"
-    - _target_: nuclei_graph.callbacks.predictions.WSLPredictionMasksCallback
-      level: 2
-      mask_tile_width: 512
-      mask_tile_height: 512
-      mlflow_artifact_path: "prediction_masks"
 
 data:
   batch_size: 1
