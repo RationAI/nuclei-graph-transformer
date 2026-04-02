@@ -41,10 +41,9 @@ class WSLPredictionMasksCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        slide_path = Path(metadata["slide_path"])
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(slide_path) as slide:
+        with OpenSlide(Path(metadata["slide_path"])) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
@@ -119,10 +118,9 @@ class MILAttentionMasksCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        slide_path = Path(metadata["slide_path"])
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(slide_path) as slide:
+        with OpenSlide(Path(metadata["slide_path"])) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
