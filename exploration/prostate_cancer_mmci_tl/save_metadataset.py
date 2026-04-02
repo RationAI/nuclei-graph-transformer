@@ -80,7 +80,7 @@ def get_df_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary_df
 
 
-@with_cli_args(["+exploration=prostate_cancer/save_metadataset"])
+@with_cli_args(["+exploration=prostate_cancer_mmci_tl/save_metadataset"])
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
