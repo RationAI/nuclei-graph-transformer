@@ -2,7 +2,7 @@ defaults:
   - base
   - _self_
   #- /experiment/modeling/training: crop_level # crop_level nuclei_level
-  - /experiment/modeling/inference: nuclei_level # crop_level nuclei_level
+  - /experiment/modeling/inference: crop_level # crop_level nuclei_level
 
 seed: ${random_seed:}
 mode: ???
