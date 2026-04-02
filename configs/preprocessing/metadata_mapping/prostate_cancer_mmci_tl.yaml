@@ -1,5 +1,9 @@
 # @package _global_
 
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
 exclude_slides_uris:
   - ${dataset.mlflow_uris.masks.missing.annotation}
   - ${dataset.mlflow_uris.masks.missing.cam}

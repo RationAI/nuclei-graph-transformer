@@ -35,10 +35,10 @@ dataset:
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/635d0aaf588e41b6841d5b2ee69105d7/artifacts/radboud_split/split.csv
+      split: mlflow-artifacts:/97/03e8571faa0244a387be3a51fb2576d6/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_train.parquet
-        test: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_test.parquet
+        train: mlflow-artifacts:/97/b863da90ffa74fc1ba80450b7a216187/artifacts/panda/slides_mapping_train.parquet
+        test: mlflow-artifacts:/97/b863da90ffa74fc1ba80450b7a216187/artifacts/panda/slides_mapping_test.parquet
         predict: null

@@ -7,6 +7,7 @@ and >= 2 for Karolinska) is >= `overlap_threshold`.
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import hydra
 import numpy as np
@@ -24,7 +25,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 @ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def label_slide(
-    metadata: dict,
+    metadata: dict[str, Any],
     nuclei_dir: Path,
     annots_dir: Path,
     output_dir: Path,
@@ -40,7 +41,8 @@ def label_slide(
 
     mask_path = annots_dir / f"{slide_id}_mask.tiff"
     mask: NDArray[np.uint8] = tifffile.imread(mask_path)
-    mask = mask[..., 0]  # labels are in the first channel
+    if mask.ndim == 3:
+        mask = mask[..., 0]
     mask_extent_y, mask_extent_x = mask.shape
 
     scale_x = mask_extent_x / wsi_extent_x
@@ -70,7 +72,7 @@ def label_slide(
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    slides = pd.read_csv(Path(download_artifacts(config.metadata_uri)))
+    slides = pd.read_csv(download_artifacts(config.metadata_uri))
     to_process = slides[slides["has_annotation"] & slides["has_segmentation"]]
     to_process = to_process[["slide_id", "data_provider", "extent_x", "extent_y"]]
 

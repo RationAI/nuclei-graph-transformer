@@ -147,7 +147,7 @@ def get_local_path(uri: str | None) -> Path | None:
 
 def uris2df(uris: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata Parquet files into a single DataFrame."""
-    batches = [pd.read_parquet(Path(download_artifacts(uri))) for uri in uris]
+    batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
