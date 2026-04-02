@@ -17,7 +17,7 @@ trainer:
     - _target_: nuclei_graph.callbacks.predictions.MILDatasetPredictionMetricsCallback
       threshold_nuclei: 0.5
       threshold_graph: 0.5
-    - target_: nuclei_graph.callbacks.predictions.MILSlidePredictionMetricsCallback
+    - _target_: nuclei_graph.callbacks.predictions.MILSlidePredictionMetricsCallback
       threshold_nuclei: 0.5
       threshold_graph: 0.5
     - _target_: nuclei_graph.callbacks.predictions.MILPredictionsCallback

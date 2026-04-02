@@ -52,9 +52,8 @@ class WSLSlidePredictionMetricsCallback(Callback):
         assert targets_sup.shape == logits_sup.shape
 
         preds_sup = torch.sigmoid(logits_sup)
-        self.slide_nuclei_metrics.update(
-            preds_sup, targets_sup.long(), [metadata["slide_id"]]
-        )
+        keys = [metadata["slide_id"]] * len(preds_sup)
+        self.slide_nuclei_metrics.update(preds_sup, targets_sup.long(), keys)
 
     def on_predict_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
@@ -118,9 +117,8 @@ class MILSlidePredictionMetricsCallback(Callback):
             targets_graph = targets_graph.view(-1)
 
             preds_graph = torch.sigmoid(logits_graph)
-            self.slide_graph_metrics.update(
-                preds_graph, targets_graph.long(), [metadata["slide_id"]]
-            )
+            keys = [metadata["slide_id"]] * len(preds_graph)
+            self.slide_graph_metrics.update(preds_graph, targets_graph.long(), keys)
 
         targets_sup = slide["y"]["nuclei"]
         if targets_sup is not None and targets_sup.numel() > 0:
@@ -128,9 +126,8 @@ class MILSlidePredictionMetricsCallback(Callback):
             assert targets_sup.shape == logits_sup.shape
 
             preds_sup = torch.sigmoid(logits_sup)
-            self.slide_nuclei_metrics.update(
-                preds_sup, targets_sup.long(), [metadata["slide_id"]]
-            )
+            keys = [metadata["slide_id"]] * len(preds_sup)
+            self.slide_nuclei_metrics.update(preds_sup, targets_sup.long(), keys)
 
     def on_predict_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
