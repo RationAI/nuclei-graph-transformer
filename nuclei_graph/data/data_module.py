@@ -25,7 +25,7 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
-BASE_METADATA_COLS = [
+METADATA_COLS_EVAL = [
     "slide_id",
     "is_carcinoma",
     "slide_nuclei_path",
@@ -174,7 +174,7 @@ class DataModule(LightningDataModule):
                 )
 
             case "test" | "predict":
-                slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
+                slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
                 sup_dfs = self._load_sup_sources(self.eval_strategy)
                 sup = self._prepare_supervision(slides_df, sup_dfs, self.eval_strategy)
