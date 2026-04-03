@@ -24,8 +24,6 @@ class WSLSlidePredictionMetricsCallback(Callback):
     def __init__(self, threshold: float) -> None:
         self.slide_nuclei_metrics = NestedMetricCollection(
             metrics={
-                "AUPRC": BinaryAveragePrecision(),
-                "AUROC": BinaryAUROC(),
                 "accuracy": BinaryAccuracy(threshold),
                 "precision": BinaryPrecision(threshold),
                 "recall": BinaryRecall(threshold),
@@ -80,8 +78,6 @@ class MILSlidePredictionMetricsCallback(Callback):
     def __init__(self, threshold_nuclei: float, threshold_graph: float) -> None:
         self.slide_nuclei_metrics = NestedMetricCollection(
             metrics={
-                "AUPRC": BinaryAveragePrecision(),
-                "AUROC": BinaryAUROC(),
                 "accuracy": BinaryAccuracy(threshold_nuclei),
                 "precision": BinaryPrecision(threshold_nuclei),
                 "recall": BinaryRecall(threshold_nuclei),
@@ -93,8 +89,6 @@ class MILSlidePredictionMetricsCallback(Callback):
         )
         self.slide_graph_metrics = NestedMetricCollection(
             metrics={
-                "AUPRC": BinaryAveragePrecision(),
-                "AUROC": BinaryAUROC(),
                 "accuracy": BinaryAccuracy(threshold_graph),
                 "precision": BinaryPrecision(threshold_graph),
                 "recall": BinaryRecall(threshold_graph),
