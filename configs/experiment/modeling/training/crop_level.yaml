@@ -20,6 +20,8 @@ trainer:
 
 data:
   batch_size: 32
+  split_stratify_col: "is_carcinoma"
+  split_group_col: "patient_id"
   split_size: 0.1
   dataset:
     crop_size: 4096
