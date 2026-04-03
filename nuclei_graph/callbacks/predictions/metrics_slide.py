@@ -4,8 +4,6 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 from rationai.mlkit.metrics import NestedMetricCollection
 from torchmetrics.classification import (
     BinaryAccuracy,
-    BinaryAUROC,
-    BinaryAveragePrecision,
     BinaryNegativePredictiveValue,
     BinaryPrecision,
     BinaryRecall,
