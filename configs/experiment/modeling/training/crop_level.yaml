@@ -2,7 +2,7 @@
 
 defaults:
   - /experiment/modeling/training/base@_here_
-  - /data/sources/prostate_cancer
+  - /data/sources/prostate_cancer_mmci_tl
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset

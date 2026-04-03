@@ -1779,7 +1779,7 @@ dev = [
     { name = "mypy" },
     { name = "ruff" },
 ]
-test = [
+tests = [
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -1813,7 +1813,7 @@ dev = [
     { name = "mypy" },
     { name = "ruff" },
 ]
-test = [
+tests = [
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
