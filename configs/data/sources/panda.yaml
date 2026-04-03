@@ -32,6 +32,6 @@ dataset:
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_train.parquet
-        test: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_test.parquet
+        train: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_train.parquet
+        test: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_test.parquet
         predict: null
