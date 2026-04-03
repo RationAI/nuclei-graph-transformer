@@ -3,37 +3,38 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: nuclei_wsl
+  - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision.train_strategy: cam # cam agreement annotation
-  - /data/supervision@data.supervision.eval_strategy: agreement
+  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
-monitor: validation/loss
+monitor: validation/graph/loss
 
 trainer:
-  max_epochs: 350
+  max_epochs: 150
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
 data:
-  batch_size: 64
+  batch_size: 32
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
   dataset:
     crop_size: 4096
+    crop_pos_thr: 0.75
     alpha: 0.8
-    k: 32
+    k: 64
     attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: true
-    mil: false
+    symmetric_block_mask: false
+    mil: true
   sampler:
-    positivity_thr: 0.05
-    pos_slide_ratio: 0.75
+    positivity_thr: 0.0
+    pos_slide_ratio: 0.5
 
 model:
   lr: 1e-4
@@ -44,8 +45,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.15
+      drop_path_rate: 0.35
 
 metadata:
-  run_name: "Train: Nucleus-level WSL Self Attention Transformer"
-  description: "k=32, symmetric block mask, bs=64"
+  run_name: "Train: Crop-level SL Self Attention Transformer"
+  description: ""
