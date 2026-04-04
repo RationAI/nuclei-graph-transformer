@@ -128,9 +128,8 @@ class MILPredictionsCallback(Callback):
 
             active_run = mlflow.active_run()
             assert active_run is not None
-            mlflow.log_artifacts(
-                tmp_dir,
-                artifact_path=self.mlflow_artifact_path,
+            mlflow.log_artifact(
+                local_path=csv_path,
                 run_id=active_run.info.run_id,
             )
 

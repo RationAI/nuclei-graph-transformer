@@ -8,7 +8,7 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: mil
-  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: mil
+  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
   - /callbacks/predictions/labels@trainer.callbacks.labels: mil
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
   - /callbacks/attention@+trainer.callbacks.attn_masks: nuclei_masks

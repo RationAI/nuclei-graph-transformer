@@ -7,7 +7,6 @@ from nuclei_graph.callbacks.predictions.metrics_dataset import (
     WSLDatasetPredictionMetricsCallback,
 )
 from nuclei_graph.callbacks.predictions.metrics_slide import (
-    MILSlidePredictionMetricsCallback,
     WSLSlidePredictionMetricsCallback,
 )
 from nuclei_graph.callbacks.predictions.nuclei_masks import (
@@ -20,7 +19,6 @@ __all__ = [
     "MILAttentionMasksCallback",
     "MILDatasetPredictionMetricsCallback",
     "MILPredictionsCallback",
-    "MILSlidePredictionMetricsCallback",
     "WSLDatasetPredictionMetricsCallback",
     "WSLPredictionMasksCallback",
     "WSLPredictionsCallback",
