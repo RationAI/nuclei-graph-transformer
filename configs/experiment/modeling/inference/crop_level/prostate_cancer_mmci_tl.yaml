@@ -12,6 +12,7 @@ defaults:
   - /callbacks/predictions/labels@trainer.callbacks.labels: mil
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
   - /callbacks/attention@+trainer.callbacks.attn_masks: nuclei_masks
+  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: mil
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
