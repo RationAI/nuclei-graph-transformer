@@ -1,4 +1,4 @@
 # @package _global_
 
 _target_: nuclei_graph.callbacks.predictions.WSLSlidePredictionMetricsCallback
-threshold: 0.5
+threshold: 0.128
