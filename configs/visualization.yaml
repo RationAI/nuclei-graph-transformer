@@ -1,5 +1,6 @@
 defaults:
   - base
+  - /data/sources: ???
   - _self_
 
 dataset: ???

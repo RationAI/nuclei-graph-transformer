@@ -12,7 +12,7 @@ submit_job(
         "git clone https://gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m visualization.polygons2raster +experiment=visualization/... +data=sources/...",
+        "uv run -m visualization.polygons2raster +experiment=visualization/... data/sources=...",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
