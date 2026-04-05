@@ -10,8 +10,6 @@ trainer:
 
 data:
   batch_size: 1
-  mlflow_uris:
-    supervision: ${dataset.mlflow_uris.supervision}
   supervision:
     train_strategy: null
 

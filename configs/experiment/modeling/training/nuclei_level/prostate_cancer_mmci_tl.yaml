@@ -25,6 +25,7 @@ data:
   split_size: 0.1
   mlflow_uris:
     metadata: ${dataset.mlflow_uris.metadata}
+    supervision: ${dataset.mlflow_uris.supervision}
   dataset:
     crop_size: 4096
     alpha: 0.8
