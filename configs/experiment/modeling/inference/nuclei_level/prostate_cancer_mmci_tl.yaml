@@ -42,5 +42,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions: Nucleus-level WSL Classifier (Virchow2 Eval)"
+  run_name: "📊 Predictions(MMCI): Nucleus-level WSL Classifier (Virchow2 Eval)"
   description: "Predictions: [MLflow training run](${checkpoint_url})"

@@ -51,5 +51,5 @@ model:
       drop_path_rate: 0.35
 
 metadata:
-  run_name: "Train: Crop-level SL Self Attention Transformer"
+  run_name: "Train(Radboud): Crop-level SL Self Attention Transformer"
   description: ""

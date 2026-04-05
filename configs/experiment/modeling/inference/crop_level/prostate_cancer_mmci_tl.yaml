@@ -43,5 +43,5 @@ model:
       drop_path_rate: 0.35
 
 metadata:
-  run_name: "📊 Predictions: Crop-level Supervised Classifier"
+  run_name: "📊 Predictions(MMCI): Crop-level Supervised Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
