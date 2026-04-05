@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-degraph = { git = "ssh://git@gitlab.ics.muni.cz/rationai/digital-pathology/pathology/nuclei-foundational-model.git", branch = "borisim-develop", subdirectory = "lib/degraph" }
+degraph = { git = "https://github.com/RationAI/nuclei-foundation-model.git", branch = "borisim-develop", subdirectory = "lib/degraph" }
 rationai-mlkit = { git = "https://github.com/RationAI/mlkit.git", rev = "549f5be72a162e7debf3a911ea4649f50080b1d0"}
 rationai-masks = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/masks.git" }
 rationai-tiling = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/tiling.git" }
