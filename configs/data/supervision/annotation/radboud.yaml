@@ -1,0 +1,6 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+mode: annotation
+annot_uri: ${dataset.providers.radboud.supervision.annotation}
