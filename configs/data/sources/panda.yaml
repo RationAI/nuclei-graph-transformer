@@ -28,10 +28,6 @@ dataset:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: mlflow-artifacts:/97/6c541b7ff74c4025afd27ff9e309b232/artifacts/panda/slides_metadata.csv
 
-    supervision:
-      # preprocessing/annotation_labels.py
-      annotation: mlflow-artifacts:/97/a1b35d497ec048f28b1468081085c29a/artifacts/annotation_labels
-
   providers:
     radboud:
       # preprocessing/data_split.py
@@ -42,3 +38,7 @@ dataset:
         train: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_train.parquet
         test: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_test.parquet
         predict: null
+      
+      supervision:
+        # preprocessing/annotation_labels.py
+        annotation: mlflow-artifacts:/97/f054da177e14424caa96266ede93b0ca/artifacts/annotation_labels/radboud

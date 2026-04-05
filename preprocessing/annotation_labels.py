@@ -63,7 +63,7 @@ def label_slide(
     coverage = np.mean(is_carcinoma_vertex, axis=1)
     nuclei["annot_label"] = (coverage >= overlap_thr).astype(int)
 
-    output_path = output_dir / f"{slide_id}.parquet"
+    output_path = output_dir / f"{provider}/{slide_id}.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     nuclei[["slide_id", "id", "annot_label"]].to_parquet(output_path, index=False)
 
