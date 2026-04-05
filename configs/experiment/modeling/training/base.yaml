@@ -18,7 +18,6 @@ data:
   split_stratify_col: ???
   split_group_col: ???
   mlflow_uris:
-    metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
   supervision:
     train_strategy: ???

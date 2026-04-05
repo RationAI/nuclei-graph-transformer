@@ -23,6 +23,8 @@ data:
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
+  mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     crop_size: 4096
     crop_pos_thr: 0.75
