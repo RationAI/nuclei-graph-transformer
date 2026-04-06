@@ -4,8 +4,6 @@ predictions_uri: ${mlflow_project_sc}/7fb7a55195f641c9bcd5340c233035c5/artifacts
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
 pred_thr: 0.128 # threshold for determining positive nuclei
 visualization_mode: 2
-slides_uris:
-  - ${dataset.mlflow_uris.exploration.test}
 
 metadata:
   run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"
