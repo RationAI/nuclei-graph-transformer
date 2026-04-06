@@ -14,7 +14,7 @@ cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
 predictions_uri: null
 pred_thr: null
 metadata_uris:
-  - ${dataset.mlflow_uris.metadata.train}
+  #- ${dataset.mlflow_uris.metadata.train}
   - ${dataset.mlflow_uris.metadata.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
 mlflow_artifact_path: nuclei_masks

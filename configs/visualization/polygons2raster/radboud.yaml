@@ -14,7 +14,7 @@ cam_labels_uri: null
 predictions_uri: null
 pred_thr: null
 metadata_uris:
-  - ${dataset.providers.radboud.metadata.train}
+  #- ${dataset.providers.radboud.metadata.train}
   - ${dataset.providers.radboud.metadata.test}
 nuclei_path: ${dataset.paths.nuclei.standardized}
 mlflow_artifact_path: nuclei_masks
