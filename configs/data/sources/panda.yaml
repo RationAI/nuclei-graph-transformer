@@ -3,6 +3,9 @@
 dataset:
   name: PANDA
 
+  mask_tile_width: 512
+  mask_tile_height: 512
+
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
@@ -35,8 +38,7 @@ dataset:
         train: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_train.parquet
         test: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_test.parquet
         predict: null
-          
+
       supervision:
         # preprocessing/annotation_labels.py
         annotation: mlflow-artifacts:/97/f054da177e14424caa96266ede93b0ca/artifacts/annotation_labels/radboud
-
