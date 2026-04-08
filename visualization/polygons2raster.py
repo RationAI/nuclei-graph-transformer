@@ -55,6 +55,7 @@ def set_filling_and_get_outline_color(
     predictions_dir: Path | None,
     label_column: str | None,
     pred_thr: float | None,
+    pred_col: str | None,
 ) -> tuple[pd.DataFrame, int | None]:
     nuclei["fill_color"] = None
     outline_color = None
@@ -69,7 +70,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei[pred_col] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
@@ -105,6 +106,7 @@ def process_slide(
     label_dirs: dict[str, Path | None],
     label_column: str | None,
     pred_thr: float | None,
+    pred_col: str | None,
 ) -> None:
     nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
@@ -114,6 +116,7 @@ def process_slide(
         **label_dirs,
         label_column=label_column,
         pred_thr=pred_thr,
+        pred_col=pred_col,
     )
 
     with OpenSlide(item["slide_path"]) as slide:
@@ -175,6 +178,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "label_dirs": label_dirs,
                 "label_column": config.label_column,
                 "pred_thr": config.get("pred_thr", None),
+                "pred_col": config.get("pred_col", None),
             },
             max_concurrent=config.max_concurrent,
         )

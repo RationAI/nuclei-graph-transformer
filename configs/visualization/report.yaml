@@ -8,9 +8,10 @@ train_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifa
 test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
 
 reporter:
-  title: Nuclei Segmentation Masks
+  title: Nuclei Prediction Masks
+  metrics_run_ids:
+  - 49ea1b2fff304c009a1c3b04706c7dfe
   template_asset_path: report_template.html
-  metrics_run_ids: []
 
   save:
     _target_: report.save.MLFlowReportStorer
@@ -31,6 +32,11 @@ reporter:
       key: "slide_path"
     layer_name: Prostate WSI
 
+  evaluation_runs:
+    49ea1b2fff304c009a1c3b04706c7dfe:
+      artifact_file: "slide_nuclei_metrics.json"
+      slide_item_key: "key"
+
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: cam_masks
@@ -41,7 +47,7 @@ reporter:
         params:
           threshold: 40
           opacity: 0.5
-          colorHigh: "#00FF00" # green
+          colorHigh: "#FFFF00" # yellow
           colorLow: "#FF0000" # red
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
@@ -72,12 +78,12 @@ reporter:
         threshold: 85
         opacity: 0.5
         type: edge
-        color: "#FFFF00" # yellow
+        color: "#FF00FF" # magenta
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: prediction_masks
-      run_id: 07be3020a6054226b6c04d5f01297c8a
-      layer_name: "WSL Preds (CAM supervision)"
+      dir_name: nuclei_masks
+      run_id: 7ac0b76c0a774b418df68dc30f858363
+      layer_name: "WSL Predictions (CAM supervision)"
       shader_conf:
         visible: False
         type: heatmap
@@ -86,7 +92,7 @@ reporter:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: attention_masks
       run_id: dff85e78a11f42dd94ae80afb405250f
-      layer_name: "Attention Masks"
+      layer_name: "MIL Attention Masks"
       shader_conf:
         visible: False
         type: heatmap

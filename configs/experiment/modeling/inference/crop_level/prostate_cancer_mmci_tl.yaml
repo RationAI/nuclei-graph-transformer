@@ -11,7 +11,7 @@ defaults:
   - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
   - /callbacks/predictions/labels@trainer.callbacks.labels: mil
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
-  - /callbacks/attention@+trainer.callbacks.attn_masks: nuclei_masks
+  - /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: mil
   - _self_
 
