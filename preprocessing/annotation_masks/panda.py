@@ -37,7 +37,7 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@ray.remote(num_cpus=2, memory=(5 * 1024**3))
+@ray.remote(num_cpus=1, memory=(5 * 1024**3))
 def process_slide(
     metadata: dict[str, Any],
     annots_dir: Path,
@@ -51,8 +51,8 @@ def process_slide(
         mask = mask[..., 0]
 
     provider = metadata["data_provider"]
-    is_carcinoma = mask >= 3 if provider == "radboud" else mask >= 2
-    binary_mask = is_carcinoma.astype(np.uint8) * 255
+    threshold = 3 if provider == "radboud" else 2
+    binary_mask = (mask >= threshold).astype(np.uint8) * 255
 
     output_path = Path(output_dir) / provider / f"{metadata['slide_id']}.tiff"
     output_path.parent.mkdir(parents=True, exist_ok=True)

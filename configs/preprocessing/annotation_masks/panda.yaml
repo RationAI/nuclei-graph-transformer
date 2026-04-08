@@ -6,7 +6,7 @@ defaults:
 
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
-max_concurrent: 12
+max_concurrent: 4
 metadata_uri: ${dataset.mlflow_uris.exploration}
 annotations_dir: ${dataset.paths.masks.annotation}
 mlflow_artifact_path: annotation_masks
