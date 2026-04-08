@@ -3,6 +3,9 @@
 dataset:
   name: PANDA
 
+  mask_tile_width: 512
+  mask_tile_height: 512
+
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
