@@ -6,11 +6,11 @@ defaults:
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: prediction # annotation/prostate_cancer_mmci_tl prediction
-  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
+  #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
   - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
-  - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
-  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
+  #- /callbacks/predictions/labels@trainer.callbacks.labels: wsl
+  #- /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
   #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
@@ -20,7 +20,7 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 data:
   batch_size: 1
   mlflow_uris:
-    supervision: ${dataset.providers.radboud.supervision}
+    supervision: ${dataset.mlflow_uris.supervision}
     metadata:
       predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
@@ -41,6 +41,6 @@ model:
       num_layers: 8
       drop_path_rate: 0.15
 
-metadata:
-  run_name: "📊 Predictions(MMCI): Nucleus-level WSL Classifier (Virchow2 Eval)"
+metadata: 
+  run_name: "WSL Nucleus-level Classifier (Annot Eval)"
   description: "Predictions: [MLflow training run](${checkpoint_url})"

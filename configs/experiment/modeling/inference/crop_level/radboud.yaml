@@ -21,7 +21,7 @@ checkpoint_url: # TODO
 data:
   batch_size: 1
   mlflow_uris:
-    supervision: ${dataset.mlflow_uris.supervision}
+    supervision: ${dataset.providers.radboud.supervision}
     metadata:
       predict: ${dataset.providers.radboud.metadata.test}
   dataset:
