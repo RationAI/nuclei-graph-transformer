@@ -37,7 +37,7 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-@ray.remote(num_cpus=1, memory=(3 * 1024**3))
+@ray.remote(num_cpus=2, memory=(5 * 1024**3))
 def process_slide(
     metadata: dict[str, Any],
     annots_dir: Path,
