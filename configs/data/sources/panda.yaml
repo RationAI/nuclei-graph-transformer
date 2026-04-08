@@ -26,15 +26,19 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: mlflow-artifacts:/97/6c541b7ff74c4025afd27ff9e309b232/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: mlflow-artifacts:/97/03e8571faa0244a387be3a51fb2576d6/artifacts/radboud_split/split.csv
+      split: ${mlflow_project_pc}/143fba81135b4a26b9f909e7d65e134e/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_train.parquet
-        test: mlflow-artifacts:/97/ae80de7a07e046a0872ede51c6a954ce/artifacts/panda/slides_mapping_test.parquet
+        train: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
         predict: null
+    
+      supervision:
+        # preprocessing/annotation_labels.py
+        annotation: ${mlflow_project_pc}/916593f7214a44bd8ffce7b77ca9936b/artifacts/annotation_labels/radboud
