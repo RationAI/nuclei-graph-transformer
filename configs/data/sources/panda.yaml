@@ -6,9 +6,6 @@ dataset:
   mask_tile_width: 512
   mask_tile_height: 512
 
-  mask_tile_width: 512
-  mask_tile_height: 512
-
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
@@ -26,7 +23,7 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
-  
+
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
@@ -41,7 +38,7 @@ dataset:
         train: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_train.parquet
         test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
         predict: null
-    
+
       supervision:
         # preprocessing/annotation_labels.py
         annotation: ${mlflow_project_pc}/916593f7214a44bd8ffce7b77ca9936b/artifacts/annotation_labels/radboud
