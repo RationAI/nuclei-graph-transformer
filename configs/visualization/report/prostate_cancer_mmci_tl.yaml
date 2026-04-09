@@ -12,8 +12,8 @@ reporter:
   metrics_run_ids:
     - 49ea1b2fff304c009a1c3b04706c7dfe # wsl, virchow2 eval
     - c1be7de632064e65bb781ab2846d17f1 # wsl, annot eval
-    #- TODO # mil, virchow2 eval
-    - 3ad9362ae59e4ccf9b1494cc5099176f # mil, annot eval
+    - 36730132f3f84a428eca1cdebbe70bd6 # mil, virchow2 eval
+    - 9cf170558c2b4a42acbe919f65203fd7 # mil, annot eval
   template_asset_path: report_template.html
 
   save:
@@ -44,11 +44,11 @@ reporter:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
-    # TODO:
-    #   artifact_file: "slide_nuclei_metrics.json"
-    #   slide_item_key: "key"
+    36730132f3f84a428eca1cdebbe70bd6:
+      artifact_file: "slide_nuclei_metrics.json"
+      slide_item_key: "key"
 
-    3ad9362ae59e4ccf9b1494cc5099176f:
+    9cf170558c2b4a42acbe919f65203fd7:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
