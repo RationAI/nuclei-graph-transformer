@@ -8,7 +8,7 @@ train_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifa
 test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
 
 reporter:
-  title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations"
+  title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
   metrics_run_ids:
     - 49ea1b2fff304c009a1c3b04706c7dfe # wsl, virchow2 eval
     - c1be7de632064e65bb781ab2846d17f1 # wsl, annot eval
