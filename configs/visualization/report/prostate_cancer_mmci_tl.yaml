@@ -10,8 +10,8 @@ test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifac
 reporter:
   title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
   metrics_run_ids:
-    - 49ea1b2fff304c009a1c3b04706c7dfe # wsl, virchow2 eval
-    - c1be7de632064e65bb781ab2846d17f1 # wsl, annot eval
+    - 38e3c2ec3ea34202a4661f0b522c0e48 # wsl, virchow2 eval
+    - 6272505c6dd34ac2b34233579bcfe402 # wsl, annot eval
     - 88cbd055a6ac47d2bc2be6a4b6d915bc # mil, virchow2 eval
     - dbab5eecd2d448018868754492f949fe # mil, annot eval
   template_asset_path: report_template.html
@@ -36,11 +36,11 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    49ea1b2fff304c009a1c3b04706c7dfe:
+    38e3c2ec3ea34202a4661f0b522c0e48:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
-    c1be7de632064e65bb781ab2846d17f1:
+    6272505c6dd34ac2b34233579bcfe402:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 

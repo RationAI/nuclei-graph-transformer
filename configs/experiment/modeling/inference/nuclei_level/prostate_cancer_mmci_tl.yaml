@@ -7,11 +7,11 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
-  #- /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
+  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
+  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
   #- /callbacks/predictions/labels@trainer.callbacks.labels: wsl
   #- /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
-  - /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
+  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
 checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
@@ -41,6 +41,6 @@ model:
       num_layers: 8
       drop_path_rate: 0.15
 
-metadata: 
-  run_name: "📊 Curves: Nucleus-level WSL Classifier"
+metadata:
+  run_name: "Predictions(dataset, slide metrics): WSL Slide-level Classifier (Annot Eval)"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
