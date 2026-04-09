@@ -6,6 +6,9 @@ dataset:
   mask_tile_width: 512
   mask_tile_height: 512
 
+  mask_tile_width: 512
+  mask_tile_height: 512
+
   paths:
     wsi_data:
       slides: ${data_path}/Public/Public/prostate/PANDA/train_images
@@ -23,7 +26,7 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
-
+  
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
