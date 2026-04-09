@@ -33,7 +33,7 @@ reporter:
     layer_name: Prostate WSI
 
   # evaluation_runs:
-  #   49ea1b2fff304c009a1c3b04706c7dfe:
+  #   TODO:
   #     artifact_file: "slide_nuclei_metrics.json"
   #     slide_item_key: "key"
 
@@ -49,18 +49,8 @@ reporter:
         color: "#1F971B" # forest green
 
     # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: heatmaps
-    #   run_id: a40c5a17026840bea1828b78af46752d
-    #   layer_name: Virchow2 Prediction Heatmap
-    #   shader_conf:
-    #     visible: False
-    #     threshold: 85
-    #     opacity: 0.4
-    #     color: "#8FF0A4" # light green
-
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
     #   dir_name: nuclei_masks
-    #   run_id: 7ac0b76c0a774b418df68dc30f858363
+    #   run_id: TODO
     #   layer_name: "WSL Nuclei Preds (CAM supervision)"
     #   shader_conf:
     #     visible: False
@@ -69,7 +59,7 @@ reporter:
 
     # - _target_: report.masks.RunIDMlflowMaskRetriever
     #   dir_name: nuclei_masks
-    #   run_id: 3764545472a64a7ca5c378665b4dd886
+    #   run_id: TODO
     #   layer_name: "MIL Nuclei Preds"
     #   shader_conf:
     #     visible: False
@@ -78,7 +68,7 @@ reporter:
 
     # - _target_: report.masks.RunIDMlflowMaskRetriever
     #   dir_name: attention_masks
-    #   run_id: dff85e78a11f42dd94ae80afb405250f
+    #   run_id: TODO
     #   layer_name: "MIL Attention Masks"
     #   shader_conf:
     #     visible: False
