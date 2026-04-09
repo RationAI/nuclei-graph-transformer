@@ -40,6 +40,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     map_df = pd.DataFrame(
         {
             "slide_id": slides["slide_id"],
+            "gleason_score": slides["gleason_score"],
             "slide_path": slides["slide_path"],
             "slide_nuclei_path": nuclei_paths.map(str),
             "nuclei_count": nuclei_counts.astype("Int64"),

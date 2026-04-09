@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+label_masks_dir: ${dataset.paths.masks.annotation}
+metadata_uri: ${dataset.mlflow_uris.exploration}
+overlap_threshold: 0.5
+mlflow_artifact_path: annotation_labels
+
+metadata:
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"

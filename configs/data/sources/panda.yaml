@@ -65,7 +65,7 @@ dataset:
 
     karolinska:
       # preprocessing/data_split.py
-      split: ${mlflow_project_pc}/5afdb3f7e3b44f2c9bac4a36deed6663/artifacts/karolinska_split/split.csv
+      split: ${mlflow_project_pc}/3ad1d1e08f9e498bb9c63477d4e673ea/artifacts/karolinska_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
