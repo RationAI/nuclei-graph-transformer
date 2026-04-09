@@ -11,8 +11,8 @@ submit_job(
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
-        "export MLFLOW_TRACKING_USERNAME=...",
-        "export MLFLOW_TRACKING_PASSWORD=...",
+        "export MLFLOW_TRACKING_USERNAME='...'",
+        "export MLFLOW_TRACKING_PASSWORD='...'",
         "export MLFLOW_TRACKING_URI='https://mlflow.rationai.cloud.e-infra.cz/'",
         "uv sync",
         "uv run python -m preprocessing.annotation_masks.panda",
