@@ -8,12 +8,12 @@ train_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifa
 test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
 
 reporter:
-  title: Nuclei Carcinoma MMCI Predictions
+  title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations"
   metrics_run_ids:
     - 49ea1b2fff304c009a1c3b04706c7dfe # wsl, virchow2 eval
     - c1be7de632064e65bb781ab2846d17f1 # wsl, annot eval
-    - 36730132f3f84a428eca1cdebbe70bd6 # mil, virchow2 eval
-    - 9cf170558c2b4a42acbe919f65203fd7 # mil, annot eval
+    - 88cbd055a6ac47d2bc2be6a4b6d915bc # mil, virchow2 eval
+    - dbab5eecd2d448018868754492f949fe # mil, annot eval
   template_asset_path: report_template.html
 
   save:
@@ -44,11 +44,11 @@ reporter:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
-    36730132f3f84a428eca1cdebbe70bd6:
+    88cbd055a6ac47d2bc2be6a4b6d915bc:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
-    9cf170558c2b4a42acbe919f65203fd7:
+    dbab5eecd2d448018868754492f949fe:
       artifact_file: "slide_nuclei_metrics.json"
       slide_item_key: "key"
 
