@@ -14,7 +14,7 @@ Label Systems
     2 	Cancerous tissue (stroma and epithelium combined)
 
 This script generates binary masks of carcinoma regions, (carcinoma = labels 3, 4, and 5
-for Radboud, label 2 for Karolinska.
+for Radboud, label 2 for Karolinska).
 """
 
 import os
