@@ -15,7 +15,7 @@ submit_job(
         "export MLFLOW_TRACKING_PASSWORD=...",
         "export MLFLOW_TRACKING_URI='https://mlflow.rationai.cloud.e-infra.cz/'",
         "uv sync --frozen",
-        "uv run -m preprocessing.nuclei_standardization +data=sources/panda",
+        "uv run python -m preprocessing.nuclei_standardization +data=sources/panda",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
