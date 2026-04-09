@@ -39,6 +39,11 @@ dataset:
         test: mlflow-artifacts:/97/e532a3574e984c51b2132789daab12f5/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
+      masks:
+        annotation:
+          # preprocessing/annotation_masks/panda.py
+          carcinoma: mlflow-artifacts:/37/40aeb2e23d8549a18841ad0db5718e4d/artifacts/annotation_masks/radboud
+
       supervision:
         # preprocessing/annotation_labels.py
         annotation: mlflow-artifacts:/97/f054da177e14424caa96266ede93b0ca/artifacts/annotation_labels/radboud

@@ -72,36 +72,23 @@ class WSLDatasetPredictionMetricsCallback(Callback):
 
 
 class MILDatasetPredictionMetricsCallback(Callback):
-    """Computes slide-level and nucleus-level metrics across the entire dataset and logs them to MLflow."""
+    """Computes slide-level metrics across the entire dataset and logs them to MLflow."""
 
-    def __init__(self, threshold_nuclei: float, threshold_graph: float) -> None:
+    def __init__(self, threshold: float) -> None:
         self.dataset_graph_metrics = MetricCollection(
             metrics={
-                "AUPRC": BinaryAveragePrecision(),
-                "AUROC": BinaryAUROC(),
-                "precision": BinaryPrecision(threshold_graph),
-                "recall": BinaryRecall(threshold_graph),
-                "accuracy": BinaryAccuracy(threshold_graph),
-                "specificity": BinarySpecificity(threshold_graph),
-                "confusion_matrix": BinaryConfusionMatrix(threshold_graph),
+                "AUPRC_graph": BinaryAveragePrecision(),
+                "AURO_graphC": BinaryAUROC(),
+                "precision_graph": BinaryPrecision(threshold),
+                "recall_graph": BinaryRecall(threshold),
+                "accuracy_graph": BinaryAccuracy(threshold),
+                "specificity_graph": BinarySpecificity(threshold),
+                "confusion_matrix_graph": BinaryConfusionMatrix(threshold),
             },
-            prefix="prediction/graph/",
-        )
-
-        self.dataset_nuclei_metrics = MetricCollection(
-            metrics={
-                "AUPRC": BinaryAveragePrecision(),
-                "AUROC": BinaryAUROC(),
-                "precision": BinaryPrecision(threshold_nuclei),
-                "recall": BinaryRecall(threshold_nuclei),
-                "accuracy": BinaryAccuracy(threshold_nuclei),
-                "specificity": BinarySpecificity(threshold_nuclei),
-            },
-            prefix="prediction/nuclei/",
+            prefix="prediction/",
         )
 
     def on_predict_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        self.dataset_nuclei_metrics = self.dataset_nuclei_metrics.to(pl_module.device)
         self.dataset_graph_metrics = self.dataset_graph_metrics.to(pl_module.device)
 
     def on_predict_batch_end(
@@ -123,13 +110,6 @@ class MILDatasetPredictionMetricsCallback(Callback):
             self.dataset_graph_metrics.update(
                 preds_graph, targets_graph.view(-1).long()
             )
-
-        targets_sup = slide["y"]["nuclei"]
-        if targets_sup is not None and targets_sup.numel() > 0:
-            logits_sup = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
-            preds_sup = torch.sigmoid(logits_sup)
-
-            self.dataset_nuclei_metrics.update(preds_sup, targets_sup.long())
 
     def on_predict_epoch_end(
         self,
@@ -155,13 +135,6 @@ class MILDatasetPredictionMetricsCallback(Callback):
 
                 plt.close(fig)
             else:
-                mlflow.log_metric(f"prediction/graph/{metric_name}", float(value))
+                mlflow.log_metric(f"prediction/{metric_name}", float(value))
 
         self.dataset_graph_metrics.reset()
-
-        computed_metrics = self.dataset_nuclei_metrics.compute()
-        for key, value in computed_metrics.items():
-            metric_name = key.split("/")[-1]
-            mlflow.log_metric(f"prediction/nuclei/{metric_name}", float(value))
-
-        self.dataset_nuclei_metrics.reset()
