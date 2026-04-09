@@ -96,7 +96,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: # TODO
+      run_id: 8df74906691f459899a881a2459eb14c
       layer_name: "WSL Nuclei Preds (CAM supervision)"
       shader_conf:
         visible: False
