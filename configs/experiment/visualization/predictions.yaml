@@ -3,7 +3,7 @@
 predictions_uri: mlflow-artifacts:/97/6272505c6dd34ac2b34233579bcfe402/artifacts/predictions
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
 pred_thr: 0.185 # threshold for determining positive nuclei
-pred_col: "nuclei_prediction"
+pred_col: "prediction"
 visualization_mode: 2
 
 metadata:
