@@ -87,10 +87,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             },
             max_concurrent=config.max_concurrent,
         )
-        logger.log_artifacts(
-            local_dir=output_dir,
-            artifact_path=config.mlflow_artifact_path,
-        )
+        logger.log_artifacts(local_dir=output_dir)
 
 
 if __name__ == "__main__":

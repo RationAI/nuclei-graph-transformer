@@ -39,6 +39,10 @@ dataset:
         test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
+      masks:
+        # preprocessing/annotation_masks/panda.py
+        annotation: ${mlflow_project_pc}/fde2c46b44b5403f8f99fe24db9d7d7e/artifacts/radboud
+
       supervision:
         # preprocessing/annotation_labels.py
         annotation: ${mlflow_project_pc}/d697a522d933487f9453d02d63d9b1b8/artifacts/annotation_labels/radboud

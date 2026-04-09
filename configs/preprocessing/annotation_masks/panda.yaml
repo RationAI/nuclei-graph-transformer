@@ -9,7 +9,6 @@ mask_tile_height: ${dataset.mask_tile_height}
 max_concurrent: 4
 metadata_uri: ${dataset.mlflow_uris.exploration}
 annotations_dir: ${dataset.paths.masks.annotation}
-mlflow_artifact_path: annotation_masks
 
 metadata:
   run_name: "🖍️ Annotation Masks: ${dataset.name}"
