@@ -35,6 +35,7 @@ from rationai.masks import write_big_tiff
 from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+from ratiopath.openslide import OpenSlide
 
 
 @ray.remote(num_cpus=1, memory=(5 * 1024**3))
@@ -46,6 +47,9 @@ def process_slide(
     mask_tile_height: int,
 ) -> None:
     mask_path = annots_dir / f"{metadata['slide_id']}_mask.tiff"
+    with OpenSlide(mask_path) as slide:
+        mpp_x, mpp_y = slide.slide_resolution(level=0)
+
     mask: NDArray[np.uint8] = tifffile.imread(mask_path)
     if mask.ndim == 3:
         mask = mask[..., 0]
@@ -60,8 +64,8 @@ def process_slide(
     write_big_tiff(
         image=pyvips.Image.new_from_array(binary_mask),
         path=output_path,
-        mpp_x=metadata["mpp_x"],
-        mpp_y=metadata["mpp_y"],
+        mpp_x=mpp_x,
+        mpp_y=mpp_y,
         tile_width=mask_tile_width,
         tile_height=mask_tile_height,
     )
@@ -73,7 +77,7 @@ def process_slide(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = pd.read_csv(download_artifacts(config.metadata_uri))
     slides_annots = slides[slides["has_annotation"]]
-    to_process = slides_annots[["slide_id", "data_provider", "mpp_x", "mpp_y"]]
+    to_process = slides_annots[["slide_id", "data_provider"]]
 
     with TemporaryDirectory(dir=os.getcwd()) as output_dir:
         process_items(
