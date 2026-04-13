@@ -6,13 +6,13 @@ defaults:
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation/prostate_cancer_mmci_tl # annotation/prostate_cancer_mmci_tl prediction
   #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: mil # graph-level preds
   #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl # nuclei-level preds
   #- /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl # nuclei-level preds
   #- /callbacks/predictions/labels@trainer.callbacks.labels: mil # graph-level and nuclei-level preds
   #- /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
-  - /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
+  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: mil
   - _self_
 
