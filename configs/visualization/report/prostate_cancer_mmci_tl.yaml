@@ -30,6 +30,7 @@ reporter:
     _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
     artifact_uris:
       - mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test
+    metadata_filename: slides_mapping
     item_path_col: slide_path
     item_name_col: slide_id
     ground_truth_col: is_carcinoma
