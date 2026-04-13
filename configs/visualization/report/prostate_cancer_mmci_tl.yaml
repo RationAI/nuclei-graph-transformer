@@ -8,6 +8,7 @@ train_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifa
 test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
 
 reporter:
+  _target_: report.reporter.ReportAssembler
   title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
   metrics_run_ids:
     - 38e3c2ec3ea34202a4661f0b522c0e48 # wsl, virchow2 eval
@@ -26,13 +27,12 @@ reporter:
       description: ""
 
   background:
-    _target_: report.masks.SlideRetriever
-    paths:
-      _target_: report.masks.mlflow_slide_retriever
-      urls:
-        #- ${train_metadata_uri}
-        - ${test_metadata_uri}
-      key: "slide_path"
+    _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
+    artifact_uris:
+      - mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test
+    item_path_col: slide_path
+    item_name_col: slide_id
+    ground_truth_col: is_carcinoma
     layer_name: Prostate WSI
 
   evaluation_runs:
@@ -79,7 +79,7 @@ reporter:
       run_id: fb2e33383e2548c48e5bd4f2a77e47a8
       layer_name: Annotation
       shader_conf:
-        visible: False
+        visible: True
         opacity: 0.5
         type: edge
         color: "#1F971B" # forest green
@@ -89,10 +89,12 @@ reporter:
       run_id: a40c5a17026840bea1828b78af46752d
       layer_name: Virchow2 Prediction Heatmap
       shader_conf:
+        type: heatmap
+        params:
+          threshold: 85
         visible: False
-        threshold: 85
-        opacity: 0.4
-        color: "#8FF0A4" # light green
+        opacity: 0.80
+        color: "#FFA500" # orange
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
