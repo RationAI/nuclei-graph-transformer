@@ -1,7 +1,7 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling/training: nuclei_level # crop_level nuclei_level
+  - /experiment/modeling/training: nuclei_level/radboud # crop_level nuclei_level / prostate_cancer_mmci_tl radboud
 
 seed: ${random_seed:}
 mode: ???
@@ -10,7 +10,7 @@ dataset: ???
 
 trainer:
   enable_checkpointing: true
-  max_epochs: 200
+  max_epochs: 300
   log_every_n_steps: 5
 
 data:

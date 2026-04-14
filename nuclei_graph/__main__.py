@@ -12,10 +12,10 @@ from nuclei_graph.data.data_module import DataModule
 
 
 OmegaConf.register_new_resolver(
-    "random_seed", lambda: randint(0, 2**32 - 1), use_cache=True
+    "random_seed", lambda: randint(0, 2**32 - 1), use_cache=True, replace=True
 )
-OmegaConf.register_new_resolver("mul", lambda a, b: a * b)
-OmegaConf.register_new_resolver("add", lambda a, b: a + b)
+OmegaConf.register_new_resolver("mul", lambda a, b: a * b, replace=True)
+OmegaConf.register_new_resolver("add", lambda a, b: a + b, replace=True)
 
 
 @hydra.main(config_path="../configs", config_name="ml", version_base=None)
