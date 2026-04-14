@@ -2,7 +2,7 @@
 
 dataset:
   name: MMCI Tile-Level Annotations Data
-  mpp: 0.25
+  target_mpp: 0.25
 
   mask_tile_width: 512
   mask_tile_height: 512

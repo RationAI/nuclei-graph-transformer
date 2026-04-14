@@ -1,0 +1,38 @@
+# @package _global_
+
+mode: fit
+
+monitor: ???
+
+trainer: # TODO
+
+data:
+  split_size: ???
+  split_stratify_col: ???
+  split_group_col: ???
+  supervision:
+    train_strategy: ???
+
+model: # TODO
+
+metadata:
+  run_name: ???
+  hyperparams:
+    # supervision
+    # TODO
+
+    # sampler
+    # TODO
+
+    # training
+    # TODO
+
+    # dataset
+    crop_size: ${data.dataset.crop_size}
+    alpha: ${data.dataset.alpha}
+    k: ${data.dataset.k}
+    attn_block_size: ${data.dataset.attn_block_size}
+    symmetric_block_mask: ${data.dataset.symmetric_block_mask}
+
+    # model
+    # TODO
