@@ -7,8 +7,8 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision.train_strategy: annotation/radboud
-  - /data/supervision@data.supervision.eval_strategy: annotation/radboud
+  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
 monitor: validation/graph/loss
