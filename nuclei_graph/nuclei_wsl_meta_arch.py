@@ -35,7 +35,6 @@ class NucleiWSLMetaArch(LightningModule):
         }
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
-        self.predict_metrics = MetricCollection(metrics, prefix="prediction/")
 
         self.best_val_loss = float("inf")
         self.best_val_metrics: dict[str, Tensor] = {}
@@ -62,22 +61,13 @@ class NucleiWSLMetaArch(LightningModule):
         if sup_size == 0:  # empty supervision batch
             return logits.sum() * 0.0
 
-        # compute weights s.t. sum(positive weights) == sum(negative weights)
         n_pos = (targets_sup == 1).sum().float()
-        n_neg = (targets_sup == 0).sum().float()
-        num_classes = (n_pos > 0).float() + (n_neg > 0).float()
-
-        weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
-        weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
-        weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
-
         pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
         self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
 
         loss_sup = F.binary_cross_entropy_with_logits(
             logits_sup,
             targets_sup,
-            weight=weights,
         )
         self.log(
             "train/loss",
