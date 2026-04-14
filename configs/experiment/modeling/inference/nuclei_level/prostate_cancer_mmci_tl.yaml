@@ -1,0 +1,46 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/inference/base@_here_
+  - /data/sources/prostate_cancer_mmci_tl
+  - /model/meta_archs@model: nuclei_wsl
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
+  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
+  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
+  - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
+  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
+  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
+  - _self_
+
+checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
+
+data:
+  batch_size: 1
+  mlflow_uris:
+    supervision: ${dataset.mlflow_uris.supervision}
+    metadata:
+      predict: ${dataset.mlflow_uris.metadata.test}
+  dataset:
+    alpha: 0.8
+    k: 32
+    attn_block_size: 128
+    efd_order: 10
+    crop_size: 4096
+    symmetric_block_mask: true
+    mil: false
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.15
+
+metadata:
+  run_name: "Predictions(dataset, slide metrics): WSL Slide-level Classifier (Annot Eval)"
+  description: "Predictions: [MLflow training run](${checkpoint_url})"

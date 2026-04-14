@@ -41,11 +41,9 @@ class WSLPredictionMasksCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        slide_id = metadata["slide_id"]
-        slide_path = Path(metadata["slide_path"])
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(slide_path) as slide:
+        with OpenSlide(Path(metadata["slide_path"])) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
@@ -56,12 +54,11 @@ class WSLPredictionMasksCallback(Callback):
         canvas = ImageDraw.Draw(mask)
 
         # extract and align predictions
-        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
+        logits_permuted = outputs["nuclei"][0].squeeze(-1)  # (n,)
         seq_len = batch["slides"]["seq_len"][0].item()
-        logits_unpadded = logits[:seq_len]
-        logits_ordered = logits_unpadded[metadata["perm_inverse"]]
+        logits = logits_permuted[:seq_len][metadata["perm_inverse"]]
 
-        predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
+        preds = torch.sigmoid(logits).cpu().numpy().flatten()
 
         nuclei_path = metadata["slide_nuclei_path"]
         nuclei_df = pd.read_parquet(nuclei_path, columns=["id", "polygon"])
@@ -69,14 +66,14 @@ class WSLPredictionMasksCallback(Callback):
         polygons = nuclei_df["polygon"].values
 
         # draw polygon masks
-        for poly, pred in zip(polygons, predicted_labels, strict=True):
+        for poly, pred in zip(polygons, preds, strict=True):
             polygon = rearrange(poly, "(n c) -> n c", c=2)
             scaled_poly = [(x * scale_x, y * scale_y) for x, y in polygon]
             pixel_val = int(pred * 255)
             canvas.polygon(scaled_poly, fill=pixel_val, outline=pixel_val)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = Path(tmp_dir) / f"{slide_id}.tiff"
+            output_path = Path(tmp_dir) / f"{metadata['slide_id']}.tiff"
 
             write_big_tiff(
                 image=pyvips.Image.new_from_array(np.array(mask)),
@@ -121,11 +118,9 @@ class MILAttentionMasksCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         metadata = batch["metadata"][0]  # batch size is 1
-        slide_id = metadata["slide_id"]
-        slide_path = Path(metadata["slide_path"])
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(slide_path) as slide:
+        with OpenSlide(Path(metadata["slide_path"])) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
@@ -136,16 +131,14 @@ class MILAttentionMasksCallback(Callback):
         canvas = ImageDraw.Draw(mask)
 
         # extract and align attention scores
-        attn = outputs["attn_weights"][0].squeeze(-1)  # (n,)
+        attn_permuted = outputs["attn_weights"][0].squeeze(-1)  # (n,)
         seq_len = batch["slides"]["seq_len"][0].item()
-        attn_unpadded = attn[:seq_len]
-        attn_ordered = attn_unpadded[metadata["perm_inverse"]]
+        attn_scores = attn_permuted[:seq_len][metadata["perm_inverse"]]
+        attn_scores = attn_scores.cpu().numpy().flatten()
 
-        attention_scores = attn_ordered.cpu().numpy().flatten()
-
-        max_score = attention_scores.max()
+        max_score = attn_scores.max()
         if max_score > 0:
-            attention_scores = attention_scores / max_score
+            attn_scores = attn_scores / max_score
 
         nuclei_path = metadata["slide_nuclei_path"]
         nuclei_df = pd.read_parquet(nuclei_path, columns=["id", "polygon"])
@@ -153,14 +146,14 @@ class MILAttentionMasksCallback(Callback):
         polygons = nuclei_df["polygon"].values
 
         # draw polygon masks
-        for poly, pred in zip(polygons, attention_scores, strict=True):
+        for poly, pred in zip(polygons, attn_scores, strict=True):
             polygon = rearrange(poly, "(n c) -> n c", c=2)
             scaled_poly = [(x * scale_x, y * scale_y) for x, y in polygon]
             pixel_val = int(pred * 255)
             canvas.polygon(scaled_poly, fill=pixel_val, outline=pixel_val)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            output_path = Path(tmp_dir) / f"{slide_id}.tiff"
+            output_path = Path(tmp_dir) / f"{metadata['slide_id']}.tiff"
 
             write_big_tiff(
                 image=pyvips.Image.new_from_array(np.array(mask)),

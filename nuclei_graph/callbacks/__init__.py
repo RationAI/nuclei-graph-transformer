@@ -1,22 +1,20 @@
-from nuclei_graph.callbacks.prediction_labels import (
-    MILPredictionsCallback,
-    WSLPredictionsCallback,
-)
-from nuclei_graph.callbacks.prediction_masks import (
+from nuclei_graph.callbacks.predictions import (
     MILAttentionMasksCallback,
+    MILDatasetPredictionMetricsCallback,
+    MILPredictionsCallback,
+    WSLDatasetPredictionMetricsCallback,
     WSLPredictionMasksCallback,
-)
-from nuclei_graph.callbacks.prediction_metrics import (
-    MILPredictionMetricsCallback,
-    WSLPredictionMetricsCallback,
+    WSLPredictionsCallback,
+    WSLSlidePredictionMetricsCallback,
 )
 
 
 __all__ = [
     "MILAttentionMasksCallback",
-    "MILPredictionMetricsCallback",
+    "MILDatasetPredictionMetricsCallback",
     "MILPredictionsCallback",
+    "WSLDatasetPredictionMetricsCallback",
     "WSLPredictionMasksCallback",
-    "WSLPredictionMetricsCallback",
     "WSLPredictionsCallback",
+    "WSLSlidePredictionMetricsCallback",
 ]

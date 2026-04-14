@@ -1,0 +1,4 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.predictions.MILDatasetPredictionMetricsCallback
+threshold: 0.557

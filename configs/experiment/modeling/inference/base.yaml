@@ -6,14 +6,10 @@ checkpoint: ???
 checkpoint_url: ???
 
 trainer:
-  callbacks: ???
+  callbacks: {}
 
 data:
   batch_size: 1
-  mlflow_uris:
-    metadata:
-      predict: ${dataset.mlflow_uris.metadata.test}
-    supervision: ${dataset.mlflow_uris.supervision}
   supervision:
     train_strategy: null
 
