@@ -1,0 +1,44 @@
+# @package _global_
+
+dataset:
+  name: PANDA
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+
+  paths:
+    wsi_data:
+      slides: ${data_path}/Public/Public/prostate/PANDA/train_images
+
+      # reference ground truth information from the competition
+      metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
+      slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
+
+    nuclei:
+      raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
+      # preprocessing/nuclei_standardization.py
+      standardized: ${project_path}/nuclei_segmentation/PANDA
+
+    masks:
+      annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+  
+  mlflow_uris:
+    # preprocessing/exploration/panda/save_metadataset.py
+    exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
+
+  providers:
+    radboud:
+      # preprocessing/data_split.py
+      split: ${mlflow_project_pc}/143fba81135b4a26b9f909e7d65e134e/artifacts/radboud_split/split.csv
+
+      # preprocessing/metadata_mapping/panda.py
+      metadata:
+        train: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
+        predict: null
+
+      supervision:
+        # preprocessing/annotation_labels.py
+        annotation: ${mlflow_project_pc}/916593f7214a44bd8ffce7b77ca9936b/artifacts/annotation_labels/radboud

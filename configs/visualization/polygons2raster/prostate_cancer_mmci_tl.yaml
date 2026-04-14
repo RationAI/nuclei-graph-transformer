@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+visualization_mode: ???
+max_concurrent: 1
+heatmap_labels_uri: ${dataset.mlflow_uris.supervision.annotation}
+label_column: null
+cam_labels_uri: ${dataset.mlflow_uris.supervision.cam.annot_restricted_thr}
+predictions_uri: null
+pred_thr: null
+metadata_uris:
+  #- ${dataset.mlflow_uris.metadata.train}
+  - ${dataset.mlflow_uris.metadata.test}
+nuclei_path: ${dataset.paths.nuclei_seg}
+mlflow_artifact_path: nuclei_masks
+
+metadata:
+  run_name: ???
+  hyperparams:
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
