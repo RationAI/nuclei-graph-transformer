@@ -43,11 +43,9 @@ class NucleiMILMetaArch(LightningModule):
 
         self.val_graph_metrics = self._create_metrics("validation/graph/")
         self.test_graph_metrics = self._create_metrics("test/graph/")
-        self.predict_graph_metrics = self._create_metrics("prediction/graph/")
 
         self.val_nuclei_metrics = self._create_metrics("validation/nuclei/")
         self.test_nuclei_metrics = self._create_metrics("test/nuclei/")
-        self.predict_nuclei_metrics = self._create_metrics("prediction/nuclei/")
 
         self.best_val_graph_loss = float("inf")
         self.best_val_graph_metrics: dict[str, Tensor] = {}
@@ -57,7 +55,7 @@ class NucleiMILMetaArch(LightningModule):
     def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
 
-        # in case of validation/test/prediction stage we have to handle mixed blocks
+        # in case of validation/test/pediction stage we have to handle mixed blocks
         if not self.training:
             block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
@@ -233,7 +231,7 @@ class NucleiMILMetaArch(LightningModule):
                 decay_params.append(w)
 
         return [
-            {"params": decay_params, "weight_decay": 1e-3},
+            {"params": decay_params, "weight_decay": 0.05},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
