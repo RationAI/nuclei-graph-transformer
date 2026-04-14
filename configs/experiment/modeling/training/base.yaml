@@ -8,9 +8,8 @@ trainer: # TODO
 
 data:
   split_size: ???
-  mlflow_uris:
-    metadata: ${dataset.mlflow_uris.metadata}
-    supervision: ${dataset.mlflow_uris.supervision}
+  split_stratify_col: ???
+  split_group_col: ???
   supervision:
     train_strategy: ???
 
