@@ -6,11 +6,11 @@ defaults:
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: annotation/prostate_cancer_mmci_tl # annotation/prostate_cancer_mmci_tl prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
   - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
-  #- /callbacks/predictions/labels@trainer.callbacks.labels: wsl
-  #- /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
+  - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
+  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
   #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 

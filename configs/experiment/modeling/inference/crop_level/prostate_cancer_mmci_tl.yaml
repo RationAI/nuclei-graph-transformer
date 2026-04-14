@@ -6,7 +6,7 @@ defaults:
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: annotation/prostate_cancer_mmci_tl # annotation/prostate_cancer_mmci_tl prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: mil # graph-level preds
   #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl # nuclei-level preds
   #- /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl # nuclei-level preds
