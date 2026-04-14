@@ -1,0 +1,6 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+mode: annotation
+annot_uri: ${data.mlflow_uris.supervision.annotation} # resolved from the experiment/training config

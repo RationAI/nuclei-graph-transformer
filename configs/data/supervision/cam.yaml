@@ -1,0 +1,7 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+mode: cam
+annot_uri: ${dataset.mlflow_uris.supervision.annotation}
+cam_uri: ${dataset.mlflow_uris.supervision.cam.default_thr}
