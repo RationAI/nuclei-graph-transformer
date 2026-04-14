@@ -2,20 +2,17 @@ from kube_jobs import storage, submit_job
 
 
 submit_job(
-    job_name="nuclei-graph-metadata-mapping-panda",
+    job_name="nuclei-graph-metadata-mapping-prostate-cancer-mmci-tl",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=1,
     memory="4Gi",
-    public=True,
+    public=False,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
-        "export MLFLOW_TRACKING_USERNAME='...'",
-        "export MLFLOW_TRACKING_PASSWORD='...'",
-        "export MLFLOW_TRACKING_URI='https://mlflow.rationai.cloud.e-infra.cz/'",
         "uv sync --frozen",
-        "uv run python -m preprocessing.metadata_mapping.panda +experiment=preprocessing/metadata_mapping/...",
+        "uv run -m preprocessing.metadata_mapping.prostate_cancer_mmci_tl",
     ],
-    storage=[storage.public.DATA, storage.public.PROJECTS],
+    storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )
