@@ -31,6 +31,7 @@ Visualization Modes:
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import hydra
 import pandas as pd
@@ -40,7 +41,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import process_items, write_big_tiff
-from rationai.mlkit import autolog, with_cli_args
+from rationai.mlkit import autolog
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 
@@ -96,31 +97,27 @@ def set_filling_and_get_outline_color(
 
 @ray.remote(memory=90 * 1024**3)
 def process_slide(
-    slide_path: Path,
+    item: dict[str, Any],
     visualization_mode: int,
-    mpp: float,
     mask_tile_width: int,
     mask_tile_height: int,
-    nuclei_dir: Path,
     output_dir: Path,
     label_dirs: dict[str, Path | None],
     label_column: str | None,
     pred_thr: float | None,
 ) -> None:
-    dataset_name = slide_path.parents[0].name
-    nuclei = pd.read_parquet(nuclei_dir / dataset_name / f"slide_id={slide_path.stem}")
-
+    nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
         nuclei,
         visualization_mode,
-        slide_path,
+        Path(item["slide_path"]),
         **label_dirs,
         label_column=label_column,
         pred_thr=pred_thr,
     )
 
-    with OpenSlide(slide_path) as slide:
-        level = slide.closest_level(mpp)
+    with OpenSlide(item["slide_path"]) as slide:
+        level = 0  # rasterize at the highest resolution level
         mask_mpp_x, mask_mpp_y = slide.slide_resolution(level)
         mask_size = slide.level_dimensions[level]
     mask = Image.new("L", size=mask_size)
@@ -136,7 +133,7 @@ def process_slide(
 
     write_big_tiff(
         image=pyvips.Image.new_from_array(mask),
-        path=output_dir / slide_path.with_suffix(".tiff").name,
+        path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         mpp_x=mask_mpp_x,
         mpp_y=mask_mpp_y,
         tile_width=mask_tile_width,
@@ -148,16 +145,17 @@ def get_local_path(uri: str | None) -> Path | None:
     return Path(download_artifacts(uri)) if uri is not None else None
 
 
-@with_cli_args(["+visualization=polygons2raster"])
+def uris2df(uris: list[str]) -> pd.DataFrame:
+    """Loads and merges multiple metadata Parquet files into a single DataFrame."""
+    batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
+    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
+
+
 @hydra.main(config_path="../configs", config_name="visualization", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     assert config.visualization_mode in {1, 2, 3, 4}
-
-    train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
-    test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
-    slides = pd.concat([train_slides, test_slides])
-    valid_slides = slides[~slides["is_carcinoma"] | slides["has_annotation"]]
+    metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
         "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
@@ -167,14 +165,12 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     with TemporaryDirectory() as output_dir:
         process_items(
-            items=valid_slides["slide_path"].map(Path),
+            items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
             process_item=process_slide,
             fn_kwargs={
                 "visualization_mode": int(config.visualization_mode),
-                "mpp": config.mpp,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                "nuclei_dir": Path(config.nuclei_path),
                 "output_dir": Path(output_dir),
                 "label_dirs": label_dirs,
                 "label_column": config.label_column,
