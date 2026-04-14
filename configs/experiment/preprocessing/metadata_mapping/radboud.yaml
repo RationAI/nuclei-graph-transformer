@@ -1,0 +1,6 @@
+# @package _global_
+
+split_uri: ${dataset.providers.radboud.split}
+
+metadata:
+  run_name: "📁 Metadataset Mapping: ${dataset.name}/radboud"
