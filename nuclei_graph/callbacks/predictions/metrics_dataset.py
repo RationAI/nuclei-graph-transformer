@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 from sklearn.metrics import ConfusionMatrixDisplay
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
@@ -14,6 +13,8 @@ from torchmetrics.classification import (
     BinaryRecall,
     BinarySpecificity,
 )
+
+from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 
 
 class WSLDatasetPredictionMetricsCallback(Callback):
