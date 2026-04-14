@@ -40,8 +40,9 @@ dataset:
         predict: null
 
       masks:
-        annotation: ${mlflow_project_pc}/fd754d3c074441b6aed4bcf7aaf6cf2c/artifacts/radboud
+        # preprocessing/annotation_masks/panda.py
+        annotation: ${mlflow_project_pc}/fde2c46b44b5403f8f99fe24db9d7d7e/artifacts/radboud
 
       supervision:
         # preprocessing/annotation_labels.py
-        annotation: ${mlflow_project_pc}/d697a522d933487f9453d02d63d9b1b8/artifacts/annotation_labels/radboud
+        annotation: ${mlflow_project_pc}/fd754d3c074441b6aed4bcf7aaf6cf2c/artifacts/annotation_labels/radboud
