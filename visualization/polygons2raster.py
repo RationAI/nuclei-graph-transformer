@@ -11,9 +11,9 @@ Assumes the following structure of input data:
 <PREDICTIONS_URI>/
     <SLIDE_NAME>.parquet (columns "id" (str), "prediction" (int))
 
-3. (Optional) Annotation labels (`preprocessing/annotation_labels.py`) for positive slides with annotations:
-<ANNOT_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and "annot_label" (int))
+3. (Optional) Heatmap labels (`preprocessing/unipolar_heatmap_labels.py`) for positive slides:
+<HEATMAP_LABELS_URI>/
+    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and <LABEL_COLUMN> (int))
 
 4. (Optional) CAM labels (`preprocessing/cam_labels.py`):
 <CAM_LABELS_URI>/
@@ -23,14 +23,15 @@ Visualization Modes:
 1) Outline: Only outline the segmented nuclei polygons.
 2) Predictions: Creates nuclei masks according to model predictions — nuclei predicted as positive are filled;
     `predictions_uri` and `pred_thr` must be provided.
-3) Annotation-based Labeling: Creates nuclei masks for positive slides according to annotation labels — nuclei
-    inside annotations are filled; `annot_labels_uri` must be provided.
+3) Heatmap-based Labeling: Creates nuclei masks for positive slides according to heatmap labels — nuclei
+    inside heatmaps are filled; `heatmap_labels_uri` must be provided.
 4) CAM-based Pseudo Labeling: Creates nuclei masks for positive slides according to CAM pseudo-labels — nuclei
     inside specified high-confidence CAM regions (positive or negative) are filled; `cam_labels_uri` must be provided.
 """
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import hydra
 import pandas as pd
@@ -40,7 +41,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import process_items, write_big_tiff
-from rationai.mlkit import autolog, with_cli_args
+from rationai.mlkit import autolog
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
 
@@ -49,9 +50,10 @@ def set_filling_and_get_outline_color(
     nuclei: pd.DataFrame,
     visualization_mode: int,
     slide_path: Path,
-    annot_labels_dir: Path | None,
+    heatmap_labels_dir: Path | None,
     cam_labels_dir: Path | None,
     predictions_dir: Path | None,
+    label_column: str | None,
     pred_thr: float | None,
 ) -> tuple[pd.DataFrame, int | None]:
     nuclei["fill_color"] = None
@@ -70,14 +72,14 @@ def set_filling_and_get_outline_color(
             nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
-        case 3:  # Annotation-based Labeling
-            assert annot_labels_dir is not None
-            annot_path = annot_labels_dir / f"{slide_path.stem}.parquet"
-            if not annot_path.exists():  # negative slide
+        case 3:  # Heatmap-based Labeling
+            assert heatmap_labels_dir is not None and label_column is not None
+            heatmap_path = heatmap_labels_dir / f"{slide_path.stem}.parquet"
+            if not heatmap_path.exists():  # negative slide
                 return nuclei, outline_color
-            annot_df = pd.read_parquet(annot_path)
-            nuclei = nuclei.merge(annot_df, on="id", how="inner")
-            nuclei.loc[nuclei["annot_label"] == 1, "fill_color"] = 255
+            heatmap_df = pd.read_parquet(heatmap_path)
+            nuclei = nuclei.merge(heatmap_df, on="id", how="inner")
+            nuclei.loc[nuclei[label_column] == 1, "fill_color"] = 255
 
         case 4:  # CAM-based Pseudo Labeling
             assert cam_labels_dir is not None
@@ -95,25 +97,27 @@ def set_filling_and_get_outline_color(
 
 @ray.remote(memory=90 * 1024**3)
 def process_slide(
-    slide_path: Path,
+    item: dict[str, Any],
     visualization_mode: int,
-    mpp: float,
     mask_tile_width: int,
     mask_tile_height: int,
-    nuclei_dir: Path,
     output_dir: Path,
     label_dirs: dict[str, Path | None],
+    label_column: str | None,
     pred_thr: float | None,
 ) -> None:
-    dataset_name = slide_path.parents[0].name
-    nuclei = pd.read_parquet(nuclei_dir / dataset_name / f"slide_id={slide_path.stem}")
-
+    nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
-        nuclei, visualization_mode, slide_path, **label_dirs, pred_thr=pred_thr
+        nuclei,
+        visualization_mode,
+        Path(item["slide_path"]),
+        **label_dirs,
+        label_column=label_column,
+        pred_thr=pred_thr,
     )
 
-    with OpenSlide(slide_path) as slide:
-        level = slide.closest_level(mpp)
+    with OpenSlide(item["slide_path"]) as slide:
+        level = 0  # rasterize at the highest resolution level
         mask_mpp_x, mask_mpp_y = slide.slide_resolution(level)
         mask_size = slide.level_dimensions[level]
     mask = Image.new("L", size=mask_size)
@@ -129,7 +133,7 @@ def process_slide(
 
     write_big_tiff(
         image=pyvips.Image.new_from_array(mask),
-        path=output_dir / slide_path.with_suffix(".tiff").name,
+        path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         mpp_x=mask_mpp_x,
         mpp_y=mask_mpp_y,
         tile_width=mask_tile_width,
@@ -141,35 +145,35 @@ def get_local_path(uri: str | None) -> Path | None:
     return Path(download_artifacts(uri)) if uri is not None else None
 
 
-@with_cli_args(["+visualization=polygons2raster"])
+def uris2df(uris: list[str]) -> pd.DataFrame:
+    """Loads and merges multiple metadata Parquet files into a single DataFrame."""
+    batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
+    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
+
+
 @hydra.main(config_path="../configs", config_name="visualization", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     assert config.visualization_mode in {1, 2, 3, 4}
-
-    train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
-    test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
-    slides = pd.concat([train_slides, test_slides])
-    valid_slides = slides[~slides["is_carcinoma"] | slides["has_annotation"]]
+    metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "annot_labels_dir": get_local_path(config.annot_labels_uri),
+        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
         "cam_labels_dir": get_local_path(config.cam_labels_uri),
         "predictions_dir": get_local_path(config.predictions_uri),
     }
 
     with TemporaryDirectory() as output_dir:
         process_items(
-            items=valid_slides["slide_path"].map(Path),
+            items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
             process_item=process_slide,
             fn_kwargs={
                 "visualization_mode": int(config.visualization_mode),
-                "mpp": config.mpp,
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
-                "nuclei_dir": Path(config.nuclei_path),
                 "output_dir": Path(output_dir),
                 "label_dirs": label_dirs,
+                "label_column": config.label_column,
                 "pred_thr": config.get("pred_thr", None),
             },
             max_concurrent=config.max_concurrent,

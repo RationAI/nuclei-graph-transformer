@@ -1,9 +1,12 @@
 # @package _global_
 
-label_masks_dir: ???
-metadata_uri: ???
+heatmap_uri: ???
+metadata_uris: ???
+exclude_slides_uris: null
 overlap_threshold: ???
-nuclei_dir: ${dataset.paths.nuclei.standardized}
+positive_threshold: ??? # in [0, 1]
+label_column: ???
+nuclei_path: ${dataset.paths.nuclei_seg}
 max_concurrent: 6
 mlflow_artifact_path: ???
 
