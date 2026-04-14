@@ -1,0 +1,15 @@
+# @package _global_
+
+test_size: ???
+stratify_column: ???
+restriction: null # subset of the data to split for provider-specific splits
+metadata_uri: ${dataset.mlflow_uris.exploration}
+mlflow_artifact_path: ${dataset.name}_split
+
+metadata:
+  run_name: "Train-Test Split: ${dataset.name}"
+  hyperparams:
+    test_size: ${test_size}
+    stratify_column: ${stratify_column}
+    provider_column: ${oc.select:restriction.provider_column, null}
+    provider_value: ${oc.select:restriction.provider_value, null}
