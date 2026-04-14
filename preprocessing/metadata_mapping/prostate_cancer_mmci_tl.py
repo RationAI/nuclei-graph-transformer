@@ -76,13 +76,13 @@ def build_map(
         mlflow.log_input(slide_dataset, context="slides_mapping")
 
 
-@with_cli_args(["+preprocessing=metadata_mapping"])
-@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
+@with_cli_args(["+preprocessing=metadata_mapping/prostate_cancer_mmci_tl"])
+@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     exclusion_batches: list[pd.Series] = []
     for uri in config.exclude_slides_uris:
-        df = pd.read_csv(Path(download_artifacts(uri)))
+        df = pd.read_csv(download_artifacts(uri))
         exclusion_batches.append(df["slide_path"])
 
     exclude_slides = (
@@ -91,7 +91,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         else pd.Series(dtype=str)
     )
 
-    train_slides = pd.read_csv(Path(download_artifacts(config.train_metadata_uri)))
+    train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
     build_map(
         slides=train_slides[~train_slides["slide_path"].isin(exclude_slides)],
         nuclei_dir=Path(config.nuclei_seg_path),
@@ -99,7 +99,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         dataset_name=Path(config.train_data_path).name,
     )
 
-    test_slides = pd.read_csv(Path(download_artifacts(config.test_metadata_uri)))
+    test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
     build_map(
         slides=test_slides[~test_slides["slide_path"].isin(exclude_slides)],
         nuclei_dir=Path(config.nuclei_seg_path),
