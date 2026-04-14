@@ -42,11 +42,8 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
         labels = torch.tensor(
             [1.0 if slides_positivity[id] > positivity_thr else 0.0 for id in slide_ids]
         )
-        positive = int(labels.sum().item())
+        positive = labels.sum()
         negative = len(labels) - positive
-
-        if positive == 0 or negative == 0:
-            raise ValueError("Both positive and negative nuclei must exist.")
 
         weights = torch.zeros_like(labels)
         weights[labels == 0] = (1.0 - pos_slide_ratio) / negative

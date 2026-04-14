@@ -25,7 +25,7 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
-BASE_METADATA_COLS = [
+METADATA_COLS_EVAL = [
     "slide_id",
     "is_carcinoma",
     "slide_nuclei_path",
@@ -33,8 +33,6 @@ BASE_METADATA_COLS = [
     "mpp_x",
     "mpp_y",
 ]
-
-TRAIN_METADATA_COLS = [*BASE_METADATA_COLS, "patient_id", "nuclei_count"]
 
 
 class DataModule(LightningDataModule):
@@ -46,6 +44,8 @@ class DataModule(LightningDataModule):
         mlflow_uris: DictConfig,
         dataset: DictConfig,
         supervision: DictConfig,
+        split_stratify_col: str | None = None,
+        split_group_col: str | None = None,
         split_size: float | None = None,
         sampler: DictConfig | None = None,
     ) -> None:
@@ -58,6 +58,8 @@ class DataModule(LightningDataModule):
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
+            split_stratify_col: Column name to use for stratified splitting. If None, no stratification is applied. Defaults to None.
+            split_group_col: Column name to use for group-wise splitting. If None, no group-wise splitting is applied. Defaults to None.
             split_size: Proportion of the training data to use for validation.
             sampler: Sampler configuration for training data loader. Defaults to None.
         """
@@ -68,6 +70,8 @@ class DataModule(LightningDataModule):
             if supervision.train_strategy is not None
             else None
         )
+        self.split_stratify_col = split_stratify_col
+        self.split_group_col = split_group_col
         self.eval_strategy = instantiate(supervision.eval_strategy)
         self.split_size = split_size
         self.num_workers = num_workers
@@ -121,16 +125,19 @@ class DataModule(LightningDataModule):
         match stage:
             case "fit" | "validate":
                 assert self.train_strategy is not None and self.split_size is not None
-
-                slides_df = self._load_df(slides_uri, cols=TRAIN_METADATA_COLS)
+                slides_df = self._load_df(slides_uri)
                 assert slides_df is not None
 
                 train_df, validation_df = train_test_split(
                     slides_df,
                     test_size=self.split_size,
                     random_state=42,
-                    stratify=slides_df["is_carcinoma"],
-                    groups=slides_df["patient_id"],
+                    stratify=slides_df[self.split_stratify_col]
+                    if self.split_stratify_col
+                    else None,
+                    groups=slides_df[self.split_group_col]
+                    if self.split_group_col
+                    else None,
                 )
                 train_df = train_df.reset_index(drop=True)
                 validation_df = validation_df.reset_index(drop=True)
@@ -167,7 +174,7 @@ class DataModule(LightningDataModule):
                 )
 
             case "test" | "predict":
-                slides_df = self._load_df(slides_uri, cols=BASE_METADATA_COLS)
+                slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
                 sup_dfs = self._load_sup_sources(self.eval_strategy)
                 sup = self._prepare_supervision(slides_df, sup_dfs, self.eval_strategy)
