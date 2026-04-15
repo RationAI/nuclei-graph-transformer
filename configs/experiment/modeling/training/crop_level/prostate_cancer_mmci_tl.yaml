@@ -52,4 +52,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Crop-level SL Self Attention Transformer"
-  description: "AB-MIL over features"
+  description: ""
