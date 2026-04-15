@@ -49,7 +49,9 @@ class Transformer(nn.Module):
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
-        self.class_head = nn.Linear(config.dim, config.num_classes)
+        self.nuclei_class_head = nn.Linear(config.dim, config.num_classes)
+        self.graph_class_head = nn.Linear(config.dim, config.num_classes)
+
         self.attn_head = nn.Sequential(
             nn.Linear(config.dim, config.dim // 2),
             nn.Tanh(),
@@ -85,7 +87,7 @@ class Transformer(nn.Module):
 
         x = self.final_norm(x)
 
-        nuclei_preds = self.class_head(x)  # (b, n, num_classes)
+        #nuclei_preds = self.class_head(x)  # (b, n, num_classes)
         attn_scores = self.attn_head(x)  # (b, n, 1)
 
         # compute mask for valid tokens based on seq_len
@@ -98,10 +100,11 @@ class Transformer(nn.Module):
         attn_scores = attn_scores.masked_fill(~valid_mask, float("-inf"))
         attn_weights = torch.softmax(attn_scores, dim=1)
 
-        graph_pred = torch.sum(attn_weights * nuclei_preds, dim=1)
+        #graph_pred = torch.sum(attn_weights * nuclei_preds, dim=1)
+        graph_pred = self.graph_class_head(torch.sum(attn_weights * x, dim=1))
 
         return Outputs(
             graph=graph_pred,  # (b, num_classes)
-            nuclei=nuclei_preds,  # (b, n, num_classes)
+            nuclei=self.nuclei_class_head(x),  # (b, n, num_classes)
             attn_weights=attn_weights,  # (b, n, 1)
         )

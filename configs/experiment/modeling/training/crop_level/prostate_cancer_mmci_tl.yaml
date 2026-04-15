@@ -30,7 +30,7 @@ data:
     crop_size: 4096
     crop_pos_thr: 0.75
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
@@ -52,4 +52,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Crop-level SL Self Attention Transformer"
-  description: ""
+  description: "AB-MIL over features"
