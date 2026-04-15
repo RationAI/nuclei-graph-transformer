@@ -51,5 +51,5 @@ model:
       drop_path_rate: 0.25
 
 metadata:
-  run_name: "Train(Radboud): Crop-level feature-based AB-MIL Self Attention Transformer"
+  run_name: "Train(Radboud): Crop-level AB-MIL Self Attention Transformer"
   description: ""
