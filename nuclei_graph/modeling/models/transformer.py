@@ -88,8 +88,6 @@ class Transformer(nn.Module):
         nuclei_logits = self.class_head(x)
 
         attn_scores = self.attn_head(x)  # (b, n, 1)
-        # apply sigmoid first to squash the raw scores
-        attn_scores = attn_scores.sigmoid()
 
         # compute mask for valid tokens based on seq_len and mask them out
         valid_mask = (
