@@ -50,6 +50,7 @@ class Transformer(nn.Module):
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
+
         self.attn_head = nn.Sequential(
             nn.Linear(config.dim, config.dim // 2),
             nn.Tanh(),
@@ -84,24 +85,27 @@ class Transformer(nn.Module):
             x = layer(x, pos, block_mask)
 
         x = self.final_norm(x)
+        nuclei_logits = self.class_head(x)
 
-        nuclei_preds = self.class_head(x)  # (b, n, num_classes)
         attn_scores = self.attn_head(x)  # (b, n, 1)
+        # apply sigmoid first to squash the raw scores
+        attn_scores = attn_scores.sigmoid()
 
-        # compute mask for valid tokens based on seq_len
+        # compute mask for valid tokens based on seq_len and mask them out
         valid_mask = (
             torch.arange(x.shape[1], device=x.device)[None, :] < seq_len[:, None]
         )
         valid_mask = valid_mask.unsqueeze(-1)  # (b, n, 1)
-
-        # mask out padded tokens before softmax
         attn_scores = attn_scores.masked_fill(~valid_mask, float("-inf"))
+
         attn_weights = torch.softmax(attn_scores, dim=1)
 
-        graph_pred = torch.sum(attn_weights * nuclei_preds, dim=1)
+        nuclei_preds = torch.sigmoid(nuclei_logits)
+        graph_prob = torch.sum(attn_weights * nuclei_preds, dim=1)
+        graph_prob = torch.clamp(graph_prob, min=1e-7, max=1.0 - 1e-7)
 
         return Outputs(
-            graph=graph_pred,  # (b, num_classes)
-            nuclei=nuclei_preds,  # (b, n, num_classes)
+            graph=graph_prob,  # (b, num_classes)
+            nuclei=nuclei_logits,  # (b, n, num_classes)
             attn_weights=attn_weights,  # (b, n, 1)
         )
