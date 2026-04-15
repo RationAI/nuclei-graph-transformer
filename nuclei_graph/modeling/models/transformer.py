@@ -98,9 +98,18 @@ class Transformer(nn.Module):
 
         attn_weights = torch.softmax(attn_scores, dim=1)
 
-        nuclei_preds = torch.sigmoid(nuclei_logits)
-        graph_prob = torch.sum(attn_weights * nuclei_preds, dim=1)
+        ############ Prediction pooling ###############
+        # nuclei_preds = torch.sigmoid(nuclei_logits)
+        # graph_prob = torch.sum(attn_weights * nuclei_preds, dim=1)
+        # graph_prob = torch.clamp(graph_prob, min=1e-7, max=1.0 - 1e-7)
+
+        ############ Feature Pooling ###############
+        pooled_features = torch.sum(attn_weights * x, dim=1) # (b, dim)
+        graph_logits = self.class_head(pooled_features) # (b, num_classes)
+        graph_prob = torch.sigmoid(graph_logits)
         graph_prob = torch.clamp(graph_prob, min=1e-7, max=1.0 - 1e-7)
+
+        ############  ###############
 
         return Outputs(
             graph=graph_prob,  # (b, num_classes)
