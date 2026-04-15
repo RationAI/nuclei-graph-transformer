@@ -104,11 +104,8 @@ class MILDatasetPredictionMetricsCallback(Callback):
 
         targets_graph = slide["y"]["graph"]
         if targets_graph is not None:
-            logits_graph = outputs["graph"].view(-1)
-            preds_graph = torch.sigmoid(logits_graph)
-
             self.dataset_graph_metrics.update(
-                preds_graph, targets_graph.view(-1).long()
+                outputs["graph"].view(-1), targets_graph.view(-1).long()
             )
 
     def on_predict_epoch_end(

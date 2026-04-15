@@ -83,7 +83,8 @@ class MILPredictionsCallback(Callback):
         attn_permuted = outputs["attn_weights"][0].squeeze(-1)  # (n,)
         attn_scores = attn_permuted[:seq_len][metadata["perm_inverse"]]
 
-        graph_pred = torch.sigmoid(outputs["graph"][0]).item()
+        graph_pred = outputs["graph"][0]
+
         df = pd.DataFrame(
             {
                 "id": metadata["nuclei_ids"],
