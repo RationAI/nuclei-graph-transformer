@@ -51,11 +51,14 @@ class Transformer(nn.Module):
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
-        self.attn_head = nn.Sequential(
-            nn.Linear(config.dim, config.dim // 2),
-            nn.Tanh(),
-            nn.Linear(config.dim // 2, 1),
-        )
+        # self.attn_head = nn.Sequential(
+        #     nn.Linear(config.dim, config.dim // 2),
+        #     nn.Tanh(),
+        #     nn.Linear(config.dim // 2, 1),
+        # )
+        self.attention_V = nn.Sequential(nn.Linear(config.dim, config.dim // 2), nn.Tanh())
+        self.attention_U = nn.Sequential(nn.Linear(config.dim, config.dim // 2), nn.Sigmoid())
+        self.attention_weights = nn.Linear(config.dim // 2, 1)
 
     def forward(
         self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_len: Tensor
@@ -87,7 +90,14 @@ class Transformer(nn.Module):
         x = self.final_norm(x)
         nuclei_logits = self.class_head(x)
 
-        attn_scores = self.attn_head(x)  # (b, n, 1)
+        ############ Gated Attention  ###############
+        A_V = self.attention_V(x)  # (b, n, dim//2)
+        A_U = self.attention_U(x)  # (b, n, dim//2)
+        
+        attn_scores = self.attention_weights(A_V * A_U)  # (b, n, 1)
+        ########################################################
+
+        #attn_scores = self.attn_head(x)  # (b, n, 1)
 
         # compute mask for valid tokens based on seq_len and mask them out
         valid_mask = (
