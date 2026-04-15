@@ -14,7 +14,7 @@ defaults:
 monitor: validation/graph/loss
 
 trainer:
-  max_epochs: 120
+  max_epochs: 150
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
@@ -48,8 +48,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.35
+      drop_path_rate: 0.25
 
 metadata:
-  run_name: "Train(Radboud): Crop-level SL Self Attention Transformer"
+  run_name: "Train(Radboud): Crop-level feature-based AB-MIL Self Attention Transformer"
   description: ""
