@@ -85,8 +85,8 @@ class Transformer(nn.Module):
             x = layer(x, pos, block_mask)
 
         x = self.final_norm(x)
-        nuclei_logits = self.class_head(x)
 
+        nuclei_logits = self.class_head(x)  # (b, n, num_classes)
         attn_scores = self.attn_head(x)  # (b, n, 1)
 
         # compute mask for valid tokens based on seq_len and mask them out
@@ -95,15 +95,12 @@ class Transformer(nn.Module):
         )
         valid_mask = valid_mask.unsqueeze(-1)  # (b, n, 1)
         attn_scores = attn_scores.masked_fill(~valid_mask, float("-inf"))
-
         attn_weights = torch.softmax(attn_scores, dim=1)
 
-        nuclei_preds = torch.sigmoid(nuclei_logits)
-        graph_prob = torch.sum(attn_weights * nuclei_preds, dim=1)
-        graph_prob = torch.clamp(graph_prob, min=1e-7, max=1.0 - 1e-7)
+        graph_logits = torch.sum(attn_weights * nuclei_logits, dim=1)
 
         return Outputs(
-            graph=graph_prob,  # (b, num_classes)
+            graph=graph_logits,  # (b, num_classes)
             nuclei=nuclei_logits,  # (b, n, num_classes)
             attn_weights=attn_weights,  # (b, n, 1)
         )
