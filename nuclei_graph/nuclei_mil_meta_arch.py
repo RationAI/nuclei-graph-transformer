@@ -80,7 +80,7 @@ class NucleiMILMetaArch(LightningModule):
         )
         return loss_graph
 
-    def validation_step(self, batch: Batch) -> None:
+    def validation_step(self, batch: Batch) -> Outputs:
         logits = self(batch)
 
         # graph-level metrics
@@ -123,6 +123,7 @@ class NucleiMILMetaArch(LightningModule):
             batch_size=sup_size,
         )
         self.val_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        return logits
 
     def on_validation_epoch_end(self) -> None:
         # compute and reset nuclei-level metrics
