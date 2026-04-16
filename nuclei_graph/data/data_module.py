@@ -58,9 +58,9 @@ class DataModule(LightningDataModule):
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
-            split_stratify_col: Column name to use for stratified splitting. 
+            split_stratify_col: Column name to use for stratified splitting.
                 If None, no stratification is applied. Defaults to None.
-            split_group_col: Column name to use for group-wise splitting. 
+            split_group_col: Column name to use for group-wise splitting.
                 If None, no group-wise splitting is applied. Defaults to None.
             split_size: Proportion of the training data to use for validation.
             sampler: Sampler configuration for training data loader. Defaults to None.
