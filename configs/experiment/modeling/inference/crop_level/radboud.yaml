@@ -13,7 +13,6 @@ defaults:
   - /callbacks/predictions/labels@trainer.callbacks.labels: mil # graph-level and nuclei-level preds
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
   - /callbacks/attention@+trainer.callbacks.attn_masks: nuclei_masks
-  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: mil
   - _self_
 
 checkpoint: # TODO
@@ -27,7 +26,7 @@ data:
       predict: ${dataset.providers.radboud.metadata.test}
   dataset:
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096

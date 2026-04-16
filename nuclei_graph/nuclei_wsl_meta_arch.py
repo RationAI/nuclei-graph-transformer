@@ -61,15 +61,7 @@ class NucleiWSLMetaArch(LightningModule):
         if sup_size == 0:  # empty supervision batch
             return logits.sum() * 0.0
 
-        # compute weights s.t. sum(positive weights) == sum(negative weights)
         n_pos = (targets_sup == 1).sum().float()
-        # n_neg = (targets_sup == 0).sum().float()
-        # num_classes = (n_pos > 0).float() + (n_neg > 0).float()
-
-        # weight_pos = float(sup_size) / (num_classes * n_pos.clamp(min=1.0))
-        # weight_neg = float(sup_size) / (num_classes * n_neg.clamp(min=1.0))
-        # weights = torch.where(targets_sup == 1, weight_pos, weight_neg)
-
         pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
         self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
 
@@ -88,12 +80,12 @@ class NucleiWSLMetaArch(LightningModule):
         )
         return loss_sup
 
-    def validation_step(self, batch: Batch) -> None:
+    def validation_step(self, batch: Batch) -> Outputs:
         targets_sup = batch["y"]["nuclei"]
         assert targets_sup is not None
 
-        logits = self(batch)["nuclei"]
-        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+        logits = self(batch)
+        logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
@@ -110,6 +102,7 @@ class NucleiWSLMetaArch(LightningModule):
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         self.val_step_losses.append(loss_sup.detach() * sup_size)
         self.val_step_sizes.append(sup_size)
+        return logits
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()

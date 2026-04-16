@@ -58,8 +58,10 @@ class DataModule(LightningDataModule):
             mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
-            split_stratify_col: Column name to use for stratified splitting. If None, no stratification is applied. Defaults to None.
-            split_group_col: Column name to use for group-wise splitting. If None, no group-wise splitting is applied. Defaults to None.
+            split_stratify_col: Column name to use for stratified splitting. 
+                If None, no stratification is applied. Defaults to None.
+            split_group_col: Column name to use for group-wise splitting. 
+                If None, no group-wise splitting is applied. Defaults to None.
             split_size: Proportion of the training data to use for validation.
             sampler: Sampler configuration for training data loader. Defaults to None.
         """
@@ -124,7 +126,7 @@ class DataModule(LightningDataModule):
 
         match stage:
             case "fit" | "validate":
-                assert self.train_strategy is not None and self.split_size is not None
+                assert self.split_size is not None
                 slides_df = self._load_df(slides_uri)
                 assert slides_df is not None
 
@@ -142,25 +144,28 @@ class DataModule(LightningDataModule):
                 train_df = train_df.reset_index(drop=True)
                 validation_df = validation_df.reset_index(drop=True)
 
-                train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                train_sup_dfs = self._load_sup_sources(self.train_strategy)
-                train_sup = self._prepare_supervision(
-                    train_df, train_sup_dfs, self.train_strategy
-                )
-                self.positivity = train_sup.positivity_map
+                if stage == "fit":
+                    assert self.train_strategy is not None
 
-                if self.dataset_cfg.mil:
-                    min_pos_count = (
-                        self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
+                    train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
+                    train_sup_dfs = self._load_sup_sources(self.train_strategy)
+                    train_sup = self._prepare_supervision(
+                        train_df, train_sup_dfs, self.train_strategy
                     )
-                    train_df = min_positive_count_filter(
-                        train_df, min_pos_count, train_sup.pos_count_map
+                    self.positivity = train_sup.positivity_map
+
+                    if self.dataset_cfg.mil:
+                        min_pos_count = (
+                            self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
+                        )
+                        train_df = min_positive_count_filter(
+                            train_df, min_pos_count, train_sup.pos_count_map
+                        )
+                    self.train_dataset = instantiate(
+                        self.dataset_cfg,
+                        slides=train_df,
+                        supervision=train_sup,
                     )
-                self.train_dataset = instantiate(
-                    self.dataset_cfg,
-                    slides=train_df,
-                    supervision=train_sup,
-                )
 
                 validation_sup_dfs = self._load_sup_sources(self.eval_strategy)
                 validation_sup = self._prepare_supervision(

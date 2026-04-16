@@ -5,7 +5,7 @@ import torch
 from lightning import Callback, LightningModule, Trainer
 from sklearn.metrics import auc, precision_recall_curve, roc_curve
 
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
 class BaseCurvesCallback(Callback):
@@ -114,68 +114,93 @@ class BaseCurvesCallback(Callback):
 
 
 class MILCurvesCallback(BaseCurvesCallback):
-    """Generates ROC and Precision-Recall curves for graph and nuclei-level predictions."""
+    """Generates ROC and Precision-Recall curves for graph and nuclei-level validation set."""
 
     def __init__(self) -> None:
         super().__init__()
         self.graph_preds, self.graph_targets = [], []
         self.nuclei_preds, self.nuclei_targets = [], []
 
-    def on_predict_batch_end(
+    def on_validation_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs,
-        batch: PredictBatch,
+        outputs: Outputs | None,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        slide = batch["slides"]
+        if trainer.sanity_checking:
+            return
 
-        targets_graph = slide["y"]["graph"]
+        targets_graph = batch["y"]["graph"]
         if targets_graph is not None:
             graph_outputs = outputs["graph"].view(-1)
             self.graph_preds.append(torch.sigmoid(graph_outputs).detach().cpu())
             self.graph_targets.append(targets_graph.view(-1).detach().cpu())
 
-        targets_sup = slide["y"]["nuclei"]
+        targets_sup = batch["y"]["nuclei"]
         if targets_sup is not None and targets_sup.numel() > 0:
-            nuclei_outputs = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
+            nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
             self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
             self.nuclei_targets.append(targets_sup.detach().cpu())
 
-    def on_predict_epoch_end(
+    def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
-        self._log_and_clear_curves(self.graph_preds, self.graph_targets, "graph")
-        self._log_and_clear_curves(self.nuclei_preds, self.nuclei_targets, "nuclei")
+        if trainer.sanity_checking:
+            return
+
+        if trainer.state.fn == "validate":
+            self._log_and_clear_curves(
+                self.graph_preds, self.graph_targets, "val_graph"
+            )
+            self._log_and_clear_curves(
+                self.nuclei_preds, self.nuclei_targets, "val_nuclei"
+            )
+        else:
+            self.graph_preds.clear()
+            self.graph_targets.clear()
+            self.nuclei_preds.clear()
+            self.nuclei_targets.clear()
 
 
 class WSLCurvesCallback(BaseCurvesCallback):
-    """Generates ROC and Precision-Recall curves for nuclei-level predictions in WSL."""
+    """Generates ROC and Precision-Recall curves for nuclei-level validation set WSL model."""
 
     def __init__(self) -> None:
         super().__init__()
         self.nuclei_preds, self.nuclei_targets = [], []
 
-    def on_predict_batch_end(
+    def on_validation_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs,
-        batch: PredictBatch,
+        outputs: Outputs | None,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        slide = batch["slides"]
-        targets_sup = slide["y"]["nuclei"]
+        if trainer.sanity_checking or outputs is None:
+            return
+
+        targets_sup = batch["y"]["nuclei"]
 
         if targets_sup is not None and targets_sup.numel() > 0:
-            nuclei_outputs = outputs["nuclei"][slide["sup_mask"]].squeeze(-1)
+            nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
             self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
             self.nuclei_targets.append(targets_sup.detach().cpu())
 
-    def on_predict_epoch_end(
+    def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
-        self._log_and_clear_curves(self.nuclei_preds, self.nuclei_targets, "nuclei")
+        if trainer.sanity_checking:
+            return
+
+        if trainer.state.fn == "validate":
+            self._log_and_clear_curves(
+                self.nuclei_preds, self.nuclei_targets, "val_nuclei"
+            )
+        else:
+            self.nuclei_preds.clear()
+            self.nuclei_targets.clear()

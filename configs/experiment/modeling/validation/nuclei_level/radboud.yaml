@@ -1,0 +1,43 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/validation/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: nuclei_wsl
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
+  - _self_
+
+checkpoint: # TODO
+checkpoint_url: # TODO
+
+data:
+  batch_size: 1
+  split_stratify_col: "gleason_score"
+  split_group_col: null
+  split_size: 0.1
+  mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
+    supervision: ${dataset.mlflow_uris.supervision}
+  dataset:
+    alpha: 0.8
+    k: 32
+    attn_block_size: 128
+    efd_order: 10
+    crop_size: 4096
+    symmetric_block_mask: true
+    mil: false
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.15
+
+metadata:
+  run_name: "📊 Threshold Estimation(Radboud): Nuclei-Level WSL Classifier"

@@ -1,17 +1,13 @@
 # @package _global_
 
 defaults:
-  - /experiment/modeling/inference/base@_here_
+  - /experiment/modeling/validation/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
-  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
-  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
-  - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
-  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
-  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
+  - /data/supervision@data.supervision.eval_strategy: agreement
+  - /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
 checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
@@ -19,10 +15,12 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 
 data:
   batch_size: 1
+  split_stratify_col: "is_carcinoma"
+  split_group_col: "patient_id"
+  split_size: 0.1
   mlflow_uris:
+    metadata: ${dataset.mlflow_uris.metadata}
     supervision: ${dataset.mlflow_uris.supervision}
-    metadata:
-      predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     alpha: 0.8
     k: 32
@@ -42,5 +40,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions(MMCI): WSL Classifier (Annot Eval)"
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  run_name: "📊 Threshold Estimation(MMCI): WSL Classifier"
