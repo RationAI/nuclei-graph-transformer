@@ -68,6 +68,7 @@ class NucleiWSLMetaArch(LightningModule):
         loss_sup = F.binary_cross_entropy_with_logits(
             logits_sup,
             targets_sup,
+            # weight=weights,
         )
         self.log(
             "train/loss",
@@ -79,12 +80,12 @@ class NucleiWSLMetaArch(LightningModule):
         )
         return loss_sup
 
-    def validation_step(self, batch: Batch) -> None:
+    def validation_step(self, batch: Batch) -> Outputs:
         targets_sup = batch["y"]["nuclei"]
         assert targets_sup is not None
 
-        logits = self(batch)["nuclei"]
-        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+        logits = self(batch)
+        logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
@@ -101,6 +102,7 @@ class NucleiWSLMetaArch(LightningModule):
         self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         self.val_step_losses.append(loss_sup.detach() * sup_size)
         self.val_step_sizes.append(sup_size)
+        return logits
 
     def on_validation_epoch_end(self) -> None:
         metrics = self.val_metrics.compute()
