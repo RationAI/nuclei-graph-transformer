@@ -78,7 +78,7 @@ class MILDatasetPredictionMetricsCallback(Callback):
         self.dataset_graph_metrics = MetricCollection(
             metrics={
                 "AUPRC_graph": BinaryAveragePrecision(),
-                "AURO_graphC": BinaryAUROC(),
+                "AUROC_graph": BinaryAUROC(),
                 "precision_graph": BinaryPrecision(threshold),
                 "recall_graph": BinaryRecall(threshold),
                 "accuracy_graph": BinaryAccuracy(threshold),
@@ -104,8 +104,9 @@ class MILDatasetPredictionMetricsCallback(Callback):
 
         targets_graph = slide["y"]["graph"]
         if targets_graph is not None:
+            logits_graph = outputs["graph"].view(-1)
             self.dataset_graph_metrics.update(
-                outputs["graph"].view(-1), targets_graph.view(-1).long()
+                torch.sigmoid(logits_graph), targets_graph.view(-1).long()
             )
 
     def on_predict_epoch_end(
