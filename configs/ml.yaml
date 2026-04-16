@@ -3,6 +3,7 @@ defaults:
   - _self_
   - /experiment/modeling/training: nuclei_level # crop_level nuclei_level
   #- /experiment/modeling/inference: nuclei_level # crop_level nuclei_level
+  #- /experiment/modeling/validation: nuclei_level/prostate_cancer_mmci_tl
 
 seed: ${random_seed:}
 mode: ???

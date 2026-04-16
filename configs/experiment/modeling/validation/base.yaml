@@ -1,6 +1,6 @@
 # @package _global_
 
-mode: predict
+mode: validate
 
 checkpoint: ???
 checkpoint_url: ???
@@ -10,6 +10,9 @@ trainer:
 
 data:
   batch_size: 1
+  split_size: ???
+  split_stratify_col: ???
+  split_group_col: ???
   supervision:
     train_strategy: null
 
@@ -25,7 +28,7 @@ model:
 
 metadata:
   run_name: ???
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  description: "ROC and PR Curves: [MLflow training run](${checkpoint_url})"
   hyperparams:
-    prediction_supervision_mode: ${data.supervision.eval_strategy.mode}
+    validation_supervision_mode: ${data.supervision.eval_strategy.mode}
     checkpoint: ${checkpoint}

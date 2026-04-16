@@ -13,7 +13,6 @@ defaults:
   - /callbacks/predictions/labels@trainer.callbacks.labels: mil # graph-level and nuclei-level preds
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
   - /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
-  #- /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: mil
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
@@ -27,7 +26,7 @@ data:
       predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
     crop_size: 4096
@@ -44,5 +43,5 @@ model:
       drop_path_rate: 0.35
 
 metadata:
-  run_name: "MIL Classifier — Attention Masks"
+  run_name: "📊 Predictions(MMCI): MIL Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
