@@ -1,7 +1,7 @@
 defaults:
   - base
   - _self_
-  - /experiment/modeling/training: crop_level/radboud # crop_level nuclei_level / prostate_cancer_mmci_tl radboud
+  - /experiment/modeling/training: crop_level/prostate_cancer_mmci_tl # crop_level nuclei_level / prostate_cancer_mmci_tl radboud
   #- /experiment/modeling/inference: nuclei_level/prostate_cancer_mmci_tl
 
 seed: ${random_seed:}
