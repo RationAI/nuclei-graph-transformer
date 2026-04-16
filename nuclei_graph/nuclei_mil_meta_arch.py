@@ -39,8 +39,7 @@ class NucleiMILMetaArch(LightningModule):
         self.lr = lr
         self.warmup_epochs = warmup_epochs
         self.net = net
-        self.bce_logits = nn.BCEWithLogitsLoss()
-        self.bce = nn.BCELoss()
+        self.bce = nn.BCEWithLogitsLoss()
 
         self.val_graph_metrics = self._create_metrics("validation/graph/")
         self.test_graph_metrics = self._create_metrics("test/graph/")
@@ -56,7 +55,7 @@ class NucleiMILMetaArch(LightningModule):
     def forward(self, batch: Batch) -> Outputs:
         block_mask = batch["block_mask"]
 
-        # in case of validation/test/pediction stage we have to handle mixed blocks
+        # in case of validation/test/prediction stage we have to handle mixed blocks
         if not self.training:
             block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
 
@@ -67,9 +66,9 @@ class NucleiMILMetaArch(LightningModule):
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
-        graph_probs = self(batch)["graph"].view(-1)
+        logits_graph = self(batch)["graph"].view(-1)
 
-        loss_graph = self.bce(graph_probs, targets_graph)
+        loss_graph = self.bce(logits_graph, targets_graph)
 
         self.log(
             "train/graph/loss",
@@ -89,9 +88,9 @@ class NucleiMILMetaArch(LightningModule):
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
-        graph_probs = logits["graph"].view(-1)
+        logits_graph = logits["graph"].view(-1)
 
-        loss_graph = self.bce(graph_probs, targets_graph)
+        loss_graph = self.bce(logits_graph, targets_graph)
         self.log(
             "validation/graph/loss",
             loss_graph,
@@ -99,7 +98,7 @@ class NucleiMILMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        self.val_graph_metrics.update(graph_probs, targets_graph.long())
+        self.val_graph_metrics.update(torch.sigmoid(logits_graph), targets_graph.long())
 
         batch_size = targets_graph.size(0)
         self.val_step_graph_losses.append(loss_graph.detach() * batch_size)
@@ -115,7 +114,7 @@ class NucleiMILMetaArch(LightningModule):
         if sup_size == 0:  # empty supervision batch
             return None
 
-        loss_sup = self.bce_logits(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/nuclei/loss",
             loss_sup,
@@ -171,9 +170,9 @@ class NucleiMILMetaArch(LightningModule):
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
-        graph_probs = logits["graph"].view(-1)
+        logits_graph = logits["graph"].view(-1)
 
-        loss_graph = self.bce(graph_probs, targets_graph)
+        loss_graph = self.bce(logits_graph, targets_graph)
         self.log(
             "test/graph/loss",
             loss_graph,
@@ -181,7 +180,9 @@ class NucleiMILMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        self.test_graph_metrics.update(graph_probs, targets_graph.long())
+        self.test_graph_metrics.update(
+            torch.sigmoid(logits_graph), targets_graph.long()
+        )
 
         # nuclei-level metrics
         targets_sup = batch["y"]["nuclei"]
@@ -193,7 +194,7 @@ class NucleiMILMetaArch(LightningModule):
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
             return None
-        loss_sup = self.bce_logits(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "test/nuclei/loss",
             loss_sup,
@@ -230,7 +231,7 @@ class NucleiMILMetaArch(LightningModule):
                 decay_params.append(w)
 
         return [
-            {"params": decay_params, "weight_decay": 0.05},
+            {"params": decay_params, "weight_decay": 1e-2},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
