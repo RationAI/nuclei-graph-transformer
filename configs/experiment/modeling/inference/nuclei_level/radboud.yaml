@@ -11,7 +11,6 @@ defaults:
   - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
   - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
   - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
-  - /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
 checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt
