@@ -1,0 +1,5 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.predictions.MILPredictionsCallback
+threshold: 0.540
+mlflow_artifact_path: "predictions"
