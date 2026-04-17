@@ -40,6 +40,7 @@ class BasePredictionsCallback(Callback):
 
 class WSLPredictionsCallback(BasePredictionsCallback):
     """Computes nucleus-level predictions.
+
     It saves a parquet file with nuclei IDs and prediction scores.
     """
 
@@ -90,6 +91,7 @@ class MILPredictionsCallback(BasePredictionsCallback):
         seq_len = batch["slides"]["seq_len"][0].item()
         metadata = batch["metadata"][0]  # batch size is 1
         logits_ordered = logits[:seq_len][metadata["perm_inverse"]]
+        nuclei_preds = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
 
         attn_permuted = outputs["attn_weights"][0].squeeze(-1)  # (n,)
         attn_scores = attn_permuted[:seq_len][metadata["perm_inverse"]]
@@ -99,10 +101,7 @@ class MILPredictionsCallback(BasePredictionsCallback):
         df = pd.DataFrame(
             {
                 "id": metadata["nuclei_ids"],
-                "nuclei_prediction": torch.sigmoid(logits_ordered)
-                .cpu()
-                .numpy()
-                .flatten(),
+                "nuclei_prediction": nuclei_preds,
                 "attention_score": attn_scores.cpu().numpy().flatten(),
                 "graph_prediction": graph_pred,
             }
