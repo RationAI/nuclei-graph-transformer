@@ -14,8 +14,8 @@ defaults:
   - /callbacks/thresholds/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
-checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
+checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.e-infra.cz/#/experiments/37/runs/c6542ff73c8e4460a8451a1a9c757520
 
 data:
   batch_size: 1
@@ -42,5 +42,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions(Radboud): Nucleus-level WSL Classifier (Virchow2 Eval)"
+  run_name: "📊 Predictions(Radboud): Nucleus-level WSL Classifier (Annot Eval)"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
