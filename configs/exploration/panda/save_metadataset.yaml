@@ -3,6 +3,7 @@
 metadata_csv: ${dataset.paths.wsi_data.metadata}
 slides_dir: ${dataset.paths.wsi_data.slides}
 label_masks_dir: ${dataset.paths.masks.annotation}
+exclude_slides: ${dataset.paths.wsi_data.exclude_qc}
 slides_properties_parquet: ${dataset.paths.wsi_data.slides_properties}
 tissue_threshold: 0.001
 max_concurrent: 16

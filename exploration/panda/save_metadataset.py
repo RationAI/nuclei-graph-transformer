@@ -67,10 +67,15 @@ def get_dataframes(
     slides_dir: Path,
     annots_dir: Path,
     properties_pq_path: Path,
+    exclude_slides: list[str],
     tissue_threshold: float,
     log_file: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(metadata_csv_path).rename(columns={"image_id": "slide_id"})
+
+    if exclude_slides:
+        df = df[~df["slide_id"].isin(exclude_slides)]
+
     slide_ids = df["slide_id"].tolist()
 
     futures = {
@@ -139,12 +144,19 @@ def get_dataframes(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
+    exclude_slides = (
+        pd.read_csv(Path(config.exclude_slides))["slide_stem"].tolist()
+        if config.exclude_slides
+        else []
+    )
+
     with TemporaryDirectory() as output_dir:
         df, summary_df = get_dataframes(
             metadata_csv_path=Path(config.metadata_csv),
             slides_dir=Path(config.slides_dir),
             annots_dir=Path(config.label_masks_dir),
             properties_pq_path=Path(config.slides_properties_parquet),
+            exclude_slides=exclude_slides,
             tissue_threshold=config.tissue_threshold,
             log_file=Path(output_dir) / "errors.log",
         )
