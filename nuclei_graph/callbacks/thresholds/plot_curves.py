@@ -69,9 +69,15 @@ class BaseCurvesCallback(Callback):
         fpr, tpr, thresholds = roc_curve(y_true, y_pred)
         roc_auc = auc(fpr, tpr)
 
-        idx = np.where(tpr == 1)[0]
-        tpr_idx = idx[np.argmin(fpr[idx])] if len(idx) > 0 else 0
-        tpr_threshold = thresholds[tpr_idx]
+        idx = np.where(np.isclose(tpr, 1.0))[0]
+        if len(idx) > 0:
+            tpr_idx = idx[np.argmin(fpr[idx])]
+            tpr_threshold = thresholds[tpr_idx]
+            tpr_label = f"TPR Thresh = {tpr_threshold:.3f}"
+        else:
+            tpr_idx = 0
+            tpr_threshold = np.nan
+            tpr_label = "TPR Thresh = N/A"
 
         j_scores = tpr - fpr
         j_idx = np.argmax(j_scores)
@@ -82,7 +88,7 @@ class BaseCurvesCallback(Callback):
             tpr,
             f"AUC = {roc_auc:.3f}",
             [(fpr[tpr_idx], tpr[tpr_idx]), (fpr[j_idx], tpr[j_idx])],
-            [f"TPR Thresh = {tpr_threshold:.3f}", f"J Thresh = {j_threshold:.3f}"],
+            [tpr_label, f"J Thresh = {j_threshold:.3f}"],
             ["red", "green"],
             "False Positive Rate",
             "True Positive Rate",
