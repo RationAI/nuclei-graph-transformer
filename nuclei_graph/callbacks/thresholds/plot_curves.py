@@ -94,7 +94,10 @@ class BaseCurvesCallback(Callback):
     def _perform_pr(self, y_true, y_pred, title):
         precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
 
-        f1 = 2 * (precision * recall) / (precision + recall + 1e-8)
+        p = precision[:-1]
+        r = recall[:-1]
+
+        f1 = 2 * (p * r) / (p + r + 1e-8)
         best_idx = np.argmax(f1)
         best_threshold = thresholds[best_idx]
 
