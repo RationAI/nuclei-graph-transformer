@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+heatmap_uri: ${dataset.providers.radboud.masks.carcinoma}
+metadata_uris:
+  - ${dataset.mlflow_uris.exploration}
+exclude_slides_uris: null
+overlap_threshold: 0.5
+positive_threshold: 0.0 # annotation masks are binary
+label_column: annot_label
+nuclei_path: ${dataset.paths.nuclei.standardized}
+output_path: ${dataset.providers.radboud.supervision.annotation}
+
+metadata:
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}/Radboud"

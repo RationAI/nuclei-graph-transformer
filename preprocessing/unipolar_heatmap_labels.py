@@ -28,7 +28,6 @@ The result is logged to MLflow as:
 """
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import hydra
 import numpy as np
@@ -94,7 +93,7 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
 @with_cli_args(["+preprocessing=unipolar_heatmap_labels"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger) -> None:
+def main(config: DictConfig, _: MLFlowLogger) -> None:
     heatmaps_dir = download_artifacts(config.heatmap_uri)
     slides = uris2df(config.metadata_uris)
     exclude_slides = uris2df(config.exclude_slides_uris)
@@ -102,23 +101,19 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         ~slides["slide_path"].isin(exclude_slides["slide_path"])
     )
 
-    with TemporaryDirectory() as tmp_dir:
-        process_items(
-            items=slides.loc[valid_mask, "slide_path"].map(Path),
-            process_item=label_slide,
-            fn_kwargs={
-                "nuclei_dir": Path(config.nuclei_path),
-                "heatmaps_dir": Path(heatmaps_dir),
-                "output_dir": Path(tmp_dir),
-                "label_column": config.label_column,
-                "overlap_thr": config.overlap_threshold,
-                "positive_thr": config.positive_threshold,
-            },
-            max_concurrent=config.max_concurrent,
-        )
-        logger.log_artifacts(
-            local_dir=tmp_dir, artifact_path=config.mlflow_artifact_path
-        )
+    process_items(
+        items=slides.loc[valid_mask, "slide_path"].map(Path),
+        process_item=label_slide,
+        fn_kwargs={
+            "nuclei_dir": Path(config.nuclei_path),
+            "heatmaps_dir": Path(heatmaps_dir),
+            "output_dir": Path(config.output_path),
+            "label_column": config.label_column,
+            "overlap_thr": config.overlap_threshold,
+            "positive_thr": config.positive_threshold,
+        },
+        max_concurrent=config.max_concurrent,
+    )
 
 
 if __name__ == "__main__":

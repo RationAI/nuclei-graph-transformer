@@ -32,7 +32,6 @@ The output is logged to MLflow as:
 """
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import hydra
 import numpy as np
@@ -116,7 +115,7 @@ def run_cam_labeling(
 @with_cli_args(["+preprocessing=cam_labels"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
-def main(config: DictConfig, logger: MLFlowLogger) -> None:
+def main(config: DictConfig, _: MLFlowLogger) -> None:
     train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
     test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
     slides = pd.concat([train_slides, test_slides])
@@ -126,24 +125,20 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ]
     cam_masks_dir = Path(download_artifacts(config.cam_masks_uri))
 
-    with TemporaryDirectory() as tmp_dir:
-        process_items(
-            items=valid_slides["slide_path"].map(Path),
-            process_item=run_cam_labeling,
-            fn_kwargs={
-                "nuclei_dir": Path(config.nuclei_path),
-                "cam_masks_dir": cam_masks_dir,
-                "output_dir": Path(tmp_dir),
-                "overlap_thr": config.overlap_threshold,
-                "positive_thr": config.positive_threshold,
-                "negative_thr": config.negative_threshold,
-                "bipolar_zero_offset": config.bipolar_zero_offset,
-            },
-            max_concurrent=config.max_concurrent,
-        )
-        logger.log_artifacts(
-            local_dir=tmp_dir, artifact_path=config.mlflow_artifact_path
-        )
+    process_items(
+        items=valid_slides["slide_path"].map(Path),
+        process_item=run_cam_labeling,
+        fn_kwargs={
+            "nuclei_dir": Path(config.nuclei_path),
+            "cam_masks_dir": cam_masks_dir,
+            "output_dir": Path(config.output_path),
+            "overlap_thr": config.overlap_threshold,
+            "positive_thr": config.positive_threshold,
+            "negative_thr": config.negative_threshold,
+            "bipolar_zero_offset": config.bipolar_zero_offset,
+        },
+        max_concurrent=config.max_concurrent,
+    )
 
 
 if __name__ == "__main__":

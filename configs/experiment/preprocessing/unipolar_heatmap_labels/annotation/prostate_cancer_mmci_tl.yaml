@@ -13,7 +13,8 @@ exclude_slides_uris:
 overlap_threshold: 1.0
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
-mlflow_artifact_path: annotation_labels
+nuclei_path: ${dataset.paths.nuclei_seg}
+output_path: ${dataset.paths.supervision.annotation}
 
 metadata:
   run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"

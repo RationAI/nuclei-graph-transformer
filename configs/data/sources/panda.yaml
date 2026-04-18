@@ -40,10 +40,8 @@ dataset:
         predict: null
 
       masks:
-        annotation:
-          # preprocessing/annotation_masks/panda.py
-          carcinoma: ${mlflow_project_pc}/fd754d3c074441b6aed4bcf7aaf6cf2c/artifacts/annotation_masks/radboud
+        carcinoma: ${mlflow_project_pc}/fd754d3c074441b6aed4bcf7aaf6cf2c/artifacts/radboud
 
       supervision:
-        # preprocessing/annotation_labels.py
-        annotation: ${mlflow_project_pc}/d697a522d933487f9453d02d63d9b1b8/artifacts/annotation_labels/radboud
+        # preprocessing/unipolar_heatmap_labels.py
+        annotation: ${project_path}/nuclei_supervision/PANDA/Radboud/annotation

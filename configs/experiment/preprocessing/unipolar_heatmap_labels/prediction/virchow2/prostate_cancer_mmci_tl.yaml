@@ -11,10 +11,12 @@ metadata_uris:
 overlap_threshold: 0.5
 positive_threshold: 0.85
 label_column: pred_label
-mlflow_artifact_path: prediction_labels
+nuclei_path: ${dataset.paths.nuclei_seg}
+output_path: ${dataset.paths.supervision.model_prediction.virchow2}
 
 metadata:
   run_name: "🏷️ Nuclei ${model_name}-based Labeling: ${dataset.name}"
-  description: Nuclei labeling based on predictions of the [Virchow2 model](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/800dfeef2ff849d9b2abdd39defcb996).
+  description: Nuclei labeling based on predictions of the [Virchow2
+    model](https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/65/runs/800dfeef2ff849d9b2abdd39defcb996).
   hyperparams:
     positive_threshold: ${positive_threshold}
