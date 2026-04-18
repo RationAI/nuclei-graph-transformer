@@ -1,13 +1,13 @@
 # @package _global_
 
-predictions_uri: mlflow-artifacts:/97/6272505c6dd34ac2b34233579bcfe402/artifacts/predictions
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
-pred_thr: 0.185 # threshold for determining positive nuclei
-pred_col: "prediction"
+predictions_dir: ??? # TODO
+checkpoint_url: ??? # TODO
+pred_thr: ??? # threshold for determining positive nuclei, TODO
 visualization_mode: 2
 
 metadata:
-  run_name: "Nuclei Masks — WSL Model Nucleus-level Predictions: ${dataset.name}"
-  description: "Visualization of model predictions as raster masks. [MLflow training run](${checkpoint_url})"
+  run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"
+  description: "Visualization of model predictions as raster masks. [MLflow
+    training run](${checkpoint_url})"
   hyperparams:
-    pred_thr: ${pred_thr}
+    pred_thr: pred_thr

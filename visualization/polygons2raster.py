@@ -55,7 +55,6 @@ def set_filling_and_get_outline_color(
     predictions_dir: Path | None,
     label_column: str | None,
     pred_thr: float | None,
-    pred_col: str | None,
 ) -> tuple[pd.DataFrame, int | None]:
     nuclei["fill_color"] = None
     outline_color = None
@@ -70,7 +69,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei[pred_col] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
@@ -106,7 +105,6 @@ def process_slide(
     label_dirs: dict[str, Path | None],
     label_column: str | None,
     pred_thr: float | None,
-    pred_col: str | None,
 ) -> None:
     nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
@@ -116,7 +114,6 @@ def process_slide(
         **label_dirs,
         label_column=label_column,
         pred_thr=pred_thr,
-        pred_col=pred_col,
     )
 
     with OpenSlide(item["slide_path"]) as slide:
@@ -144,10 +141,6 @@ def process_slide(
     )
 
 
-def get_local_path(uri: str | None) -> Path | None:
-    return Path(download_artifacts(uri)) if uri is not None else None
-
-
 def uris2df(uris: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata Parquet files into a single DataFrame."""
     batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
@@ -161,9 +154,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
-        "cam_labels_dir": get_local_path(config.cam_labels_uri),
-        "predictions_dir": get_local_path(config.predictions_uri),
+        "heatmap_labels_dir": config.heatmap_labels_dir,
+        "cam_labels_dir": config.cam_labels_dir,
+        "predictions_dir": config.predictions_dir,
     }
 
     with TemporaryDirectory() as output_dir:
@@ -178,7 +171,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "label_dirs": label_dirs,
                 "label_column": config.label_column,
                 "pred_thr": config.get("pred_thr", None),
-                "pred_col": config.get("pred_col", None),
             },
             max_concurrent=config.max_concurrent,
         )
