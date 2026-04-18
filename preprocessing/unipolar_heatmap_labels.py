@@ -13,10 +13,10 @@ Assumes the following structure of input data:
             *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
 
 2. Metadatasets for processing (`exploration/save_metadataset.py`):
-[ <SLIDES_METADATA_URI>.csv (columns "slide_path" (str) and "is_carcinoma" (bool)), ...]
+[ <SLIDES_METADATA_URI>.parquet/.csv (columns "slide_path" (str) and "is_carcinoma" (bool)), ... ]
 
 3. (Optional) Exclusion CSVs logged in MLflow (`preprocessing/annotation_masks.py`):
-[ <MISSING_HEATMAPS_URI>.csv (column "slide_path" (str)), ... ]
+[ <MISSING_HEATMAPS_URI>.parquet/.csv (column "slide_path" (str)), ... ]
 
 4. Heatmaps or binary masks (`preprocessing/annotation_masks.py`):
 <HEATMAPS_URI>/
@@ -83,10 +83,19 @@ def label_slide(
 
 
 def uris2df(uris: list[str] | None) -> pd.DataFrame:
-    """Loads and merges multiple metadata CSVs into a single DataFrame."""
+    """Loads and merges multiple metadata parquet/CSV files into a single DataFrame."""
     if not uris:
         return pd.DataFrame(columns=["slide_path"])
-    batches = [pd.read_csv(Path(download_artifacts(uri))) for uri in uris]
+
+    batches = []
+    for uri in uris:
+        path = Path(download_artifacts(uri))
+        if path.suffix.lower() == ".csv":
+            batches.append(pd.read_csv(path))
+        elif path.suffix.lower() == ".parquet":
+            batches.append(pd.read_parquet(path))
+        else:
+            raise ValueError(f"Unsupported file format '{path.suffix}' for URI: {uri}")
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
