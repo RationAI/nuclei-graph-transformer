@@ -8,7 +8,7 @@ positive_threshold: ??? # in [0, 1]
 label_column: ???
 nuclei_path: ${dataset.paths.nuclei_seg}
 max_concurrent: 6
-mlflow_artifact_path: ???
+output_path: ???
 
 metadata:
   run_name: ???

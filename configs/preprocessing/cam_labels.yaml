@@ -10,7 +10,8 @@ negative_threshold: ???
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
 test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
-mlflow_artifact_path: cam_labels
+threshold_type: ???
+output_path: ${dataset.paths.supervision.cam.${threshold_type}}
 
 metadata:
   run_name: "🔍 CAM-based Labeling: ${dataset.name}"
@@ -18,3 +19,4 @@ metadata:
     overlap_threshold: ${overlap_threshold}
     positive_threshold: ${positive_threshold}
     negative_threshold: ${negative_threshold}
+    threshold_type: ${threshold_type}
