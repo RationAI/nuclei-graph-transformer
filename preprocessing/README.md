@@ -75,11 +75,11 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 <a id="unipolar-labels-output"></a>
 ### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
 
-**Location**: MLflow artifacts
+**Location**: Disk
 
 **Output layout**:
 ```text
-<MLFLOW_ARTIFACT_PATH>/
+<OUTPUT_PATH>/
   <SLIDE_NAME>.parquet
 ```
 
@@ -109,11 +109,11 @@ missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 <a id="cam-labels-output"></a>
 ### CAM-based Nuclei Labels: `cam_labels.py`
 
-**Location**: MLflow artifacts
+**Location**: Disk
 
 **Output layout**:
 ```text
-cam_labels/
+<OUTPUT_PATH>/
   <SLIDE_NAME>.parquet 
 ```
 
@@ -189,25 +189,6 @@ cam_labels/
 **CSV row schema of `split.csv`**:
 - `slide_id` (`str`)
 - `set` (`str`): "train" or "test"
-<p align="right"><a href="#panda-workflow">↑ back</a></p>
-
----
-
-<a id="annotation-labels-output"></a>
-### Annotation-based Nuclei Labels: `annotation_labels.py`
-
-**Location**: MLflow artifacts
-
-**Output layout**:
-```text
-annotation_labels/
-  <SLIDE_NAME>.parquet 
-```
-
-**Parquet row schema (one row = one nucleus)**:
-- `slide_id` (`str`)
-- `id` (`str`): Nucleus identifier.
-- `annot_label` (`int`): Binary label produced from overlap with thresholded label mask.
 <p align="right"><a href="#panda-workflow">↑ back</a></p>
 
 ---
