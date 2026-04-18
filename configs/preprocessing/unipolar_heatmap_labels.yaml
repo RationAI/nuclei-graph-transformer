@@ -6,7 +6,7 @@ exclude_slides_uris: null
 overlap_threshold: ???
 positive_threshold: ??? # in [0, 1]
 label_column: ???
-nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_path: ???
 max_concurrent: 6
 output_path: ???
 

@@ -11,6 +11,7 @@ exclude_slides_uris: null
 overlap_threshold: 0.5
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
+nuclei_path: ${dataset.paths.nuclei.standardized}
 output_path: ${dataset.paths.supervision.annotation}
 
 metadata:
