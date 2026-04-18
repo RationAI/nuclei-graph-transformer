@@ -12,7 +12,7 @@ overlap_threshold: 0.5
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
 nuclei_path: ${dataset.paths.nuclei.standardized}
-output_path: ${dataset.paths.supervision.annotation}
+output_path: ${dataset.providers.radboud.supervision.annotation}
 
 metadata:
   run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}/Radboud"
