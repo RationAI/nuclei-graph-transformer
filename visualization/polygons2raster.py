@@ -141,10 +141,6 @@ def process_slide(
     )
 
 
-def get_local_path(uri: str | None) -> Path | None:
-    return Path(download_artifacts(uri)) if uri is not None else None
-
-
 def uris2df(uris: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata Parquet files into a single DataFrame."""
     batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
@@ -158,9 +154,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
-        "cam_labels_dir": get_local_path(config.cam_labels_uri),
-        "predictions_dir": get_local_path(config.predictions_uri),
+        "heatmap_labels_dir": config.heatmap_labels_dir,
+        "cam_labels_dir": config.cam_labels_dir,
+        "predictions_dir": config.predictions_dir,
     }
 
     with TemporaryDirectory() as output_dir:
