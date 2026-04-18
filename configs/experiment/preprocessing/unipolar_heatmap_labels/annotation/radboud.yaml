@@ -6,7 +6,8 @@ defaults:
 
 heatmap_uri: ${dataset.providers.radboud.masks.carcinoma}
 metadata_uris:
-  - ${dataset.mlflow_uris.exploration}
+  - ${dataset.providers.radboud.metadata.train}
+  - ${dataset.providers.radboud.metadata.test}
 exclude_slides_uris: null
 overlap_threshold: 0.5
 positive_threshold: 0.0 # annotation masks are binary
