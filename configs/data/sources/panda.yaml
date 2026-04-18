@@ -23,12 +23,6 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
-      carcinoma:
-        # TODO
-
-    supervision:
-      # preprocessing/unipolar_heatmap_labels.py
-      annotation: ${project_path}/nuclei_supervision/PANDA/annotation
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
@@ -44,3 +38,10 @@ dataset:
         train: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_train.parquet
         test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
         predict: null
+
+      masks:
+        carcinoma: ${mlflow_project_pc}/fd754d3c074441b6aed4bcf7aaf6cf2c/artifacts/radboud
+
+      supervision:
+        # preprocessing/unipolar_heatmap_labels.py
+        annotation: ${project_path}/nuclei_supervision/PANDA/Radboud/annotation

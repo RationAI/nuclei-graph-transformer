@@ -4,7 +4,7 @@ defaults:
   - /data/sources/panda
   - _self_
 
-heatmap_uri: ${dataset.mlflow_uris.masks.annotation}
+heatmap_uri: ${dataset.providers.radboud.masks.carcinoma}
 metadata_uris:
   - ${dataset.mlflow_uris.exploration}
 exclude_slides_uris: null
@@ -14,4 +14,4 @@ label_column: annot_label
 output_path: ${dataset.paths.supervision.annotation}
 
 metadata:
-  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}/Radboud"
