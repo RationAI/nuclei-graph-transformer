@@ -2,7 +2,7 @@ from kube_jobs import storage, submit_job
 
 
 submit_job(
-    job_name="nuclei-graph-metadata-mapping-prostate_cancer-mmci-tl",
+    job_name="nuclei-graph-metadata-mapping-prostate-cancer-mmci-tl",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=1,

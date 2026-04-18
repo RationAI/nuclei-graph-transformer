@@ -23,7 +23,7 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
-  
+
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
@@ -41,4 +41,4 @@ dataset:
 
       supervision:
         # preprocessing/annotation_labels.py
-        annotation: ${mlflow_project_pc}/916593f7214a44bd8ffce7b77ca9936b/artifacts/annotation_labels/radboud
+        annotation: ${mlflow_project_pc}/d697a522d933487f9453d02d63d9b1b8/artifacts/annotation_labels/radboud
