@@ -23,9 +23,7 @@ data:
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
-  mlflow_uris:
-    metadata: ${dataset.mlflow_uris.metadata}
-    supervision: ${dataset.mlflow_uris.supervision}
+  metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     crop_size: 4096
     crop_pos_thr: 0.75
@@ -35,6 +33,8 @@ data:
     efd_order: 10
     symmetric_block_mask: false
     mil: true
+  supervision:
+    paths: ${dataset.paths.supervision}
   sampler:
     positivity_thr: 0.0
     pos_slide_ratio: 0.5

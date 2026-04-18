@@ -20,10 +20,8 @@ checkpoint_url: # TODO
 
 data:
   batch_size: 1
-  mlflow_uris:
-    supervision: ${dataset.providers.radboud.supervision}
-    metadata:
-      predict: ${dataset.providers.radboud.metadata.test}
+  metadata:
+    predict: ${dataset.providers.radboud.metadata.test}
   dataset:
     alpha: 0.8
     k: 32
@@ -32,6 +30,8 @@ data:
     crop_size: 4096
     symmetric_block_mask: false
     mil: true
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
 
 model:
   net:

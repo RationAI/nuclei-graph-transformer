@@ -171,9 +171,9 @@ class SupervisionStrategy:
         "prediction": (PredictionNucleiSupervision, ["pred_labels"]),
     }
 
-    def __init__(self, mode: str, **uris: str | None):
+    def __init__(self, mode: str, **paths: str | None):
         self.mode = mode
-        self.uris = uris
+        self.paths = paths
         if mode not in self.STRATEGY_MAP:
             raise ValueError(f"Unknown mode: {mode}")
 

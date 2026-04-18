@@ -3,5 +3,5 @@ defaults:
   - _self_
 
 mode: cam
-annot_uri: ${dataset.mlflow_uris.supervision.annotation}
-cam_uri: ${dataset.mlflow_uris.supervision.cam.default_thr}
+annot_dir: ${data.supervision.paths.annotation}
+cam_dir: ${data.supervision.paths.cam.annot_restricted_thr}

@@ -20,10 +20,8 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 
 data:
   batch_size: 1
-  mlflow_uris:
-    supervision: ${dataset.mlflow_uris.supervision}
-    metadata:
-      predict: ${dataset.mlflow_uris.metadata.test}
+  metadata:
+    predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     alpha: 0.8
     k: 32
@@ -32,6 +30,8 @@ data:
     crop_size: 4096
     symmetric_block_mask: false
     mil: true
+  supervision:
+    paths: ${dataset.paths.supervision}
 
 model:
   net:

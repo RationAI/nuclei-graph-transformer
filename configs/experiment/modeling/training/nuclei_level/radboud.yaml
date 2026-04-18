@@ -23,9 +23,7 @@ data:
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
-  mlflow_uris:
-    metadata: ${dataset.providers.radboud.metadata}
-    supervision: ${dataset.providers.radboud.supervision}
+  metadata: ${dataset.providers.radboud.metadata}
   dataset:
     crop_size: 4096
     alpha: 0.8
@@ -34,6 +32,8 @@ data:
     efd_order: 10
     symmetric_block_mask: true
     mil: false
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
   sampler:
     positivity_thr: 0.05
     pos_slide_ratio: 0.75
