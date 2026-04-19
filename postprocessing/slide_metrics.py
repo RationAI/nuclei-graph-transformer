@@ -23,7 +23,9 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
     all_preds = []
     for slide_id in slide_ids.unique():
         parquet_path = predictions_dir / f"{slide_id}.parquet"
-        slide_pred_df = pd.read_parquet(parquet_path, columns=["id", "prediction"])
+        slide_pred_df = pd.read_parquet(
+            parquet_path, columns=["id", "nuclei_prediction"]
+        )
         slide_pred_df["slide_id"] = slide_id
         all_preds.append(slide_pred_df)
     return pd.concat(all_preds, ignore_index=True)
@@ -34,10 +36,15 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     predictions_dir = Path(download_artifacts(config.predictions_uri))
-    supervision_df = pd.read_parquet(download_artifacts(config.supervision_uri))
+    metadata = pd.read_parquet(download_artifacts(config.metadata_uri))
+    supervision_df = pd.read_parquet(config.supervision_dir)
 
-    preds_df = get_predictions(supervision_df["slide_id"], predictions_dir)
-    merged_df = pd.merge(preds_df, supervision_df, on=["slide_id", "id"], how="inner")
+    preds_df = get_predictions(metadata["slide_id"], predictions_dir)
+    merged_df = pd.merge(preds_df, supervision_df, on=["slide_id", "id"], how="left")
+    merged_df = pd.merge(
+        merged_df, metadata[["slide_id", "is_carcinoma"]], on="slide_id", how="left"
+    )
+    merged_df.loc[~merged_df["is_carcinoma"], config.label_column] = 0
 
     metrics = MetricCollection(
         metrics={
@@ -53,7 +60,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     slide_results = []
     for slide_id, group in merged_df.groupby("slide_id"):
-        preds_t = torch.tensor(group["prediction"].values)
+        preds_t = torch.tensor(group["nuclei_prediction"].values)
         targets_t = torch.tensor(group[config.label_column].values).long()
 
         computed = metrics(preds_t, targets_t)

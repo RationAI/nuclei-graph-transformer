@@ -24,7 +24,9 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
     all_preds = []
     for slide_id in slide_ids.unique():
         parquet_path = predictions_dir / f"{slide_id}.parquet"
-        slide_pred_df = pd.read_parquet(parquet_path, columns=["id", "prediction"])
+        slide_pred_df = pd.read_parquet(
+            parquet_path, columns=["id", "nuclei_prediction"]
+        )
         slide_pred_df["slide_id"] = slide_id
         all_preds.append(slide_pred_df)
     return pd.concat(all_preds, ignore_index=True)
@@ -46,7 +48,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         merged_df[config.label_column].fillna(0).astype(int)
     )
 
-    preds_t = torch.tensor(merged_df["prediction"].values)
+    preds_t = torch.tensor(merged_df["nuclei_prediction"].values)
     targets_t = torch.tensor(merged_df[config.label_column].values).long()
 
     metrics = MetricCollection(

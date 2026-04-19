@@ -59,7 +59,9 @@ class WSLPredictionsCallback(BasePredictionsCallback):
         logits_ordered = logits[:seq_len][metadata["perm_inverse"]]
 
         preds_t = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
-        preds_df = pd.DataFrame({"id": metadata["nuclei_ids"], "prediction": preds_t})
+        preds_df = pd.DataFrame(
+            {"id": metadata["nuclei_ids"], "nuclei_prediction": preds_t}
+        )
 
         self._save_parquet(preds_df, metadata["slide_id"])
 

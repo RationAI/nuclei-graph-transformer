@@ -86,15 +86,15 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     metrics = MetricCollection(
         metrics={
-            "AUPRC_graph": BinaryAveragePrecision(),
-            "AUROC_graph": BinaryAUROC(),
-            "precision_graph": BinaryPrecision(config.threshold),
-            "recall_graph": BinaryRecall(config.threshold),
-            "accuracy_graph": BinaryAccuracy(config.threshold),
-            "specificity_graph": BinarySpecificity(config.threshold),
-            "confusion_matrix_graph": BinaryConfusionMatrix(config.threshold),
+            "AUPRC": BinaryAveragePrecision(),
+            "AUROC": BinaryAUROC(),
+            "precision": BinaryPrecision(config.threshold),
+            "recall": BinaryRecall(config.threshold),
+            "accuracy": BinaryAccuracy(config.threshold),
+            "specificity": BinarySpecificity(config.threshold),
+            "confusion_matrix": BinaryConfusionMatrix(config.threshold),
         },
-        prefix="prediction/",
+        prefix="prediction/graph/",
     )
     log_metrics(logger, metrics(preds_t, targets_t))
 

@@ -4,7 +4,7 @@ defaults:
   - /data/sources/panda
   - _self_
 
-metadata_uri: ${dataset.mlflow_uris.metadata.test}
+metadata_uri: ${dataset.providers.radboud.metadata.test}
 predictions_uri: # TODO
 threshold: # TODO
 
