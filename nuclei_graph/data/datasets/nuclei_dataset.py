@@ -87,7 +87,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         self.full_slide = full_slide
         self.predict = predict
         self.mil = mil
-        self.pos_slide_indices = np.where(self.slides["is_carcinoma"])[0].tolist()
+        self.pos_slide_indices = (
+            np.where(self.slides["is_carcinoma"])[0].tolist() if not predict else []
+        )
 
     def __len__(self) -> int:
         return len(self.slides)
