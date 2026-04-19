@@ -1,0 +1,13 @@
+# @package _global_
+
+label_masks_dir: ???
+metadata_uri: ???
+overlap_threshold: ???
+nuclei_dir: ${dataset.paths.nuclei.standardized}
+max_concurrent: 6
+mlflow_artifact_path: ???
+
+metadata:
+  run_name: ???
+  hyperparams:
+    overlap_threshold: ${overlap_threshold}
