@@ -23,18 +23,18 @@ data:
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
-  mlflow_uris:
-    metadata: ${dataset.providers.radboud.metadata}
-    supervision: ${dataset.providers.radboud.supervision}
+  metadata: ${dataset.providers.radboud.metadata}
   dataset:
     crop_size: 4096
     crop_pos_thr: 0.75
     alpha: 0.8
-    k: 64
+    k: 32
     attn_block_size: 128
     efd_order: 10
     symmetric_block_mask: false
     mil: true
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
   sampler:
     positivity_thr: 0.0
     pos_slide_ratio: 0.5
@@ -48,8 +48,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.35
+      drop_path_rate: 0.25
 
 metadata:
-  run_name: "Train(Radboud): Crop-level SL Self Attention Transformer"
+  run_name: "Train(Radboud): Crop-level AB-MIL Self Attention Transformer"
   description: ""
