@@ -46,6 +46,6 @@ dataset:
 
     # preprocessing/metadata_mapping/prostate_cancer_mmci_tl.py
     metadata:
-      train: ${mlflow_project_sc}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations/slides_mapping.parquet
-      test: ${mlflow_project_sc}/63751b7c9169498389254f8a180bc5de/artifacts/tile_level_annotations_test/slides_mapping.parquet
+      train: ${mlflow_project_sc}/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations/slides_mapping.parquet
+      test: ${mlflow_project_sc}/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
       predict: null
