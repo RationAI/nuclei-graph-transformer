@@ -6,8 +6,8 @@ defaults:
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
 predictions_uri: # TODO
-supervision_uri: # TODO
-label_column: # TODO
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label
 threshold: # TODO
 
 checkpoint: # TODO

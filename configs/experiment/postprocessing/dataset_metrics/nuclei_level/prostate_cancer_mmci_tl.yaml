@@ -5,10 +5,10 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-predictions_uri: # TODO
-supervision_uri: # TODO
-label_column: # TODO
-threshold: # TODO
+predictions_uri: mlflow-artifacts:/97/c6fb715adce5467d82b779eb5021ac30/artifacts/predictions
+supervision_dir: ${dataset.paths.supervision.annotation}
+label_column: annot_label
+threshold: 0.388
 
-checkpoint: # TODO
-checkpoint_url: # TODO
+checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde

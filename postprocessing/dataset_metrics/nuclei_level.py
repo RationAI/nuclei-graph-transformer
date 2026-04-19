@@ -35,7 +35,7 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     predictions_dir = Path(download_artifacts(config.predictions_uri))
-    supervision_df = pd.read_parquet(download_artifacts(config.supervision_uri))
+    supervision_df = pd.read_parquet(config.supervision_dir)
     preds_df = get_predictions(supervision_df["slide_id"], predictions_dir)
 
     merged_df = pd.merge(preds_df, supervision_df, on=["slide_id", "id"], how="inner")
