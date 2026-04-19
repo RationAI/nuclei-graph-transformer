@@ -16,14 +16,15 @@ def collate_fn(batch: Iterable[Crop]) -> Batch:
     batch = list(batch)
 
     graph_targets = [b["y"]["graph"] for b in batch if b["y"]["graph"] is not None]
+    nuclei_targets = [b["y"]["nuclei"] for b in batch if b["y"]["nuclei"] is not None]
     batched_y: Targets = {
         "graph": torch.stack(graph_targets, dim=0) if graph_targets else None,
-        "nuclei": torch.cat([b["y"]["nuclei"] for b in batch], dim=0),  # variable size
+        "nuclei": torch.cat(list(nuclei_targets), dim=0) if nuclei_targets else None,
     }
     return {
         "x": torch.stack([b["x"] for b in batch], dim=0),
-        "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "y": batched_y,
+        "pos": torch.stack([b["pos"] for b in batch], dim=0),
         "sup_mask": torch.stack([b["sup_mask"] for b in batch], dim=0),
         "block_mask": batch_block_masks([b["block_mask"] for b in batch]),
         "seq_len": torch.tensor([b["seq_len"] for b in batch], dtype=torch.int32),

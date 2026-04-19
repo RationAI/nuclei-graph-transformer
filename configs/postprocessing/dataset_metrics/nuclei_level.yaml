@@ -1,0 +1,16 @@
+# @package _global_
+
+metadata_uri: ???
+predictions_uri: ???
+supervision_uri: ???
+label_column: ???
+threshold: ???
+
+checkpoint: ???
+checkpoint_url: ???
+
+metadata:
+  run_name: "Dataset Nuclei-Level Metrics"
+  description: "Model: [MLflow training run](${checkpoint_url})"
+  hyperparams:
+    threshold: ${threshold}

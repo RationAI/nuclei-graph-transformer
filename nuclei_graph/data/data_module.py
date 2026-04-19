@@ -27,7 +27,6 @@ from nuclei_graph.nuclei_graph_typing import (
 
 METADATA_COLS_EVAL = [
     "slide_id",
-    "is_carcinoma",
     "slide_nuclei_path",
     "slide_path",
     "mpp_x",
@@ -43,7 +42,7 @@ class DataModule(LightningDataModule):
         eval_num_workers: int,
         metadata: DictConfig,
         dataset: DictConfig,
-        supervision: DictConfig,
+        supervision: DictConfig | None,
         split_stratify_col: str | None = None,
         split_group_col: str | None = None,
         split_size: float | None = None,
@@ -69,12 +68,14 @@ class DataModule(LightningDataModule):
         self.batch_size = batch_size
         self.train_strategy = (
             instantiate(supervision.train_strategy)
-            if supervision.train_strategy is not None
+            if supervision is not None and supervision.train_strategy is not None
             else None
         )
         self.split_stratify_col = split_stratify_col
         self.split_group_col = split_group_col
-        self.eval_strategy = instantiate(supervision.eval_strategy)
+        self.eval_strategy = (
+            instantiate(supervision.eval_strategy) if supervision is not None else None
+        )
         self.split_size = split_size
         self.num_workers = num_workers
         self.eval_num_workers = eval_num_workers
@@ -126,6 +127,8 @@ class DataModule(LightningDataModule):
         match stage:
             case "fit" | "validate":
                 assert self.split_size is not None
+                assert self.eval_strategy is not None
+
                 slides_df = self._load_df(slides_uri)
                 assert slides_df is not None
 
@@ -174,24 +177,32 @@ class DataModule(LightningDataModule):
                     supervision=validation_sup,
                     full_slide=True,
                 )
-
-            case "test" | "predict":
-                slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
-                assert slides_df is not None
+            case "test":
+                slides_df = self._load_df(
+                    slides_uri,
+                    cols=[*METADATA_COLS_EVAL, "is_carcinoma"],
+                )
+                assert slides_df is not None and self.eval_strategy is not None
                 sup = self._prepare_supervision(
                     slides_df, self.eval_strategy.paths, self.eval_strategy
                 )
-                dataset = instantiate(
+                self.test_dataset = instantiate(
                     self.dataset_cfg,
                     slides=slides_df,
                     supervision=sup,
                     full_slide=True,
-                    predict=(stage == "predict"),
+                    predict=False,
                 )
-                if stage == "test":
-                    self.test_dataset = dataset
-                else:
-                    self.predict_dataset = dataset
+            case "predict":
+                slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
+                assert slides_df is not None
+                self.predict_dataset = instantiate(
+                    self.dataset_cfg,
+                    slides=slides_df,
+                    supervision=None,
+                    full_slide=True,
+                    predict=True,
+                )
 
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = None
