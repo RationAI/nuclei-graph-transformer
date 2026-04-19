@@ -18,9 +18,7 @@ data:
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
-  mlflow_uris:
-    metadata: ${dataset.mlflow_uris.metadata}
-    supervision: ${dataset.mlflow_uris.supervision}
+  metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     alpha: 0.8
     k: 32
@@ -29,6 +27,8 @@ data:
     crop_size: 4096
     symmetric_block_mask: true
     mil: false
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
 
 model:
   net:
