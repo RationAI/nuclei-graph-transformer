@@ -7,8 +7,9 @@ overlap_threshold: ???
 bipolar_zero_offset: 127.5
 positive_threshold: ???
 negative_threshold: ???
-train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
-test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
+metadata_uris: 
+  - ${dataset.mlflow_uris.metadata.train}
+  - ${dataset.mlflow_uris.metadata.test}
 nuclei_path: ${dataset.paths.nuclei_seg}
 threshold_type: ???
 output_path: ${dataset.paths.supervision.cam.${threshold_type}}

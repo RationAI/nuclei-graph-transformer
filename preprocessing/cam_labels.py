@@ -7,9 +7,8 @@ Assumes the following structure of input data:
         slide_id=<SLIDE_NAME>/
             *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
 
-2. Exploratory Metadataset (`exploration/save_metadataset.py`):
-<DATASET_NAME>/
-    slides_metadata.csv (column "slide_path" (str) and "is_carcinoma" (bool))
+2. Metadatasets for processing (`metadata_mapping/...`):
+[ <SLIDES_METADATA_URI>.parquet (columns "slide_id" (str), "slide_nuclei_path" (str), "slide_path" (str) and "is_carcinoma" (bool)), ... ]
 
 3. CAM masks (`preprocessing/merge_cam_masks.py`):
 <CAM_MASKS_URI>/
@@ -32,6 +31,7 @@ The output is logged to MLflow as:
 """
 
 from pathlib import Path
+from typing import Any
 
 import hydra
 import numpy as np
@@ -75,7 +75,7 @@ def get_cam_values(
 
 @ray.remote(num_cpus=1, memory=(2 * 1024**3))
 def run_cam_labeling(
-    slide_path: Path,
+    metadata: dict[str, Any],
     nuclei_dir: Path,
     cam_masks_dir: Path,
     output_dir: Path,
@@ -84,15 +84,12 @@ def run_cam_labeling(
     negative_thr: float,
     bipolar_zero_offset: float,
 ) -> None:
-    slide_id = slide_path.stem
-    dataset_name = slide_path.parents[0].name
-    nuclei_path = nuclei_dir / dataset_name / f"slide_id={slide_id}"
-    nuclei = pd.read_parquet(nuclei_path).sort_values("id")
-    nuclei["slide_id"] = slide_id
+    nuclei = pd.read_parquet(metadata["slide_nuclei_path"]).sort_values("id")
+    nuclei["slide_id"] = metadata["slide_id"]
     nuclei["cam_label"] = -1  # default uncertain
 
-    cam_mask_path = cam_masks_dir / f"{slide_id}.tiff"
-    cam_values = get_cam_values(slide_path, nuclei, cam_mask_path)
+    cam_mask_path = cam_masks_dir / f"{metadata['slide_id']}.tiff"
+    cam_values = get_cam_values(metadata["slide_path"], nuclei, cam_mask_path)
     nuclei["cam_score"] = np.mean(cam_values, axis=1)
     divisor = np.where(
         cam_values > bipolar_zero_offset,
@@ -106,27 +103,34 @@ def run_cam_labeling(
     pos_mask = np.mean(cam_values_scaled >= positive_thr, axis=1) >= overlap_thr
     nuclei.loc[pos_mask, "cam_label"] = 1
 
-    output_path = output_dir / f"{slide_id}.parquet"
+    output_path = output_dir / f"{metadata['slide_id']}.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cols = ["slide_id", "id", "cam_label", "cam_score"]
     nuclei[cols].to_parquet(output_path, index=False)
+
+
+def uris2df(uris: list[str] | None) -> pd.DataFrame:
+    """Loads and merges multiple metadata .parquet files into a single DataFrame."""
+    if not uris:
+        return pd.DataFrame(columns=["slide_path"])
+    batches = [pd.read_parquet(Path(download_artifacts(uri))) for uri in uris]
+    return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
 @with_cli_args(["+preprocessing=cam_labels"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
-    train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
-    test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
-    slides = pd.concat([train_slides, test_slides])
+    slides = uris2df(config.metadata_uris)
     exclude = pd.read_csv(download_artifacts(config.missing_cam_masks_uri))
     valid_slides = slides[
         slides["is_carcinoma"] & ~slides["slide_path"].isin(exclude["slide_path"])
     ]
+    to_process = valid_slides[["slide_id", "slide_path", "slide_nuclei_path"]]
     cam_masks_dir = Path(download_artifacts(config.cam_masks_uri))
 
     process_items(
-        items=valid_slides["slide_path"].map(Path),
+        items=to_process.to_dict("records"),
         process_item=run_cam_labeling,
         fn_kwargs={
             "nuclei_dir": Path(config.nuclei_path),
