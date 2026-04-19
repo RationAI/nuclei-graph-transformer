@@ -9,17 +9,17 @@
 2. **Annotation Masks** (`annotation_masks.py`, [output structure](#annotation-masks-output))  
    Generates binary masks for annotated carcinoma regions using XML annotation files by expert pathologists. 
 
-3. **Unipolar Heatmap-based Nuclei Labeling** (`unipolar_heatmap_labels.py`, [output structure](#unipolar-labels-output))  
-   Assigns labels to segmented nuclei by checking polygon overlap with the provided (thresholded) unipolar heatmap.
-
-4. **CAM Masks Preparation** (`merge_cam_masks.py`, [output structure](#cam-masks-output))   
+3. **CAM Masks Preparation** (`merge_cam_masks.py`, [output structure](#cam-masks-output))   
    Aggregates generated CAM masks from multiple MLflow runs into a single location for convenience.
 
-5. **CAM-based Nuclei Labeling** (`cam_labels.py`, [output structure](#cam-labels-output))  
-   Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus.
-
-6. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-mmci-output))   
+4. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-mmci-output))   
    Creates a mapping of slides' metadata necessary for downstream modeling.
+
+5. **Unipolar Heatmap-based Nuclei Labeling** (`unipolar_heatmap_labels.py`, [output structure](#unipolar-labels-output))  
+   Assigns labels to segmented nuclei by checking polygon overlap with the provided (thresholded) unipolar heatmap.
+
+6. **CAM-based Nuclei Labeling** (`cam_labels.py`, [output structure](#cam-labels-output))  
+   Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus.
 
 <a id="panda-workflow"></a>
 ### PANDA Challenge Dataset
@@ -27,13 +27,10 @@
 1. **Nuclei Data Standardization** (`nuclei_standardization.py`, [output structure](#nuclei-standardization-output))  
    Standardizes nuclei segmentation files provided by a different project to match the expected structure.
 
-2. **Annotation-based Nuclei Labeling** (`annotation_labels.py`, [output structure](#annotation-labels-output))   
-   Assigns labels to segmented nuclei by checking polygon overlap with label masks.
-
-3. **Train-Test Split** (`data_split.py`, [output structure](#data-split-output))  
+2. **Train-Test Split** (`data_split.py`, [output structure](#data-split-output))  
    Performs train-test split stratified by gleason scores.
 
-4. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
+3. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
 ## Output Structure Overview
@@ -72,25 +69,6 @@ missing_annotations.csv (slide paths of positive slides without annotation files
 
 ---
 
-<a id="unipolar-labels-output"></a>
-### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
-
-**Location**: Disk
-
-**Output layout**:
-```text
-<OUTPUT_PATH>/
-  <SLIDE_NAME>.parquet
-```
-
-**Parquet row schema (one row = one nucleus)**:
-- `slide_id` (`str`)
-- `id` (`str`): Nucleus identifier.
-- `<LABEL_COLUMN>` (`int`): Binary label produced from overlap with thresholded mask.
-<p align="right"><a href="#mmci-workflow">↑ back</a></p>
-
----
-
 <a id="cam-masks-output"></a>
 ### CAM Masks Preparation: `merge_cam_masks.py`
 
@@ -102,30 +80,6 @@ cam_masks/
   <SLIDE_NAME>.tiff (bipolar heatmap of CAM intensities in [0, 255])
 missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 ```
-<p align="right"><a href="#mmci-workflow">↑ back</a></p>
-
----
-
-<a id="cam-labels-output"></a>
-### CAM-based Nuclei Labels: `cam_labels.py`
-
-**Location**: Disk
-
-**Output layout**:
-```text
-<OUTPUT_PATH>/
-  <SLIDE_NAME>.parquet 
-```
-
-**Parquet row schema (one row = one nucleus)**:
-- `slide_id` (`str`)
-- `id` (`str`)
-- `cam_label` (`int`):
-  - `1` = positive CAM region overlap above positive threshold,
-  - `0` = negative CAM region overlap below negative threshold,
-  - `-1` = uncertain.
-- `cam_score` (`float`): Mean CAM intensity sampled over nucleus polygon vertices and centroid.
-
 <p align="right"><a href="#mmci-workflow">↑ back</a></p>
 
 ---
@@ -150,6 +104,49 @@ missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 - `is_carcinoma` (`bool`)
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
+<p align="right"><a href="#mmci-workflow">↑ back</a></p>
+
+---
+
+<a id="unipolar-labels-output"></a>
+### Unipolar Heatmap-based Nuclei Labels: `unipolar_heatmap_labels.py`
+
+**Location**: Disk
+
+**Output layout**:
+```text
+<OUTPUT_PATH>/
+  <SLIDE_NAME>.parquet
+```
+
+**Parquet row schema (one row = one nucleus)**:
+- `slide_id` (`str`)
+- `id` (`str`): Nucleus identifier.
+- `<LABEL_COLUMN>` (`int`): Binary label produced from overlap with thresholded mask.
+<p align="right"><a href="#mmci-workflow">↑ back</a></p>
+
+---
+
+<a id="cam-labels-output"></a>
+### CAM-based Nuclei Labels: `cam_labels.py`
+
+**Location**: Disk
+
+**Output layout**:
+```text
+<OUTPUT_PATH>/
+  <SLIDE_NAME>.parquet 
+```
+
+**Parquet row schema (one row = one nucleus)**:
+- `slide_id` (`str`)
+- `id` (`str`)
+- `cam_label` (`int`):
+  - `1` = positive CAM region overlap above positive threshold,
+  - `0` = negative CAM region overlap below negative threshold,
+  - `-1` = uncertain.
+- `cam_score` (`float`): Mean CAM intensity sampled over nucleus polygon vertices and centroid.
+
 <p align="right"><a href="#mmci-workflow">↑ back</a></p>
 
 ---
