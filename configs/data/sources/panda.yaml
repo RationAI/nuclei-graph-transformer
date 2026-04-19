@@ -16,6 +16,10 @@ dataset:
       # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
+      # slides to exclude based on QC masks (see prostate cancer repository)
+      exclude_qc: /mnt/projects/prostate_cancer/cancer/qc_masks/PANDA -
+        Radboud/to_exclude_based_on_qc.csv
+
     nuclei:
       raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
       # preprocessing/nuclei_standardization.py
