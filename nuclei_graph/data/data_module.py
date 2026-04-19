@@ -41,7 +41,7 @@ class DataModule(LightningDataModule):
         batch_size: int,
         num_workers: int,
         eval_num_workers: int,
-        mlflow_uris: DictConfig,
+        metadata: DictConfig,
         dataset: DictConfig,
         supervision: DictConfig,
         split_stratify_col: str | None = None,
@@ -55,7 +55,7 @@ class DataModule(LightningDataModule):
             batch_size: Batch size for training.
             num_workers: Number of workers for data loading.
             eval_num_workers: Maximum number of workers for evaluation data loading.
-            mlflow_uris: A DictConfig containing the MLflow URIs for metadata and supervision DataFrames.
+            metadata: A DictConfig containing the MLflow URIs for the metadata DataFrames.
             dataset: A DictConfig defining the dataset configuration to instantiate.
             supervision: A DictConfig containing the training and evaluation supervision strategies.
             split_stratify_col: Column name to use for stratified splitting.
@@ -80,7 +80,7 @@ class DataModule(LightningDataModule):
         self.eval_num_workers = eval_num_workers
         self.sampler_cfg = sampler
         self.dataset_cfg = dataset
-        self.mlflow_uris_cfg = mlflow_uris
+        self.metadata_uris_cfg = metadata
         self.positivity: dict[str, float] = {}
 
     def _filter_df(
@@ -102,18 +102,17 @@ class DataModule(LightningDataModule):
             str(k): v for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
 
-    def _load_sup_sources(
-        self, strategy: SupervisionStrategy
-    ) -> dict[str, pd.DataFrame | None]:
-        return {uri_key: self._load_df(uri) for uri_key, uri in strategy.uris.items()}
-
     def _prepare_supervision(
         self,
         slides_df: pd.DataFrame,
-        sup_dfs: dict[str, pd.DataFrame | None],
+        sup_paths: dict[str, str | None],
         strategy: SupervisionStrategy,
     ) -> DatasetSupervision:
         ids = set(slides_df["slide_id"])
+        sup_dfs = {
+            sup: pd.read_parquet(path) if path is not None else None
+            for sup, path in sup_paths.items()
+        }
         return build_supervision(
             strategy=strategy,
             carcinoma_map=self._get_carcinoma_map(slides_df),
@@ -122,7 +121,7 @@ class DataModule(LightningDataModule):
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-        slides_uri = self.mlflow_uris_cfg.metadata[mode]
+        slides_uri = self.metadata_uris_cfg[mode]
 
         match stage:
             case "fit" | "validate":
@@ -148,9 +147,8 @@ class DataModule(LightningDataModule):
                     assert self.train_strategy is not None
 
                     train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
-                    train_sup_dfs = self._load_sup_sources(self.train_strategy)
                     train_sup = self._prepare_supervision(
-                        train_df, train_sup_dfs, self.train_strategy
+                        train_df, self.train_strategy.paths, self.train_strategy
                     )
                     self.positivity = train_sup.positivity_map
 
@@ -167,9 +165,8 @@ class DataModule(LightningDataModule):
                         supervision=train_sup,
                     )
 
-                validation_sup_dfs = self._load_sup_sources(self.eval_strategy)
                 validation_sup = self._prepare_supervision(
-                    validation_df, validation_sup_dfs, self.eval_strategy
+                    validation_df, self.eval_strategy.paths, self.eval_strategy
                 )
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
@@ -181,8 +178,9 @@ class DataModule(LightningDataModule):
             case "test" | "predict":
                 slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
-                sup_dfs = self._load_sup_sources(self.eval_strategy)
-                sup = self._prepare_supervision(slides_df, sup_dfs, self.eval_strategy)
+                sup = self._prepare_supervision(
+                    slides_df, self.eval_strategy.paths, self.eval_strategy
+                )
                 dataset = instantiate(
                     self.dataset_cfg,
                     slides=slides_df,
