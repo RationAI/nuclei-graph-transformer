@@ -26,17 +26,17 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: ${mlflow_project_pc}/84d6d1431d484acd98142a8c618b66a6/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/4d0f33b6a0774f16b1002072766d5797/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: ${mlflow_project_pc}/143fba81135b4a26b9f909e7d65e134e/artifacts/radboud_split/split.csv
+      split: ${mlflow_project_pc}/473a9b175e4e4f899f7f77314492bf11/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_train.parquet
-        test: ${mlflow_project_pc}/f5cd24c487b2464e947145ce5c0681c9/artifacts/panda/slides_mapping_test.parquet
+        train: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
       masks:
