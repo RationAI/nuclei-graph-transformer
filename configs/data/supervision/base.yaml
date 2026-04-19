@@ -1,5 +1,5 @@
 _target_: nuclei_graph.data.supervision.SupervisionStrategy
 mode: ???
-annot_uri: null
-cam_uri: null
-pred_uri: null
+annot_dir: null
+cam_dir: null
+pred_dir: null
