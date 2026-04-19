@@ -13,10 +13,10 @@ Assumes the following structure of input data:
             *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
 
 2. Metadatasets for processing (`exploration/save_metadataset.py`):
-[ <SLIDES_METADATA_URI>.parquet/.csv (columns "slide_path" (str) and "is_carcinoma" (bool)), ... ]
+[ <SLIDES_METADATA_URI>.parquet (columns "slide_path" (str) and "is_carcinoma" (bool)), ... ]
 
 3. (Optional) Exclusion CSVs logged in MLflow (`preprocessing/annotation_masks.py`):
-[ <MISSING_HEATMAPS_URI>.parquet/.csv (column "slide_path" (str)), ... ]
+[ <MISSING_HEATMAPS_URI>.parquet (column "slide_path" (str)), ... ]
 
 4. Heatmaps or binary masks (`preprocessing/annotation_masks.py`):
 <HEATMAPS_URI>/
@@ -28,6 +28,7 @@ The result is logged to MLflow as:
 """
 
 from pathlib import Path
+from typing import Any
 
 import hydra
 import numpy as np
@@ -46,7 +47,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 @ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def label_slide(
-    slide_path: Path,
+    metadata: dict[str, Any],
     nuclei_dir: Path,
     heatmaps_dir: Path,
     output_dir: Path,
@@ -54,16 +55,15 @@ def label_slide(
     overlap_thr: float,
     positive_thr: float,
 ) -> None:
-    dataset_name = slide_path.parents[0].name
-    nuclei_path = nuclei_dir / dataset_name / f"slide_id={slide_path.stem}"
+    nuclei_path = metadata["slide_nuclei_path"]
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
-    nuclei["slide_id"] = slide_path.stem
+    nuclei["slide_id"] = metadata["slide_id"]
 
-    mask_path = heatmaps_dir / f"{slide_path.stem}.tiff"
+    mask_path = heatmaps_dir / f"{metadata['slide_id']}.tiff"
     mask: NDArray[np.uint8] = tifffile.imread(mask_path).squeeze()
 
     mask_extent_y, mask_extent_x = mask.shape  # assumes mask is single-channel
-    with OpenSlide(slide_path) as slide:
+    with OpenSlide(metadata["slide_path"]) as slide:
         wsi_extent_x, wsi_extent_y = slide.dimensions
     scale_x = mask_extent_x / wsi_extent_x
     scale_y = mask_extent_y / wsi_extent_y
@@ -77,25 +77,16 @@ def label_slide(
 
     nuclei[label_column] = (coverage >= overlap_thr).astype(int)
 
-    output_path = output_dir / f"{slide_path.stem}.parquet"
+    output_path = output_dir / f"{metadata['slide_id']}.parquet"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     nuclei[["slide_id", "id", label_column]].to_parquet(output_path, index=False)
 
 
 def uris2df(uris: list[str] | None) -> pd.DataFrame:
-    """Loads and merges multiple metadata parquet/CSV files into a single DataFrame."""
+    """Loads and merges multiple metadata .parquet files into a single DataFrame."""
     if not uris:
         return pd.DataFrame(columns=["slide_path"])
-
-    batches = []
-    for uri in uris:
-        path = Path(download_artifacts(uri))
-        if path.suffix.lower() == ".csv":
-            batches.append(pd.read_csv(path))
-        elif path.suffix.lower() == ".parquet":
-            batches.append(pd.read_parquet(path))
-        else:
-            raise ValueError(f"Unsupported file format '{path.suffix}' for URI: {uri}")
+    batches = [pd.read_parquet(Path(download_artifacts(uri))) for uri in uris]
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
@@ -105,13 +96,11 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     heatmaps_dir = download_artifacts(config.heatmap_uri)
     slides = uris2df(config.metadata_uris)
-    exclude_slides = uris2df(config.exclude_slides_uris)
-    valid_mask = (slides["is_carcinoma"]) & (
-        ~slides["slide_path"].isin(exclude_slides["slide_path"])
-    )
+    slides_carcinoma = slides[slides["is_carcinoma"]]
+    to_process = slides_carcinoma[["slide_id", "slide_path", "slide_nuclei_path"]]
 
     process_items(
-        items=slides.loc[valid_mask, "slide_path"].map(Path),
+        items=to_process.to_dict("records"),
         process_item=label_slide,
         fn_kwargs={
             "nuclei_dir": Path(config.nuclei_path),

@@ -2,7 +2,6 @@
 
 heatmap_uri: ???
 metadata_uris: ???
-exclude_slides_uris: null
 overlap_threshold: ???
 positive_threshold: ??? # in [0, 1]
 label_column: ???
