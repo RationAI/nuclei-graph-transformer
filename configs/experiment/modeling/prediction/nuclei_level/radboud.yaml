@@ -8,7 +8,7 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks/predictions@trainer.callbacks.predictions: wsl
-  - /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
   - _self_
 
 checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt

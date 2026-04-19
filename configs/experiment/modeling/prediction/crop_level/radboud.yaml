@@ -8,8 +8,8 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks/predictions@trainer.callbacks.predictions: mil # graph-level and nuclei-level preds
-  - /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
-  - /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
+  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   - _self_
 
 checkpoint: # TODO

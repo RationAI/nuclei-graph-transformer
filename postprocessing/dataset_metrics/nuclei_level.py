@@ -31,14 +31,21 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
 
 
 @with_cli_args(["+postprocessing/dataset_metrics=nuclei_level"])
-@hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     predictions_dir = Path(download_artifacts(config.predictions_uri))
+    metadata_df = pd.read_parquet(download_artifacts(config.metadata_uri))
     supervision_df = pd.read_parquet(config.supervision_dir)
-    preds_df = get_predictions(supervision_df["slide_id"], predictions_dir)
 
-    merged_df = pd.merge(preds_df, supervision_df, on=["slide_id", "id"], how="inner")
+    preds_df = get_predictions(metadata_df["slide_id"], predictions_dir)
+    merged_df = pd.merge(preds_df, supervision_df, on=["slide_id", "id"], how="left")
+    merged_df[config.label_column] = (
+        merged_df[config.label_column].fillna(0).astype(int)
+    )
+
     preds_t = torch.tensor(merged_df["prediction"].values)
     targets_t = torch.tensor(merged_df[config.label_column].values).long()
 

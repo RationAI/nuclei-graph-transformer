@@ -68,7 +68,9 @@ def log_metrics(
 
 
 @with_cli_args(["+postprocessing/dataset_metrics=graph_level"])
-@hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     predictions_dir = Path(download_artifacts(config.predictions_uri))
