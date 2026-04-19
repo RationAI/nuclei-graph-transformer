@@ -45,15 +45,14 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 @ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def label_slide(
     metadata: dict[str, Any],
-    nuclei_dir: Path,
     heatmaps_dir: Path,
     output_dir: Path,
     label_column: str,
     overlap_thr: float,
     positive_thr: float,
 ) -> None:
-    nuclei_path = metadata["slide_nuclei_path"]
-    nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
+    nuclei = pd.read_parquet(metadata["slide_nuclei_path"], columns=["id", "polygon"])
+    nuclei = nuclei.sort_values("id").reset_index(drop=True)
     nuclei["slide_id"] = metadata["slide_id"]
 
     mask_path = heatmaps_dir / f"{metadata['slide_id']}.tiff"
@@ -79,11 +78,13 @@ def label_slide(
     nuclei[["slide_id", "id", label_column]].to_parquet(output_path, index=False)
 
 
-def uris2df(uris: list[str] | None) -> pd.DataFrame:
+def uris2df(uris: list[str] | None, cols: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata .parquet files into a single DataFrame."""
     if not uris:
-        return pd.DataFrame(columns=["slide_path"])
-    batches = [pd.read_parquet(Path(download_artifacts(uri))) for uri in uris]
+        return pd.DataFrame(columns=cols)
+    batches = [
+        pd.read_parquet(Path(download_artifacts(uri)), columns=cols) for uri in uris
+    ]
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
@@ -92,15 +93,15 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     heatmaps_dir = download_artifacts(config.heatmap_uri)
-    slides = uris2df(config.metadata_uris)
+    cols = ["slide_id", "slide_path", "slide_nuclei_path"]
+    slides = uris2df(config.metadata_uris, [*cols, "is_carcinoma"])
     slides_carcinoma = slides[slides["is_carcinoma"]]
-    to_process = slides_carcinoma[["slide_id", "slide_path", "slide_nuclei_path"]]
+    to_process = slides_carcinoma[cols]
 
     process_items(
         items=to_process.to_dict("records"),
         process_item=label_slide,
         fn_kwargs={
-            "nuclei_dir": Path(config.nuclei_path),
             "heatmaps_dir": Path(heatmaps_dir),
             "output_dir": Path(config.output_path),
             "label_column": config.label_column,

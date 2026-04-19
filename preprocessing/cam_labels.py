@@ -76,7 +76,6 @@ def get_cam_values(
 @ray.remote(num_cpus=1, memory=(2 * 1024**3))
 def run_cam_labeling(
     metadata: dict[str, Any],
-    nuclei_dir: Path,
     cam_masks_dir: Path,
     output_dir: Path,
     overlap_thr: float,
@@ -84,7 +83,8 @@ def run_cam_labeling(
     negative_thr: float,
     bipolar_zero_offset: float,
 ) -> None:
-    nuclei = pd.read_parquet(metadata["slide_nuclei_path"]).sort_values("id")
+    nuclei = pd.read_parquet(metadata["slide_nuclei_path"], columns=["id", "polygon"])
+    nuclei = nuclei.sort_values("id").reset_index(drop=True)
     nuclei["slide_id"] = metadata["slide_id"]
     nuclei["cam_label"] = -1  # default uncertain
 
@@ -109,11 +109,13 @@ def run_cam_labeling(
     nuclei[cols].to_parquet(output_path, index=False)
 
 
-def uris2df(uris: list[str] | None) -> pd.DataFrame:
+def uris2df(uris: list[str] | None, cols: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata .parquet files into a single DataFrame."""
     if not uris:
-        return pd.DataFrame(columns=["slide_path"])
-    batches = [pd.read_parquet(Path(download_artifacts(uri))) for uri in uris]
+        return pd.DataFrame(columns=cols)
+    batches = [
+        pd.read_parquet(Path(download_artifacts(uri)), columns=cols) for uri in uris
+    ]
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
@@ -121,7 +123,8 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
-    slides = uris2df(config.metadata_uris)
+    cols = ["slide_id", "slide_path", "slide_nuclei_path"]
+    slides = uris2df(config.metadata_uris, [*cols, "is_carcinoma"])
     exclude = pd.read_csv(download_artifacts(config.missing_cam_masks_uri))
     valid_slides = slides[
         slides["is_carcinoma"] & ~slides["slide_path"].isin(exclude["slide_path"])
@@ -133,7 +136,6 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
         items=to_process.to_dict("records"),
         process_item=run_cam_labeling,
         fn_kwargs={
-            "nuclei_dir": Path(config.nuclei_path),
             "cam_masks_dir": cam_masks_dir,
             "output_dir": Path(config.output_path),
             "overlap_thr": config.overlap_threshold,
