@@ -1,3 +1,6 @@
+from typing import Any
+
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
@@ -5,12 +8,15 @@ import torch
 from lightning import Callback, LightningModule, Trainer
 from sklearn.metrics import auc, precision_recall_curve, roc_curve
 
-from nuclei_graph.nuclei_graph_typing import Batch, Outputs
+from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class BaseCurvesCallback(Callback):
     def _log_and_clear_curves(
-        self, preds_list: list, targets_list: list, level_name: str
+        self,
+        preds_list: list[torch.Tensor],
+        targets_list: list[torch.Tensor],
+        level_name: str,
     ) -> None:
         """Computes, plots, logs, and clears ROC and PR curves for a given prediction level."""
         if not preds_list:
@@ -39,17 +45,17 @@ class BaseCurvesCallback(Callback):
 
     def _plot_curve(
         self,
-        xs,
-        ys,
-        plot_label,
-        to_pinpoint,
-        point_labels,
-        point_colors,
-        xlabel,
-        ylabel,
-        title,
-        loc,
-    ):
+        xs: np.ndarray,
+        ys: np.ndarray,
+        plot_label: str | None,
+        to_pinpoint: list[tuple[float, float]],
+        point_labels: list[str],
+        point_colors: list[str],
+        xlabel: str,
+        ylabel: str,
+        title: str,
+        loc: str,
+    ) -> matplotlib.figure.Figure:
         fig, ax = plt.subplots(figsize=(7, 6))
         ax.plot(xs, ys, label=plot_label)
 
@@ -65,7 +71,9 @@ class BaseCurvesCallback(Callback):
         fig.tight_layout()
         return fig
 
-    def _perform_roc(self, y_true, y_pred, title):
+    def _perform_roc(
+        self, y_true: np.ndarray, y_pred: np.ndarray, title: str
+    ) -> tuple[matplotlib.figure.Figure, float, float]:
         fpr, tpr, thresholds = roc_curve(y_true, y_pred)
         roc_auc = auc(fpr, tpr)
 
@@ -97,7 +105,9 @@ class BaseCurvesCallback(Callback):
         )
         return fig, tpr_threshold, j_threshold
 
-    def _perform_pr(self, y_true, y_pred, title):
+    def _perform_pr(
+        self, y_true: np.ndarray, y_pred: np.ndarray, title: str
+    ) -> tuple[matplotlib.figure.Figure, float]:
         precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
 
         p = precision[:-1]
@@ -127,19 +137,21 @@ class MILCurvesCallback(BaseCurvesCallback):
 
     def __init__(self) -> None:
         super().__init__()
-        self.graph_preds, self.graph_targets = [], []
-        self.nuclei_preds, self.nuclei_targets = [], []
+        self.graph_preds: list[torch.Tensor] = []
+        self.graph_targets: list[torch.Tensor] = []
+        self.nuclei_preds: list[torch.Tensor] = []
+        self.nuclei_targets: list[torch.Tensor] = []
 
     def on_validation_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs | None,
+        outputs: Any,
         batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        if trainer.sanity_checking:
+        if trainer.sanity_checking or outputs is None:
             return
 
         targets_graph = batch["y"]["graph"]
@@ -179,13 +191,14 @@ class WSLCurvesCallback(BaseCurvesCallback):
 
     def __init__(self) -> None:
         super().__init__()
-        self.nuclei_preds, self.nuclei_targets = [], []
+        self.nuclei_preds: list[torch.Tensor] = []
+        self.nuclei_targets: list[torch.Tensor] = []
 
     def on_validation_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
-        outputs: Outputs | None,
+        outputs: Any,
         batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,

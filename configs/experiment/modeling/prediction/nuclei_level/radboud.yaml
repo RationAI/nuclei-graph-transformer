@@ -1,16 +1,14 @@
 # @package _global_
 
 defaults:
-  - /experiment/modeling/inference/base@_here_
+  - /experiment/modeling/prediction/base@_here_
   - /data/sources/panda
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation
-  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl
-  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl
-  - /callbacks/predictions/labels@trainer.callbacks.labels: wsl
-  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks
+  - /callbacks/predictions@trainer.callbacks.predictions: wsl
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
   - _self_
 
 checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt
@@ -41,5 +39,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions(Radboud): Nucleus-level WSL Classifier (Annot Eval)"
+  run_name: "📊 Predictions(Radboud): Nucleus-level WSL Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"

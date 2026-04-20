@@ -1,0 +1,3 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.plot_curves.MILCurvesCallback

@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import mlflow
 import numpy as np
@@ -29,7 +30,7 @@ class BaseMasksCallback(Callback):
         self.mask_tile_width = mask_tile_width
         self.mask_tile_height = mask_tile_height
         self.mlflow_artifact_path = mlflow_artifact_path
-        self.tmp_dir = None
+        self.tmp_dir: tempfile.TemporaryDirectory[str] | None = None
 
     def on_predict_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         self.tmp_dir = tempfile.TemporaryDirectory()
@@ -54,7 +55,7 @@ class BaseMasksCallback(Callback):
 
 
 class WSLPredictionMasksCallback(BaseMasksCallback):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("mlflow_artifact_path", "prediction_masks")
         super().__init__(**kwargs)
 
@@ -82,7 +83,7 @@ class WSLPredictionMasksCallback(BaseMasksCallback):
 
         # extract and align predictions
         logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
-        seq_len = batch["slides"]["seq_len"][0].item()
+        seq_len = int(batch["slides"]["seq_len"][0].item())
         logits_unpadded = logits[:seq_len]
         logits_ordered = logits_unpadded[metadata["perm_inverse"]]
 
@@ -113,7 +114,7 @@ class WSLPredictionMasksCallback(BaseMasksCallback):
 
 
 class MILAttentionMasksCallback(BaseMasksCallback):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("mlflow_artifact_path", "attention_masks")
         super().__init__(**kwargs)
 
@@ -141,7 +142,7 @@ class MILAttentionMasksCallback(BaseMasksCallback):
 
         # extract and align attention scores
         attn = outputs["attn_weights"][0].squeeze(-1)  # (n,)
-        seq_len = batch["slides"]["seq_len"][0].item()
+        seq_len = int(batch["slides"]["seq_len"][0].item())
         attn_unpadded = attn[:seq_len]
         attn_ordered = attn_unpadded[metadata["perm_inverse"]]
 

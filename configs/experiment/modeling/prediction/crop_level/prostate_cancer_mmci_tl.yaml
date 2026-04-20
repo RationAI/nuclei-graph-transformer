@@ -1,18 +1,15 @@
 # @package _global_
 
 defaults:
-  - /experiment/modeling/inference/base@_here_
+  - /experiment/modeling/prediction/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
   - /model/meta_archs@model: nuclei_mil
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  #- /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: mil # graph-level preds
-  - /callbacks/predictions/metrics_dataset@trainer.callbacks.metrics_dataset: wsl # nuclei-level preds
-  - /callbacks/predictions/metrics_slide@trainer.callbacks.metrics_slide: wsl # nuclei-level preds
-  - /callbacks/predictions/labels@trainer.callbacks.labels: mil # graph-level and nuclei-level preds
-  - /callbacks/predictions@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
-  - /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
+  - /callbacks/predictions@trainer.callbacks.predictions: mil # graph-level and nuclei-level preds
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
+  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
