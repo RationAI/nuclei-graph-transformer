@@ -1,0 +1,15 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+predictions_uri: # TODO
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label
+threshold: # TODO
+mlflow_artifact_path: slide_nuclei_metrics.json
+
+checkpoint: # TODO
+checkpoint_url: # TODO

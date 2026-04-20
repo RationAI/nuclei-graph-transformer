@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+predictions_uri: mlflow-artifacts:/97/ac35b8c56eae4fb4acc4a6d66631c7a8/artifacts/predictions
+supervision_dir: ${dataset.paths.supervision.model_prediction.virchow2} #${dataset.paths.supervision.annotation}
+label_column: pred_label # annot_label
+threshold: 0.897
+
+checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
