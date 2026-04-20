@@ -154,9 +154,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": config.heatmap_labels_dir,
-        "cam_labels_dir": config.cam_labels_dir,
-        "predictions_dir": config.predictions_dir,
+        "heatmap_labels_dir": Path(config.heatmap_labels_dir),
+        "cam_labels_dir": Path(config.cam_labels_dir),
+        "predictions_dir": Path(config.predictions_dir),
     }
 
     with TemporaryDirectory() as output_dir:
