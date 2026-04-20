@@ -16,6 +16,10 @@ dataset:
       # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
+      # slides to exclude based on QC masks (see prostate cancer repository)
+      exclude_qc: /mnt/projects/prostate_cancer/cancer/qc_masks/PANDA -
+        Radboud/to_exclude_based_on_qc.csv
+
     nuclei:
       raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
       # preprocessing/nuclei_standardization.py
@@ -28,14 +32,18 @@ dataset:
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
     exploration: ${mlflow_project_pc}/4d0f33b6a0774f16b1002072766d5797/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/4d0f33b6a0774f16b1002072766d5797/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
       split: ${mlflow_project_pc}/473a9b175e4e4f899f7f77314492bf11/artifacts/radboud_split/split.csv
+      split: ${mlflow_project_pc}/473a9b175e4e4f899f7f77314492bf11/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
+        train: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_test.parquet
         train: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_train.parquet
         test: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_test.parquet
         predict: null
