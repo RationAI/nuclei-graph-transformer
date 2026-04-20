@@ -44,6 +44,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     merged_df = pd.merge(
         merged_df, metadata[["slide_id", "is_carcinoma"]], on="slide_id", how="left"
     )
+    merged_df[config.label_column] = (
+        merged_df[config.label_column].fillna(0).astype(int)
+    )
     merged_df.loc[~merged_df["is_carcinoma"], config.label_column] = 0
 
     metrics = MetricCollection(

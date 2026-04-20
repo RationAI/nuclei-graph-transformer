@@ -1,6 +1,5 @@
 """Script for computing dataset graph-level evaluation metrics from model predictions."""
 
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -54,7 +53,7 @@ def log_metrics(
             plt.title("Slide-Level Confusion Matrix")
             plt.tight_layout()
 
-            with TemporaryDirectory(dir=os.getcwd()) as output_dir:
+            with TemporaryDirectory() as output_dir:
                 fig_path = Path(output_dir) / "confusion_matrix.png"
                 fig.savefig(fig_path)
                 logger.log_artifact(local_path=str(fig_path))
