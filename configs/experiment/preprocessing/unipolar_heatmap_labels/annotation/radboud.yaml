@@ -4,7 +4,7 @@ defaults:
   - /data/sources/panda
   - _self_
 
-heatmap_uri: ${dataset.providers.radboud.masks.carcinoma}
+heatmap_uri: ${dataset.paths.masks.carcinoma}
 metadata_uris:
   - ${dataset.mlflow_uris.exploration}
 exclude_slides_uris: null
