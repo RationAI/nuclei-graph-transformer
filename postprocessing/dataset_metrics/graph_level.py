@@ -1,6 +1,5 @@
 """Script for computing dataset graph-level evaluation metrics from model predictions."""
 
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
