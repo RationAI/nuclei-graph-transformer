@@ -80,7 +80,7 @@ class NucleiWSLMetaArch(LightningModule):
         )
         return loss_sup
 
-    def validation_step(self, batch: Batch) -> Outputs:
+    def validation_step(self, batch: Batch) -> Outputs | None:
         targets_sup = batch["y"]["nuclei"]
         assert targets_sup is not None
 
