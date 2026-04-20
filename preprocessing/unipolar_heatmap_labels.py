@@ -1,30 +1,13 @@
 """Script for unipolar heatmap-based nuclei labeling.
 
-This script can be used for labeling nuclei according to any unipolar mask (e.g., binary annotation masks,
-model prediction heatmaps, etc.). Each nucleus is assigned label 1 if the fraction of its polygon vertices
-falling inside the thresholded heatmap (intensity > `positive_threshold`) is ≥ `overlap_threshold`, otherwise 0.
+This script can be used for labeling nuclei according to any unipolar mask
+(e.g., binary annotation masks, model prediction heatmaps, etc.).
+
+Each nucleus is assigned label 1 if the fraction of its polygon vertices
+falling inside the thresholded heatmap (intensity > `positive_threshold`)
+is ≥ `overlap_threshold`, otherwise 0.
+
 The labels are stored only for positive slides.
-
-Assumes the following structure of input data:
-1. Segmented nuclei (`preprocessing/nuclei_segmentation.py`):
-<NUCLEI_PATH>/
-    <DATASET_NAME>/
-        slide_id=<SLIDE_NAME>/
-            *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
-
-2. Metadatasets for processing (`exploration/save_metadataset.py`):
-[ <SLIDES_METADATA_URI>.csv (columns "slide_path" (str) and "is_carcinoma" (bool)), ...]
-
-3. (Optional) Exclusion CSVs logged in MLflow (`preprocessing/annotation_masks.py`):
-[ <MISSING_HEATMAPS_URI>.csv (column "slide_path" (str)), ... ]
-
-4. Heatmaps or binary masks (`preprocessing/annotation_masks.py`):
-<HEATMAPS_URI>/
-    <SLIDE_NAME>.tiff (unipolar heatmap with intensities in [0, 255])
-
-The result is logged to MLflow as:
-<MLFLOW_ARTIFACT_PATH>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and <LABEL_COLUMN> (int))
 """
 
 from pathlib import Path

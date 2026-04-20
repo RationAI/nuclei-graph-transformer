@@ -1,34 +1,13 @@
 """Script for computing CAM-based labels for segmented nuclei.
 
-Assumes the following structure of input data:
-1. Segmented nuclei (`preprocessing/nuclei_segmentation.py`):
-<NUCLEI_PATH>/
-    <DATASET_NAME>/
-        slide_id=<SLIDE_NAME>/
-            *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
+Outputs
+- `cam_score`: Average CAM intensity at nucleus vertices and centroid.
+- `cam_label`:
+    - 1 if polygon vertices overlap (≥overlap_threshold) with positive CAM (≥positive_threshold).
+    - 0 if polygon vertices overlap (≥overlap_threshold) with negative CAM (≤negative_threshold).
+    - -1 otherwise (uncertain).
 
-2. Exploratory Metadataset (`exploration/save_metadataset.py`):
-<DATASET_NAME>/
-    slides_metadata.csv (column "slide_path" (str) and "is_carcinoma" (bool))
-
-3. CAM masks (`preprocessing/merge_cam_masks.py`):
-<CAM_MASKS_URI>/
-    <SLIDE_NAME>.tiff (bipolar heatmap of CAM intensities in [0, 255], where `bipolar_zero_offset` is the neutral point)
-<MISSING_CAM_MASKS_URI>.csv (column "slide_path" (str))
-
-This script computes:
-- `cam_score` (float): The average CAM intensity under the nucleus' vertices and centroid.
-- `cam_label` (int):  Each nucleus is assigned label
-    - "1" if the fraction of its polygon vertices overlaps (≥ `overlap_threshold`) with thresholded
-      positive CAM region (intensity ≥ `positive_threshold`),
-    - "0" if the fraction of its polygon vertices overlaps (≥ `overlap_threshold`) with thresholded
-      negative CAM region (intensity ≤ `negative_threshold`),
-    - "-1" otherwise (uncertain).
-Negative slides are not processed as they are implicitly assumed to have all nuclei labeled as negative.
-
-The output is logged to MLflow as:
-<MLFLOW_ARTIFACT_PATH>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), "cam_label" (int), and "cam_score" (float))
+Negative slides are skipped.
 """
 
 from pathlib import Path
