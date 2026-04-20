@@ -1,0 +1,57 @@
+# @package _global_
+
+mode: fit
+
+monitor: ???
+
+trainer:
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      save_top_k: 1
+      monitor: ${monitor}
+      mode: min
+
+data:
+  split_size: ???
+  split_stratify_col: ???
+  split_group_col: ???
+  supervision:
+    train_strategy: ???
+
+model:
+  net:
+    config:
+      efd_order: ${data.dataset.efd_order}
+      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},1} # efd_order * 4 + scale
+      num_classes: 1
+
+metadata:
+  run_name: ???
+  hyperparams:
+    # supervision
+    # TODO
+
+    # sampler
+    # TODO
+
+    # training
+    gradient_clip_val: ${trainer.gradient_clip_val}
+    accumulate_grad_batches: ${trainer.accumulate_grad_batches}
+    batch_size: ${data.batch_size}
+    split_size: ${data.split_size}
+
+    # dataset
+    # TODO
+
+    # model
+    efd_order: ${data.dataset.efd_order}
+    lr: ${model.lr}
+    warmup_epochs: ${model.warmup_epochs}
+    dim: ${model.net.config.dim}
+    hidden_dim: ${model.net.config.hidden_dim}
+    num_heads: ${model.net.config.num_heads}
+    num_layers: ${model.net.config.num_layers}
+    drop_path_rate: ${model.net.config.drop_path_rate}
