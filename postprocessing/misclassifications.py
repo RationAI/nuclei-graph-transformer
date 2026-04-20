@@ -47,7 +47,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         merged_df["predicted_class"] != merged_df["is_carcinoma"]
     ].copy()
 
-    with TemporaryDirectory(dir=os.getcwd()) as output_dir:
+    with TemporaryDirectory() as output_dir:
         csv_path = Path(output_dir) / "misclassifications.csv"
         misclassif_df.to_csv(csv_path, index=False)
         logger.log_artifact(local_path=str(csv_path))
