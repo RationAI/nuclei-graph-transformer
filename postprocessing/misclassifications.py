@@ -1,6 +1,5 @@
 """Script for generating slide-level misclassification csv report based on model predictions and metadata."""
 
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
