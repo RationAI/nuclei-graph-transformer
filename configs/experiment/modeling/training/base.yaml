@@ -1,0 +1,35 @@
+# @package _global_
+
+mode: fit
+
+monitor: ???
+
+trainer: # TODO
+
+data:
+  split_size: ???
+  split_stratify_col: ???
+  split_group_col: ???
+  supervision:
+    train_strategy: ???
+
+model: # TODO
+
+metadata:
+  run_name: ???
+  hyperparams:
+    # supervision
+    train_supervision_mode: ${data.supervision.train_strategy.mode}
+    validation_supervision_mode: ${data.supervision.eval_strategy.mode}
+
+    # sampler
+    # TODO
+
+    # training
+    # TODO
+
+    # dataset
+    # TODO
+
+    # model
+    # TODO
