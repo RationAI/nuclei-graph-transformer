@@ -69,7 +69,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei["nuclei_prediction"] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
@@ -154,9 +154,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": config.heatmap_labels_dir,
-        "cam_labels_dir": config.cam_labels_dir,
-        "predictions_dir": config.predictions_dir,
+        "heatmap_labels_dir": Path(config.heatmap_labels_dir),
+        "cam_labels_dir": Path(config.cam_labels_dir),
+        "predictions_dir": Path(config.predictions_dir),
     }
 
     with TemporaryDirectory() as output_dir:
