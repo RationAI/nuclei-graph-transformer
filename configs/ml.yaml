@@ -13,11 +13,10 @@ data:
   batch_size: ???
   num_workers: 10
   eval_num_workers: 2
-  mlflow_uris:
-    metadata: ???
-    supervision: ???
+  metadata: ???
   dataset: ???
   supervision:
+    paths: ???
     eval_strategy: ???
 
 model: {}

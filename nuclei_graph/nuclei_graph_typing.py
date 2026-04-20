@@ -7,14 +7,14 @@ from torch.nn.attention.flex_attention import BlockMask
 
 
 class Targets(TypedDict):
-    nuclei: Tensor
+    nuclei: Tensor | None
     graph: Tensor | None
 
 
 class Crop(TypedDict):
     x: Tensor  # node features
-    pos: Tensor  # positional features
     y: Targets  # labels
+    pos: Tensor  # positional features
     sup_mask: Tensor  # supervision mask
     block_mask: BlockMask  # attention mask
     seq_len: Tensor  # unpadded sequence length
