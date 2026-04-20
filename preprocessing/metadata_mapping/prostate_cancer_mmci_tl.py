@@ -1,16 +1,18 @@
-"""Script for mapping slide-level metadata to segmented nuclei paths and their nuclei counts, excluding specified slides (missing annotations, CAMs, etc.).
+"""Script for mapping slide-level metadata, excluding specified slides (missing annotations, CAMs, etc.).
 
 Assumes the following structure of input data:
 1. Exploratory Metadataset (`exploration/save_metadataset.py`):
 <DATASET_NAME>/
     slides_metadata.csv (columns "slide_path" (str), "patient_id" (str), and "is_carcinoma" (bool))
 
-2. Exclusion CSVs logged in MLflow, specified in `exclude_slides_uris` (`preprocessing/annotation_masks.py` and `preprocessing/merge_cam_masks.py`):
+2. Exclusion CSVs logged in MLflow, specified in `exclude_slides_uris` (`preprocessing/annotation_masks.py`
+   and `preprocessing/merge_cam_masks.py`):
 *.csv (column "slide_path" (str))
 
 The output is logged to MLflow as:
 <DATASET_NAME>/
-    slides_mapping.parquet (columns "slide_id" (str), "patient_id" (str), "slide_path" (str), "slide_nuclei_path" (str), "nuclei_count" (int), and "is_carcinoma" (bool)).
+    slides_mapping.parquet (columns "slide_id" (str), "patient_id" (str), "slide_path" (str), "slide_nuclei_path" (str),
+        "nuclei_count" (int), "is_carcinoma" (bool), "mpp_x" (float), "mpp_y" (float)).
 
 The generated mapping is intended to be used within the DataModule class for downstream data loading.
 """
@@ -27,6 +29,12 @@ from mlflow.data import pandas_dataset
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+from ratiopath.openslide import OpenSlide
+
+
+def get_mpp(slide_path: str) -> tuple[float, float]:
+    with OpenSlide(slide_path) as slide:
+        return slide.slide_resolution(level=0)
 
 
 def build_map(
@@ -42,6 +50,8 @@ def build_map(
     nuclei_counts = nuclei_paths.map(str).apply(
         lambda path: sum(f.metadata.num_rows for f in pq.ParquetDataset(path).fragments)
     )
+    mpp_x, mpp_y = zip(*slides["slide_path"].apply(get_mpp), strict=True)
+
     map_df = pd.DataFrame(
         {
             "slide_id": slide_ids,
@@ -50,6 +60,8 @@ def build_map(
             "slide_nuclei_path": nuclei_paths.map(str),
             "nuclei_count": nuclei_counts.astype("Int64"),
             "is_carcinoma": slides["is_carcinoma"],
+            "mpp_x": mpp_x,
+            "mpp_y": mpp_y,
         }
     )
     with TemporaryDirectory() as output_dir:
