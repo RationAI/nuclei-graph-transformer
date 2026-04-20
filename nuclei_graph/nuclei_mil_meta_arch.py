@@ -80,7 +80,7 @@ class NucleiMILMetaArch(LightningModule):
         )
         return loss_graph
 
-    def validation_step(self, batch: Batch) -> Outputs:
+    def validation_step(self, batch: Batch) -> Outputs | None:
         logits = self(batch)
 
         # graph-level metrics
