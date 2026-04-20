@@ -1,0 +1,14 @@
+# @package _global_
+
+metadata_uri: ???
+predictions_uri: ???
+threshold: ???
+
+checkpoint: ???
+checkpoint_url: ???
+
+metadata:
+  run_name: "Dataset Slide-Level Metrics"
+  description: "Model: [MLflow training run](${checkpoint_url})"
+  hyperparams:
+    threshold: ${threshold}
