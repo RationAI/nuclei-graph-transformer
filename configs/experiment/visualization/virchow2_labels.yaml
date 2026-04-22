@@ -1,7 +1,7 @@
 # @package _global_
 
 visualization_mode: 3
-heatmap_labels_uri: ${dataset.mlflow_uris.supervision.model_prediction.virchow2}
+heatmap_labels_dir: ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: pred_label
 
 metadata:

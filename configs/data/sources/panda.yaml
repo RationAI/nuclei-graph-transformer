@@ -27,22 +27,23 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
+      carcinoma: mlflow-artifacts:/38/cd504aaafb8c408184584d808a99cf15/artifacts/carcinoma_mask
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: ${mlflow_project_pc}/4d0f33b6a0774f16b1002072766d5797/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/74fe4bc0d7494f5ab723a89e321d0e77/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
       # preprocessing/data_split.py
-      split: ${mlflow_project_pc}/473a9b175e4e4f899f7f77314492bf11/artifacts/radboud_split/split.csv
+      split: ${mlflow_project_pc}/c39479757cd24b969f5fc8a250ed0a56/artifacts/radboud_split/split.csv
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_train.parquet
-        test: ${mlflow_project_pc}/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_test.parquet
+        train: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
       supervision:
-        # preprocessing/annotation_labels.py
-        annotation: ${mlflow_project_pc}/916593f7214a44bd8ffce7b77ca9936b/artifacts/annotation_labels/radboud
+        # preprocessing/unipolar_heatmap_labels.py
+        annotation: ${project_path}/nuclei_supervision/PANDA/Radboud/annotation

@@ -69,7 +69,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei["nuclei_prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
@@ -141,10 +141,6 @@ def process_slide(
     )
 
 
-def get_local_path(uri: str | None) -> Path | None:
-    return Path(download_artifacts(uri)) if uri is not None else None
-
-
 def uris2df(uris: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata Parquet files into a single DataFrame."""
     batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
@@ -158,9 +154,15 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
-        "cam_labels_dir": get_local_path(config.cam_labels_uri),
-        "predictions_dir": get_local_path(config.predictions_uri),
+        "heatmap_labels_dir": Path(config.heatmap_labels_dir)
+        if config.heatmap_labels_dir is not None
+        else None,
+        "cam_labels_dir": Path(config.cam_labels_dir)
+        if config.cam_labels_dir is not None
+        else None,
+        "predictions_dir": Path(download_artifacts(config.predictions_uri))
+        if config.predictions_uri is not None
+        else None,
     }
 
     with TemporaryDirectory() as output_dir:
