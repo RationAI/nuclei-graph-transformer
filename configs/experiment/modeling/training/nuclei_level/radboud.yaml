@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(Radboud): Nucleus-level WSL Self Attention Transformer"
-  description: ""
+  description: "higher efd order=20"
