@@ -156,7 +156,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     label_dirs = {
         "heatmap_labels_dir": Path(config.heatmap_labels_dir),
         "cam_labels_dir": Path(config.cam_labels_dir),
-        "predictions_dir": Path(config.predictions_dir),
+        "predictions_dir": Path(download_artifacts(config.predictions_uri))
+        if config.predictions_uri is not None
+        else None,
     }
 
     with TemporaryDirectory() as output_dir:

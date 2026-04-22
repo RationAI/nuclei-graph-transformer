@@ -1,8 +1,8 @@
 # @package _global_
 
-predictions_dir: ??? # TODO
-checkpoint_url: ??? # TODO
-pred_thr: ??? # threshold for determining positive nuclei, TODO
+predictions_uri: mlflow-artifacts:/97/d6bf3f1c87034d9a9a8c173f29f1578e/artifacts/predictions
+checkpoint_url: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
+pred_thr: 0.388 # threshold for determining positive nuclei
 visualization_mode: 2
 
 metadata:
