@@ -69,7 +69,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei["nuclei_prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
