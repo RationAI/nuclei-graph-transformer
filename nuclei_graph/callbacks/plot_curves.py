@@ -154,17 +154,17 @@ class MILCurvesCallback(BaseCurvesCallback):
         if trainer.sanity_checking or outputs is None:
             return
 
-        targets_graph = batch["y"]["graph"]
+        targets_graph = batch["labels"]["graph"]
         if targets_graph is not None:
             graph_outputs = outputs["graph"].view(-1)
             self.graph_preds.append(torch.sigmoid(graph_outputs).detach().cpu())
             self.graph_targets.append(targets_graph.view(-1).detach().cpu())
 
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         if targets_sup is not None and targets_sup.numel() > 0:
             nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
             self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
-            self.nuclei_targets.append(targets_sup.detach().cpu())
+            self.nuclei_targets.append(targets_sup[batch["sup_mask"]].detach().cpu())
 
     def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
@@ -206,12 +206,12 @@ class WSLCurvesCallback(BaseCurvesCallback):
         if trainer.sanity_checking or outputs is None:
             return
 
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
 
         if targets_sup is not None and targets_sup.numel() > 0:
             nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
             self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
-            self.nuclei_targets.append(targets_sup.detach().cpu())
+            self.nuclei_targets.append(targets_sup[batch["sup_mask"]].detach().cpu())
 
     def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule

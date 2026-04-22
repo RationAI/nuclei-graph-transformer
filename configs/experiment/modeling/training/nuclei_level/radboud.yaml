@@ -20,6 +20,7 @@ trainer:
 
 data:
   batch_size: 32
+  k: 32
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -27,10 +28,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    k: 32
-    attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: true
     mil: false
   supervision:
     paths: ${dataset.providers.radboud.supervision}

@@ -20,6 +20,7 @@ trainer:
 
 data:
   batch_size: 32
+  k: 32
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -28,10 +29,7 @@ data:
     crop_size: 4096
     crop_pos_thr: 0.75
     alpha: 0.8
-    k: 32
-    attn_block_size: 128
     efd_order: 10
-    symmetric_block_mask: false
     mil: true
   supervision:
     paths: ${dataset.paths.supervision}

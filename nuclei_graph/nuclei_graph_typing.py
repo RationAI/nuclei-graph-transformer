@@ -12,19 +12,17 @@ class Targets(TypedDict):
 
 
 class Crop(TypedDict):
-    x: Tensor  # node features
-    y: Targets  # labels
-    pos: Tensor  # positional features
-    sup_mask: Tensor  # supervision mask
-    block_mask: BlockMask  # attention mask
-    seq_len: Tensor  # unpadded sequence length
+    features: NDArray[np.float32]
+    labels: Targets
+    pos: Tensor
+    sup_mask: Tensor
+    seq_len: Tensor
 
 
 class Metadata(TypedDict):
     slide_id: str
     slide_path: str
     slide_nuclei_path: str
-    perm_inverse: Tensor
     nuclei_ids: NDArray[np.str_]
 
 
@@ -42,9 +40,15 @@ class PredictSlide(TypedDict):
     metadata: Metadata
 
 
-Batch = Crop  # batched crops/slides
+class Batch(TypedDict):
+    block_mask: BlockMask
+    features: Tensor
+    pos: Tensor
+    labels: Targets
+    sup_mask: Tensor
+    seq_lens: Tensor
 
 
 class PredictBatch(TypedDict):
-    slides: Batch
+    slide: Batch
     metadata: list[Metadata]

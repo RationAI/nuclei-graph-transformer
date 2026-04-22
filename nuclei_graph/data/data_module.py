@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from functools import partial
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -14,10 +15,10 @@ from nuclei_graph.data.supervision import (
     build_supervision,
 )
 from nuclei_graph.data.utils import (
-    collate_fn,
-    collate_fn_predict,
     min_count_filter,
     min_positive_count_filter,
+    predict_collate_fn,
+    supervised_collate_fn,
 )
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
@@ -42,30 +43,18 @@ class DataModule(LightningDataModule):
         eval_num_workers: int,
         metadata: DictConfig,
         dataset: DictConfig,
+        block_size: int,
+        k: int,
         supervision: DictConfig | None,
         split_stratify_col: str | None = None,
         split_group_col: str | None = None,
         split_size: float | None = None,
         sampler: DictConfig | None = None,
     ) -> None:
-        """Lightning DataModule for nuclei point cloud datasets with weak supervision.
-
-        Args:
-            batch_size: Batch size for training.
-            num_workers: Number of workers for data loading.
-            eval_num_workers: Maximum number of workers for evaluation data loading.
-            metadata: A DictConfig containing the MLflow URIs for the metadata DataFrames.
-            dataset: A DictConfig defining the dataset configuration to instantiate.
-            supervision: A DictConfig containing the training and evaluation supervision strategies.
-            split_stratify_col: Column name to use for stratified splitting.
-                If None, no stratification is applied. Defaults to None.
-            split_group_col: Column name to use for group-wise splitting.
-                If None, no group-wise splitting is applied. Defaults to None.
-            split_size: Proportion of the training data to use for validation.
-            sampler: Sampler configuration for training data loader. Defaults to None.
-        """
         super().__init__()
         self.batch_size = batch_size
+        self.block_size = block_size
+        self.k = k
         self.train_strategy = (
             instantiate(supervision.train_strategy)
             if supervision is not None and supervision.train_strategy is not None
@@ -207,14 +196,19 @@ class DataModule(LightningDataModule):
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = None
         if self.sampler_cfg is not None:
-            partial = instantiate(self.sampler_cfg, slides_positivity=self.positivity)
-            sampler = partial(dataset=self.train_dataset)
+            sampler_fn = instantiate(
+                self.sampler_cfg, slides_positivity=self.positivity
+            )
+            sampler = sampler_fn(dataset=self.train_dataset)
+
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
-            collate_fn=collate_fn,
+            collate_fn=partial(
+                supervised_collate_fn, block_size=self.block_size, k=self.k
+            ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
             pin_memory=True,
@@ -230,7 +224,9 @@ class DataModule(LightningDataModule):
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
             pin_memory=True,
-            collate_fn=collate_fn,
+            collate_fn=partial(
+                supervised_collate_fn, block_size=self.block_size, k=self.k
+            ),
         )
 
     def test_dataloader(self) -> Iterable[Batch]:
@@ -240,7 +236,9 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=collate_fn,
+            collate_fn=partial(
+                supervised_collate_fn, block_size=self.block_size, k=self.k
+            ),
         )
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
@@ -250,5 +248,7 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=collate_fn_predict,
+            collate_fn=partial(
+                predict_collate_fn, block_size=self.block_size, k=self.k
+            ),
         )

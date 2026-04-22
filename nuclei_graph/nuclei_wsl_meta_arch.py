@@ -15,7 +15,6 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.data.block_mask import mask_mixed_blocks
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs, PredictBatch
 
 
@@ -41,18 +40,15 @@ class NucleiWSLMetaArch(LightningModule):
         self.val_step_losses: list[Tensor] = []
         self.val_step_sizes: list[int] = []
 
-    def forward(self, batch: Batch) -> Outputs:
-        block_mask = batch["block_mask"]
-
-        # in case of validation/test/pediction stage we have to handle mixed blocks
-        if not self.training:
-            block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
-
-        return self.net(batch["x"], batch["pos"], block_mask, batch["seq_len"])
+    def forward(self, batch: Batch | dict[str, Any]) -> Outputs:
+        return self.net(
+            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+        )
 
     def training_step(self, batch: Batch) -> Tensor:
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
+        targets_sup = targets_sup[batch["sup_mask"]]
 
         logits = self(batch)["nuclei"]
         logits_sup = logits[batch["sup_mask"]].squeeze(-1)
@@ -81,8 +77,9 @@ class NucleiWSLMetaArch(LightningModule):
         return loss_sup
 
     def validation_step(self, batch: Batch) -> Outputs | None:
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
+        targets_sup = targets_sup[batch["sup_mask"]]
 
         logits = self(batch)
         logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
@@ -132,8 +129,9 @@ class NucleiWSLMetaArch(LightningModule):
             self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
+        targets_sup = targets_sup[batch["sup_mask"]]
 
         logits = self(batch)["nuclei"]
         logits_sup = logits[batch["sup_mask"]].squeeze(-1)
@@ -157,7 +155,7 @@ class NucleiWSLMetaArch(LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Outputs:
-        return self(batch["slides"])
+        return self(batch["slide"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []

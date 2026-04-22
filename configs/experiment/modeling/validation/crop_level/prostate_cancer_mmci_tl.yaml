@@ -21,11 +21,8 @@ data:
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     alpha: 0.8
-    k: 64
-    attn_block_size: 128
     efd_order: 10
     crop_size: 4096
-    symmetric_block_mask: false
     mil: true
   supervision:
     paths: ${dataset.paths.supervision}

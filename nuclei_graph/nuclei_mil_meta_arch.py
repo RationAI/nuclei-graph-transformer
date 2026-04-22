@@ -14,7 +14,6 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.data.block_mask import mask_mixed_blocks
 from nuclei_graph.nuclei_graph_typing import (
     Batch,
     Outputs,
@@ -53,16 +52,12 @@ class NucleiMILMetaArch(LightningModule):
         self.val_step_graph_sizes: list[int] = []
 
     def forward(self, batch: Batch) -> Outputs:
-        block_mask = batch["block_mask"]
-
-        # in case of validation/test/prediction stage we have to handle mixed blocks
-        if not self.training:
-            block_mask = mask_mixed_blocks(block_mask, batch["seq_len"])
-
-        return self.net(batch["x"], batch["pos"], block_mask, batch["seq_len"])
+        return self.net(
+            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+        )
 
     def training_step(self, batch: Batch) -> Tensor:
-        targets_graph = batch["y"]["graph"]
+        targets_graph = batch["labels"]["graph"]
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
@@ -84,7 +79,7 @@ class NucleiMILMetaArch(LightningModule):
         logits = self(batch)
 
         # graph-level metrics
-        targets_graph = batch["y"]["graph"]
+        targets_graph = batch["labels"]["graph"]
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
@@ -105,8 +100,9 @@ class NucleiMILMetaArch(LightningModule):
         self.val_step_graph_sizes.append(batch_size)
 
         # nuclei-level metrics
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
+        targets_sup = targets_sup[batch["sup_mask"]]
 
         logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
 
@@ -167,7 +163,7 @@ class NucleiMILMetaArch(LightningModule):
         logits = self(batch)
 
         # graph-level metrics
-        targets_graph = batch["y"]["graph"]
+        targets_graph = batch["labels"]["graph"]
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
@@ -186,8 +182,9 @@ class NucleiMILMetaArch(LightningModule):
         )
 
         # nuclei-level metrics
-        targets_sup = batch["y"]["nuclei"]
+        targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
+        targets_sup = targets_sup[batch["sup_mask"]]  # <--- FIX APPLIED HERE
 
         logits_nuclei = logits["nuclei"]
         logits_sup = logits_nuclei[batch["sup_mask"]].squeeze(-1)
@@ -217,7 +214,7 @@ class NucleiMILMetaArch(LightningModule):
         self.test_nuclei_metrics.reset()
 
     def predict_step(self, batch: PredictBatch) -> Outputs:
-        return self(batch["slides"])
+        return self(batch["slide"])
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []

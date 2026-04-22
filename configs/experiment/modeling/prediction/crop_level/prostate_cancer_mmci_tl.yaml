@@ -16,16 +16,13 @@ checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/chec
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
 
 data:
-  batch_size: 1
+  k: 32
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     alpha: 0.8
-    k: 32
-    attn_block_size: 128
     efd_order: 10
     crop_size: 4096
-    symmetric_block_mask: false
     mil: true
   supervision:
     paths: ${dataset.paths.supervision}

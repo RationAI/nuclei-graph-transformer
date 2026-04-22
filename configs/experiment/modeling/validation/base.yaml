@@ -10,6 +10,7 @@ trainer:
 
 data:
   batch_size: 1
+  block_size: 128
   split_size: ???
   split_stratify_col: ???
   split_group_col: ???

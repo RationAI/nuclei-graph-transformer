@@ -14,6 +14,7 @@ trainer:
       mode: min
 
 data:
+  block_size: 128
   split_size: ???
   split_stratify_col: ???
   split_group_col: ???
@@ -49,9 +50,7 @@ metadata:
     # dataset
     crop_size: ${data.dataset.crop_size}
     alpha: ${data.dataset.alpha}
-    k: ${data.dataset.k}
-    attn_block_size: ${data.dataset.attn_block_size}
-    symmetric_block_mask: ${data.dataset.symmetric_block_mask}
+    k: ${data.k}
 
     # model
     efd_order: ${data.dataset.efd_order}

@@ -21,7 +21,7 @@ class BasePredictionsCallback(Callback):
     def _save_parquet(self, df: pd.DataFrame, slide_id: str) -> None:
         if self.tmp_dir is not None:
             output_path = os.path.join(self.tmp_dir.name, f"{slide_id}.parquet")
-            df.to_parquet(output_path, index=False)
+            df.to_parquet(output_path, index=False, engine="pyarrow")
 
     def on_predict_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
@@ -53,21 +53,20 @@ class WSLPredictionsCallback(BasePredictionsCallback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
-        seq_len = int(batch["slides"]["seq_len"][0].item())
+        logits = outputs["nuclei"].squeeze(-1)
         metadata = batch["metadata"][0]  # batch size is 1
-        logits_ordered = logits[:seq_len][metadata["perm_inverse"]]
 
-        preds_t = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
+        preds_t = torch.sigmoid(logits).cpu().numpy().flatten()
         preds_df = pd.DataFrame(
             {"id": metadata["nuclei_ids"], "nuclei_prediction": preds_t}
         )
+        preds_df = preds_df.sort_values("id").reset_index(drop=True)
 
         self._save_parquet(preds_df, metadata["slide_id"])
 
 
 class MILPredictionsCallback(BasePredictionsCallback):
-    """Computes nucleus-level and graph-level predictions for the MIL architecture.
+    """Computes predictions for the MIL architecture.
 
     It saves a parquet file with nuclei IDs, nuclei and graph label predictions, and nuclei attention scores.
     """
@@ -81,16 +80,13 @@ class MILPredictionsCallback(BasePredictionsCallback):
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
-        seq_len = int(batch["slides"]["seq_len"][0].item())
-        metadata = batch["metadata"][0]  # batch size is 1
-        logits_ordered = logits[:seq_len][metadata["perm_inverse"]]
-        nuclei_preds = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
-
-        attn_permuted = outputs["attn_weights"][0].squeeze(-1)  # (n,)
-        attn_scores = attn_permuted[:seq_len][metadata["perm_inverse"]]
+        logits = outputs["nuclei"].squeeze(-1)
+        attn_scores = outputs["attn_weights"].squeeze(-1)
 
         graph_pred = torch.sigmoid(outputs["graph"][0]).item()
+
+        metadata = batch["metadata"][0]  # batch size is 1
+        nuclei_preds = torch.sigmoid(logits).cpu().numpy().flatten()
 
         df = pd.DataFrame(
             {
@@ -100,4 +96,6 @@ class MILPredictionsCallback(BasePredictionsCallback):
                 "graph_prediction": graph_pred,
             }
         )
+        df = df.sort_values("id").reset_index(drop=True)
+
         self._save_parquet(df, metadata["slide_id"])

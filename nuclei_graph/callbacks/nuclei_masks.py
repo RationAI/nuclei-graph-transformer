@@ -20,7 +20,7 @@ from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 class BaseMasksCallback(Callback):
     def __init__(
         self,
-        level: int,
+        level: int = 0,
         mask_tile_width: int = 512,
         mask_tile_height: int = 512,
         mlflow_artifact_path: str = "masks",
@@ -81,13 +81,18 @@ class WSLPredictionMasksCallback(BaseMasksCallback):
         mask = PILImage.new("L", mask_size, color=0)
         canvas = ImageDraw.Draw(mask)
 
-        # extract and align predictions
-        logits = outputs["nuclei"][0].squeeze(-1)  # (n,)
-        seq_len = int(batch["slides"]["seq_len"][0].item())
-        logits_unpadded = logits[:seq_len]
-        logits_ordered = logits_unpadded[metadata["perm_inverse"]]
+        # Extract 1D tensor outputs
+        logits = outputs["nuclei"].squeeze(-1)
+        preds_t = torch.sigmoid(logits).cpu().numpy().flatten()
 
-        predicted_labels = torch.sigmoid(logits_ordered).cpu().numpy().flatten()
+        # Map predictions to IDs and sort to restore original file order
+        preds_df = (
+            pd.DataFrame({"id": metadata["nuclei_ids"], "prediction": preds_t})
+            .sort_values("id")
+            .reset_index(drop=True)
+        )
+
+        aligned_preds = preds_df["prediction"].values
 
         nuclei_path = metadata["slide_nuclei_path"]
         nuclei_df = pd.read_parquet(nuclei_path, columns=["id", "polygon"])
@@ -95,7 +100,7 @@ class WSLPredictionMasksCallback(BaseMasksCallback):
         polygons = nuclei_df["polygon"].values
 
         # draw polygon masks
-        for poly, pred in zip(polygons, predicted_labels, strict=True):
+        for poly, pred in zip(polygons, aligned_preds, strict=True):
             polygon = rearrange(poly, "(n c) -> n c", c=2)
             scaled_poly = [(x * scale_x, y * scale_y) for x, y in polygon]
             pixel_val = int(pred * 255)
@@ -140,15 +145,18 @@ class MILAttentionMasksCallback(BaseMasksCallback):
         mask = PILImage.new("L", mask_size, color=0)
         canvas = ImageDraw.Draw(mask)
 
-        # extract and align attention scores
-        attn = outputs["attn_weights"][0].squeeze(-1)  # (n,)
-        seq_len = int(batch["slides"]["seq_len"][0].item())
-        attn_unpadded = attn[:seq_len]
-        attn_ordered = attn_unpadded[metadata["perm_inverse"]]
+        attn = outputs["attn_weights"].squeeze(-1)
+        attn_scores_raw = attn.cpu().numpy().flatten()
 
-        attn_scores = attn_ordered.cpu().numpy().flatten()
+        attn_df = (
+            pd.DataFrame({"id": metadata["nuclei_ids"], "score": attn_scores_raw})
+            .sort_values("id")
+            .reset_index(drop=True)
+        )
 
-        max_score = attn_scores.max()
+        attn_scores = np.asarray(attn_df["score"].values, dtype=np.float32)
+
+        max_score = float(attn_scores.max())
         if max_score > 0:
             attn_scores = attn_scores / max_score
 
