@@ -1,8 +1,8 @@
 # @package _global_
 
-predictions_uri: mlflow-artifacts:/97/995935d9a87e434396bc7b1fd3b1cea4/artifacts/predictions
-checkpoint_url: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
-pred_thr: 0.897 # threshold for determining positive nuclei
+predictions_uri: mlflow-artifacts:/97/d6bf3f1c87034d9a9a8c173f29f1578e/artifacts/predictions
+checkpoint_url: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
+pred_thr: 0.148 # threshold for determining positive nuclei
 visualization_mode: 2
 
 metadata:

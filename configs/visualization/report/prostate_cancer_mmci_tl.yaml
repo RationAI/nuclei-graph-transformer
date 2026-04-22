@@ -11,10 +11,10 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
   metrics_run_ids:
-    - 38e3c2ec3ea34202a4661f0b522c0e48 # wsl, virchow2 eval
-    - 6272505c6dd34ac2b34233579bcfe402 # wsl, annot eval
-    - 88cbd055a6ac47d2bc2be6a4b6d915bc # mil, virchow2 eval
-    - dbab5eecd2d448018868754492f949fe # mil, annot eval
+    - a1d6b0c5c24d4fb1a7108783af728f05 # wsl, virchow2 eval
+    - a09517de43754dec96ea319bc59d06ad # wsl, annot eval
+    - 22b828b83df04a2cb7ae589a0d33758e # mil, virchow2 eval
+    - 6427f7d16f2f4f3f83d86076979774fe # mil, annot eval
   template_asset_path: report_template.html
 
   save:
@@ -37,21 +37,21 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    38e3c2ec3ea34202a4661f0b522c0e48:
+    d53cacaa370a462e869da6aed3a40b81:
       artifact_file: "slide_nuclei_metrics.json"
-      slide_item_key: "key"
+      slide_item_key: "slide_id"
 
-    6272505c6dd34ac2b34233579bcfe402:
+    97af3d3abcf34093b07e2ceef3936630:
       artifact_file: "slide_nuclei_metrics.json"
-      slide_item_key: "key"
+      slide_item_key: "slide_id"
 
-    88cbd055a6ac47d2bc2be6a4b6d915bc:
+    c9fe4dcd80694afd9757eec6bc309731:
       artifact_file: "slide_nuclei_metrics.json"
-      slide_item_key: "key"
+      slide_item_key: "slide_id"
 
-    dbab5eecd2d448018868754492f949fe:
+    7243cef3bdd04d5597105da8d41d09ef:
       artifact_file: "slide_nuclei_metrics.json"
-      slide_item_key: "key"
+      slide_item_key: "slide_id"
 
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
@@ -99,7 +99,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: 8df74906691f459899a881a2459eb14c
+      run_id: 2f5070f0a187431fb235267ccd7d904a
       layer_name: "WSL Nuclei Preds (CAM supervision)"
       shader_conf:
         visible: False
@@ -108,7 +108,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: 3764545472a64a7ca5c378665b4dd886
+      run_id: c41397922a4e41f79672746cf19c4d6c
       layer_name: "MIL Nuclei Preds"
       shader_conf:
         visible: False

@@ -15,6 +15,7 @@ checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/9
 
 data:
   batch_size: 1
+  k: 32
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1

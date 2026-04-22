@@ -15,6 +15,7 @@ checkpoint_url: # TODO
 
 data:
   batch_size: 1
+  k: 64
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
