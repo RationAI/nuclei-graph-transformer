@@ -11,7 +11,7 @@ max_concurrent: 1
 heatmap_labels_dir: ${dataset.paths.supervision.annotation}
 label_column: null
 cam_labels_dir: ${dataset.paths.supervision.cam.annot_restricted_thr}
-predictions_dir: null
+predictions_uri: null
 pred_thr: null
 metadata_uris:
   #- ${dataset.mlflow_uris.metadata.train}
