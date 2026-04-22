@@ -211,7 +211,6 @@ class DataModule(LightningDataModule):
             ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
-            pin_memory=True,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
         )
@@ -223,7 +222,6 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            pin_memory=True,
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),

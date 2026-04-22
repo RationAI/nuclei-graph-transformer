@@ -220,7 +220,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return None
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
-        nuclei = pd.read_parquet(nuclei_path, engine="pyarrow")
+        nuclei = pd.read_parquet(nuclei_path)
         return nuclei.sort_values("id").reset_index(drop=True)
 
     def get_centroids(
