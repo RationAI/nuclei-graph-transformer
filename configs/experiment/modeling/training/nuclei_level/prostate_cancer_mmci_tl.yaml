@@ -28,7 +28,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    efd_order: 20
+    efd_order: 15
     mil: false
   supervision:
     paths: ${dataset.paths.supervision}
@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Nucleus-level WSL Self Attention Transformer"
-  description: "k=32, efd_order=20"
+  description: "k=32, efd_order=15"
