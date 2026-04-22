@@ -28,7 +28,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    efd_order: 10
+    efd_order: 20
     mil: false
   supervision:
     paths: ${dataset.providers.radboud.supervision}
