@@ -46,13 +46,11 @@ class Transformer(nn.Module):
         )
 
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-
-        self.efd_proj = nn.Linear(config.norm_dim, config.dim)
-        self.geo_proj = nn.Linear(config.node_features - config.norm_dim, config.dim)
-
+        self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
-        self.class_head = nn.Linear(config.dim, config.num_classes)
+        scalar_dim = config.node_features - config.norm_dim
+        self.class_head = nn.Linear(config.dim + scalar_dim, config.num_classes)
 
         self.attn_head = nn.Sequential(
             nn.Linear(config.dim, config.dim // 2),
@@ -78,22 +76,23 @@ class Transformer(nn.Module):
         to_norm = x[..., :norm_dim]
         not_to_norm = x[..., norm_dim:]  # scales and angles
 
-        # Normalize the EFDs
         norm = self.batch_norm(to_norm)
+        x_proj = torch.cat([norm, not_to_norm], dim=-1)
+        x_proj = self.input_proj(x_proj)
 
-        x = self.efd_proj(norm) + self.geo_proj(not_to_norm)
-
-        x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
-        pos = pos.unsqueeze(0)  # (1, N_total, 2)
+        x_proj = x_proj.unsqueeze(0)
+        pos = pos.unsqueeze(0)
 
         for layer in self.layers:
-            x = layer(x, pos, block_mask)
+            x_proj = layer(x_proj, pos, block_mask)
 
-        x = self.final_norm(x)
-        x = x.squeeze(0)  # remove batch dim: (N_total, dim)
+        x_proj = self.final_norm(x_proj)
+        x_proj = x_proj.squeeze(0)
 
-        nuclei_logits = self.class_head(x)  # (N_total, num_classes)
-        attn_scores = self.attn_head(x)  # (N_total, 1)
+        fused_x = torch.cat([x_proj, not_to_norm], dim=-1)
+
+        nuclei_logits = self.class_head(fused_x)
+        attn_scores = self.attn_head(x_proj)
 
         seq_lens_list = seq_lens.tolist()
 
