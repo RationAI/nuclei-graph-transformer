@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Nucleus-level WSL Self Attention Transformer"
-  description: "efd_order=20, k=32, scale upsampling"
+  description: "efd_order=20, k=32, scale concat"
