@@ -1,8 +1,8 @@
 # @package _global_
 
-predictions_uri: mlflow-artifacts:/97/995935d9a87e434396bc7b1fd3b1cea4/artifacts/predictions
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
-pred_thr: 0.265 # threshold for determining positive nuclei
+predictions_uri: mlflow-artifacts:/97/81af4b4069884be39e832fc84855c5b9/artifacts/predictions
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/4858c7f922354ce9a4a4be8d02ceae93
+pred_thr: 0.437 # threshold for determining positive nuclei
 visualization_mode: 2
 
 metadata:
