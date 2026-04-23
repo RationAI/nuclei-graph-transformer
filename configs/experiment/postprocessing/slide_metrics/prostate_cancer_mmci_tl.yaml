@@ -8,7 +8,7 @@ metadata_uri: ${dataset.mlflow_uris.metadata.test}
 predictions_uri: mlflow-artifacts:/97/995935d9a87e434396bc7b1fd3b1cea4/artifacts/predictions
 supervision_dir: ${dataset.paths.supervision.model_prediction.virchow2} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: pred_label # annot_label pred_label
-threshold: 0.897
+threshold: 0.265
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
