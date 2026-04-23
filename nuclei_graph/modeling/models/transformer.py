@@ -46,7 +46,10 @@ class Transformer(nn.Module):
         )
 
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        self.input_proj = nn.Linear(config.node_features, config.dim)
+
+        self.efd_proj = nn.Linear(config.norm_dim, config.dim)
+        self.geo_proj = nn.Linear(config.node_features - config.norm_dim, config.dim)
+
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
@@ -75,10 +78,10 @@ class Transformer(nn.Module):
         to_norm = x[..., :norm_dim]
         not_to_norm = x[..., norm_dim:]  # scales and angles
 
+        # Normalize the EFDs
         norm = self.batch_norm(to_norm)
-        x = torch.cat([norm, not_to_norm], dim=-1)
 
-        x = self.input_proj(x)
+        x = self.efd_proj(norm) + self.geo_proj(not_to_norm)
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
         pos = pos.unsqueeze(0)  # (1, N_total, 2)
