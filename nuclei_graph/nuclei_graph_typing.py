@@ -14,7 +14,7 @@ class Targets(TypedDict):
 class Crop(TypedDict):
     features: NDArray[np.float32]
     labels: Targets
-    pos: Tensor
+    pos: NDArray[np.float32]
     sup_mask: Tensor
     seq_len: Tensor
 

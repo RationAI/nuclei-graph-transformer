@@ -44,7 +44,7 @@ def supervised_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
         "features": torch.cat(all_features),
         "labels": batched_labels,
         "sup_mask": torch.cat(all_sup_masks),
-        "seq_lens": torch.tensor([b["seq_len"] for b in batch], dtype=torch.int32),
+        "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
     }
 
 
@@ -78,8 +78,8 @@ def predict_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
             "pos": torch.cat(all_pos),
             "features": torch.cat(all_features),
             "sup_mask": torch.cat(all_sup_masks),
-            "seq_lens": torch.tensor(
-                [b["slide"]["seq_len"] for b in batch], dtype=torch.int32
+            "seq_lens": torch.stack([b["slide"]["seq_len"] for b in batch]).to(
+                torch.int32
             ),
         },
         "metadata": [b["metadata"] for b in batch],

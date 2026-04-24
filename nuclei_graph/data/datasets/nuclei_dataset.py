@@ -1,5 +1,6 @@
 import heapq
-from random import choice, randrange
+import math
+from random import choice, randrange, uniform
 
 import numpy as np
 import pandas as pd
@@ -186,6 +187,29 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         features = np.concatenate([efds, log_scales, cos_angles, sin_angles], axis=-1)
         return features.astype(np.float32)
 
+    def random_rotate_graph(
+        self,
+        pos: NDArray[np.float32],
+        cos_angles: NDArray[np.float32],
+        sin_angles: NDArray[np.float32],
+    ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]:
+        theta = uniform(0, 2 * math.pi)
+
+        rotation_matrix = np.array(
+            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
+            dtype=np.float32,
+        )
+        rotated_pos = pos @ rotation_matrix.T
+
+        # the original angles are doubled
+        c2 = math.cos(2 * theta)
+        s2 = math.sin(2 * theta)
+
+        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
+        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
+
+        return rotated_pos, rotated_cos, rotated_sin
+
     def sample_positive_crop(
         self,
         valid_seeds: list[int],
@@ -312,11 +336,22 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             graph_label = float(slide.is_carcinoma)
             crop_labels["graph"] = torch.tensor([graph_label], dtype=torch.float32)
 
+        crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
+
+        if not self.predict and not self.full_slide:
+            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
+                crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
+            )
+            crop_pos_centered = pos_rot
+            crop_features[..., -2] = cos_rot
+            crop_features[..., -1] = sin_rot
+
         return Crop(
             {
-                "features": self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y),
+                "features": crop_features,
                 "labels": crop_labels,
-                "pos": (crop_pos - crop_pos.mean(axis=0)).astype(np.float32),
+                "pos": crop_pos_centered,
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
             }
