@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(Radboud): Nucleus-level WSL Self Attention Transformer"
-  description: "efd order=15, k=16"
+  description: "geom augs, efd order=15, k=16"
