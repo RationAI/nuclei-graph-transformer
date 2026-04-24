@@ -20,7 +20,7 @@ trainer:
 
 data:
   batch_size: 32
-  k: 32
+  k: 16
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -28,7 +28,7 @@ data:
   dataset:
     crop_size: 4096
     alpha: 0.8
-    efd_order: 20
+    efd_order: 15
     mil: false
   supervision:
     paths: ${dataset.providers.radboud.supervision}
@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(Radboud): Nucleus-level WSL Self Attention Transformer"
-  description: "higher efd order=20"
+  description: "efd order=15, k=16"
