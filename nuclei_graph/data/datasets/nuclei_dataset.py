@@ -188,26 +188,25 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return features.astype(np.float32)
 
     def random_rotate_graph(
-        self, pos: Tensor, cos_angles: Tensor, sin_angles: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor]:
+        self,
+        pos: NDArray[np.float32],
+        cos_angles: NDArray[np.float32],
+        sin_angles: NDArray[np.float32],
+    ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]:
         theta = uniform(0, 2 * math.pi)
 
-        center = pos.mean(dim=0, keepdim=True)
-        centered_pos = pos - center
-
-        rotation_matrix = torch.tensor(
+        rotation_matrix = np.array(
             [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
-            dtype=pos.dtype,
-            device=pos.device,
+            dtype=np.float32,
         )
-        rotated_pos = centered_pos @ rotation_matrix.T + center
+        rotated_pos = pos @ rotation_matrix.T
 
         # the original angles are doubled
         c2 = math.cos(2 * theta)
         s2 = math.sin(2 * theta)
 
-        rotated_cos = cos_angles * c2 - sin_angles * s2
-        rotated_sin = sin_angles * c2 + cos_angles * s2
+        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
+        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
 
         return rotated_pos, rotated_cos, rotated_sin
 
@@ -341,21 +340,18 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
 
         if not self.predict and not self.full_slide:
-            pos_t = torch.from_numpy(crop_pos_centered)
-            cos_t = torch.from_numpy(crop_features[..., -2])
-            sin_t = torch.from_numpy(crop_features[..., -1])
-
-            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(pos_t, cos_t, sin_t)
-
-            crop_pos_centered = pos_rot.numpy()
-            crop_features[..., -2] = cos_rot.numpy()
-            crop_features[..., -1] = sin_rot.numpy()
+            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
+                crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
+            )
+            crop_pos_centered = pos_rot
+            crop_features[..., -2] = cos_rot
+            crop_features[..., -1] = sin_rot
 
         return Crop(
             {
                 "features": crop_features,
                 "labels": crop_labels,
-                "pos": torch.from_numpy(crop_pos_centered).float(),
+                "pos": crop_pos_centered,
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
             }
