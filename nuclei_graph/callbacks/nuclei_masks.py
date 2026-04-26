@@ -54,7 +54,7 @@ class BaseMasksCallback(Callback):
             self.tmp_dir = None
 
 
-class WSLPredictionMasksCallback(BaseMasksCallback):
+class NucleiPredictionMasksCallback(BaseMasksCallback):
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("mlflow_artifact_path", "prediction_masks")
         super().__init__(**kwargs)
@@ -118,7 +118,7 @@ class WSLPredictionMasksCallback(BaseMasksCallback):
         )
 
 
-class MILAttentionMasksCallback(BaseMasksCallback):
+class AttentionMasksCallback(BaseMasksCallback):
     def __init__(self, **kwargs: Any) -> None:
         kwargs.setdefault("mlflow_artifact_path", "attention_masks")
         super().__init__(**kwargs)

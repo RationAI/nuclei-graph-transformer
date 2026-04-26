@@ -1,6 +1,6 @@
 # @package _global_
 
-_target_: nuclei_graph.callbacks.predictions.MILAttentionMasksCallback
+_target_: nuclei_graph.callbacks.AttentionMasksCallback
 level: 2
 mask_tile_width: 512
 mask_tile_height: 512

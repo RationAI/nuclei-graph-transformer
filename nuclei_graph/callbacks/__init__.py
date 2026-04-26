@@ -1,7 +1,7 @@
 from nuclei_graph.callbacks.feature_importances import PermutationImportanceCallback
 from nuclei_graph.callbacks.nuclei_masks import (
-    MILAttentionMasksCallback,
-    WSLPredictionMasksCallback,
+    AttentionMasksCallback,
+    NucleiPredictionMasksCallback,
 )
 from nuclei_graph.callbacks.plot_curves import MILCurvesCallback, WSLCurvesCallback
 from nuclei_graph.callbacks.predictions import (
@@ -11,11 +11,11 @@ from nuclei_graph.callbacks.predictions import (
 
 
 __all__ = [
-    "MILAttentionMasksCallback",
+    "AttentionMasksCallback",
     "MILCurvesCallback",
     "MILPredictionsCallback",
+    "NucleiPredictionMasksCallback",
     "PermutationImportanceCallback",
     "WSLCurvesCallback",
-    "WSLPredictionMasksCallback",
     "WSLPredictionsCallback",
 ]
