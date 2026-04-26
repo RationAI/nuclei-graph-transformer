@@ -1,3 +1,4 @@
+from nuclei_graph.callbacks.feature_importances import PermutationImportanceCallback
 from nuclei_graph.callbacks.nuclei_masks import (
     MILAttentionMasksCallback,
     WSLPredictionMasksCallback,
@@ -13,6 +14,7 @@ __all__ = [
     "MILAttentionMasksCallback",
     "MILCurvesCallback",
     "MILPredictionsCallback",
+    "PermutationImportanceCallback",
     "WSLCurvesCallback",
     "WSLPredictionMasksCallback",
     "WSLPredictionsCallback",
