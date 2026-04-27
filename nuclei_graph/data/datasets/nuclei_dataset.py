@@ -313,10 +313,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
                     slide = self.slides.iloc[curr_slide_idx]
                     nuclei = self.get_nuclei(slide.slide_nuclei_path)
                     nuclei_sup = self.get_nuclei_sup(slide.slide_id)
+                    centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
                 curr_crop_indices = self.sample_positive_crop(
                     valid_seeds=nuclei_sup.get_pos_seeds(len(nuclei)),
-                    centroids=self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y),
+                    centroids=centroids,
                     targets=nuclei_sup.get_targets(len(nuclei)),
                 )
                 if curr_crop_indices is not None:
