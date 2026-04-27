@@ -11,16 +11,16 @@ defaults:
   - /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
   - _self_
 
-checkpoint: mlflow-artifacts:/97/77aac2970ef54a2b9fab6d3238585d4f/artifacts/checkpoints/epoch=321-step=7084/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/77aac2970ef54a2b9fab6d3238585d4f
+checkpoint: mlflow-artifacts:/97/27bacc7d5de645e29eab8d57b5bb63f8/artifacts/checkpoints/epoch=273-step=6028/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/27bacc7d5de645e29eab8d57b5bb63f8
 
 data:
-  k: 32
+  k: 16
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     alpha: 0.8
-    efd_order: 20
+    efd_order: 15
     crop_size: 4096
     mil: false
   supervision:
