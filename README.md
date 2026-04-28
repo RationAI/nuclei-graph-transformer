@@ -1,1 +1,1 @@
-# Nuclei Graph - Transformer
+# Nuclei Graph Transformer
