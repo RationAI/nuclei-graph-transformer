@@ -19,8 +19,8 @@ trainer:
   #accumulate_grad_batches: 2
 
 data:
-  batch_size: 32
-  k: 32
+  batch_size: 16
+  k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -49,4 +49,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Nucleus-level WSL Self Attention Transformer"
-  description: "k=32, efd_order=15"
+  description: "k=16, efd_order=15"

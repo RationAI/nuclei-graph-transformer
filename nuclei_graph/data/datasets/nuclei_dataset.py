@@ -1,6 +1,6 @@
 import heapq
 import math
-from random import choice, randrange, uniform
+from random import choice, randint, randrange, uniform
 
 import numpy as np
 import pandas as pd
@@ -44,21 +44,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         predict: bool = False,
         mil: bool = False,
     ) -> None:
-        """Initializes the dataset.
-
-        Args:
-            slides: DataFrame with columns: "slide_id" (str), "is_carcinoma" (bool), "slide_nuclei_path" (str), "mpp_x" (float)
-                and "mpp_y" (float). If the predict mode is set to `True` then it should also have a column "slide_path" (str).
-            supervision: DatasetSupervision dataclass containing slide-level and nucleus-level labels for positive slides.
-                It can be set to None if `predict` is True.
-            crop_size: Number of nuclei in a crop (sample) during training.
-            crop_pos_thr: Minimum ratio of positive nuclei in the crop to consider it as a valid positive sample during training.
-            alpha: Weight between graph edge distance and Euclidean distance when selecting neighbors during graph creation.
-            efd_order: Order of the elliptic Fourier descriptors used for nuclei shape representation.
-            full_slide: Whether the dataset is used for full slide inference.
-            predict: Whether to return the metadata needed for prediction along with the data.
-            mil: whether to also return slide-level labels for multiple-instance learning along with the nucleus-level labels.
-        """
+        """Initializes the dataset."""
         assert not mil or (mil and crop_pos_thr is not None)
         assert (supervision is not None) or predict, (
             "Supervision can be None only in predict mode."
@@ -87,20 +73,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         centroids: Coords,
         allowed_indices: NDArray[np.int64] | None = None,
     ) -> list[int]:
-        """Grows a connected component of up to `k` nuclei starting from a seed index.
-
-        Args:
-            seed_idx: seed nucleus index
-            k: maximum number of nuclei to include in the component.
-            graph: adjacency list of the nuclei graph.
-            centroids: array of nuclei coordinates.
-            allowed_indices: optional array of allowed nuclei indices
-
-        Returns:
-            list[int]: Indices of nuclei in the component.
-
-        Source: Nuclei Foundational Model repository.
-        """
+        """Grows a connected component of up to `k` nuclei starting from a seed index."""
         component_indices: list[int] = []
         visited = np.zeros(len(centroids), dtype=bool)
         allowed_set = set(allowed_indices) if allowed_indices is not None else None
@@ -125,20 +98,9 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return component_indices
 
     def get_crop_indices(
-        self, centroids: Coords, valid_seeds: list[int]
+        self, centroids: Coords, valid_seeds: list[int], target_size: int
     ) -> NDArray[np.int64]:
-        """Selects nuclei indices for a crop by growing a connected component on the spatial graph.
-
-        If `full_slide` is True, returns all nuclei indices. Otherwise, a random valid seed is chosen
-        and a component of nuclei is grown based on the spatial graph.
-
-        Args:
-            centroids (np.ndarray[float], shape (n, 2)): Nuclei coordinates.
-            valid_seeds (list[int]): Indices eligible as seeds for component sampling.
-
-        Returns:
-            np.ndarray: Selected nuclei indices for the crop.
-        """
+        """Selects nuclei indices for a crop by growing a connected component on the spatial graph."""
         n = len(centroids)
         if self.full_slide:
             return np.arange(n, dtype=int)
@@ -148,7 +110,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         keep_indices = np.arange(len(centroids))
 
         # heuristically limit the nuclei for graph building
-        limit = int(self.crop_size / max(1.0 - self.alpha, 1e-4))
+        limit = int(target_size / max(1.0 - self.alpha, 1e-4))
         if n > limit:
             dists = np.linalg.norm(centroids - center_coords, axis=1)
             keep_indices = np.argpartition(dists, limit - 1)[:limit]
@@ -164,7 +126,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # grow a connected component starting from the center nucleus
         seed = int(np.argmin(np.linalg.norm(centroids - center_coords, axis=1)))
-        local_crop_indices = self.find_component(seed, self.crop_size, graph, centroids)
+        local_crop_indices = self.find_component(seed, target_size, graph, centroids)
 
         global_crop_indices = keep_indices[local_crop_indices]
         return np.array(global_crop_indices, dtype=np.int64)
@@ -215,13 +177,11 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         valid_seeds: list[int],
         centroids: NDArray[np.float32],
         targets: Tensor,
+        target_size: int,
         max_attempts: int = 10,
         margin: float = 0.15,
     ) -> NDArray[np.int64] | None:
-        """Attempts to sample a positive crop of nuclei around a random valid seed.
-
-        Ensures it contains a fraction of positive nuclei above `self.crop_pos_thr`.
-        """
+        """Attempts to sample a positive crop of nuclei around a random valid seed."""
         assert self.crop_pos_thr is not None
         tree = KDTree(centroids)
 
@@ -229,12 +189,12 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             seed_idx = choice(valid_seeds)
 
             # heuristic via Euclidean circle
-            _, neighbor_idx = tree.query(centroids[seed_idx], k=self.crop_size)
-            est_tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / self.crop_size
+            _, neighbor_idx = tree.query(centroids[seed_idx], k=target_size)
+            est_tumor_ratio = (targets[neighbor_idx] == 1).sum().item() / target_size
             if est_tumor_ratio < max(0.0, self.crop_pos_thr - margin):
                 continue
 
-            crop_indices = self.get_crop_indices(centroids, [seed_idx])
+            crop_indices = self.get_crop_indices(centroids, [seed_idx], target_size)
             crop_targets = targets[torch.from_numpy(crop_indices).long()]
             tumor_ratio = (crop_targets == 1).sum().item() / len(crop_indices)
 
@@ -288,42 +248,49 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         nuclei_sup = self.get_nuclei_sup(slide.slide_id)
 
         # Generate a crop
-        if not self.full_slide and not slide.is_carcinoma:
-            crop_indices = self.get_crop_indices(
-                centroids, nuclei_sup.get_neg_seeds(len(nuclei))
-            )
-        if not self.full_slide and slide.is_carcinoma:
-            assert self.crop_pos_thr is not None
+        if not self.full_slide:
+            lower_bound = min(self.crop_size // 2, len(nuclei))
+            target_size = randint(lower_bound, len(nuclei))
 
-            # Target crop distribution:
-            # 50% positive, 25% negative (from pos slides), 25% negative (from neg slides).
-            # Assuming the slide sampler yields 75% positive slides, we select a positive
-            # seed 2/3 of the time.
-            if not self.mil:
-                valid_seeds = (
-                    nuclei_sup.get_pos_seeds(len(nuclei))
-                    if torch.rand(1).item() < (2.0 / 3.0)
-                    else nuclei_sup.get_neg_seeds(len(nuclei))
+            if not slide.is_carcinoma:
+                crop_indices = self.get_crop_indices(
+                    centroids, nuclei_sup.get_neg_seeds(len(nuclei)), target_size
                 )
-                crop_indices = self.get_crop_indices(centroids, valid_seeds)
+            else:
+                assert self.crop_pos_thr is not None
 
-            curr_slide_idx, curr_crop_indices = None, None
-            while self.mil:  # ensure crop positivity ≥ `crop_pos_thr`
-                if curr_slide_idx is not None:
-                    slide = self.slides.iloc[curr_slide_idx]
-                    nuclei = self.get_nuclei(slide.slide_nuclei_path)
-                    nuclei_sup = self.get_nuclei_sup(slide.slide_id)
-                    centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
+                if not self.mil:
+                    valid_seeds = (
+                        nuclei_sup.get_pos_seeds(len(nuclei))
+                        if torch.rand(1).item() < (2.0 / 3.0)
+                        else nuclei_sup.get_neg_seeds(len(nuclei))
+                    )
+                    crop_indices = self.get_crop_indices(
+                        centroids, valid_seeds, target_size
+                    )
 
-                curr_crop_indices = self.sample_positive_crop(
-                    valid_seeds=nuclei_sup.get_pos_seeds(len(nuclei)),
-                    centroids=centroids,
-                    targets=nuclei_sup.get_targets(len(nuclei)),
-                )
-                if curr_crop_indices is not None:
-                    crop_indices = curr_crop_indices
-                    break
-                curr_slide_idx = choice(self.pos_slide_indices)
+                curr_slide_idx, curr_crop_indices = None, None
+                while self.mil:  # ensure crop positivity ≥ `crop_pos_thr`
+                    if curr_slide_idx is not None:
+                        slide = self.slides.iloc[curr_slide_idx]
+                        nuclei = self.get_nuclei(slide.slide_nuclei_path)
+                        nuclei_sup = self.get_nuclei_sup(slide.slide_id)
+                        centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
+
+                        # Recalculate bounds if we switched to a new slide
+                        lower_bound = min(self.crop_size // 2, len(nuclei))
+                        target_size = randint(lower_bound, len(nuclei))
+
+                    curr_crop_indices = self.sample_positive_crop(
+                        valid_seeds=nuclei_sup.get_pos_seeds(len(nuclei)),
+                        centroids=centroids,
+                        targets=nuclei_sup.get_targets(len(nuclei)),
+                        target_size=target_size,
+                    )
+                    if curr_crop_indices is not None:
+                        crop_indices = curr_crop_indices
+                        break
+                    curr_slide_idx = choice(self.pos_slide_indices)
 
         assert crop_indices is not None
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
