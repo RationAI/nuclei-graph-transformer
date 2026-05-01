@@ -249,8 +249,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         # Generate a crop
         if not self.full_slide:
-            lower_bound = min(self.crop_size // 2, len(nuclei))
-            target_size = randint(lower_bound, len(nuclei))
+            target_size = randint(self.crop_size // 2, len(nuclei) // 2)
 
             if not slide.is_carcinoma:
                 crop_indices = self.get_crop_indices(
