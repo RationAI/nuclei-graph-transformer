@@ -8,9 +8,9 @@ mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 visualization_mode: ???
 max_concurrent: 1
-heatmap_labels_uri: ${dataset.providers.radboud.supervision.annotation}
+heatmap_labels_dir: ${dataset.providers.radboud.supervision.annotation}
 label_column: null
-cam_labels_uri: null
+cam_labels_dir: null
 predictions_uri: null
 pred_thr: null
 metadata_uris:
