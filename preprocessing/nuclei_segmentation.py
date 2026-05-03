@@ -1,22 +1,4 @@
-"""Nuclei Segmentation Pipeline adapted from the Nuclei Foundational Model repository.
-
-This pipeline processes whole-slide images to segment nuclei. The nuclei are saved in a
-Parquet dataset under the configured `output_path`, partitioned by `slide_id`.
-
-Output structure:
-<OUTPUT_PATH>/
-    <DATASET_NAME>/
-        slide_id=<SLIDE_NAME>/
-            *.parquet (segmented nuclei)
-
-Each row in the saved Parquet files corresponds to a single nucleus and contains keys:
-    - `polygon` (np.ndarray[float]): Nucleus segmentation polygon coordinates (64 points, flattened).
-    - `centroid` (np.ndarray[float]): Nucleus centroid coordinates.
-    - `id` (str): Unique hash identifier for the nucleus.
-
-The `id` is intended to be used for determining a fixed ordering of nuclei within a slide
-(reading partitioned Parquet files does not always guarantee a fixed order).
-"""
+"""Nuclei Segmentation Pipeline adapted from the Nuclei Foundational Model repository."""
 
 import hashlib
 from collections.abc import Iterator

@@ -1,13 +1,4 @@
-"""This script generates a CSV metadataset file for the `Prostate Cancer: Tile-Level Annotations Data`.
-
-The metadata extracted for each slide include:
-    - `slide_path` (str): Slide storage path (.mrxs).
-    - `has_annotation` (bool): True if an XML annotation file exists for the slide.
-    - `is_carcinoma` (bool): True if the slide is positive (label == 1).
-    - `case_id` (str): Combination of year and patient ID (e.g., "2016_3989").
-    - `patient_id` (str): 4-digit unique patient ID (for patient-level train/validation set splitting)
-
-The resulting CSV files along with their summaries are logged as artifacts to MLflow.
+"""This script generates a CSV metadataset file for the MMCI Tile-Level Annotations Data.
 
 This serves as a snapshot of the current data version used in this project further on.
 """

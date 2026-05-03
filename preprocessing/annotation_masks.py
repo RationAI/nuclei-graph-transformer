@@ -5,16 +5,6 @@ Annotation groups:
     - "Exclude": regions that should be removed from the carcinoma mask (holes, artifacts)
     - "Another pathology": various non-cancerous regions (inflammation, pre-cancer, etc.); should be classified as negative
 The resulting mask only marks regions that are "Carcinoma" and are neither "Exclude" nor "Another pathology".
-
-Assumes the following structure of input data:
-1. Exploratory Metadataset (`exploration/save_metadataset.py`):
-<DATASET_NAME>/
-    slides_metadata.csv (columns "slide_path" (str), "is_carcinoma" (bool), and "has_annotation" (bool))
-
-The output is logged to MLflow as:
-<MLFLOW_ARTIFACT_PATH>/
-    <SLIDE_NAME>.tiff (binary single-channel mask of annotated regions for positive slides with annotations)
-`missing_annotations.csv` (column "slide_path" (str))
 """
 
 import os
