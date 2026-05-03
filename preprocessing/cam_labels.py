@@ -63,7 +63,7 @@ def run_cam_labeling(
     negative_thr: float,
     bipolar_zero_offset: float,
 ) -> None:
-    nuclei = pd.read_parquet(metadata["slide_nuclei_path"], columns=["id", "polygon"])
+    nuclei = pd.read_parquet(metadata["slide_nuclei_path"])
     nuclei = nuclei.sort_values("id").reset_index(drop=True)
     nuclei["slide_id"] = metadata["slide_id"]
     nuclei["cam_label"] = -1  # default uncertain
