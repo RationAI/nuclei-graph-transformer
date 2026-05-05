@@ -93,8 +93,9 @@ class Transformer(nn.Module):
         x = torch.cat([norm, not_to_norm], dim=-1)
 
         x = self.input_proj(x)
-
-        pos_embed = self.pos_encoder(pos)
+        
+        scaled_pos = pos / 1000.0
+        pos_embed = self.pos_encoder(scaled_pos)
         x = x + pos_embed
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
