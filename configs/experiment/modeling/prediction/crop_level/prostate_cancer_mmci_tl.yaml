@@ -20,9 +20,7 @@ data:
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
-    alpha: 0.8
-    efd_order: 10
-    crop_size: 4096
+    efd_order: 15
     mil: true
   supervision:
     paths: ${dataset.paths.supervision}
@@ -34,7 +32,7 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.35
+      drop_path_rate: 0.30
 
 metadata:
   run_name: "📊 Predictions(MMCI): MIL Classifier"

@@ -100,11 +100,14 @@ class NucleiMILMetaArch(LightningModule):
         self.val_step_graph_sizes.append(batch_size)
 
         # nuclei-level metrics
+        seq_len = int(batch["seq_lens"].sum().item())
+        sup_mask = batch["sup_mask"][:seq_len]
+
         targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
-        targets_sup = targets_sup[batch["sup_mask"]]
+        targets_sup = targets_sup[:seq_len][sup_mask]
 
-        logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
+        logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:  # empty supervision batch
@@ -182,15 +185,18 @@ class NucleiMILMetaArch(LightningModule):
         )
 
         # nuclei-level metrics
+        seq_len = int(batch["seq_lens"].sum().item())
+        sup_mask = batch["sup_mask"][:seq_len]
+
         targets_sup = batch["labels"]["nuclei"]
         assert targets_sup is not None
-        targets_sup = targets_sup[batch["sup_mask"]]  # <--- FIX APPLIED HERE
+        targets_sup = targets_sup[:seq_len][sup_mask]
 
         logits_nuclei = logits["nuclei"]
-        logits_sup = logits_nuclei[batch["sup_mask"]].squeeze(-1)
+        logits_sup = logits_nuclei[sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # empty supervision batch
+        if sup_size == 0:
             return None
         loss_sup = self.bce(logits_sup, targets_sup)
         self.log(

@@ -1,5 +1,8 @@
+import math
+
 import torch
 from sklearn.neighbors import NearestNeighbors
+from torch import Tensor
 
 from nuclei_graph.data.block_mask import (
     block_spatial_sort,
@@ -7,7 +10,31 @@ from nuclei_graph.data.block_mask import (
 )
 
 
-def supervised_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
+BUCKETS = [4096, 8192, 16384, 32768, 49152]
+
+
+def pick_bucket(seq_len, block_size=128):
+    for b in BUCKETS:
+        if seq_len <= b:
+            return b
+    return math.ceil(seq_len / block_size) * block_size
+
+
+def _pad_to_seq_len(x: Tensor, total_seq_len: int, value: float | int = 0) -> Tensor:
+    pad_len = total_seq_len - x.shape[0]
+    if pad_len == 0:
+        return x
+    pad_shape = (pad_len, *x.shape[1:])
+    pad = torch.full(pad_shape, value, dtype=x.dtype, device=x.device)
+    return torch.cat((x, pad), dim=0)
+
+
+def supervised_collate_fn(
+    batch: list[dict],
+    block_size: int,
+    k: int,
+    total_seq_len: int | None = None,
+) -> dict:
     nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
     all_pos, all_features, all_knns = [], [], []
@@ -33,22 +60,38 @@ def supervised_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
         all_sup_masks.append(b["sup_mask"][sort_indices])
         current_global_idx += len(sorted_pos)
 
+    real_seq_len = current_global_idx
+    target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
+    if target_seq_len < real_seq_len:
+        raise ValueError(
+            f"total_seq_len ({target_seq_len}) must be >= packed length ({real_seq_len})"
+        )
+
     batched_labels = {
-        "nuclei": torch.cat(all_labels_nuclei),
+        "nuclei": _pad_to_seq_len(torch.cat(all_labels_nuclei), target_seq_len),
         "graph": torch.cat(all_labels_graph) if all_labels_graph else None,
     }
 
     return {
-        "block_mask": create_ragged_block_quantized_knn_mask(all_knns, block_size),
-        "pos": torch.cat(all_pos),
-        "features": torch.cat(all_features),
+        "block_mask": create_ragged_block_quantized_knn_mask(
+            all_knns, block_size, total_seq_len=target_seq_len
+        ),
+        "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
+        "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
         "labels": batched_labels,
-        "sup_mask": torch.cat(all_sup_masks),
+        "sup_mask": _pad_to_seq_len(
+            torch.cat(all_sup_masks), target_seq_len, value=False
+        ),
         "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
     }
 
 
-def predict_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
+def predict_collate_fn(
+    batch: list[dict],
+    block_size: int,
+    k: int,
+    total_seq_len: int | None = None,
+) -> dict:
     nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
     all_pos, all_features, all_knns, all_sup_masks = [], [], [], []
@@ -72,12 +115,23 @@ def predict_collate_fn(batch: list[dict], block_size: int, k: int) -> dict:
 
         current_global_idx += len(sorted_pos)
 
+    real_seq_len = current_global_idx
+    target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
+    if target_seq_len < real_seq_len:
+        raise ValueError(
+            f"total_seq_len ({target_seq_len}) must be >= packed length ({real_seq_len})"
+        )
+
     return {
         "slide": {
-            "block_mask": create_ragged_block_quantized_knn_mask(all_knns, block_size),
-            "pos": torch.cat(all_pos),
-            "features": torch.cat(all_features),
-            "sup_mask": torch.cat(all_sup_masks),
+            "block_mask": create_ragged_block_quantized_knn_mask(
+                all_knns, block_size, total_seq_len=target_seq_len
+            ),
+            "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
+            "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
+            "sup_mask": _pad_to_seq_len(
+                torch.cat(all_sup_masks), target_seq_len, value=False
+            ),
             "seq_lens": torch.stack([b["slide"]["seq_len"] for b in batch]).to(
                 torch.int32
             ),

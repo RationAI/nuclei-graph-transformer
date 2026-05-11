@@ -64,11 +64,14 @@ class PermutationImportanceCallback(Callback):
 
         baseline_auroc = BinaryAUROC().to(device)
         for batch in tqdm(self.cached_batches, desc="Baseline AUROC"):
+            seq_len = int(batch["seq_lens"].sum().item())
+            sup_mask = batch["sup_mask"][:seq_len]
+
             nuclei_labels = batch["labels"]["nuclei"]
             if nuclei_labels is None:
                 continue
 
-            targets_sup = nuclei_labels[batch["sup_mask"]]
+            targets_sup = nuclei_labels[:seq_len][sup_mask]
             if targets_sup.numel() == 0:
                 continue
 
@@ -77,7 +80,7 @@ class PermutationImportanceCallback(Callback):
             ):
                 logits = pl_module(batch)["nuclei"]
 
-            logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+            logits_sup = logits[sup_mask].squeeze(-1)
             baseline_auroc.update(logits_sup, targets_sup.long())
 
         base_score = baseline_auroc.compute().item()
@@ -89,19 +92,22 @@ class PermutationImportanceCallback(Callback):
             for batch in tqdm(
                 self.cached_batches, desc=f"Permuting {name}", leave=False
             ):
+                seq_len = int(batch["seq_lens"].sum().item())
+                sup_mask = batch["sup_mask"][:seq_len]
+
                 nuclei_labels = batch["labels"]["nuclei"]
                 if nuclei_labels is None:
                     continue
 
-                targets_sup = nuclei_labels[batch["sup_mask"]]
+                targets_sup = nuclei_labels[:seq_len][sup_mask]
                 if targets_sup.numel() == 0:
                     continue
 
                 x = batch["features"]
                 x_perm = x.clone()
 
-                idx = torch.randperm(x_perm.size(0), device=device)
-                x_perm[:, f_slice] = x_perm[idx, f_slice]
+                idx = torch.randperm(seq_len, device=device)
+                x_perm[:seq_len, f_slice] = x_perm[idx, f_slice]
 
                 permuted_batch = dict(batch)
                 permuted_batch["features"] = x_perm
@@ -111,7 +117,7 @@ class PermutationImportanceCallback(Callback):
                 ):
                     logits = pl_module(permuted_batch)["nuclei"]
 
-                logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+                logits_sup = logits[sup_mask].squeeze(-1)
                 perm_auroc.update(logits_sup, targets_sup.long())
 
             drop = base_score - perm_auroc.compute().item()

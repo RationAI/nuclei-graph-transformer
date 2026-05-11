@@ -20,7 +20,7 @@ from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
 class BaseMasksCallback(Callback):
     def __init__(
         self,
-        level: int = 0,
+        level: int = 2,
         mask_tile_width: int = 512,
         mask_tile_height: int = 512,
         mlflow_artifact_path: str = "masks",

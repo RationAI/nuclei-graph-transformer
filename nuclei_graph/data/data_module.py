@@ -138,7 +138,9 @@ class DataModule(LightningDataModule):
                 if stage == "fit":
                     assert self.train_strategy is not None
 
-                    train_df = min_count_filter(train_df, self.dataset_cfg.crop_size)
+                    train_df = min_count_filter(
+                        train_df, self.dataset_cfg.crop_size_min
+                    )
                     train_sup = self._prepare_supervision(
                         train_df, self.train_strategy.paths, self.train_strategy
                     )
@@ -146,7 +148,8 @@ class DataModule(LightningDataModule):
 
                     if self.dataset_cfg.mil:
                         min_pos_count = (
-                            self.dataset_cfg.crop_size * self.dataset_cfg.crop_pos_thr
+                            self.dataset_cfg.crop_size_min
+                            * self.dataset_cfg.crop_pos_thr
                         )
                         train_df = min_positive_count_filter(
                             train_df, min_pos_count, train_sup.pos_count_map

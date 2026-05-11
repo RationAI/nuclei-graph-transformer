@@ -18,7 +18,7 @@ class BaseCurvesCallback(Callback):
         targets_list: list[torch.Tensor],
         level_name: str,
     ) -> None:
-        """Computes, plots, logs, and clears ROC and PR curves for a given prediction level."""
+        """Computes, plots, logs, and clears ROC and PR curves."""
         if not preds_list:
             return
 
@@ -160,11 +160,16 @@ class MILCurvesCallback(BaseCurvesCallback):
             self.graph_preds.append(torch.sigmoid(graph_outputs).detach().cpu())
             self.graph_targets.append(targets_graph.view(-1).detach().cpu())
 
+        seq_len = int(batch["seq_lens"].sum().item())
+        sup_mask = batch["sup_mask"][:seq_len]
+
         targets_sup = batch["labels"]["nuclei"]
-        if targets_sup is not None and targets_sup.numel() > 0:
-            nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
-            self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
-            self.nuclei_targets.append(targets_sup[batch["sup_mask"]].detach().cpu())
+        if targets_sup is not None:
+            targets_sup = targets_sup[:seq_len]
+            if targets_sup.numel() > 0:
+                nuclei_outputs = outputs["nuclei"][sup_mask].squeeze(-1)
+                self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
+                self.nuclei_targets.append(targets_sup[sup_mask].detach().cpu())
 
     def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
@@ -206,12 +211,16 @@ class WSLCurvesCallback(BaseCurvesCallback):
         if trainer.sanity_checking or outputs is None:
             return
 
-        targets_sup = batch["labels"]["nuclei"]
+        seq_len = int(batch["seq_lens"].sum().item())
+        sup_mask = batch["sup_mask"][:seq_len]
 
-        if targets_sup is not None and targets_sup.numel() > 0:
-            nuclei_outputs = outputs["nuclei"][batch["sup_mask"]].squeeze(-1)
-            self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
-            self.nuclei_targets.append(targets_sup[batch["sup_mask"]].detach().cpu())
+        targets_sup = batch["labels"]["nuclei"]
+        if targets_sup is not None:
+            targets_sup = targets_sup[:seq_len]
+            if targets_sup.numel() > 0:
+                nuclei_outputs = outputs["nuclei"][sup_mask].squeeze(-1)
+                self.nuclei_preds.append(torch.sigmoid(nuclei_outputs).detach().cpu())
+                self.nuclei_targets.append(targets_sup[sup_mask].detach().cpu())
 
     def on_validation_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule

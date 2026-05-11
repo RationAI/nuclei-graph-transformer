@@ -26,9 +26,11 @@ data:
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    crop_size: 4096
+    crop_size_min: 400
+    crop_size_max: 12000
     alpha: 0.8
     efd_order: 15
+    random_rotate: true
     mil: false
   supervision:
     paths: ${dataset.paths.supervision}
@@ -49,4 +51,4 @@ model:
 
 metadata:
   run_name: "Train(MMCI): Nucleus-level WSL Self Attention Transformer"
-  description: "k=16, efd_order=15"
+  description: ""

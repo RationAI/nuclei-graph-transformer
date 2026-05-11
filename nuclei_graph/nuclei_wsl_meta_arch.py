@@ -46,26 +46,26 @@ class NucleiWSLMetaArch(LightningModule):
         )
 
     def training_step(self, batch: Batch) -> Tensor:
-        targets_sup = batch["labels"]["nuclei"]
-        assert targets_sup is not None
-        targets_sup = targets_sup[batch["sup_mask"]]
+        seq_len = int(batch["seq_lens"].sum().item())
+
+        sup_mask = batch["sup_mask"][:seq_len]
+
+        assert batch["labels"]["nuclei"] is not None
+        targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
         logits = self(batch)["nuclei"]
-        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+        logits_sup = logits[sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # empty supervision batch
+        if sup_size == 0:
             return logits.sum() * 0.0
 
+        # log the ratio of positive and negative nuclei in the batch
         n_pos = (targets_sup == 1).sum().float()
         pos_ratio = n_pos / sup_size if sup_size > 0 else 0.0
         self.log("train/pos_ratio", pos_ratio, on_step=True, prog_bar=True)
 
-        loss_sup = F.binary_cross_entropy_with_logits(
-            logits_sup,
-            targets_sup,
-            # weight=weights,
-        )
+        loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "train/loss",
             loss_sup,
@@ -77,15 +77,18 @@ class NucleiWSLMetaArch(LightningModule):
         return loss_sup
 
     def validation_step(self, batch: Batch) -> Outputs | None:
-        targets_sup = batch["labels"]["nuclei"]
-        assert targets_sup is not None
-        targets_sup = targets_sup[batch["sup_mask"]]
+        seq_len = int(batch["seq_lens"].sum().item())
+
+        sup_mask = batch["sup_mask"][:seq_len]
+
+        assert batch["labels"]["nuclei"] is not None
+        targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
         logits = self(batch)
-        logits_sup = logits["nuclei"][batch["sup_mask"]].squeeze(-1)
+        logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # empty supervision batch
+        if sup_size == 0:
             return None
 
         loss_sup = self.bce(logits_sup, targets_sup)
@@ -129,16 +132,20 @@ class NucleiWSLMetaArch(LightningModule):
             self.log_dict(best_metrics, prog_bar=False)
 
     def test_step(self, batch: Batch) -> None:
-        targets_sup = batch["labels"]["nuclei"]
-        assert targets_sup is not None
-        targets_sup = targets_sup[batch["sup_mask"]]
+        seq_len = int(batch["seq_lens"].sum().item())
+
+        sup_mask = batch["sup_mask"][:seq_len]
+
+        assert batch["labels"]["nuclei"] is not None
+        targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
         logits = self(batch)["nuclei"]
-        logits_sup = logits[batch["sup_mask"]].squeeze(-1)
+        logits_sup = logits[sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
-        if sup_size == 0:  # empty supervision batch
+        if sup_size == 0:
             return None
+
         loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "test/loss",

@@ -11,11 +11,7 @@ from nuclei_graph.nuclei_graph_typing import Outputs
 class MLPSpatialEmbedding(nn.Module):
     def __init__(self, dim: int) -> None:
         super().__init__()
-        self.proj = nn.Sequential(
-            nn.Linear(2, dim),
-            nn.GELU(),
-            nn.Linear(dim, dim)
-        )
+        self.proj = nn.Sequential(nn.Linear(2, dim), nn.GELU(), nn.Linear(dim, dim))
 
     def forward(self, pos: Tensor) -> Tensor:
         return self.proj(pos)
@@ -71,6 +67,44 @@ class Transformer(nn.Module):
             nn.Linear(config.dim // 2, 1),
         )
 
+    def _prepare_features(
+        self, x: Tensor, pos: Tensor, real_seq_len: int, pos_norm_const: int = 1000
+    ) -> Tensor:
+        norm_dim = self.batch_norm.num_features
+        not_to_norm = x[..., norm_dim:]  # angles
+
+        norm_full = torch.zeros_like(x[..., :norm_dim])
+        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
+
+        x = torch.cat([norm_full, not_to_norm], dim=-1)
+
+        return self.input_proj(x) + self.pos_encoder(pos / pos_norm_const)
+
+    def _pool_graph_logits(
+        self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
+    ) -> tuple[Tensor, Tensor]:
+        real_seq_len = seq_lens.sum().item()
+
+        nuclei_logits = nuclei_logits[:real_seq_len]
+        attn_scores = attn_scores[:real_seq_len]
+
+        seq_lens_list = seq_lens.tolist()
+        attn_scores_split = torch.split(attn_scores, seq_lens_list)
+        nuclei_logits_split = torch.split(nuclei_logits, seq_lens_list)
+
+        graph_logits_list = []
+        attn_weights_list = []
+
+        for scores, logits in zip(attn_scores_split, nuclei_logits_split, strict=True):
+            weights = torch.softmax(scores, dim=0)
+            graph_logits_list.append(torch.sum(weights * logits, dim=0))
+            attn_weights_list.append(weights)
+
+        graph_logits = torch.stack(graph_logits_list)  # (b, num_classes)
+        attn_weights = torch.cat(attn_weights_list)  # (real_seq_len, 1)
+
+        return graph_logits, attn_weights
+
     def forward(
         self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_lens: Tensor
     ) -> Outputs:
@@ -85,18 +119,8 @@ class Transformer(nn.Module):
         Returns:
             Outputs dict containing graph logits, nuclei logits, and attention weights.
         """
-        norm_dim = self.batch_norm.num_features
-        to_norm = x[..., :norm_dim]
-        not_to_norm = x[..., norm_dim:]  # scales and angles
-
-        norm = self.batch_norm(to_norm)
-        x = torch.cat([norm, not_to_norm], dim=-1)
-
-        x = self.input_proj(x)
-        
-        scaled_pos = pos / 1000.0
-        pos_embed = self.pos_encoder(scaled_pos)
-        x = x + pos_embed
+        real_seq_len = int(seq_lens.sum().item())
+        x = self._prepare_features(x, pos, real_seq_len)
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
         pos = pos.unsqueeze(0)  # (1, N_total, 2)
@@ -110,24 +134,12 @@ class Transformer(nn.Module):
         nuclei_logits = self.class_head(x)  # (N_total, num_classes)
         attn_scores = self.attn_head(x)  # (N_total, 1)
 
-        seq_lens_list = seq_lens.tolist()
-
-        attn_scores_split = torch.split(attn_scores, seq_lens_list)
-        nuclei_logits_split = torch.split(nuclei_logits, seq_lens_list)
-
-        graph_logits_list = []
-        attn_weights_list = []
-
-        for scores, logits in zip(attn_scores_split, nuclei_logits_split, strict=True):
-            weights = torch.softmax(scores, dim=0)
-            graph_logits_list.append(torch.sum(weights * logits, dim=0))
-            attn_weights_list.append(weights)
-
-        graph_logits = torch.stack(graph_logits_list)  # (b, num_classes)
-        attn_weights = torch.cat(attn_weights_list)  # (N_total, 1)
+        graph_logits, attn_weights = self._pool_graph_logits(
+            nuclei_logits, attn_scores, seq_lens
+        )
 
         return Outputs(
             graph=graph_logits,
-            nuclei=nuclei_logits,
+            nuclei=nuclei_logits[:real_seq_len],
             attn_weights=attn_weights,
         )

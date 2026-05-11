@@ -26,10 +26,12 @@ data:
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    crop_size: 4096
+    crop_size_min: 400
+    crop_size_max: 12000
     crop_pos_thr: 0.75
     alpha: 0.8
     efd_order: 10
+    random_rotate: true
     mil: true
   supervision:
     paths: ${dataset.paths.supervision}

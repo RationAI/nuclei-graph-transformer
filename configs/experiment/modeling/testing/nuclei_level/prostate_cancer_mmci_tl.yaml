@@ -17,9 +17,7 @@ data:
   k: 16
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    alpha: 0.8
     efd_order: 15
-    crop_size: 4096
     mil: false
   supervision:
     paths: ${dataset.paths.supervision}

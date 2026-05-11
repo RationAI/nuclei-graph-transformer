@@ -47,8 +47,9 @@ metadata:
     batch_size: ${data.batch_size}
     split_size: ${data.split_size}
 
-    # dataset
-    crop_size: ${data.dataset.crop_size}
+    # data
+    crop_size_min: ${data.dataset.crop_size_min}
+    crop_size_max: ${data.dataset.crop_size_max}
     alpha: ${data.dataset.alpha}
     k: ${data.k}
 

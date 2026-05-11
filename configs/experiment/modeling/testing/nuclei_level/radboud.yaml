@@ -17,9 +17,7 @@ data:
   k: 32
   metadata: ${dataset.providers.radboud.metadata}
   dataset:
-    alpha: 0.8
-    efd_order: 20
-    crop_size: 4096
+    efd_order: 15
     mil: false
   supervision:
     paths: ${dataset.providers.radboud.supervision}
