@@ -34,9 +34,11 @@ class Layer(nn.Module):
             else nn.Identity()
         )
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+    def forward(
+        self, x: Tensor, pos: Tensor, angles: Tensor, block_mask: BlockMask
+    ) -> Tensor:
         y = self.pre_attn_norm(x)
-        x = x + self.drop_path(self.self_attn(y, pos, block_mask))
+        x = x + self.drop_path(self.self_attn(y, pos, angles, block_mask))
 
         y = self.pre_ffn_norm(x)
         x = x + self.drop_path(self.ffn(y))
@@ -59,6 +61,8 @@ class Transformer(nn.Module):
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
+        self.pos_scale = nn.Parameter(torch.tensor(0.0))
+
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
         self.attn_head = nn.Sequential(
@@ -69,16 +73,19 @@ class Transformer(nn.Module):
 
     def _prepare_features(
         self, x: Tensor, pos: Tensor, real_seq_len: int, pos_norm_const: int = 1000
-    ) -> Tensor:
+    ) -> tuple[Tensor, Tensor]:
         norm_dim = self.batch_norm.num_features
-        not_to_norm = x[..., norm_dim:]  # angles
+        angles = x[..., norm_dim:]
 
-        norm_full = torch.zeros_like(x[..., :norm_dim])
-        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
+        x_norm = torch.zeros_like(x[..., :norm_dim])
+        x_norm[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
-        x = torch.cat([norm_full, not_to_norm], dim=-1)
+        x = torch.cat([x_norm, angles], dim=-1)
 
-        return self.input_proj(x) + self.pos_encoder(pos / pos_norm_const)
+        x_out = self.input_proj(x) + (
+            self.pos_scale * self.pos_encoder(pos / pos_norm_const)
+        )
+        return x_out, angles
 
     def _pool_graph_logits(
         self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
@@ -120,13 +127,14 @@ class Transformer(nn.Module):
             Outputs dict containing graph logits, nuclei logits, and attention weights.
         """
         real_seq_len = int(seq_lens.sum().item())
-        x = self._prepare_features(x, pos, real_seq_len)
+        x, angles = self._prepare_features(x, pos, real_seq_len)
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
         pos = pos.unsqueeze(0)  # (1, N_total, 2)
+        angles = angles.unsqueeze(0)  # (1, N_total, angle_dim)
 
         for layer in self.layers:
-            x = layer(x, pos, block_mask)
+            x = layer(x, pos, angles, block_mask)
 
         x = self.final_norm(x)
         x = x.squeeze(0)  # remove batch dim: (N_total, dim)
