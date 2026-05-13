@@ -88,7 +88,7 @@ def create_ragged_block_quantized_knn_mask(
 
     # === 3. Compress to Dense KV Indices ===
     col_indices = (
-        torch.arange(num_blocks, device=device)
+        torch.arange(num_blocks, dtype=torch.int32, device=device)
         .unsqueeze(0)
         .expand(num_blocks, num_blocks)
     )
@@ -131,7 +131,7 @@ def create_ragged_block_quantized_knn_mask(
     full_kv_indices = torch.where(
         sorted_full_indices > num_blocks,
         torch.tensor(-1, dtype=torch.int32, device=device),
-        sorted_full_indices,
+        sorted_full_indices.to(torch.int32),
     )
 
     full_kv_num_blocks = (full_kv_indices != -1).sum(dim=-1, dtype=torch.int32)
