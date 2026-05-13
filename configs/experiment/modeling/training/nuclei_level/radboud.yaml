@@ -27,7 +27,7 @@ data:
   metadata: ${dataset.providers.radboud.metadata}
   dataset:
     crop_size_min: 512
-    crop_size_max: 12288
+    crop_size_max: 8192
     alpha: 0.8
     efd_order: 15
     random_rotate: true
