@@ -11,6 +11,9 @@ class _MaskMod:
     def __init__(self, doc_ids: Tensor) -> None:
         self.doc_ids = doc_ids
 
+    def to(self, device: torch.device | str) -> "_MaskMod":
+        return _MaskMod(self.doc_ids.to(device))
+
     def __call__(self, b: Tensor, h: Tensor, q: Tensor, kv: Tensor) -> Tensor:
         # If the tokens don't belong to the same document, zero out the attention.
         return (self.doc_ids[q] >= 0) & (self.doc_ids[q] == self.doc_ids[kv])
