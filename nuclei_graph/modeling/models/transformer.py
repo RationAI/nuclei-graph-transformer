@@ -55,8 +55,6 @@ class Transformer(nn.Module):
         )
         self.pos_encoder = MLPSpatialEmbedding(dim=config.dim)
 
-        self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
@@ -70,15 +68,15 @@ class Transformer(nn.Module):
     def _prepare_features(
         self, x: Tensor, pos: Tensor, real_seq_len: int, pos_norm_const: int = 1000
     ) -> Tensor:
-        norm_dim = self.batch_norm.num_features
-        not_to_norm = x[..., norm_dim:]  # angles
+        # norm_dim = self.batch_norm.num_features
+        # not_to_norm = x[..., norm_dim:]  # angles
 
-        norm_full = torch.zeros_like(x[..., :norm_dim])
-        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
+        # norm_full = torch.zeros_like(x[..., :norm_dim])
+        # norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
-        x = torch.cat([norm_full, not_to_norm], dim=-1)
+        # x = torch.cat([norm_full, not_to_norm], dim=-1)
 
-        return self.input_proj(x) + self.pos_encoder(pos / pos_norm_const)
+        return self.pos_encoder(pos / pos_norm_const)
 
     def _pool_graph_logits(
         self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
