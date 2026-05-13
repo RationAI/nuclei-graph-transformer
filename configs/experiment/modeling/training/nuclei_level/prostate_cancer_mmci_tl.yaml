@@ -26,8 +26,8 @@ data:
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    crop_size_min: 400
-    crop_size_max: 12000
+    crop_size_min: 512
+    crop_size_max: 8192
     alpha: 0.8
     efd_order: 15
     random_rotate: true
