@@ -59,6 +59,8 @@ class Transformer(nn.Module):
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
+        self.pos_scale = nn.Parameter(torch.tensor(0.0))
+
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
         self.attn_head = nn.Sequential(
@@ -77,8 +79,10 @@ class Transformer(nn.Module):
         norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
         x = torch.cat([norm_full, not_to_norm], dim=-1)
-
-        return self.input_proj(x) + self.pos_encoder(pos / pos_norm_const)
+        x_out = self.input_proj(x) + (
+            self.pos_scale * self.pos_encoder(pos / pos_norm_const)
+        )
+        return x_out
 
     def _pool_graph_logits(
         self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
