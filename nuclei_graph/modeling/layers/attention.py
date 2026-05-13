@@ -8,8 +8,6 @@ from torch.nn.attention.flex_attention import (
     flex_attention,
 )
 
-from nuclei_graph.modeling.layers.rope import RoPE
-
 
 flex_attention = torch.compile(flex_attention, dynamic=True)
 
@@ -26,15 +24,10 @@ class RotarySparseAttention(nn.Module):
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
 
-        self.rope = RoPE(self.head_dim)
-
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         q, k, v = rearrange(
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
-
-        q = self.rope(q, pos)
-        k = self.rope(k, pos)
 
         x_out = flex_attention(q, k, v, block_mask=block_mask)
 
