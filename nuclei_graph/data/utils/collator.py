@@ -1,13 +1,9 @@
 import math
 
 import torch
-from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
 
-from nuclei_graph.data.block_mask import (
-    block_spatial_sort,
-    create_ragged_block_quantized_knn_mask,
-)
+from nuclei_graph.data.block_mask import create_dense_document_mask
 
 
 BUCKETS = [4096, 8192, 16384, 32768, 49152]
@@ -32,33 +28,22 @@ def _pad_to_seq_len(x: Tensor, total_seq_len: int, value: float | int = 0) -> Te
 def supervised_collate_fn(
     batch: list[dict],
     block_size: int,
-    k: int,
     total_seq_len: int | None = None,
 ) -> dict:
-    nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
-
-    all_pos, all_features, all_knns = [], [], []
+    all_pos, all_features = [], []
     all_labels_nuclei, all_labels_graph, all_sup_masks = [], [], []
 
     current_global_idx = 0
     for b in batch:
-        sort_indices = block_spatial_sort(
-            b["pos"], block_size, global_offset=current_global_idx
-        )
-        sorted_pos = b["pos"][sort_indices]
+        all_pos.append(torch.from_numpy(b["pos"]))
+        all_features.append(torch.from_numpy(b["features"]))
 
-        _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
-
-        all_pos.append(torch.from_numpy(sorted_pos))
-        all_knns.append(torch.from_numpy(knn))
-        all_features.append(torch.from_numpy(b["features"][sort_indices]))
-
-        all_labels_nuclei.append(b["labels"]["nuclei"][sort_indices])
+        all_labels_nuclei.append(b["labels"]["nuclei"])
         if b["labels"]["graph"] is not None:
             all_labels_graph.append(b["labels"]["graph"])
 
-        all_sup_masks.append(b["sup_mask"][sort_indices])
-        current_global_idx += len(sorted_pos)
+        all_sup_masks.append(b["sup_mask"])
+        current_global_idx += len(b["pos"])
 
     real_seq_len = current_global_idx
     target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
@@ -73,8 +58,11 @@ def supervised_collate_fn(
     }
 
     return {
-        "block_mask": create_ragged_block_quantized_knn_mask(
-            all_knns, block_size, total_seq_len=target_seq_len
+        "block_mask": create_dense_document_mask(
+            [len(pos) for pos in all_pos],
+            block_size,
+            device=all_pos[0].device,
+            total_seq_len=target_seq_len,
         ),
         "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
         "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
@@ -87,36 +75,25 @@ def supervised_collate_fn(
 
 
 def predict_collate_fn(
-    batch: list[dict],
-    block_size: int,
-    k: int,
-    total_seq_len: int | None = None,
+    batch: list[dict], block_size: int, total_seq_len: int | None = None
 ) -> dict:
-    nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
-    all_pos, all_features, all_knns, all_sup_masks = [], [], [], []
+    all_pos, all_features, all_sup_masks = [], [], []
 
     current_global_idx = 0
     for b in batch:
         slide_dict = b["slide"]
+        pos_array = slide_dict["pos"]
 
-        sort_indices = block_spatial_sort(
-            slide_dict["pos"], block_size, global_offset=current_global_idx
-        )
-        sorted_pos = slide_dict["pos"][sort_indices]
-        _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
+        all_pos.append(torch.from_numpy(pos_array))
+        all_features.append(torch.from_numpy(slide_dict["features"]))
+        all_sup_masks.append(slide_dict["sup_mask"])
 
-        all_pos.append(torch.from_numpy(sorted_pos))
-        all_knns.append(torch.from_numpy(knn))
-        all_features.append(torch.from_numpy(slide_dict["features"][sort_indices]))
-        all_sup_masks.append(slide_dict["sup_mask"][sort_indices])
-
-        b["metadata"]["nuclei_ids"] = b["metadata"]["nuclei_ids"][sort_indices]
-
-        current_global_idx += len(sorted_pos)
+        current_global_idx += len(pos_array)
 
     real_seq_len = current_global_idx
     target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
+
     if target_seq_len < real_seq_len:
         raise ValueError(
             f"total_seq_len ({target_seq_len}) must be >= packed length ({real_seq_len})"
@@ -124,8 +101,11 @@ def predict_collate_fn(
 
     return {
         "slide": {
-            "block_mask": create_ragged_block_quantized_knn_mask(
-                all_knns, block_size, total_seq_len=target_seq_len
+            "block_mask": create_dense_document_mask(
+                seq_lens_list=[len(pos) for pos in all_pos],
+                block_size=block_size,
+                device=all_pos[0].device,
+                total_seq_len=target_seq_len,
             ),
             "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
             "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
