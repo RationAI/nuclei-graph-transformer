@@ -209,9 +209,7 @@ class DataModule(LightningDataModule):
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
-            ),
+            collate_fn=partial(supervised_collate_fn, block_size=self.block_size),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
             num_workers=self.num_workers,
@@ -225,9 +223,7 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
-            ),
+            collate_fn=partial(supervised_collate_fn, block_size=self.block_size),
         )
 
     def test_dataloader(self) -> Iterable[Batch]:
@@ -237,9 +233,7 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
-            ),
+            collate_fn=partial(supervised_collate_fn, block_size=self.block_size),
         )
 
     def predict_dataloader(self) -> Iterable[PredictBatch]:
@@ -249,7 +243,5 @@ class DataModule(LightningDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                predict_collate_fn, block_size=self.block_size, k=self.k
-            ),
+            collate_fn=partial(predict_collate_fn, block_size=self.block_size),
         )
