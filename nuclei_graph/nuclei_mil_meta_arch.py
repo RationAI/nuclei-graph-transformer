@@ -53,7 +53,11 @@ class NucleiMILMetaArch(LightningModule):
 
     def forward(self, batch: Batch) -> Outputs:
         return self.net(
-            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+            batch["features"],
+            batch["patches"],
+            batch["pos"],
+            batch["block_mask"],
+            batch["seq_lens"],
         )
 
     def training_step(self, batch: Batch) -> Tensor:

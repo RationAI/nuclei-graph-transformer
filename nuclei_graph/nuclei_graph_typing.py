@@ -13,6 +13,7 @@ class Targets(TypedDict):
 
 class Crop(TypedDict):
     features: NDArray[np.float32]
+    patches: Tensor
     labels: Targets
     pos: NDArray[np.float32]
     sup_mask: Tensor
@@ -43,6 +44,7 @@ class PredictSlide(TypedDict):
 class Batch(TypedDict):
     block_mask: BlockMask
     features: Tensor
+    patches: Tensor
     pos: Tensor
     labels: Targets
     sup_mask: Tensor

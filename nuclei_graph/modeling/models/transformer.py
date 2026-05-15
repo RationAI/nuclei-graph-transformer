@@ -8,6 +8,42 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import Outputs
 
 
+class CNN(nn.Module):
+    def __init__(self, out_dim: int = 128):
+        super().__init__()
+
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 16, 3, padding=1, bias=False),
+            nn.GroupNorm(8, 16),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 32, 3, padding=1, bias=False),
+            nn.GroupNorm(8, 32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, 3, padding=1, bias=False),
+            nn.GroupNorm(8, 64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 3, padding=1, bias=False),
+            nn.GroupNorm(8, 128),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((4, 4)),
+        )
+
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(128 * 4 * 4, 512),
+            nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(512, out_dim),
+            nn.LayerNorm(out_dim),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.head(self.features(x))
+
+
 class MLPSpatialEmbedding(nn.Module):
     def __init__(self, dim: int) -> None:
         super().__init__()
@@ -68,20 +104,35 @@ class Transformer(nn.Module):
             nn.Tanh(),
             nn.Linear(config.dim // 2, 1),
         )
+        self.patch_cnn = CNN(out_dim=config.dim)
+        self.cnn_norm = nn.RMSNorm(config.dim)
+        self.efd_norm = nn.RMSNorm(config.dim)
 
     def _prepare_features(
-        self, x: Tensor, pos: Tensor, real_seq_len: int, pos_norm_const: int = 1000
+        self,
+        x: Tensor,
+        patches: Tensor,
+        pos: Tensor,
+        real_seq_len: int,
+        chunk_size: int = 1024,
+        pos_norm_const: float = 1000.0,
     ) -> Tensor:
         norm_dim = self.batch_norm.num_features
-        not_to_norm = x[..., norm_dim:]  # angles
-
+        not_to_norm = x[..., norm_dim:]
         norm_full = torch.zeros_like(x[..., :norm_dim])
         norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
-        x = torch.cat([norm_full, not_to_norm], dim=-1)
-        x_out = self.input_proj(x) + (
-            self.pos_scale * self.pos_encoder(pos / pos_norm_const)
-        )
+        x_norm = torch.cat([norm_full, not_to_norm], dim=-1)
+        efd_emb = self.efd_norm(self.input_proj(x_norm))
+
+        cnn_outputs = []
+        for i in range(0, patches.size(0), chunk_size):
+            cnn_outputs.append(self.patch_cnn(patches[i : i + chunk_size]))
+
+        patch_emb = self.cnn_norm(torch.cat(cnn_outputs, dim=0))
+        pos_emb = self.pos_encoder(pos / pos_norm_const)
+        x_out = patch_emb + efd_emb + (self.pos_scale * pos_emb)
+
         return x_out
 
     def _pool_graph_logits(
@@ -110,13 +161,19 @@ class Transformer(nn.Module):
         return graph_logits, attn_weights
 
     def forward(
-        self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_lens: Tensor
+        self,
+        x: Tensor,
+        patches: Tensor,
+        pos: Tensor,
+        block_mask: BlockMask,
+        seq_lens: Tensor,
     ) -> Outputs:
         """Forward pass of the Transformer model handling packed ragged sequences.
 
         Args:
             x: Target sequence of shape (N_total, d).
             pos: Target positions of shape (N_total, 2).
+            patches: Image patches of shape (N_total, C, H, W).
             block_mask: Batched BlockMask object for sparse attention.
             seq_lens: Lengths of the individual sequences packed in x, shape (b,).
 
@@ -124,7 +181,7 @@ class Transformer(nn.Module):
             Outputs dict containing graph logits, nuclei logits, and attention weights.
         """
         real_seq_len = int(seq_lens.sum().item())
-        x = self._prepare_features(x, pos, real_seq_len)
+        x = self._prepare_features(x, patches, pos, real_seq_len)
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
         pos = pos.unsqueeze(0)  # (1, N_total, 2)

@@ -1,7 +1,6 @@
 from typing import Any
 
 import torch
-import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
@@ -42,7 +41,11 @@ class NucleiWSLMetaArch(LightningModule):
 
     def forward(self, batch: Batch | dict[str, Any]) -> Outputs:
         return self.net(
-            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+            batch["features"],
+            batch["patches"],
+            batch["pos"],
+            batch["block_mask"],
+            batch["seq_lens"],
         )
 
     def training_step(self, batch: Batch) -> Tensor:
