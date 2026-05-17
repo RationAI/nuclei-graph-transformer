@@ -8,9 +8,6 @@ from torch.nn.attention.flex_attention import (
     flex_attention,
 )
 
-from nuclei_graph.modeling.layers.rope import RoPE
-
-
 flex_attention = torch.compile(flex_attention, dynamic=True)
 
 
