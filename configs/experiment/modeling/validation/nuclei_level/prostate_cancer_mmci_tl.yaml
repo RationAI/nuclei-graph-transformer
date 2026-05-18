@@ -10,18 +10,18 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
-checkpoint: mlflow-artifacts:/97/f2ea4646e1574d1c9f93c1bbda88ccde/artifacts/checkpoints/epoch=307-step=6776/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/f2ea4646e1574d1c9f93c1bbda88ccde
+checkpoint: mlflow-artifacts:/97/fb03b7bef9504b6285191396b7046671/artifacts/checkpoints/epoch=233-step=5148/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/fb03b7bef9504b6285191396b7046671
 
 data:
   batch_size: 1
-  k: 32
+  k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    efd_order: 10
+    efd_order: 15
     mil: false
   supervision:
     paths: ${dataset.paths.supervision}
@@ -36,4 +36,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Threshold Estimation(MMCI): WSL Classifier"
+  run_name: "📊 Threshold Estimation(MMCI): Nucleus-level Classifier, Polygons + Dense Attn"
