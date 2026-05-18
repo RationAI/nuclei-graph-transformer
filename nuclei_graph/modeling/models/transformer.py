@@ -59,8 +59,6 @@ class Transformer(nn.Module):
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
-        self.pos_scale = nn.Parameter(torch.tensor(0.0))
-
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
         self.attn_head = nn.Sequential(
