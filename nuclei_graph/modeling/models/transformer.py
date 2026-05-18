@@ -65,7 +65,7 @@ class Transformer(nn.Module):
         norm_full = torch.zeros_like(x[..., :norm_dim])
         norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
-        return torch.cat([norm_full, not_to_norm], dim=-1)
+        return self.input_proj(torch.cat([norm_full, not_to_norm], dim=-1))
 
     def _pool_graph_logits(
         self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
