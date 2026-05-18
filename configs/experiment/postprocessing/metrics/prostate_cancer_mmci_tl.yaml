@@ -6,8 +6,8 @@ defaults:
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
 predictions_uri: mlflow-artifacts:/97/150cb359b71e49bfbe96e973397b9839/artifacts/predictions
-supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
-label_column: annot_label # annot_label pred_label
+supervision_dir: ${dataset.paths.supervision.model_prediction.virchow2} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
+label_column: pred_label # annot_label pred_label
 threshold: 0.476
 
 checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/checkpoints/epoch=323-step=28836/checkpoint.ckpt

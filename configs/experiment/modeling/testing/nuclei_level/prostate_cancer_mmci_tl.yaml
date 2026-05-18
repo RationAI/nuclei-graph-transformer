@@ -10,8 +10,8 @@ defaults:
   - /callbacks@trainer.callbacks.feature_importances: feature_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/27bacc7d5de645e29eab8d57b5bb63f8/artifacts/checkpoints/epoch=273-step=6028/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/27bacc7d5de645e29eab8d57b5bb63f8
+checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/checkpoints/epoch=323-step=28836/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6ba361aa4280480fb5ff668dc11dba3b
 
 data:
   k: 16
