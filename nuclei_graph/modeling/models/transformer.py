@@ -8,15 +8,6 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import Outputs
 
 
-class MLPSpatialEmbedding(nn.Module):
-    def __init__(self, dim: int) -> None:
-        super().__init__()
-        self.proj = nn.Sequential(nn.Linear(2, dim), nn.GELU(), nn.Linear(dim, dim))
-
-    def forward(self, pos: Tensor) -> Tensor:
-        return self.proj(pos)
-
-
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
@@ -53,8 +44,6 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
-        self.pos_encoder = MLPSpatialEmbedding(dim=config.dim)
-
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
