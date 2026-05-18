@@ -2,17 +2,17 @@ from kube_jobs import storage, submit_job
 
 
 submit_job(
-    job_name="nuclei-graph-dataset-level-graph-metrics-panda",
+    job_name="nuclei-graph-metrics-prostate-cancer-mmci-tl",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=2,
     memory="8Gi",
-    public=True,
+    public=False,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m postprocessing.dataset_metrics.graph_level +experiment=postprocessing/dataset_metrics/graph_level/...",
+        "uv run -m postprocessing.metrics +experiment=postprocessing/metrics/prostate_cancer_mmci_tl",
     ],
-    storage=[storage.public.DATA],
+    storage=[storage.secure.DATA],
 )
