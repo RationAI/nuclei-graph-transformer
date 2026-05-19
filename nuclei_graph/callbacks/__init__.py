@@ -8,6 +8,9 @@ from nuclei_graph.callbacks.predictions import (
     MILPredictionsCallback,
     WSLPredictionsCallback,
 )
+from nuclei_graph.callbacks.spatial_permutation_importance import (
+    SpatialPermutationImportanceCallback,
+)
 
 
 __all__ = [
@@ -16,6 +19,7 @@ __all__ = [
     "MILPredictionsCallback",
     "NucleiPredictionMasksCallback",
     "PermutationImportanceCallback",
+    "SpatialPermutationImportanceCallback",
     "WSLCurvesCallback",
     "WSLPredictionsCallback",
 ]

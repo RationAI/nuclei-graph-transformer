@@ -7,11 +7,12 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks@trainer.callbacks.feature_importances: feature_importances
+  #- /callbacks@trainer.callbacks.feature_importances: feature_importances
+  - /callbacks@trainer.callbacks.spatial_permutation_importance: spatial_permutation_importance
   - _self_
 
-checkpoint: mlflow-artifacts:/97/27bacc7d5de645e29eab8d57b5bb63f8/artifacts/checkpoints/epoch=273-step=6028/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/27bacc7d5de645e29eab8d57b5bb63f8
+checkpoint: mlflow-artifacts:/97/fb03b7bef9504b6285191396b7046671/artifacts/checkpoints/epoch=233-step=5148/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/fb03b7bef9504b6285191396b7046671
 
 data:
   k: 16
@@ -32,5 +33,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "Feature Importances(MMCI): Local Classifier"
+  run_name: "Spatial Permutation Importances(MMCI): Nucleus-level Classifier, Polygons + Dense Attn"
   description: "[MLflow training run](${checkpoint_url})"
