@@ -42,7 +42,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         alpha: float = 0.8,
         efd_order: int = 10,
         full_slide: bool = False,
-        random_rotate: bool = False,
+        random_rotate: bool = True,
         predict: bool = False,
         mil: bool = False,
     ) -> None:
@@ -317,8 +317,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
 
         # Augmentations
-        if self.random_rotate:
-            assert not self.predict and not self.full_slide
+        if self.random_rotate and not self.predict and not self.full_slide:
             pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
                 crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
             )
