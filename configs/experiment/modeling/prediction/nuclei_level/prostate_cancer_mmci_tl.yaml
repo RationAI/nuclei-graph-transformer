@@ -8,11 +8,11 @@ defaults:
   - /data/datasets@data.dataset: nuclei_dataset
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - /callbacks/predictions@trainer.callbacks.predictions: wsl
-  - /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
   - _self_
 
-checkpoint: mlflow-artifacts:/97/ead168a6b5f44e75b0d741f0c6bb05cb/artifacts/checkpoints/epoch=246-step=21983/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/ead168a6b5f44e75b0d741f0c6bb05cb
+checkpoint: mlflow-artifacts:/97/80306a6b7edc40e29a6d5136f8b1340b/artifacts/checkpoints/epoch=281-step=6204/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/80306a6b7edc40e29a6d5136f8b1340b
 
 data:
   k: 16
@@ -34,5 +34,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions(MMCI): WSL Classifier"
+  run_name: "📊 Predictions(MMCI): Nucleus-level Classifier, Polygons + Positions (absolute) + k-NN Attn"
   description: "Predictions: [MLflow training run](${checkpoint_url})"
