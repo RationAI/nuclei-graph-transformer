@@ -10,8 +10,8 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
 
-checkpoint: mlflow-artifacts:/97/9e02e231c1cf4843bf1f893b3f79c240/artifacts/checkpoints/epoch=177-step=8010/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/9e02e231c1cf4843bf1f893b3f79c240
+checkpoint: mlflow-artifacts:/97/213e703d9fc342dd8f36c1e46ca4f936/artifacts/checkpoints/epoch=144-step=3190/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/213e703d9fc342dd8f36c1e46ca4f936
 
 data:
   batch_size: 1

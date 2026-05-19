@@ -5,10 +5,10 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-predictions_uri: mlflow-artifacts:/97/223aafc55b8e4498a4f1464a6917a475/artifacts/predictions
-supervision_dir: ${dataset.paths.supervision.model_prediction.virchow2} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
-label_column: pred_label # annot_label pred_label
-threshold: 0.359
+predictions_uri: mlflow-artifacts:/97/7396da94c2424de3870f6feeb0219a23/artifacts/predictions
+supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
+label_column: annot_label # annot_label pred_label
+threshold: 0.197
 
-checkpoint: mlflow-artifacts:/97/9e02e231c1cf4843bf1f893b3f79c240/artifacts/checkpoints/epoch=177-step=8010/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/9e02e231c1cf4843bf1f893b3f79c240
+checkpoint: mlflow-artifacts:/97/213e703d9fc342dd8f36c1e46ca4f936/artifacts/checkpoints/epoch=144-step=3190/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/213e703d9fc342dd8f36c1e46ca4f936
