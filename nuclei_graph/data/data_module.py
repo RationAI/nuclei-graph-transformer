@@ -183,7 +183,6 @@ class DataModule(LightningDataModule):
                     slides=slides_df,
                     supervision=sup,
                     full_slide=True,
-                    predict=False,
                 )
             case "predict":
                 slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
