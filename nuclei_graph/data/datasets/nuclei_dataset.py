@@ -46,7 +46,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         random_rotate: bool = True,
         predict: bool = False,
         mil: bool = False,
-        patch_size: int = 64,
+        patch_size: int = 48,
     ) -> None:
         """Initializes the dataset."""
         assert not mil or (mil and crop_pos_thr is not None)

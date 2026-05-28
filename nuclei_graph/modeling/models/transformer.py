@@ -28,12 +28,12 @@ class CNN(nn.Module):
             nn.Conv2d(64, 128, 3, padding=1, bias=False),
             nn.GroupNorm(8, 128),
             nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((4, 4)),
+            nn.AdaptiveAvgPool2d((1, 1)),
         )
 
         self.head = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 4 * 4, 512),
+            nn.Linear(128, 512),
             nn.GELU(),
             nn.Dropout(0.1),
             nn.Linear(512, out_dim),
