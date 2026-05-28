@@ -37,7 +37,7 @@ def supervised_collate_fn(
 ) -> dict:
     nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
-    all_pos, all_features, all_knns, all_patches = [], [], [], []
+    all_pos, all_features, all_knns, all_bboxes = [], [], [], []
     all_labels_nuclei, all_labels_graph, all_sup_masks = [], [], []
 
     current_global_idx = 0
@@ -52,7 +52,7 @@ def supervised_collate_fn(
         all_pos.append(torch.from_numpy(sorted_pos))
         all_knns.append(torch.from_numpy(knn))
         all_features.append(torch.from_numpy(b["features"][sort_indices]))
-        all_patches.append(b["patches"][sort_indices])
+        all_bboxes.append(b["bboxes"][sort_indices])
 
         all_labels_nuclei.append(b["labels"]["nuclei"][sort_indices])
         if b["labels"]["graph"] is not None:
@@ -79,7 +79,7 @@ def supervised_collate_fn(
         ),
         "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
         "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
-        "patches": _pad_to_seq_len(torch.cat(all_patches), target_seq_len),
+        "bboxes": _pad_to_seq_len(torch.cat(all_bboxes), target_seq_len),
         "labels": batched_labels,
         "sup_mask": _pad_to_seq_len(
             torch.cat(all_sup_masks), target_seq_len, value=False
@@ -96,7 +96,7 @@ def predict_collate_fn(
 ) -> dict:
     nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
-    all_pos, all_features, all_patches, all_knns, all_sup_masks = [], [], [], [], []
+    all_pos, all_features, all_bboxes, all_knns, all_sup_masks = [], [], [], [], []
 
     current_global_idx = 0
     for b in batch:
@@ -111,7 +111,7 @@ def predict_collate_fn(
         all_pos.append(torch.from_numpy(sorted_pos))
         all_knns.append(torch.from_numpy(knn))
         all_features.append(torch.from_numpy(slide_dict["features"][sort_indices]))
-        all_patches.append(slide_dict["patches"][sort_indices])
+        all_bboxes.append(slide_dict["bboxes"][sort_indices])
         all_sup_masks.append(slide_dict["sup_mask"][sort_indices])
 
         b["metadata"]["nuclei_ids"] = b["metadata"]["nuclei_ids"][sort_indices]
@@ -132,7 +132,7 @@ def predict_collate_fn(
             ),
             "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
             "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
-            "patches": _pad_to_seq_len(torch.cat(all_patches), target_seq_len),
+            "bboxes": _pad_to_seq_len(torch.cat(all_bboxes), target_seq_len),
             "sup_mask": _pad_to_seq_len(
                 torch.cat(all_sup_masks), target_seq_len, value=False
             ),

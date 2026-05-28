@@ -54,7 +54,7 @@ class NucleiMILMetaArch(LightningModule):
     def forward(self, batch: Batch) -> Outputs:
         return self.net(
             batch["features"],
-            batch["patches"],
+            batch["bboxes"],
             batch["pos"],
             batch["block_mask"],
             batch["seq_lens"],

@@ -42,7 +42,7 @@ class NucleiWSLMetaArch(LightningModule):
     def forward(self, batch: Batch | dict[str, Any]) -> Outputs:
         return self.net(
             batch["features"],
-            batch["patches"],
+            batch["bboxes"],
             batch["pos"],
             batch["block_mask"],
             batch["seq_lens"],

@@ -111,7 +111,7 @@ class Transformer(nn.Module):
     def _prepare_features(
         self,
         x: Tensor,
-        patches: Tensor,
+        bboxes: Tensor,
         pos: Tensor,
         real_seq_len: int,
         chunk_size: int = 1024,
@@ -126,14 +126,11 @@ class Transformer(nn.Module):
         efd_emb = self.efd_norm(self.input_proj(x_norm))
 
         cnn_outputs = []
-        for i in range(0, patches.size(0), chunk_size):
-            cnn_outputs.append(self.patch_cnn(patches[i : i + chunk_size]))
+        for i in range(0, bboxes.size(0), chunk_size):
+            cnn_outputs.append(self.patch_cnn(bboxes[i : i + chunk_size]))
 
-        patch_emb = self.cnn_norm(torch.cat(cnn_outputs, dim=0))
-        pos_emb = self.pos_encoder(pos / pos_norm_const)
-        x_out = patch_emb + efd_emb + (self.pos_scale * pos_emb)
-
-        return x_out
+        bbox_emb = self.cnn_norm(torch.cat(cnn_outputs, dim=0))
+        return bbox_emb  # + efd_emb
 
     def _pool_graph_logits(
         self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
@@ -163,7 +160,7 @@ class Transformer(nn.Module):
     def forward(
         self,
         x: Tensor,
-        patches: Tensor,
+        bboxes: Tensor,
         pos: Tensor,
         block_mask: BlockMask,
         seq_lens: Tensor,
@@ -173,7 +170,7 @@ class Transformer(nn.Module):
         Args:
             x: Target sequence of shape (N_total, d).
             pos: Target positions of shape (N_total, 2).
-            patches: Image patches of shape (N_total, C, H, W).
+            bboxes: Image patches of shape (N_total, C, H, W).
             block_mask: Batched BlockMask object for sparse attention.
             seq_lens: Lengths of the individual sequences packed in x, shape (b,).
 
@@ -181,7 +178,7 @@ class Transformer(nn.Module):
             Outputs dict containing graph logits, nuclei logits, and attention weights.
         """
         real_seq_len = int(seq_lens.sum().item())
-        x = self._prepare_features(x, patches, pos, real_seq_len)
+        x = self._prepare_features(x, bboxes, pos, real_seq_len)
 
         x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
         pos = pos.unsqueeze(0)  # (1, N_total, 2)

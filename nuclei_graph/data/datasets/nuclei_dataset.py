@@ -210,46 +210,50 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
         return None
 
-    def _extract_patches_from_region(
+    def _extract_nuclei_bboxes(
         self, slide_path: str, centroids: NDArray[np.float32]
     ) -> Tensor:
         half_patch = self.patch_size // 2
-
-        min_x = int(max(0, centroids[:, 0].min() - half_patch))
-        min_y = int(max(0, centroids[:, 1].min() - half_patch))
-        max_x = int(centroids[:, 0].max() + half_patch)
-        max_y = int(centroids[:, 1].max() + half_patch)
-
-        w, h = max_x - min_x, max_y - min_y
-        patches = []
+        bboxes = []
 
         with OpenSlide(slide_path) as wsi:
-            region = wsi.read_region((min_x, min_y), 0, (w, h)).convert("RGB")
-            region_arr = np.array(region)
+            wsi_w, wsi_h = wsi.dimensions
 
-        for cx, cy in centroids:
-            lx = int(cx) - min_x - half_patch
-            ly = int(cy) - min_y - half_patch
-
-            x0 = max(lx, 0)
-            y0 = max(ly, 0)
-            x1 = min(lx + self.patch_size, region_arr.shape[1])
-            y1 = min(ly + self.patch_size, region_arr.shape[0])
-            patch = region_arr[y0:y1, x0:x1, :]
-
-            if patch.shape != (self.patch_size, self.patch_size, 3):
-                pad_h = self.patch_size - patch.shape[0]
-                pad_w = self.patch_size - patch.shape[1]
-                patch = np.pad(
-                    patch,
-                    ((0, pad_h), (0, pad_w), (0, 0)),
-                    mode="constant",
-                    constant_values=255,
+            for cx, cy in centroids:
+                canvas = np.full(
+                    (self.patch_size, self.patch_size, 3), 255, dtype=np.uint8
                 )
-            patches.append(patch)
 
-        patches_tensor = torch.from_numpy(np.stack(patches)).permute(0, 3, 1, 2).float()
-        return (patches_tensor / 127.5) - 1.0
+                lx = int(cx) - half_patch
+                ly = int(cy) - half_patch
+                rx = lx + self.patch_size
+                ry = ly + self.patch_size
+
+                read_x = max(0, lx)
+                read_y = max(0, ly)
+                end_x = min(wsi_w, rx)
+                end_y = min(wsi_h, ry)
+
+                read_w = end_x - read_x
+                read_h = end_y - read_y
+
+                if read_w > 0 and read_h > 0:
+                    region = wsi.read_region(
+                        (read_x, read_y), 0, (read_w, read_h)
+                    ).convert("RGB")
+                    patch = np.array(region)
+
+                    canvas_start_x = read_x - lx
+                    canvas_start_y = read_y - ly
+                    canvas[
+                        canvas_start_y : canvas_start_y + read_h,
+                        canvas_start_x : canvas_start_x + read_w,
+                    ] = patch
+
+                bboxes.append(canvas)
+
+        bboxes_t = torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2).float()
+        return (bboxes_t / 127.5) - 1.0
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
         nuclei = pd.read_parquet(nuclei_path)
@@ -284,14 +288,14 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_pos = centroids[crop_indices]
             crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
-            crop_patches = self._extract_patches_from_region(
+            crop_bboxes = self._extract_nuclei_bboxes(
                 slide.slide_path, raw_centroids[crop_indices]
             )
 
             return PredictSlide(
                 slide={
                     "features": crop_features,
-                    "patches": crop_patches,
+                    "bboxes": crop_bboxes,
                     "pos": (crop_pos - crop_pos.mean(axis=0)).astype(np.float32),
                     "labels": {"nuclei": None, "graph": None},
                     "sup_mask": torch.ones(len(crop_indices), dtype=torch.bool),
@@ -366,7 +370,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         # Embeddings
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
         crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
-        crop_patches = self._extract_patches_from_region(
+        crop_bboxes = self._extract_nuclei_bboxes(
             slide.slide_path, raw_centroids[crop_indices]
         )
 
@@ -387,7 +391,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         return Crop(
             {
                 "features": crop_features,
-                "patches": crop_patches,
+                "bboxes": crop_bboxes,
                 "labels": crop_labels,
                 "pos": crop_pos_centered,
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
