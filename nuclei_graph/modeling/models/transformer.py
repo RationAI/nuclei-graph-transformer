@@ -127,7 +127,9 @@ class Transformer(nn.Module):
 
         cnn_outputs = []
         for i in range(0, bboxes.size(0), chunk_size):
-            cnn_outputs.append(self.patch_cnn(bboxes[i : i + chunk_size]))
+            chunk = bboxes[i : i + chunk_size].float()
+            chunk = (chunk / 127.5) - 1.0
+            cnn_outputs.append(self.patch_cnn(chunk))
 
         bbox_emb = self.cnn_norm(torch.cat(cnn_outputs, dim=0))
         return bbox_emb  # + efd_emb

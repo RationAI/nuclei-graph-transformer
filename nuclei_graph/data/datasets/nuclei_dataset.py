@@ -252,8 +252,8 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
 
                 bboxes.append(canvas)
 
-        bboxes_t = torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2).float()
-        return (bboxes_t / 127.5) - 1.0
+        bboxes_t = torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2)
+        return bboxes_t
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
         nuclei = pd.read_parquet(nuclei_path)
