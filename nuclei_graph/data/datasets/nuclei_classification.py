@@ -1,0 +1,70 @@
+import numpy as np
+import torch
+
+from nuclei_graph.data.datasets.base import BaseNucleiDataset
+from nuclei_graph.nuclei_graph_typing import Crop, Targets
+
+
+class NucleiClassificationDataset(BaseNucleiDataset):
+    def __getitem__(self, idx: int) -> Crop:
+        slide = self.slides.iloc[idx]
+        nuclei = self.get_nuclei(slide.slide_nuclei_path)
+        centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
+
+        crop_indices = np.arange(len(nuclei), dtype=int)
+        nuclei_sup = self.get_nuclei_sup(slide.slide_id)
+
+        # Crop generation
+        if not self.full_slide:
+            target_size = self.get_crop_size(len(nuclei))
+
+            if not slide.is_carcinoma:
+                crop_indices = self.get_crop_indices(
+                    centroids, nuclei_sup.get_neg_seeds(len(nuclei)), target_size
+                )
+            else:
+                # Target nuclei positivity distribution:
+                # 50% positive, 25% negative (from pos slides), 25% negative (from neg slides).
+                # Assuming sampler yields 75% positive slides, select a positive seed with proba 2/3.
+                valid_seeds = (
+                    nuclei_sup.get_pos_seeds(len(nuclei))
+                    if torch.rand(1).item() < (2.0 / 3.0)
+                    else nuclei_sup.get_neg_seeds(len(nuclei))
+                )
+                crop_indices = self.get_crop_indices(
+                    centroids, valid_seeds, target_size
+                )
+
+        assert crop_indices is not None
+
+        # Labels
+        crop_indices_t = torch.from_numpy(crop_indices).long()
+        crop_nuclei_labels = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
+        crop_labels: Targets = {"nuclei": crop_nuclei_labels, "graph": None}
+
+        # Embeddings
+        crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+        crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+
+        # Positions
+        crop_pos = centroids[crop_indices]
+        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
+
+        # Augmentations
+        if self.random_rotate and not self.full_slide:
+            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
+                crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
+            )
+            crop_pos_centered = pos_rot
+            crop_features[..., -2] = cos_rot
+            crop_features[..., -1] = sin_rot
+
+        return Crop(
+            {
+                "features": crop_features,
+                "labels": crop_labels,
+                "pos": crop_pos_centered,
+                "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
+                "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
+            }
+        )

@@ -1,5 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.data.datasets.NucleiDataset
-efd_order: ???
-mil: ???

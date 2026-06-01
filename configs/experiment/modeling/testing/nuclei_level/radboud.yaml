@@ -5,7 +5,7 @@ defaults:
   - /data/sources/panda
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/datasets@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks@trainer.callbacks.feature_importances: feature_importances
   - _self_
@@ -18,7 +18,6 @@ data:
   metadata: ${dataset.providers.radboud.metadata}
   dataset:
     efd_order: 15
-    mil: false
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 

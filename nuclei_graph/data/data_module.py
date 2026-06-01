@@ -146,7 +146,7 @@ class DataModule(LightningDataModule):
                     )
                     self.positivity = train_sup.positivity_map
 
-                    if self.dataset_cfg.mil:
+                    if self.dataset_cfg.get("crop_pos_thr") is not None:
                         min_pos_count = (
                             self.dataset_cfg.crop_size_min
                             * self.dataset_cfg.crop_pos_thr
@@ -187,13 +187,7 @@ class DataModule(LightningDataModule):
             case "predict":
                 slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
-                self.predict_dataset = instantiate(
-                    self.dataset_cfg,
-                    slides=slides_df,
-                    supervision=None,
-                    full_slide=True,
-                    predict=True,
-                )
+                self.predict_dataset = instantiate(self.dataset_cfg, slides=slides_df)
 
     def train_dataloader(self) -> Iterable[Batch]:
         sampler = None

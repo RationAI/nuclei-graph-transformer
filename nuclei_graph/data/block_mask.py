@@ -45,7 +45,6 @@ def create_ragged_block_quantized_knn_mask(
     for doc_id, neighbors in enumerate(neighbor_indices_list):
         N_i = neighbors.shape[0]
 
-        # Vectorized offset (faster and more memory efficient than .clone() + valid_mask)
         offset_neighbors = torch.where(
             neighbors >= 0, neighbors + current_offset, neighbors
         )
@@ -109,7 +108,6 @@ def create_ragged_block_quantized_knn_mask(
     block_starts = torch.arange(num_blocks, device=device) * block_size
     block_ends = torch.clamp(block_starts + block_size - 1, max=total_seq_len - 1)
 
-    # Because doc_ids are strictly monotonic, checking boundaries proves purity
     is_pure_block = doc_ids[block_starts] == doc_ids[block_ends]
 
     valid_kv_mask = kv_indices >= 0

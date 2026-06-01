@@ -3,13 +3,13 @@ from collections.abc import Sequence
 import torch
 from torch.utils.data import WeightedRandomSampler
 
-from nuclei_graph.data.datasets import NucleiDataset
+from nuclei_graph.data.datasets.base import BaseNucleiDataset
 
 
 class AutoWeightedRandomSampler(WeightedRandomSampler):
     def __init__(
         self,
-        dataset: NucleiDataset,
+        dataset: BaseNucleiDataset,
         slides_positivity: dict[str, float],
         positivity_thr: float,
         replacement: bool,
@@ -33,7 +33,7 @@ class AutoWeightedRandomSampler(WeightedRandomSampler):
 
     def _get_weights(
         self,
-        dataset: NucleiDataset,
+        dataset: BaseNucleiDataset,
         slides_positivity: dict[str, float],
         positivity_thr: float,
         pos_slide_ratio: float,
