@@ -9,13 +9,6 @@ from torch import Tensor
 from tqdm import tqdm
 
 
-COL_TO_KWARG = {
-    "annot_label": "annot_labels",
-    "cam_label": "cam_labels",
-    "pred_label": "pred_labels",
-}
-
-
 class NucleiSupervision(ABC):
     def __init__(self, is_carcinoma: bool):
         self.is_carcinoma = is_carcinoma
@@ -92,15 +85,15 @@ class DenseNucleiSupervision(NucleiSupervision):
 class AnnotationNucleiSupervision(DenseNucleiSupervision):
     """Supervision based on rough pathologist annotations."""
 
-    def __init__(self, is_carcinoma: bool, annot_labels: Tensor):
-        super().__init__(is_carcinoma, labels=annot_labels)
+    def __init__(self, is_carcinoma: bool, annot_label: Tensor):
+        super().__init__(is_carcinoma, labels=annot_label)
 
 
 class PredictionNucleiSupervision(DenseNucleiSupervision):
     """Supervision based on model predictions."""
 
-    def __init__(self, is_carcinoma: bool, pred_labels: Tensor):
-        super().__init__(is_carcinoma, labels=pred_labels)
+    def __init__(self, is_carcinoma: bool, pred_label: Tensor):
+        super().__init__(is_carcinoma, labels=pred_label)
 
 
 class CAMNucleiSupervision(NucleiSupervision):
@@ -110,9 +103,9 @@ class CAMNucleiSupervision(NucleiSupervision):
     a certain threshold (0) are negative, and those in between (-1) are ignored.
     """
 
-    def __init__(self, is_carcinoma: bool, cam_labels: Tensor):
+    def __init__(self, is_carcinoma: bool, cam_label: Tensor):
         super().__init__(is_carcinoma)
-        self.cam_labels = cam_labels
+        self.cam_labels = cam_label
 
     def _get_targets(self) -> Tensor:
         return self.cam_labels
@@ -127,9 +120,9 @@ class AgreementNucleiSupervision(NucleiSupervision):
     The supervision mask is only valid where the annotation matches the CAM label.
     """
 
-    def __init__(self, is_carcinoma: bool, cam_labels: Tensor, annot_labels: Tensor):
+    def __init__(self, is_carcinoma: bool, cam_label: Tensor, annot_label: Tensor):
         super().__init__(is_carcinoma)
-        self.cam_labels, self.annot_labels = cam_labels, annot_labels
+        self.cam_labels, self.annot_labels = cam_label, annot_label
 
     def _get_targets(self) -> Tensor:
         return self.annot_labels
@@ -165,10 +158,10 @@ class DatasetSupervision:
 
 class SupervisionStrategy:
     STRATEGY_MAP: ClassVar = {
-        "annotation": (AnnotationNucleiSupervision, ["annot_labels"]),
-        "cam": (CAMNucleiSupervision, ["cam_labels"]),
-        "agreement": (AgreementNucleiSupervision, ["annot_labels", "cam_labels"]),
-        "prediction": (PredictionNucleiSupervision, ["pred_labels"]),
+        "annotation": (AnnotationNucleiSupervision, ["annot_label"]),
+        "cam": (CAMNucleiSupervision, ["cam_label"]),
+        "agreement": (AgreementNucleiSupervision, ["annot_label", "cam_label"]),
+        "prediction": (PredictionNucleiSupervision, ["pred_label"]),
     }
 
     def __init__(self, mode: str, **paths: str | None):
@@ -210,18 +203,18 @@ def build_supervision(
 
     sup_map = {}
     empty_t = torch.empty(0, dtype=torch.float32)
+    _, required_cols = strategy.STRATEGY_MAP[strategy.mode]
 
     for slide_id, is_carcinoma in tqdm(
         carcinoma_map.items(), desc="Building Supervision"
     ):
-        # negative slides have no supervision data
-        labels = dict.fromkeys(COL_TO_KWARG.values(), empty_t)
+        labels = dict.fromkeys(required_cols, empty_t)
 
         if is_carcinoma:
             group = sup_groups.get_group(slide_id)
-            for col, kwarg in COL_TO_KWARG.items():
+            for col in required_cols:
                 if col in group.columns:
-                    labels[kwarg] = torch.from_numpy(group[col].values).float()
+                    labels[col] = torch.from_numpy(group[col].values).float()
 
         nuclei_sup = strategy.create(is_carcinoma, **labels)
         sup_map[slide_id] = SlideSupervision(int(is_carcinoma), nuclei_sup)
