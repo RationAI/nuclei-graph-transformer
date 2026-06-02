@@ -48,10 +48,10 @@ metadata:
     split_size: ${data.split_size}
 
     # data
-    crop_size_min: ${data.dataset.crop_size_min}
-    crop_size_max: ${data.dataset.crop_size_max}
-    alpha: ${data.dataset.alpha}
-    k: ${data.k}
+    crop_size_min: ${oc.select:data.dataset.crop_size_min,null}
+    crop_size_max: ${oc.select:data.dataset.crop_size_max,null}
+    alpha: ${oc.select:data.dataset.alpha,null}
+    k: ${oc.select:data.k,null}
 
     # model
     efd_order: ${data.dataset.efd_order}

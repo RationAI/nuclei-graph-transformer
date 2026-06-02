@@ -30,16 +30,16 @@ type Coords = NDArray[np.float32]
 class BaseNucleiDataset(Dataset[Crop | PredictSlide], ABC):
     def __init__(
         self,
-        slides: DataFrame,
+        metadata: DataFrame,
         supervision: DatasetSupervision | None,
         crop_size_min: int = 400,
         crop_size_max: int = 12000,
         alpha: float = 0.8,
-        efd_order: int = 10,
+        efd_order: int = 15,
         full_slide: bool = False,
         random_rotate: bool = False,
     ) -> None:
-        self.slides = slides
+        self.metadata = metadata
         self.supervision = supervision
         self.crop_size_min = crop_size_min
         self.crop_size_max = crop_size_max
@@ -49,7 +49,7 @@ class BaseNucleiDataset(Dataset[Crop | PredictSlide], ABC):
         self.random_rotate = random_rotate
 
     def __len__(self) -> int:
-        return len(self.slides)
+        return len(self.metadata)
 
     def find_component(
         self,

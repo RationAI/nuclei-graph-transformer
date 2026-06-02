@@ -1,0 +1,62 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/prostate_cancer_mmci_tl
+  - /model/meta_archs@model: nuclei_tile
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/tiled_nuclei_dataset@data.dataset: labeled
+  - /data/samplers@data.sampler: tiled_weighted_random_sampler
+  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - _self_
+
+monitor: validation/graph/loss
+
+trainer:
+  max_epochs: 150
+  gradient_clip_val: 0.7
+
+data:
+  batch_size: 16
+  k: 16
+  split_stratify_col: is_carcinoma
+  split_group_col: patient_id
+  split_size: 0.1
+  metadata: ${dataset.mlflow_uris.metadata}
+  dataset:
+    efd_order: 16
+    stratified_filter: True
+    window_size: 512
+    margin: 128
+    random_rotate: true
+    uris:
+      - "mlflow-artifacts:/65/b587398845c54e1c84e8b60f11c42b15/artifacts/MMCI TL Train 512"
+      - "mlflow-artifacts:/65/a43da470f89848abb3a32e59c504ee1a/artifacts/MMCI TL Val 512"
+    thresholds:
+      tissue_roi_t: 0.5
+      exclude_t: 0.0
+      another_pathology_t: 0.0
+      residual_t: 0.25
+      blur_t: 0.25
+      folding_t: 0.25
+      carcinoma_roi_t: 0.5
+  supervision:
+    paths: ${dataset.paths.supervision}
+  sampler:
+    target_col: carcinoma
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+
+metadata:
+  run_name: "Train(MMCI): Tile-level SL Self Attention Transformer"
+  description: ""

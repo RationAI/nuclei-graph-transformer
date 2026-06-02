@@ -8,10 +8,10 @@ from nuclei_graph.nuclei_graph_typing import PredictSlide
 
 class PredictionDataset(BaseNucleiDataset):
     def __init__(
-        self, slides: DataFrame, alpha: float = 0.8, efd_order: int = 10
+        self, metadata: DataFrame, alpha: float = 0.8, efd_order: int = 10
     ) -> None:
         super().__init__(
-            slides=slides,
+            metadata=metadata,
             supervision=None,
             alpha=alpha,
             efd_order=efd_order,
@@ -20,7 +20,7 @@ class PredictionDataset(BaseNucleiDataset):
         )
 
     def __getitem__(self, idx: int) -> PredictSlide:
-        slide = self.slides.iloc[idx]
+        slide = self.metadata.iloc[idx]
         nuclei = self.get_nuclei(slide.slide_nuclei_path)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 

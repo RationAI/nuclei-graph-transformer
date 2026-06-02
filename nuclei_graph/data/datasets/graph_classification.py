@@ -15,7 +15,7 @@ from nuclei_graph.nuclei_graph_typing import Crop, Targets
 class GraphClassificationDataset(BaseNucleiDataset):
     def __init__(
         self,
-        slides: DataFrame,
+        metadata: DataFrame,
         supervision: DatasetSupervision | None,
         crop_size_min: int = 400,
         crop_size_max: int = 12000,
@@ -26,7 +26,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
         random_rotate: bool = False,
     ) -> None:
         super().__init__(
-            slides=slides,
+            metadata=metadata,
             supervision=supervision,
             crop_size_min=crop_size_min,
             crop_size_max=crop_size_max,
@@ -36,7 +36,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
             random_rotate=random_rotate,
         )
         self.crop_pos_thr = crop_pos_thr
-        self.pos_slide_indices = np.where(self.slides["is_carcinoma"])[0].tolist()
+        self.pos_slide_indices = np.where(self.metadata["is_carcinoma"])[0].tolist()
 
     def sample_positive_crop(
         self,
@@ -69,7 +69,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
         return None
 
     def __getitem__(self, idx: int) -> Crop:
-        slide = self.slides.iloc[idx]
+        slide = self.metadata.iloc[idx]
         nuclei = self.get_nuclei(slide.slide_nuclei_path)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
@@ -88,7 +88,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
                 curr_slide_idx, curr_crop_indices = None, None
                 while True:  # ensure crop positivity ≥ `crop_pos_thr`
                     if curr_slide_idx is not None:
-                        slide = self.slides.iloc[curr_slide_idx]
+                        slide = self.metadata.iloc[curr_slide_idx]
                         nuclei = self.get_nuclei(slide.slide_nuclei_path)
                         nuclei_sup = self.get_nuclei_sup(slide.slide_id)
                         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)

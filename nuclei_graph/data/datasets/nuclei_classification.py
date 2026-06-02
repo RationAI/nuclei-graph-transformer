@@ -7,7 +7,7 @@ from nuclei_graph.nuclei_graph_typing import Crop, Targets
 
 class NucleiClassificationDataset(BaseNucleiDataset):
     def __getitem__(self, idx: int) -> Crop:
-        slide = self.slides.iloc[idx]
+        slide = self.metadata.iloc[idx]
         nuclei = self.get_nuclei(slide.slide_nuclei_path)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 

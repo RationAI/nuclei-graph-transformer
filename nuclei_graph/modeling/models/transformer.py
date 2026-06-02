@@ -56,9 +56,7 @@ class Transformer(nn.Module):
             nn.Linear(config.dim // 2, 1),
         )
 
-    def _prepare_features(
-        self, x: Tensor, pos: Tensor, real_seq_len: int, pos_norm_const: int = 1000
-    ) -> Tensor:
+    def _prepare_features(self, x: Tensor, real_seq_len: int) -> Tensor:
         norm_dim = self.batch_norm.num_features
         not_to_norm = x[..., norm_dim:]  # angles
 
@@ -67,33 +65,37 @@ class Transformer(nn.Module):
 
         return self.input_proj(torch.cat([norm_full, not_to_norm], dim=-1))
 
-    def _pool_graph_logits(
-        self, nuclei_logits: Tensor, attn_scores: Tensor, seq_lens: Tensor
+    def _pool_graph_features(
+        self, x: Tensor, attn_scores: Tensor, seq_lens: Tensor
     ) -> tuple[Tensor, Tensor]:
         real_seq_len = seq_lens.sum().item()
-
-        nuclei_logits = nuclei_logits[:real_seq_len]
+        x = x[:real_seq_len]
         attn_scores = attn_scores[:real_seq_len]
 
         seq_lens_list = seq_lens.tolist()
+        x_split = torch.split(x, seq_lens_list)
         attn_scores_split = torch.split(attn_scores, seq_lens_list)
-        nuclei_logits_split = torch.split(nuclei_logits, seq_lens_list)
 
-        graph_logits_list = []
+        pooled_features_list = []
         attn_weights_list = []
 
-        for scores, logits in zip(attn_scores_split, nuclei_logits_split, strict=True):
+        for scores, features in zip(attn_scores_split, x_split, strict=True):
             weights = torch.softmax(scores, dim=0)
-            graph_logits_list.append(torch.sum(weights * logits, dim=0))
+            pooled_features_list.append(torch.sum(weights * features, dim=0))
             attn_weights_list.append(weights)
 
-        graph_logits = torch.stack(graph_logits_list)  # (b, num_classes)
-        attn_weights = torch.cat(attn_weights_list)  # (real_seq_len, 1)
+        graph_features = torch.stack(pooled_features_list)
+        attn_weights = torch.cat(attn_weights_list)
 
-        return graph_logits, attn_weights
+        return graph_features, attn_weights
 
     def forward(
-        self, x: Tensor, pos: Tensor, block_mask: BlockMask, seq_lens: Tensor
+        self,
+        x: Tensor,
+        pos: Tensor,
+        block_mask: BlockMask,
+        seq_lens: Tensor,
+        roi_mask: Tensor,
     ) -> Outputs:
         """Forward pass of the Transformer model handling packed ragged sequences.
 
@@ -102,28 +104,30 @@ class Transformer(nn.Module):
             pos: Target positions of shape (N_total, 2).
             block_mask: Batched BlockMask object for sparse attention.
             seq_lens: Lengths of the individual sequences packed in x, shape (b,).
+            roi_mask: Boolean mask indicating ROI nodes, shape (N_total,).
 
         Returns:
             Outputs dict containing graph logits, nuclei logits, and attention weights.
         """
         real_seq_len = int(seq_lens.sum().item())
-        x = self._prepare_features(x, pos, real_seq_len)
+        x = self._prepare_features(x, real_seq_len)
 
-        x = x.unsqueeze(0)  # add batch dim: (1, N_total, dim)
-        pos = pos.unsqueeze(0)  # (1, N_total, 2)
+        x = x.unsqueeze(0)
+        pos = pos.unsqueeze(0)
 
         for layer in self.layers:
             x = layer(x, pos, block_mask)
 
         x = self.final_norm(x)
-        x = x.squeeze(0)  # remove batch dim: (N_total, dim)
+        x = x.squeeze(0)
+        nuclei_logits = self.class_head(x)
 
-        nuclei_logits = self.class_head(x)  # (N_total, num_classes)
-        attn_scores = self.attn_head(x)  # (N_total, 1)
+        attn_scores = self.attn_head(x)
 
-        graph_logits, attn_weights = self._pool_graph_logits(
-            nuclei_logits, attn_scores, seq_lens
+        graph_features, attn_weights = self._pool_graph_features(
+            x, attn_scores, seq_lens
         )
+        graph_logits = self.class_head(graph_features)
 
         return Outputs(
             graph=graph_logits,

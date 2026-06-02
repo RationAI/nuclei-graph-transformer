@@ -14,16 +14,8 @@ from nuclei_graph.data.supervision import (
     SupervisionStrategy,
     build_supervision,
 )
-from nuclei_graph.data.utils import (
-    min_count_filter,
-    min_positive_count_filter,
-    predict_collate_fn,
-    supervised_collate_fn,
-)
-from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    PredictBatch,
-)
+from nuclei_graph.data.utils import predict_collate_fn, supervised_collate_fn
+from nuclei_graph.nuclei_graph_typing import LabeledSampleBatch, UnlabeledSampleBatch
 
 
 METADATA_COLS_EVAL = [
@@ -35,7 +27,7 @@ METADATA_COLS_EVAL = [
 ]
 
 
-class DataModule(LightningDataModule):
+class TileDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
@@ -45,7 +37,7 @@ class DataModule(LightningDataModule):
         dataset: DictConfig,
         block_size: int,
         k: int,
-        supervision: DictConfig | None,
+        supervision: DictConfig | None = None,
         split_stratify_col: str | None = None,
         split_group_col: str | None = None,
         split_size: float | None = None,
@@ -55,23 +47,24 @@ class DataModule(LightningDataModule):
         self.batch_size = batch_size
         self.block_size = block_size
         self.k = k
+        self.num_workers = num_workers
+        self.eval_num_workers = eval_num_workers
+        self.split_stratify_col = split_stratify_col
+        self.split_group_col = split_group_col
+        self.split_size = split_size
+
+        self.dataset_cfg = dataset
+        self.sampler_cfg = sampler
+        self.metadata_uris_cfg = metadata
+
         self.train_strategy = (
             instantiate(supervision.train_strategy)
             if supervision is not None and supervision.train_strategy is not None
             else None
         )
-        self.split_stratify_col = split_stratify_col
-        self.split_group_col = split_group_col
         self.eval_strategy = (
             instantiate(supervision.eval_strategy) if supervision is not None else None
         )
-        self.split_size = split_size
-        self.num_workers = num_workers
-        self.eval_num_workers = eval_num_workers
-        self.sampler_cfg = sampler
-        self.dataset_cfg = dataset
-        self.metadata_uris_cfg = metadata
-        self.positivity: dict[str, float] = {}
 
     def _filter_df(
         self, df: pd.DataFrame | None, slide_ids: set[str]
@@ -137,24 +130,9 @@ class DataModule(LightningDataModule):
 
                 if stage == "fit":
                     assert self.train_strategy is not None
-
-                    if self.dataset_cfg.get("crop_size_min") is not None:
-                        train_df = min_count_filter(
-                            train_df, self.dataset_cfg.crop_size_min
-                        )
                     train_sup = self._prepare_supervision(
                         train_df, self.train_strategy.paths, self.train_strategy
                     )
-                    self.positivity = train_sup.positivity_map
-
-                    if self.dataset_cfg.get("crop_pos_thr") is not None:
-                        min_pos_count = (
-                            self.dataset_cfg.crop_size_min
-                            * self.dataset_cfg.crop_pos_thr
-                        )
-                        train_df = min_positive_count_filter(
-                            train_df, min_pos_count, train_sup.pos_count_map
-                        )
                     self.train_dataset = instantiate(
                         self.dataset_cfg,
                         metadata=train_df,
@@ -168,35 +146,31 @@ class DataModule(LightningDataModule):
                     self.dataset_cfg,
                     metadata=validation_df,
                     supervision=validation_sup,
-                    full_slide=True,
                 )
             case "test":
                 slides_df = self._load_df(
-                    slides_uri,
-                    cols=[*METADATA_COLS_EVAL, "is_carcinoma"],
+                    slides_uri, cols=[*METADATA_COLS_EVAL, "is_carcinoma"]
                 )
                 assert slides_df is not None and self.eval_strategy is not None
                 sup = self._prepare_supervision(
                     slides_df, self.eval_strategy.paths, self.eval_strategy
                 )
+
                 self.test_dataset = instantiate(
                     self.dataset_cfg,
                     metadata=slides_df,
                     supervision=sup,
-                    full_slide=True,
                 )
             case "predict":
                 slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
                 self.predict_dataset = instantiate(self.dataset_cfg, metadata=slides_df)
 
-    def train_dataloader(self) -> Iterable[Batch]:
+    def train_dataloader(self) -> Iterable[LabeledSampleBatch]:
         sampler = None
         if self.sampler_cfg is not None:
-            sampler_fn = instantiate(
-                self.sampler_cfg, slides_positivity=self.positivity
-            )
-            sampler = sampler_fn(dataset=self.train_dataset)
+            sampler_fn = instantiate(self.sampler_cfg)
+            sampler = sampler_fn(tiles_df=self.train_dataset.tiles)
 
         return DataLoader(
             self.train_dataset,
@@ -212,10 +186,11 @@ class DataModule(LightningDataModule):
             persistent_workers=self.num_workers > 0,
         )
 
-    def val_dataloader(self) -> Iterable[Batch]:
+    def val_dataloader(self) -> Iterable[LabeledSampleBatch]:
         return DataLoader(
             self.validation_dataset,
-            batch_size=1,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
@@ -224,10 +199,11 @@ class DataModule(LightningDataModule):
             ),
         )
 
-    def test_dataloader(self) -> Iterable[Batch]:
+    def test_dataloader(self) -> Iterable[LabeledSampleBatch]:
         return DataLoader(
             self.test_dataset,
-            batch_size=1,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
@@ -236,10 +212,11 @@ class DataModule(LightningDataModule):
             ),
         )
 
-    def predict_dataloader(self) -> Iterable[PredictBatch]:
+    def predict_dataloader(self) -> Iterable[UnlabeledSampleBatch]:
         return DataLoader(
             self.predict_dataset,
-            batch_size=1,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,

@@ -11,12 +11,28 @@ class Targets(TypedDict):
     graph: Tensor | None
 
 
+class TileMetadata(TypedDict):
+    slide: str
+    x: int
+    y: int
+
+
 class Crop(TypedDict):
     features: NDArray[np.float32]
     labels: Targets
     pos: NDArray[np.float32]
     sup_mask: Tensor
     seq_len: Tensor
+
+
+class TileCrop(TypedDict):
+    features: NDArray[np.float32]
+    labels: Targets
+    pos: NDArray[np.float32]
+    sup_mask: Tensor
+    roi_mask: Tensor
+    seq_len: Tensor
+    metadata: TileMetadata
 
 
 class Metadata(TypedDict):
@@ -52,3 +68,21 @@ class Batch(TypedDict):
 class PredictBatch(TypedDict):
     slide: Batch
     metadata: list[Metadata]
+
+
+class BatchMetadata(TypedDict):
+    slide: list[str]
+    x: list[int]
+    y: list[int]
+
+
+class GraphInputs(TypedDict):
+    block_mask: BlockMask
+    features: Tensor
+    pos: Tensor
+    sup_mask: Tensor
+    seq_lens: Tensor
+
+
+type LabeledSampleBatch = tuple[GraphInputs, Targets, BatchMetadata]
+type UnlabeledSampleBatch = tuple[GraphInputs, BatchMetadata]
