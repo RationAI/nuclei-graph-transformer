@@ -43,7 +43,7 @@ class NucleiDataset(Dataset[Crop | PredictSlide]):
         alpha: float = 0.8,
         efd_order: int = 10,
         full_slide: bool = False,
-        random_rotate: bool = True,
+        random_rotate: bool = False,
         predict: bool = False,
         mil: bool = False,
         patch_size: int = 48,
