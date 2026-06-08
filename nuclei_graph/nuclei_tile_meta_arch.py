@@ -14,6 +14,7 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
+from nuclei_graph.data.block_mask import create_ragged_block_quantized_knn_mask
 from nuclei_graph.nuclei_graph_typing import (
     LabeledSampleBatch,
     Outputs,
@@ -51,13 +52,21 @@ class NucleiTileMetaArch(LightningModule):
         self.val_step_graph_losses: list[Tensor] = []
         self.val_step_graph_sizes: list[int] = []
 
-    def forward(self, inputs: dict[str, Any]) -> Outputs:
+    def forward(self, inputs):
+        if "block_mask" not in inputs:
+            device = inputs["pos"].device
+            gpu_knns = [knn.to(device) for knn in inputs["all_knns"]]
+
+            inputs["block_mask"] = create_ragged_block_quantized_knn_mask(
+                gpu_knns, inputs["block_size"], total_seq_len=inputs["pos"].shape[0]
+            )
+
         return self.net(
             x=inputs["features"],
             pos=inputs["pos"],
             block_mask=inputs["block_mask"],
-            seq_lens=inputs["seq_lens"],
             roi_mask=inputs["roi_mask"],
+            seq_lens=inputs["seq_lens"],
         )
 
     def training_step(self, batch: LabeledSampleBatch) -> Tensor:

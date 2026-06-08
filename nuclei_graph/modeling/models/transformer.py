@@ -4,6 +4,7 @@ from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
 
 from nuclei_graph.configuration import Config
+from nuclei_graph.data.block_mask import create_ragged_block_quantized_knn_mask
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import Outputs
 

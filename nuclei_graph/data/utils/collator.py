@@ -1,9 +1,8 @@
 import math
+import time
 from typing import Any
 
-import numpy as np
 import torch
-from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
 
 from nuclei_graph.data.block_mask import (
@@ -42,8 +41,6 @@ def supervised_collate_fn(
     if not batch:
         raise ValueError("All samples in batch are empty.")
 
-    nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
-
     all_pos, all_features, all_knns = [], [], []
     all_labels_nuclei, all_labels_graph, all_sup_masks, all_roi_masks = [], [], [], []
 
@@ -52,22 +49,26 @@ def supervised_collate_fn(
         n_nodes = len(b["pos"])
 
         sort_indices = block_spatial_sort(
-            b["pos"], block_size, global_offset=current_global_idx
+            b["pos"].numpy(),
+            block_size,
+            global_offset=current_global_idx,
         )
         sorted_pos = b["pos"][sort_indices]
 
         actual_k = min(k, n_nodes)
 
-        nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean", n_jobs=1)
-        _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
+        dist_matrix = torch.cdist(sorted_pos, sorted_pos)
+        knn = dist_matrix.topk(actual_k, largest=False).indices
 
         if actual_k < k:
-            pad = np.full((n_nodes, k - actual_k), -1, dtype=knn.dtype)
-            knn = np.concatenate([knn, pad], axis=1)
+            pad = torch.full(
+                (n_nodes, k - actual_k), -1, dtype=knn.dtype, device=knn.device
+            )
+            knn = torch.cat([knn, pad], dim=1)
 
-        all_pos.append(torch.from_numpy(sorted_pos))
-        all_knns.append(torch.from_numpy(knn))
-        all_features.append(torch.from_numpy(b["features"][sort_indices]))
+        all_pos.append(sorted_pos)
+        all_knns.append(knn)
+        all_features.append(b["features"][sort_indices])
 
         all_labels_nuclei.append(b["labels"]["nuclei"][sort_indices])
         if b["labels"]["graph"] is not None:
@@ -87,9 +88,8 @@ def supervised_collate_fn(
     }
 
     inputs = {
-        "block_mask": create_ragged_block_quantized_knn_mask(
-            all_knns, block_size, total_seq_len=target_seq_len
-        ),
+        "all_knns": all_knns,
+        "block_size": block_size,
         "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
         "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
         "sup_mask": _pad_to_seq_len(
@@ -117,29 +117,29 @@ def predict_collate_fn(
     k: int,
     total_seq_len: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, list[Any]]]:
-    nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
-
     all_pos, all_features, all_knns, all_sup_masks, all_roi_masks = [], [], [], [], []
 
     current_global_idx = 0
     for b in batch:
         n_nodes = len(b["pos"])
         sort_indices = block_spatial_sort(
-            b["pos"], block_size, global_offset=current_global_idx
+            b["pos"].numpy(), block_size, global_offset=current_global_idx
         )
         sorted_pos = b["pos"][sort_indices]
         actual_k = min(k, n_nodes)
 
-        nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean", n_jobs=1)
-        _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
+        dist_matrix = torch.cdist(sorted_pos, sorted_pos)
+        knn = dist_matrix.topk(actual_k, largest=False).indices
 
         if actual_k < k:
-            pad = np.full((n_nodes, k - actual_k), -1, dtype=knn.dtype)
-            knn = np.concatenate([knn, pad], axis=1)
+            pad = torch.full(
+                (n_nodes, k - actual_k), -1, dtype=knn.dtype, device=knn.device
+            )
+            knn = torch.cat([knn, pad], dim=1)
 
-        all_pos.append(torch.from_numpy(sorted_pos))
-        all_knns.append(torch.from_numpy(knn))
-        all_features.append(torch.from_numpy(b["features"][sort_indices]))
+        all_pos.append(sorted_pos)
+        all_knns.append(knn)
+        all_features.append(b["features"][sort_indices])
         all_sup_masks.append(b["sup_mask"][sort_indices])
         all_roi_masks.append(b["roi_mask"][sort_indices])
 
@@ -147,7 +147,6 @@ def predict_collate_fn(
 
     real_seq_len = current_global_idx
     target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
-
     batch_metadata = {
         "slide": [b["metadata"]["slide"] for b in batch],
         "x": [b["metadata"]["x"] for b in batch],
@@ -155,9 +154,8 @@ def predict_collate_fn(
     }
 
     inputs = {
-        "block_mask": create_ragged_block_quantized_knn_mask(
-            all_knns, block_size, total_seq_len=target_seq_len
-        ),
+        "all_knns": all_knns,
+        "block_size": block_size,
         "pos": _pad_to_seq_len(torch.cat(all_pos), target_seq_len),
         "features": _pad_to_seq_len(torch.cat(all_features), target_seq_len),
         "sup_mask": _pad_to_seq_len(

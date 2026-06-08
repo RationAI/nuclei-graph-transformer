@@ -32,13 +32,14 @@ def print_memory_usage():
     print(f"Memory Usage: {process.memory_info().rss / 1024**2:.2f} MB")
 
 
-@lru_cache(maxsize=3)
+@lru_cache(maxsize=4)
 def get_slide(nuclei_path: str, mpp_x: float, mpp_y: float):
     nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
     raw_centroids = np.stack(nuclei["centroid"].tolist())
     scaled_centroids = raw_centroids * np.array([mpp_x, mpp_y], dtype=np.float32)
     tree = KDTree(raw_centroids)
-    return nuclei, raw_centroids, scaled_centroids, tree
+    raw_polygons = np.array(nuclei["polygon"].tolist(), dtype=np.float32)
+    return raw_centroids, scaled_centroids, tree, raw_polygons
 
 
 T = TypeVar("T", covariant=True)
@@ -298,7 +299,7 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         x_max = x_min + x_extent
         y_max = y_min + y_extent
 
-        nuclei_df, raw_centroids, scaled_centroids, kdtree = get_slide(
+        raw_centroids, scaled_centroids, kdtree, raw_polygons = get_slide(
             str(self.nuclei_path), self.mpp_x, self.mpp_y
         )
 
@@ -313,8 +314,6 @@ class _TileNucleiSlide(Dataset[TileCrop]):
             crop_mask = (cx >= x_min) & (cx < x_max) & (cy >= y_min) & (cy < y_max)
             crop_indices = candidates[crop_mask]
 
-        nuclei = nuclei_df.iloc[crop_indices].reset_index(drop=True)
-
         crop_centroids_microns = scaled_centroids[crop_indices]
         crop_centroids_pixels = raw_centroids[crop_indices]
 
@@ -323,8 +322,8 @@ class _TileNucleiSlide(Dataset[TileCrop]):
             nuclei_sup = self.supervision.supervision_map[
                 self.slide_metadata["stem"]
             ].nuclei_supervision
-            global_sup_mask = nuclei_sup.get_sup_mask(len(nuclei_df))
-            nuclei_targets = nuclei_sup.get_targets(len(nuclei_df))
+            global_sup_mask = nuclei_sup.get_sup_mask(len(raw_centroids))
+            nuclei_targets = nuclei_sup.get_targets(len(raw_centroids))
             crop_sup_mask = torch.as_tensor(global_sup_mask[crop_indices])
             crop_nuclei_labels = torch.as_tensor(nuclei_targets[crop_indices])
         else:
@@ -352,7 +351,7 @@ class _TileNucleiSlide(Dataset[TileCrop]):
             crop_features = np.zeros((0, self.efd_order * 4 + 3), dtype=np.float32)
             crop_pos_centered = np.zeros((0, 2), dtype=np.float32)
         else:
-            crop_polygons = np.array(nuclei["polygon"].tolist())
+            crop_polygons = raw_polygons[crop_indices]
             crop_features = self.get_features(crop_polygons, self.mpp_x, self.mpp_y)
             crop_pos_centered = (
                 crop_centroids_microns - crop_centroids_microns.mean(axis=0)
@@ -374,9 +373,9 @@ class _TileNucleiSlide(Dataset[TileCrop]):
 
         return TileCrop(
             {
-                "features": crop_features,
+                "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": crop_labels,
-                "pos": crop_pos_centered,
+                "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": crop_sup_mask,
                 "roi_mask": roi_mask_t,
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),

@@ -1,7 +1,9 @@
+import os
 from collections.abc import Iterable
 from functools import partial
 
 import pandas as pd
+import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
@@ -16,6 +18,13 @@ from nuclei_graph.data.supervision import (
 )
 from nuclei_graph.data.utils import predict_collate_fn, supervised_collate_fn
 from nuclei_graph.nuclei_graph_typing import LabeledSampleBatch, UnlabeledSampleBatch
+
+
+def seed_worker(worker_id):
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    torch.set_num_threads(1)
 
 
 METADATA_COLS_EVAL = [
@@ -184,6 +193,7 @@ class TiledDataModule(LightningDataModule):
             prefetch_factor=2 if self.num_workers > 0 else None,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
+            worker_init_fn=seed_worker,
         )
 
     def val_dataloader(self) -> Iterable[LabeledSampleBatch]:
@@ -197,6 +207,7 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
+            worker_init_fn=seed_worker,
         )
 
     def test_dataloader(self) -> Iterable[LabeledSampleBatch]:
@@ -210,6 +221,7 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
+            worker_init_fn=seed_worker,
         )
 
     def predict_dataloader(self) -> Iterable[UnlabeledSampleBatch]:
@@ -223,4 +235,5 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 predict_collate_fn, block_size=self.block_size, k=self.k
             ),
+            worker_init_fn=seed_worker,
         )

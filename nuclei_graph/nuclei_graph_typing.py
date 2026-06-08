@@ -26,9 +26,9 @@ class Crop(TypedDict):
 
 
 class TileCrop(TypedDict):
-    features: NDArray[np.float32]
+    features: Tensor
     labels: Targets
-    pos: NDArray[np.float32]
+    pos: Tensor
     sup_mask: Tensor
     roi_mask: Tensor
     seq_len: Tensor
