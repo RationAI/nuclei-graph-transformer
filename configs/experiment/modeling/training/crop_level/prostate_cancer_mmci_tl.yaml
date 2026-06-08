@@ -20,7 +20,6 @@ trainer:
 
 data:
   _target_: nuclei_graph.data.data_module.DataModule
-
   batch_size: 32
   k: 32
   split_stratify_col: "is_carcinoma"

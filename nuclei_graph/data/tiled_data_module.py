@@ -176,7 +176,7 @@ class TiledDataModule(LightningDataModule):
             self.train_dataset,
             batch_size=self.batch_size,
             sampler=sampler,
-            shuffle=sampler is None,
+            shuffle=False,
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),

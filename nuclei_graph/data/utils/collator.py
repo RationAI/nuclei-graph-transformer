@@ -1,6 +1,7 @@
 import math
 from typing import Any
 
+import numpy as np
 import torch
 from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
@@ -36,6 +37,11 @@ def supervised_collate_fn(
     k: int,
     total_seq_len: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Tensor | None], dict[str, list[Any]]]:
+    batch = [b for b in batch if len(b["pos"]) > 0]
+
+    if not batch:
+        raise ValueError("All samples in batch are empty.")
+
     nbrs = NearestNeighbors(n_neighbors=k, metric="euclidean")
 
     all_pos, all_features, all_knns = [], [], []
@@ -43,11 +49,21 @@ def supervised_collate_fn(
 
     current_global_idx = 0
     for b in batch:
+        n_nodes = len(b["pos"])
+
         sort_indices = block_spatial_sort(
             b["pos"], block_size, global_offset=current_global_idx
         )
         sorted_pos = b["pos"][sort_indices]
+
+        actual_k = min(k, n_nodes)
+
+        nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean", n_jobs=1)
         _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
+
+        if actual_k < k:
+            pad = np.full((n_nodes, k - actual_k), -1, dtype=knn.dtype)
+            knn = np.concatenate([knn, pad], axis=1)
 
         all_pos.append(torch.from_numpy(sorted_pos))
         all_knns.append(torch.from_numpy(knn))
@@ -107,11 +123,19 @@ def predict_collate_fn(
 
     current_global_idx = 0
     for b in batch:
+        n_nodes = len(b["pos"])
         sort_indices = block_spatial_sort(
             b["pos"], block_size, global_offset=current_global_idx
         )
         sorted_pos = b["pos"][sort_indices]
+        actual_k = min(k, n_nodes)
+
+        nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean", n_jobs=1)
         _, knn = nbrs.fit(sorted_pos).kneighbors(sorted_pos)
+
+        if actual_k < k:
+            pad = np.full((n_nodes, k - actual_k), -1, dtype=knn.dtype)
+            knn = np.concatenate([knn, pad], axis=1)
 
         all_pos.append(torch.from_numpy(sorted_pos))
         all_knns.append(torch.from_numpy(knn))

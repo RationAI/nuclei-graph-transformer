@@ -19,8 +19,8 @@ trainer:
 data:
   _target_: ???
   batch_size: ???
-  num_workers: 0
-  eval_num_workers: 0
+  num_workers: 10
+  eval_num_workers: 2
   metadata: ???
   dataset: ???
   supervision:
