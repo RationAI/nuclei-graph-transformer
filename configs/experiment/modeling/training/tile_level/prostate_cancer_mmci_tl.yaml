@@ -18,12 +18,15 @@ trainer:
   gradient_clip_val: 0.7
 
 data:
+  _target_: nuclei_graph.data.tiled_data_module.TiledDataModule
+
   batch_size: 16
   k: 16
   split_stratify_col: is_carcinoma
   split_group_col: patient_id
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
+
   dataset:
     efd_order: 16
     stratified_filter: True
@@ -41,6 +44,7 @@ data:
       blur_t: 0.25
       folding_t: 0.25
       carcinoma_roi_t: 0.5
+
   supervision:
     paths: ${dataset.paths.supervision}
   sampler:

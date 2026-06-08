@@ -66,11 +66,17 @@ class Transformer(nn.Module):
         return self.input_proj(torch.cat([norm_full, not_to_norm], dim=-1))
 
     def _pool_graph_features(
-        self, x: Tensor, attn_scores: Tensor, seq_lens: Tensor
+        self, x: Tensor, attn_scores: Tensor, seq_lens: Tensor, roi_mask: Tensor
     ) -> tuple[Tensor, Tensor]:
         real_seq_len = seq_lens.sum().item()
         x = x[:real_seq_len]
         attn_scores = attn_scores[:real_seq_len]
+        roi_mask = roi_mask[:real_seq_len]
+
+        # pool only nuclei in the ROI
+        attn_scores = attn_scores.masked_fill(
+            ~roi_mask.bool().unsqueeze(-1), float("-inf")
+        )
 
         seq_lens_list = seq_lens.tolist()
         x_split = torch.split(x, seq_lens_list)
@@ -81,6 +87,7 @@ class Transformer(nn.Module):
 
         for scores, features in zip(attn_scores_split, x_split, strict=True):
             weights = torch.softmax(scores, dim=0)
+            weights = torch.nan_to_num(weights, nan=0.0)
             pooled_features_list.append(torch.sum(weights * features, dim=0))
             attn_weights_list.append(weights)
 
@@ -125,7 +132,7 @@ class Transformer(nn.Module):
         attn_scores = self.attn_head(x)
 
         graph_features, attn_weights = self._pool_graph_features(
-            x, attn_scores, seq_lens
+            x, attn_scores, seq_lens, roi_mask
         )
         graph_logits = self.class_head(graph_features)
 

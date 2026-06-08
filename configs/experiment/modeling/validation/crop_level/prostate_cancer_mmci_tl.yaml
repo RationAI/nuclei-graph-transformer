@@ -14,6 +14,7 @@ checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/chec
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
 
 data:
+  _target_: nuclei_graph.data.data_module.DataModule
   batch_size: 1
   k: 64
   split_stratify_col: "is_carcinoma"

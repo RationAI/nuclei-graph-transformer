@@ -27,7 +27,7 @@ METADATA_COLS_EVAL = [
 ]
 
 
-class TileDataModule(LightningDataModule):
+class TiledDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,

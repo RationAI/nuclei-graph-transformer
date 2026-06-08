@@ -16,6 +16,7 @@ checkpoint: # TODO
 checkpoint_url: # TODO
 
 data:
+  _target_: nuclei_graph.data.data_module.DataModule
   k: 32
   metadata:
     predict: ${dataset.providers.radboud.metadata.test}

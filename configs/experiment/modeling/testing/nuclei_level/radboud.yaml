@@ -14,6 +14,7 @@ checkpoint: mlflow-artifacts:/97/77aac2970ef54a2b9fab6d3238585d4f/artifacts/chec
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/77aac2970ef54a2b9fab6d3238585d4f
 
 data:
+  _target_: nuclei_graph.data.data_module.DataModule
   k: 32
   metadata: ${dataset.providers.radboud.metadata}
   dataset:

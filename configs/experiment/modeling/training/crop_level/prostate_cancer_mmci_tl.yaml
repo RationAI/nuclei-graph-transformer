@@ -19,12 +19,15 @@ trainer:
   #accumulate_grad_batches: 2
 
 data:
+  _target_: nuclei_graph.data.data_module.DataModule
+
   batch_size: 32
   k: 32
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
+
   dataset:
     crop_size_min: 400
     crop_size_max: 12000
@@ -32,6 +35,7 @@ data:
     alpha: 0.8
     efd_order: 10
     random_rotate: true
+
   supervision:
     paths: ${dataset.paths.supervision}
   sampler:

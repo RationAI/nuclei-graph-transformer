@@ -15,6 +15,7 @@ checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoc
 checkpoint_url: https://mlflow.rationai.cloud.e-infra.cz/#/experiments/37/runs/c6542ff73c8e4460a8451a1a9c757520
 
 data:
+  _target_: nuclei_graph.data.data_module.DataModule
   k: 32
   metadata:
     predict: ${dataset.providers.radboud.metadata.test}

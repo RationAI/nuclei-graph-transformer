@@ -17,9 +17,10 @@ trainer:
   log_every_n_steps: 5
 
 data:
+  _target_: ???
   batch_size: ???
-  num_workers: 10
-  eval_num_workers: 2
+  num_workers: 0
+  eval_num_workers: 0
   metadata: ???
   dataset: ???
   supervision:

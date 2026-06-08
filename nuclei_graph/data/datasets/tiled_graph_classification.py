@@ -168,7 +168,7 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         window_size: int,
         margin: int,
         efd_order: int,
-        random_rotate: bool,
+        random_rotate: bool | None = False,
     ) -> None:
         super().__init__()
         self.slide_metadata = slide_metadata
@@ -181,21 +181,8 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         self.mpp_x = mpp_x
         self.mpp_y = mpp_y
         self.random_rotate = random_rotate
-
-        self.nuclei = (
-            pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
-        )
-        self.raw_centroids = np.stack(self.nuclei["centroid"].tolist())
-        self.scaled_centroids = self.raw_centroids * np.array(
-            [mpp_x, mpp_y], dtype=np.float32
-        )
-
-        if self.supervision is not None:
-            self.nuclei_sup = self.supervision.supervision_map[
-                slide_id
-            ].nuclei_supervision
-            self.global_sup_mask = self.nuclei_sup.get_sup_mask(len(self.nuclei))
-            self.nuclei_targets = self.nuclei_sup.get_targets(len(self.nuclei))
+        self.slide_id = slide_id
+        self.nuclei_path = nuclei_path
 
     def __len__(self) -> int:
         return len(self.tiles)
@@ -260,15 +247,31 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         tile = self.tiles.iloc[idx]
         x_min, y_min = tile["x"], tile["y"]
 
-        # Get Crop—Tile
+        nuclei = (
+            pd.read_parquet(self.nuclei_path).sort_values("id").reset_index(drop=True)
+        )
+        raw_centroids = np.stack(nuclei["centroid"].tolist())
+        scaled_centroids = raw_centroids * np.array(
+            [self.mpp_x, self.mpp_y], dtype=np.float32
+        )
+
+        if self.supervision is not None:
+            nuclei_sup = self.supervision.supervision_map[
+                self.slide_id
+            ].nuclei_supervision
+            global_sup_mask = nuclei_sup.get_sup_mask(len(nuclei))
+            nuclei_targets = nuclei_sup.get_targets(len(nuclei))
+        else:
+            global_sup_mask = None
+            nuclei_targets = None
+
         x_extent = self.slide_metadata.tile_extent_x
         y_extent = self.slide_metadata.tile_extent_y
-
         x_max = x_min + x_extent
         y_max = y_min + y_extent
 
-        cx = self.raw_centroids[:, 0]
-        cy = self.raw_centroids[:, 1]
+        cx = raw_centroids[:, 0]
+        cy = raw_centroids[:, 1]
         crop_mask = (cx >= x_min) & (cx < x_max) & (cy >= y_min) & (cy < y_max)
 
         crop_indices = np.where(crop_mask)[0]
@@ -278,7 +281,6 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         margin_x = x_extent * (self.margin / self.window_size)
         margin_y = y_extent * (self.margin / self.window_size)
 
-        # Compute tile ROI
         roi_mask = (
             (crop_cx >= x_min + margin_x)
             & (crop_cx < x_max - margin_x)
@@ -287,11 +289,12 @@ class _TileNucleiSlide(Dataset[TileCrop]):
         )
         roi_mask_t = torch.from_numpy(roi_mask).bool()
 
-        # Labels
-        crop_indices_t = torch.from_numpy(crop_indices).long()
-
-        crop_sup_mask = torch.as_tensor(self.global_sup_mask[crop_indices_t])
-        crop_nuclei_labels = torch.as_tensor(self.nuclei_targets[crop_indices_t])
+        if global_sup_mask is not None and nuclei_targets is not None:
+            crop_sup_mask = torch.as_tensor(global_sup_mask[crop_indices])
+            crop_nuclei_labels = torch.as_tensor(nuclei_targets[crop_indices])
+        else:  # prediction
+            crop_sup_mask = torch.ones(len(crop_indices), dtype=torch.bool)
+            crop_nuclei_labels = None
 
         crop_labels: Targets = {"nuclei": crop_nuclei_labels, "graph": None}
 
@@ -304,14 +307,12 @@ class _TileNucleiSlide(Dataset[TileCrop]):
             crop_features = np.zeros((0, self.efd_order * 4 + 3), dtype=np.float32)
             crop_pos_centered = np.zeros((0, 2), dtype=np.float32)
         else:
-            crop_polygons = np.array(self.nuclei["polygon"].iloc[crop_indices].tolist())
+            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_features = self.get_features(crop_polygons, self.mpp_x, self.mpp_y)
 
-            # Positions
-            crop_pos = self.scaled_centroids[crop_indices]
+            crop_pos = scaled_centroids[crop_indices]
             crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
 
-            # Augmentations
             if self.random_rotate:
                 pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
                     crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
