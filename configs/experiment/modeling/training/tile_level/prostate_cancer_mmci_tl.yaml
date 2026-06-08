@@ -22,7 +22,7 @@ data:
 
   num_workers: 12
   eval_num_workers: 12
-  batch_size: 32
+  batch_size: 64
   k: 16
   split_stratify_col: is_carcinoma
   split_group_col: patient_id
