@@ -193,6 +193,7 @@ class TiledDataModule(LightningDataModule):
             prefetch_factor=2 if self.num_workers > 0 else None,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
+            pin_memory=True,
             worker_init_fn=seed_worker,
         )
 
@@ -207,6 +208,7 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
+            pin_memory=True,
             worker_init_fn=seed_worker,
         )
 
@@ -221,6 +223,7 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
+            pin_memory=True,
             worker_init_fn=seed_worker,
         )
 
@@ -235,5 +238,6 @@ class TiledDataModule(LightningDataModule):
             collate_fn=partial(
                 predict_collate_fn, block_size=self.block_size, k=self.k
             ),
+            pin_memory=True,
             worker_init_fn=seed_worker,
         )

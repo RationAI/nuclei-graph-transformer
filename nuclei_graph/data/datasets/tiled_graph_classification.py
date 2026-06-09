@@ -2,16 +2,14 @@ import math
 import os
 from collections.abc import Iterable
 from functools import lru_cache
-from pathlib import Path
 from random import uniform
-from typing import TypeVar, cast
+from typing import TypeVar
 
 import numpy as np
 import pandas as pd
 import psutil
 import torch
 from einops import rearrange
-from numpy.typing import NDArray
 from pandas import DataFrame
 from rationai.mlkit.data.datasets import MetaTiledSlides
 from ratiopath.openslide import OpenSlide
@@ -23,8 +21,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
-from nuclei_graph.nuclei_graph_typing import Targets, TileCrop, TileMetadata
+from nuclei_graph.data.supervision import DatasetSupervision
 
 
 def print_memory_usage():
@@ -33,7 +30,7 @@ def print_memory_usage():
 
 
 @lru_cache(maxsize=4)
-def get_slide(nuclei_path: str, mpp_x: float, mpp_y: float):
+def get_slide_data(nuclei_path: str, mpp_x: float, mpp_y: float):
     nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
     raw_centroids = np.stack(nuclei["centroid"].tolist())
     scaled_centroids = raw_centroids * np.array([mpp_x, mpp_y], dtype=np.float32)
@@ -43,10 +40,6 @@ def get_slide(nuclei_path: str, mpp_x: float, mpp_y: float):
 
 
 T = TypeVar("T", covariant=True)
-
-
-def get_slide_name(slide: pd.Series) -> str:
-    return Path(slide.path).stem
 
 
 class FilterableDataset(MetaTiledSlides[T]):
@@ -100,11 +93,11 @@ class FilterableDataset(MetaTiledSlides[T]):
         )
         return tiles[~((tiles_slide_cancer == 1) & (tiles["carcinoma"] == 0))]
 
+    def generate_datasets(self) -> Iterable[Dataset[T]]:
+        return [self]
 
-T = TypeVar("T", covariant=True)
 
-
-class NucleiTileDataset(FilterableDataset[T]):
+class NucleiTileDataset(FilterableDataset[dict]):
     def __init__(
         self,
         metadata: DataFrame,
@@ -118,7 +111,7 @@ class NucleiTileDataset(FilterableDataset[T]):
         efd_order: int = 15,
         random_rotate: bool = False,
     ) -> None:
-        self.metadata = metadata
+        self.metadata = metadata.set_index("slide_id")
         self.supervision = supervision
         self.window_size = window_size
         self.margin = margin
@@ -132,196 +125,112 @@ class NucleiTileDataset(FilterableDataset[T]):
             stratified_filter=stratified_filter,
         )
 
-    def generate_datasets(self) -> Iterable[Dataset[T]]:
         self.tiles = (
             self.prepare_tiles(self.tiles)
             if self.labeled
             else self.filter_tiles_by_thresholds(self.tiles)
         )
-        stems = set(self.metadata["slide_id"].values)
 
-        valid_slide_ids = set()
-        for _, slide in self.slides.iterrows():
-            if slide["stem"] in stems:
-                valid_slide_ids.add(slide["id"])
+        id_to_stem = dict(zip(self.slides["id"], self.slides["stem"], strict=True))
+        self.tiles["stem"] = self.tiles["slide_id"].map(id_to_stem)
 
-        self.tiles = self.tiles[
-            self.tiles["slide_id"].isin(valid_slide_ids)
-        ].reset_index(drop=True)
+        valid_stems = set(self.metadata.index)
+        self.tiles = self.tiles[self.tiles["stem"].isin(valid_stems)].reset_index(
+            drop=True
+        )
 
-        datasets = []
-        for _, slide in self.slides.iterrows():
-            if slide["id"] not in valid_slide_ids:
-                continue
+        if len(self.tiles) == 0:
+            raise ValueError("Dataset initialization resulted in 0 tiles.")
 
-            slide_meta = self.metadata[self.metadata["slide_id"] == slide["stem"]]
-            meta_row = slide_meta.iloc[0]
+        self.slide_props = {}
+        unique_stems = self.tiles["stem"].unique()
 
-            slide_tiles = self.tiles[self.tiles["slide_id"] == slide["id"]]
+        for stem in unique_stems:
+            slide_row = self.slides[self.slides["stem"] == stem].iloc[0]
+            meta_row = self.metadata.loc[stem]
 
-            datasets.append(
-                cast(
-                    "Dataset[T]",
-                    _TileNucleiSlide(
-                        slide_metadata=slide,
-                        slide_path=meta_row["slide_path"],
-                        tiles=slide_tiles,
-                        supervision=self.supervision,
-                        nuclei_path=meta_row["slide_nuclei_path"],
-                        mpp_x=float(meta_row["mpp_x"]),
-                        mpp_y=float(meta_row["mpp_y"]),
-                        include_label=self.labeled,
-                        window_size=self.window_size,
-                        margin=self.margin,
-                        efd_order=self.efd_order,
-                        random_rotate=self.random_rotate,
-                    ),
-                )
-            )
-        return datasets
+            with OpenSlide(meta_row["slide_path"]) as slide:
+                size_base = slide.level_dimensions[0]
+                tile_level = slide_row["level"]
+                size_level = slide.level_dimensions[tile_level]
 
+                scale_x = size_level[0] / size_base[0]
+                scale_y = size_level[1] / size_base[1]
 
-class LabeledNucleiTileDataset(NucleiTileDataset[TileCrop]): ...
-
-
-class UnlabeledNucleiTileDataset(NucleiTileDataset[TileCrop]): ...
-
-
-class _TileNucleiSlide(Dataset[TileCrop]):
-    def __init__(
-        self,
-        slide_metadata: pd.Series,
-        slide_path: str,
-        tiles: pd.DataFrame,
-        supervision: DatasetSupervision | None,
-        nuclei_path: Path | str,
-        mpp_x: float,
-        mpp_y: float,
-        include_label: bool,
-        window_size: int,
-        margin: int,
-        efd_order: int,
-        random_rotate: bool | None = False,
-    ) -> None:
-        super().__init__()
-        self.slide_metadata = slide_metadata
-        self.slide_path = slide_path
-        self.tiles = tiles
-        self.supervision = supervision
-        self.include_label = include_label
-        self.window_size = window_size
-        self.margin = margin
-        self.efd_order = efd_order
-        self.mpp_x = mpp_x
-        self.mpp_y = mpp_y
-        self.random_rotate = random_rotate
-        self.nuclei_path = nuclei_path
-        self.scale_x, self.scale_y = self.tile2nuclei_ratio()
-
-    def tile2nuclei_ratio(self) -> tuple[float, float]:
-        with OpenSlide(self.slide_path) as slide:
-            size_base = slide.level_dimensions[0]
-            size = slide.level_dimensions[self.slide_metadata["level"]]
-            scale_x = size[0] / size_base[0]
-            scale_y = size[1] / size_base[1]
-        return scale_x, scale_y
+            self.slide_props[stem] = {
+                "scale_x": scale_x,
+                "scale_y": scale_y,
+                "tile_extent_x": slide_row["tile_extent_x"],
+                "tile_extent_y": slide_row["tile_extent_y"],
+                "mpp_x": float(meta_row["mpp_x"]),
+                "mpp_y": float(meta_row["mpp_y"]),
+                "slide_nuclei_path": str(meta_row["slide_nuclei_path"]),
+            }
 
     def __len__(self) -> int:
         return len(self.tiles)
 
-    def get_centroids(
-        self,
-        nuclei: pd.DataFrame,
-        mpp_x: float | None = None,
-        mpp_y: float | None = None,
-    ) -> np.ndarray:
-        if mpp_x is not None and mpp_y is not None:
-            mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
-            return np.stack(nuclei["centroid"].tolist()) * mpps
-        return np.stack(nuclei["centroid"].tolist())
-
-    def get_nuclei_sup(self, slide_id: str) -> NucleiSupervision:
-        assert self.supervision is not None
-        return self.supervision.supervision_map[slide_id].nuclei_supervision
-
-    def random_rotate_graph(
-        self,
-        pos: NDArray[np.float32],
-        cos_angles: NDArray[np.float32],
-        sin_angles: NDArray[np.float32],
-    ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]:
+    def random_rotate_graph(self, pos, cos_angles, sin_angles):
         theta = uniform(0, 2 * math.pi)
-
         rotation_matrix = np.array(
             [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
             dtype=np.float32,
         )
+
         rotated_pos = pos @ rotation_matrix.T
-
-        # the original angles are doubled
-        c2 = math.cos(2 * theta)
-        s2 = math.sin(2 * theta)
-
+        c2, s2 = math.cos(2 * theta), math.sin(2 * theta)
         rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
         rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
-
         return rotated_pos, rotated_cos, rotated_sin
 
-    def get_features(
-        self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
-    ) -> NDArray[np.float32]:
+    def get_features(self, polygons, mpp_x, mpp_y):
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         contours = rearrange(polygons, "b (v d) -> b v d", d=2) * mpps
+
         efds = elliptic_fourier_descriptors(contours.astype(np.float64), self.efd_order)
-
         efds, angles = normalize_efd_for_rotation(efds)
-        cos_angles = np.cos(2.0 * angles)
-        sin_angles = np.sin(2.0 * angles)
-
+        cos_angles, sin_angles = np.cos(2.0 * angles), np.sin(2.0 * angles)
         efds, scales = normalize_efd_for_scale(efds)
         log_scales = np.log(scales + 1e-6)
-
         efds = rearrange(efds, "n order c -> n (order c)")
-        features = np.concatenate([efds, log_scales, cos_angles, sin_angles], axis=-1)
-        return features.astype(np.float32)
 
-    def __getitem__(self, idx: int) -> TileCrop:
-        crop_indices = np.array([], dtype=np.int64)
+        return np.concatenate(
+            [efds, log_scales, cos_angles, sin_angles], axis=-1
+        ).astype(np.float32)
 
+    def __getitem__(self, idx: int) -> dict:
         tile = self.tiles.iloc[idx]
+        stem = tile["stem"]
 
-        x_min = tile["x"] / self.scale_x
-        y_min = tile["y"] / self.scale_y
+        props = self.slide_props[stem]
+        scale_x, scale_y = props["scale_x"], props["scale_y"]
+        mpp_x, mpp_y = props["mpp_x"], props["mpp_y"]
 
-        x_extent = self.slide_metadata.tile_extent_x / self.scale_x
-        y_extent = self.slide_metadata.tile_extent_y / self.scale_y
+        x_min, y_min = tile["x"] / scale_x, tile["y"] / scale_y
+        x_extent, y_extent = (
+            props["tile_extent_x"] / scale_x,
+            props["tile_extent_y"] / scale_y,
+        )
+        x_max, y_max = x_min + x_extent, y_min + y_extent
 
-        x_max = x_min + x_extent
-        y_max = y_min + y_extent
-
-        raw_centroids, scaled_centroids, kdtree, raw_polygons = get_slide(
-            str(self.nuclei_path), self.mpp_x, self.mpp_y
+        raw_centroids, scaled_centroids, kdtree, raw_polygons = get_slide_data(
+            props["slide_nuclei_path"], mpp_x, mpp_y
         )
 
+        # Crop Generation
         center = np.array([(x_min + x_max) / 2, (y_min + y_max) / 2], dtype=np.float32)
         radius = np.sqrt((x_extent / 2) ** 2 + (y_extent / 2) ** 2)
         candidates = np.array(kdtree.query_ball_point(center, radius), dtype=np.int64)
 
         crop_indices = np.array([], dtype=np.int64)
         if len(candidates) > 0:
-            cx = raw_centroids[candidates, 0]
-            cy = raw_centroids[candidates, 1]
+            cx, cy = raw_centroids[candidates, 0], raw_centroids[candidates, 1]
             crop_mask = (cx >= x_min) & (cx < x_max) & (cy >= y_min) & (cy < y_max)
             crop_indices = candidates[crop_mask]
 
-        crop_centroids_microns = scaled_centroids[crop_indices]
-        crop_centroids_pixels = raw_centroids[crop_indices]
-
-        # Supervision
+        # Labels
         if self.supervision is not None:
-            nuclei_sup = self.supervision.supervision_map[
-                self.slide_metadata["stem"]
-            ].nuclei_supervision
+            nuclei_sup = self.supervision.supervision_map[stem].nuclei_supervision
             global_sup_mask = nuclei_sup.get_sup_mask(len(raw_centroids))
             nuclei_targets = nuclei_sup.get_targets(len(raw_centroids))
             crop_sup_mask = torch.as_tensor(global_sup_mask[crop_indices])
@@ -330,29 +239,33 @@ class _TileNucleiSlide(Dataset[TileCrop]):
             crop_sup_mask = torch.ones(len(crop_indices), dtype=torch.bool)
             crop_nuclei_labels = None
 
+        crop_labels = {"nuclei": crop_nuclei_labels, "graph": None}
+        if self.labeled:
+            crop_labels["graph"] = torch.tensor(
+                [float(tile["carcinoma"])], dtype=torch.float32
+            )
+
         # ROI Mask
-        margin_x = x_extent * (self.margin / self.window_size)
-        margin_y = y_extent * (self.margin / self.window_size)
+        margin_x, margin_y = (
+            x_extent * (self.margin / self.window_size),
+            y_extent * (self.margin / self.window_size),
+        )
+        crop_centroids_pixels = raw_centroids[crop_indices]
         roi_mask = (
             (crop_centroids_pixels[:, 0] >= x_min + margin_x)
             & (crop_centroids_pixels[:, 0] < x_max - margin_x)
             & (crop_centroids_pixels[:, 1] >= y_min + margin_y)
             & (crop_centroids_pixels[:, 1] < y_max - margin_y)
         )
-        roi_mask_t = torch.from_numpy(roi_mask).bool()
 
-        crop_labels: Targets = {"nuclei": crop_nuclei_labels, "graph": None}
-        if self.include_label:
-            crop_labels["graph"] = torch.tensor(
-                [float(tile["carcinoma"])], dtype=torch.float32
-            )
-
+        # EFD Computation
         if len(crop_indices) == 0:
             crop_features = np.zeros((0, self.efd_order * 4 + 3), dtype=np.float32)
             crop_pos_centered = np.zeros((0, 2), dtype=np.float32)
         else:
             crop_polygons = raw_polygons[crop_indices]
-            crop_features = self.get_features(crop_polygons, self.mpp_x, self.mpp_y)
+            crop_features = self.get_features(crop_polygons, mpp_x, mpp_y)
+            crop_centroids_microns = scaled_centroids[crop_indices]
             crop_pos_centered = (
                 crop_centroids_microns - crop_centroids_microns.mean(axis=0)
             ).astype(np.float32)
@@ -362,23 +275,14 @@ class _TileNucleiSlide(Dataset[TileCrop]):
                     crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
                 )
                 crop_pos_centered = pos_rot
-                crop_features[..., -2] = cos_rot
-                crop_features[..., -1] = sin_rot
+                crop_features[..., -2], crop_features[..., -1] = cos_rot, sin_rot
 
-        metadata: TileMetadata = {
-            "slide": self.slide_metadata["stem"],
-            "x": int(x_min),
-            "y": int(y_min),
+        return {
+            "features": torch.as_tensor(crop_features, dtype=torch.float32),
+            "labels": crop_labels,
+            "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
+            "sup_mask": crop_sup_mask,
+            "roi_mask": torch.from_numpy(roi_mask).bool(),
+            "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
+            "metadata": {"slide": stem, "x": int(x_min), "y": int(y_min)},
         }
-
-        return TileCrop(
-            {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32),
-                "labels": crop_labels,
-                "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
-                "sup_mask": crop_sup_mask,
-                "roi_mask": roi_mask_t,
-                "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
-                "metadata": metadata,
-            }
-        )

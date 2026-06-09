@@ -1,14 +1,10 @@
 import math
-import time
 from typing import Any
 
 import torch
 from torch import Tensor
 
-from nuclei_graph.data.block_mask import (
-    block_spatial_sort,
-    create_ragged_block_quantized_knn_mask,
-)
+from nuclei_graph.data.block_mask import block_spatial_sort
 
 
 BUCKETS = [4096, 8192, 16384, 32768, 49152]

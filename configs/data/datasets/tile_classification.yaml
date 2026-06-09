@@ -1,6 +1,6 @@
 # @package _global_
 
-_target_: nuclei_graph.data.datasets.tiled_graph_classification.LabeledNucleiTileDataset
+_target_: nuclei_graph.data.datasets.tiled_graph_classification.NucleiTileDataset
 uris: ???
 thresholds: ???
 carcinoma_roi_t: ${data.dataset.thresholds.carcinoma_roi_t}
