@@ -14,6 +14,7 @@ defaults:
 monitor: validation/graph/loss
 
 trainer:
+  limit_train_batches: 100
   max_epochs: 150
   gradient_clip_val: 0.7
   accumulate_grad_batches: 8
@@ -23,7 +24,7 @@ data:
 
   num_workers: 10
   eval_num_workers: 10
-  batch_size: 8
+  batch_size: 64
   k: 16
   split_stratify_col: is_carcinoma
   split_group_col: patient_id
