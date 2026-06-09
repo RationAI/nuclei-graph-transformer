@@ -45,7 +45,7 @@ class StratifiedInterleavedSlideSampler(Sampler):
         if not available_slides:
             return None
 
-        labels_subset = self.slide_labels[available_slides]
+        labels_subset = self.slide_labels.loc[pd.Index(available_slides)]
         value_counts = labels_subset.value_counts()
         weights = 1.0 / labels_subset.map(value_counts)
 

@@ -24,11 +24,6 @@ from nuclei_graph.data.efd import (
 from nuclei_graph.data.supervision import DatasetSupervision
 
 
-def print_memory_usage():
-    process = psutil.Process(os.getpid())
-    print(f"Memory Usage: {process.memory_info().rss / 1024**2:.2f} MB")
-
-
 @lru_cache(maxsize=4)
 def get_slide_data(nuclei_path: str, mpp_x: float, mpp_y: float):
     nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
