@@ -1,8 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.data.datasets.tiled_graph_classification.TilePredictionDataset
-uris: ???
-thresholds: ???
-efd_order: ???
-tile_size: ???
-margin: ???

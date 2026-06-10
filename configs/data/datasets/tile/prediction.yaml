@@ -1,0 +1,8 @@
+# @package _global_
+
+_target_: nuclei_graph.data.datasets.tile.prediction.TilePredictionDataset
+uris: ???
+thresholds: ???
+efd_order: ???
+tile_size: ???
+margin: ???

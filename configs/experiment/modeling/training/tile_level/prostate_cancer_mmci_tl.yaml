@@ -3,9 +3,9 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: nuclei_tile
+  - /model/meta_archs@model: tile
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: tile_classification
+  - /data/datasets/tile@data.dataset: classification
   - /data/samplers@data.sampler: interleaved_weighted_sampler
   - /data/supervision@data.supervision.train_strategy: annotation
   - /data/supervision@data.supervision.eval_strategy: annotation
@@ -14,17 +14,17 @@ defaults:
 monitor: validation/graph/loss
 
 trainer:
-  limit_train_batches: 200
+  limit_train_batches: 150
   max_epochs: 350
   gradient_clip_val: 0.7
   accumulate_grad_batches: 8
 
 data:
-  _target_: nuclei_graph.data.tiled_data_module.TiledDataModule
+  _target_: nuclei_graph.data.datamodules.tile.TileDataModule
 
   num_workers: 10
   eval_num_workers: 10
-  batch_size: 64
+  batch_size: 8 #64
   k: 16
   split_stratify_col: is_carcinoma
   split_group_col: patient_id

@@ -3,9 +3,9 @@
 defaults:
   - /experiment/modeling/testing/base@_here_
   - /data/sources/panda
-  - /model/meta_archs@model: nuclei_wsl
+  - /model/meta_archs@model: nuclei
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: nuclei_classification
+  - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks@trainer.callbacks.feature_importances: feature_importances
   - _self_
@@ -14,7 +14,7 @@ checkpoint: mlflow-artifacts:/97/77aac2970ef54a2b9fab6d3238585d4f/artifacts/chec
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/77aac2970ef54a2b9fab6d3238585d4f
 
 data:
-  _target_: nuclei_graph.data.data_module.DataModule
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   k: 32
   metadata: ${dataset.providers.radboud.metadata}
   dataset:

@@ -77,12 +77,11 @@ def supervised_collate_fn(
     real_seq_len = current_global_idx
     target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
 
-    batch_metadata = {
+    metadata = {
         "slide": [b["metadata"]["slide"] for b in batch],
         "x": [b["metadata"]["x"] for b in batch],
         "y": [b["metadata"]["y"] for b in batch],
     }
-
     inputs = {
         "all_knns": all_knns,
         "block_size": block_size,
@@ -104,7 +103,7 @@ def supervised_collate_fn(
         "graph": torch.cat(all_labels_graph) if all_labels_graph else None,
     }
 
-    return inputs, targets, batch_metadata
+    return inputs, targets, metadata
 
 
 def predict_collate_fn(
@@ -143,12 +142,12 @@ def predict_collate_fn(
 
     real_seq_len = current_global_idx
     target_seq_len = total_seq_len or pick_bucket(real_seq_len, block_size)
-    batch_metadata = {
+
+    metadata = {
         "slide": [b["metadata"]["slide"] for b in batch],
         "x": [b["metadata"]["x"] for b in batch],
         "y": [b["metadata"]["y"] for b in batch],
     }
-
     inputs = {
         "all_knns": all_knns,
         "block_size": block_size,
@@ -163,4 +162,4 @@ def predict_collate_fn(
         "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
     }
 
-    return inputs, batch_metadata
+    return inputs, metadata

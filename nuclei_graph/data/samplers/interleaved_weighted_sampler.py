@@ -12,6 +12,7 @@ class StratifiedInterleavedSlideSampler(Sampler):
         max_active_slides: int = 3,
         samples_per_epoch: int = 10000,
     ):
+        """Tile Sampler that maintains a fixed number of active slides and stratifies slide selection by class label."""
         self.tiles_df = tiles_df
         self.max_active_slides = max_active_slides
         self.target_col = target_col
@@ -29,6 +30,7 @@ class StratifiedInterleavedSlideSampler(Sampler):
         self._reset_global_state()
 
     def _reset_global_state(self):
+        """Reset tile pools and reshuffle tiles within each slide."""
         self.remaining_tiles = {k: list(v) for k, v in self.master_slide_groups.items()}
         for slide_id in self.remaining_tiles:
             random.shuffle(self.remaining_tiles[slide_id])
@@ -36,6 +38,7 @@ class StratifiedInterleavedSlideSampler(Sampler):
         self.active_slides = []
 
     def _get_next_slide(self):
+        """Select a new slide from the remaining slides using inverse-frequency class weighting."""
         available_slides = [
             s
             for s, tiles in self.remaining_tiles.items()

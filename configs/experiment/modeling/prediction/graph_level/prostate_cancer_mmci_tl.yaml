@@ -3,20 +3,21 @@
 defaults:
   - /experiment/modeling/prediction/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: nuclei
+  - /model/meta_archs@model: graph
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks/predictions@trainer.callbacks.predictions: wsl
-  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
+  - /callbacks/predictions@trainer.callbacks.predictions: mil # graph-level and nuclei-level preds
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
+  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   - _self_
 
-checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/checkpoints/epoch=323-step=28836/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6ba361aa4280480fb5ff668dc11dba3b
+checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
+checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 16
+  k: 32
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
@@ -31,8 +32,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.15
+      drop_path_rate: 0.30
 
 metadata:
-  run_name: "📊 Predictions(MMCI): Nucleus-level Classifier, Polygons + Positions (RoPE) + k-NN Attn"
+  run_name: "📊 Predictions(MMCI): MIL Classifier"
   description: "Predictions: [MLflow training run](${checkpoint_url})"

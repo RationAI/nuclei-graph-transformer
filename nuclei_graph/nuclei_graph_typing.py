@@ -25,7 +25,7 @@ class TileMetadata(TypedDict):
     y: int
 
 
-class TileCrop(TypedDict):
+class TileGraph(TypedDict):
     features: Tensor
     labels: Targets
     pos: Tensor
@@ -35,7 +35,7 @@ class TileCrop(TypedDict):
     metadata: TileMetadata
 
 
-class Metadata(TypedDict):
+class CropMetadata(TypedDict):
     slide_id: str
     slide_path: str
     slide_nuclei_path: str
@@ -48,12 +48,9 @@ class Outputs(TypedDict):
     attn_weights: Tensor
 
 
-Slide = Crop  # a full-slide Crop
-
-
-class PredictSlide(TypedDict):
-    slide: Slide
-    metadata: Metadata
+class PredictCrop(TypedDict):
+    slide: Crop
+    metadata: CropMetadata
 
 
 class Batch(TypedDict):
@@ -67,7 +64,7 @@ class Batch(TypedDict):
 
 class PredictBatch(TypedDict):
     slide: Batch
-    metadata: list[Metadata]
+    metadata: list[CropMetadata]
 
 
 class BatchMetadata(TypedDict):

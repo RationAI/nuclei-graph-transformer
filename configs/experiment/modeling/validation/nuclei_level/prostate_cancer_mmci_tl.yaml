@@ -3,9 +3,9 @@
 defaults:
   - /experiment/modeling/validation/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: nuclei_wsl
+  - /model/meta_archs@model: nuclei
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: nuclei_classification
+  - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: agreement
   - /callbacks/plot_curves@trainer.callbacks.thresholds: wsl
   - _self_
@@ -14,7 +14,7 @@ checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/chec
 checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6ba361aa4280480fb5ff668dc11dba3b
 
 data:
-  _target_: nuclei_graph.data.data_module.DataModule
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
   k: 16
   split_stratify_col: "is_carcinoma"

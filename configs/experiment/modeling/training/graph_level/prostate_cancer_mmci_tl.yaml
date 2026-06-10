@@ -3,42 +3,43 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: nuclei
+  - /model/meta_archs@model: graph
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/datasets/crop@data.dataset: graph_classification
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/supervision@data.supervision.train_strategy: agreement # cam agreement annotation
-  - /data/supervision@data.supervision.eval_strategy: agreement
+  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
-monitor: validation/loss
+monitor: validation/graph/loss
 
 trainer:
-  max_epochs: 350
+  max_epochs: 150
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 32
-  k: 16
+  k: 32
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
 
   dataset:
-    crop_size_min: 512
-    crop_size_max: 8192
+    crop_size_min: 400
+    crop_size_max: 12000
+    crop_pos_thr: 0.75
     alpha: 0.8
-    efd_order: 16
+    efd_order: 10
     random_rotate: true
 
   supervision:
     paths: ${dataset.paths.supervision}
   sampler:
-    positivity_thr: 0.05
-    pos_slide_ratio: 0.75
+    positivity_thr: 0.0
+    pos_slide_ratio: 0.5
 
 model:
   lr: 1e-4
@@ -49,8 +50,8 @@ model:
       hidden_dim: 1024
       num_heads: 8
       num_layers: 8
-      drop_path_rate: 0.15
+      drop_path_rate: 0.25
 
 metadata:
-  run_name: "Train(MMCI): Nucleus-level Classifier, Polygons + Positions"
+  run_name: "Train(MMCI): Crop-level SL Self Attention Transformer"
   description: ""
