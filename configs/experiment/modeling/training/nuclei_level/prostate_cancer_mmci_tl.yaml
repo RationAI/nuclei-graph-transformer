@@ -29,7 +29,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 15
+    efd_order: 16
     random_rotate: true
     mil: false
   supervision:
