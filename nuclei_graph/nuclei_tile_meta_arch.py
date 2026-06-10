@@ -198,7 +198,6 @@ class NucleiTileMetaArch(LightningModule):
             batch_size=targets_graph.size(0),
         )
 
-        # Calculate Probabilities for Callbacks
         probs_graph = torch.sigmoid(logits_graph)
         self.test_graph_metrics.update(probs_graph, targets_graph.long())
 
