@@ -9,7 +9,7 @@ from torch import Tensor
 
 from nuclei_graph.data.datasets.base import BaseNucleiDataset
 from nuclei_graph.data.supervision import DatasetSupervision
-from nuclei_graph.nuclei_graph_typing import Crop, Targets
+from nuclei_graph.nuclei_graph_typing import Crop
 
 
 class GraphClassificationDataset(BaseNucleiDataset):
@@ -21,7 +21,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
         crop_size_max: int = 12000,
         crop_pos_thr: float = 0.75,
         alpha: float = 0.8,
-        efd_order: int = 10,
+        efd_order: int = 16,
         full_slide: bool = False,
         random_rotate: bool = False,
     ) -> None:
@@ -76,7 +76,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
         crop_indices = np.arange(len(nuclei), dtype=int)
         nuclei_sup = self.get_nuclei_sup(slide.slide_id)
 
-        # Crop generation
+        # Crop Generation
         if not self.full_slide:
             target_size = self.get_crop_size(len(nuclei))
 
@@ -106,13 +106,12 @@ class GraphClassificationDataset(BaseNucleiDataset):
 
         assert crop_indices is not None
 
-        # Labels
+        # Supervision
         crop_indices_t = torch.from_numpy(crop_indices).long()
         crop_nuclei_labels = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
-        crop_labels: Targets = {"nuclei": crop_nuclei_labels, "graph": None}
-
-        graph_label = float(slide.is_carcinoma)
-        crop_labels["graph"] = torch.tensor([graph_label], dtype=torch.float32)
+        crop_graph_label = torch.tensor(
+            [float(slide.is_carcinoma)], dtype=torch.float32
+        )
 
         # Embeddings
         crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
@@ -134,7 +133,7 @@ class GraphClassificationDataset(BaseNucleiDataset):
         return Crop(
             {
                 "features": crop_features,
-                "labels": crop_labels,
+                "labels": {"nuclei": crop_nuclei_labels, "graph": crop_graph_label},
                 "pos": crop_pos_centered,
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),

@@ -35,7 +35,7 @@ class BaseNucleiDataset(Dataset[Crop | PredictSlide], ABC):
         crop_size_min: int = 400,
         crop_size_max: int = 12000,
         alpha: float = 0.8,
-        efd_order: int = 15,
+        efd_order: int = 16,
         full_slide: bool = False,
         random_rotate: bool = False,
     ) -> None:

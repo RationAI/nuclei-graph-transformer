@@ -11,18 +11,18 @@ class Targets(TypedDict):
     graph: Tensor | None
 
 
-class TileMetadata(TypedDict):
-    slide: str
-    x: int
-    y: int
-
-
 class Crop(TypedDict):
     features: NDArray[np.float32]
     labels: Targets
     pos: NDArray[np.float32]
     sup_mask: Tensor
     seq_len: Tensor
+
+
+class TileMetadata(TypedDict):
+    slide: str
+    x: int
+    y: int
 
 
 class TileCrop(TypedDict):

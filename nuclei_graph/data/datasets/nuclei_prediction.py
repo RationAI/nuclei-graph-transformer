@@ -8,7 +8,7 @@ from nuclei_graph.nuclei_graph_typing import PredictSlide
 
 class PredictionDataset(BaseNucleiDataset):
     def __init__(
-        self, metadata: DataFrame, alpha: float = 0.8, efd_order: int = 10
+        self, metadata: DataFrame, alpha: float = 0.8, efd_order: int = 16
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -16,7 +16,6 @@ class PredictionDataset(BaseNucleiDataset):
             alpha=alpha,
             efd_order=efd_order,
             full_slide=True,
-            random_rotate=False,
         )
 
     def __getitem__(self, idx: int) -> PredictSlide:
@@ -32,8 +31,8 @@ class PredictionDataset(BaseNucleiDataset):
         return PredictSlide(
             slide={
                 "features": crop_features,
-                "pos": (crop_pos - crop_pos.mean(axis=0)).astype(np.float32),
                 "labels": {"nuclei": None, "graph": None},
+                "pos": (crop_pos - crop_pos.mean(axis=0)).astype(np.float32),
                 "sup_mask": torch.ones(len(crop_indices), dtype=torch.bool),
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
             },

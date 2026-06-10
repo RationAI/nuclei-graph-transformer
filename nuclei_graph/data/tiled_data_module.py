@@ -1,9 +1,7 @@
-import os
 from collections.abc import Iterable
 from functools import partial
 
 import pandas as pd
-import torch
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
@@ -18,13 +16,6 @@ from nuclei_graph.data.supervision import (
 )
 from nuclei_graph.data.utils import predict_collate_fn, supervised_collate_fn
 from nuclei_graph.nuclei_graph_typing import LabeledSampleBatch, UnlabeledSampleBatch
-
-
-def seed_worker(worker_id):
-    os.environ["OMP_NUM_THREADS"] = "1"
-    os.environ["MKL_NUM_THREADS"] = "1"
-    os.environ["OPENBLAS_NUM_THREADS"] = "1"
-    torch.set_num_threads(1)
 
 
 METADATA_COLS_EVAL = [
@@ -155,6 +146,7 @@ class TiledDataModule(LightningDataModule):
                     self.dataset_cfg,
                     metadata=validation_df,
                     supervision=validation_sup,
+                    carcinoma_filter=False,
                 )
             case "test":
                 slides_df = self._load_df(
@@ -169,11 +161,16 @@ class TiledDataModule(LightningDataModule):
                     self.dataset_cfg,
                     metadata=slides_df,
                     supervision=sup,
+                    carcinoma_filter=False,
                 )
             case "predict":
                 slides_df = self._load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 assert slides_df is not None
-                self.predict_dataset = instantiate(self.dataset_cfg, metadata=slides_df)
+                self.predict_dataset = instantiate(
+                    self.dataset_cfg,
+                    metadata=slides_df,
+                    carcinoma_filter=False,
+                )
 
     def train_dataloader(self) -> Iterable[LabeledSampleBatch]:
         sampler = None
@@ -194,7 +191,6 @@ class TiledDataModule(LightningDataModule):
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
             pin_memory=True,
-            worker_init_fn=seed_worker,
         )
 
     def val_dataloader(self) -> Iterable[LabeledSampleBatch]:
@@ -209,7 +205,6 @@ class TiledDataModule(LightningDataModule):
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
             pin_memory=True,
-            worker_init_fn=seed_worker,
         )
 
     def test_dataloader(self) -> Iterable[LabeledSampleBatch]:
@@ -224,7 +219,6 @@ class TiledDataModule(LightningDataModule):
                 supervised_collate_fn, block_size=self.block_size, k=self.k
             ),
             pin_memory=True,
-            worker_init_fn=seed_worker,
         )
 
     def predict_dataloader(self) -> Iterable[UnlabeledSampleBatch]:
@@ -239,5 +233,4 @@ class TiledDataModule(LightningDataModule):
                 predict_collate_fn, block_size=self.block_size, k=self.k
             ),
             pin_memory=True,
-            worker_init_fn=seed_worker,
         )

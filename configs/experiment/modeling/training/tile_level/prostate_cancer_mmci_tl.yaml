@@ -33,8 +33,7 @@ data:
 
   dataset:
     efd_order: 16
-    stratified_filter: True
-    window_size: 512
+    tile_size: 512
     margin: 128
     random_rotate: true
     uris:

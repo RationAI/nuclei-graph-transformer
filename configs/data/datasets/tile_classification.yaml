@@ -1,10 +1,8 @@
 # @package _global_
 
-_target_: nuclei_graph.data.datasets.tiled_graph_classification.NucleiTileDataset
+_target_: nuclei_graph.data.datasets.tiled_graph_classification.TileClassificationDataset
 uris: ???
 thresholds: ???
-carcinoma_roi_t: ${data.dataset.thresholds.carcinoma_roi_t}
-stratified_filter: ???
 efd_order: ???
-window_size: ???
+tile_size: ???
 margin: ???

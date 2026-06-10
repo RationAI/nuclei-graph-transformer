@@ -5,7 +5,7 @@ defaults:
   - /data/sources/panda
   - /model/meta_archs@model: nuclei_wsl
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets@data.dataset: prediction
+  - /data/datasets@data.dataset: nuclei_prediction
   - /data/supervision@data.supervision.eval_strategy: annotation
   - /callbacks/predictions@trainer.callbacks.predictions: wsl
   #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
