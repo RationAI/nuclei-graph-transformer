@@ -53,9 +53,9 @@ class BaseTileDataset(MetaTiledSlides[T]):
         uris: Iterable[str],
         thresholds: dict[str, float],
         efd_order: int,
-        carcinoma_filter: bool = True,
+        carcinoma_filter: bool,
         tile_size: int = 512,
-        margin: float | None = 128,
+        margin: float | None = None,
     ) -> None:
         super().__init__(uris=uris)
         self.metadata = metadata.set_index("slide_id")
@@ -218,11 +218,11 @@ class TileClassificationDataset(BaseTileDataset):
         uris: Iterable[str],
         thresholds: dict[str, float],
         supervision: DatasetSupervision,
+        random_rotate: bool,
+        tile_size: int,
+        margin: float | None = None,
         efd_order: int = 16,
         carcinoma_filter: bool = True,
-        tile_size: int = 512,
-        margin: float | None = 128,
-        random_rotate: bool = True,
     ) -> None:
         super().__init__(
             metadata, uris, thresholds, efd_order, carcinoma_filter, tile_size, margin
@@ -307,10 +307,10 @@ class TilePredictionDataset(BaseTileDataset):
         metadata: DataFrame,
         uris: Iterable[str],
         thresholds: dict[str, float],
+        tile_size: int,
+        margin: float | None = None,
         efd_order: int = 16,
         carcinoma_filter: bool = False,
-        tile_size: int = 512,
-        margin: float | None = 128,
     ) -> None:
         super().__init__(
             metadata, uris, thresholds, efd_order, carcinoma_filter, tile_size, margin
