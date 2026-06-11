@@ -69,6 +69,7 @@ class Transformer(nn.Module):
         self, x: Tensor, attn_scores: Tensor, seq_lens: Tensor, roi_mask: Tensor
     ) -> tuple[Tensor, Tensor]:
         real_seq_len = seq_lens.sum().item()
+
         x = x[:real_seq_len]
         attn_scores = attn_scores[:real_seq_len]
         roi_mask = roi_mask[:real_seq_len]
@@ -86,8 +87,7 @@ class Transformer(nn.Module):
         attn_weights_list = []
 
         for scores, features in zip(attn_scores_split, x_split, strict=True):
-            weights = torch.softmax(scores, dim=0)
-            weights = torch.nan_to_num(weights, nan=0.0)
+            weights = torch.nan_to_num(torch.softmax(scores, dim=0), nan=0.0)
             pooled_features_list.append(torch.sum(weights * features, dim=0))
             attn_weights_list.append(weights)
 
