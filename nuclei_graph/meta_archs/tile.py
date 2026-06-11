@@ -76,6 +76,17 @@ class TileModelMetaArch(LightningModule):
         assert targets_graph is not None
         targets_graph = targets_graph.view(-1)
 
+        num_positive = targets_graph.sum()
+        total_samples = targets_graph.size(0)
+        positivity_ratio = num_positive / total_samples
+        self.log(
+            "train/graph/pos_ratio",
+            positivity_ratio,
+            on_step=True,
+            on_epoch=True, 
+            batch_size=total_samples,
+        )
+
         logits_graph = self(inputs)["graph"].view(-1)
 
         loss_graph = self.bce(logits_graph, targets_graph)

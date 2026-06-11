@@ -1,7 +1,6 @@
 from typing import Any
 
 import torch
-import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn

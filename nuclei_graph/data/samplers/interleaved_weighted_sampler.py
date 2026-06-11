@@ -4,7 +4,7 @@ import pandas as pd
 from torch.utils.data import Sampler
 
 
-class StratifiedInterleavedSlideSampler(Sampler):
+class BalancedInterleavedSlideSampler(Sampler):
     def __init__(
         self,
         tiles_df: pd.DataFrame,
@@ -12,75 +12,84 @@ class StratifiedInterleavedSlideSampler(Sampler):
         max_active_slides: int = 4,
         samples_per_epoch: int = 10000,
     ):
-        """A custom Sampler that maintains a fixed pool of active slides.
-        
-        It ensures a balanced ratio of positive to negative classes in every batch. 
-        The global tile pool is fully reset and reshuffled at the start of every
-        epoch so that the model sees a random subset of `samples_per_epoch` tiles per epoch.
-        """
         self.tiles_df = tiles_df
-        self.max_active_slides = max_active_slides  # I/O optimization
-        self.target_col = target_col
         self.samples_per_epoch = min(samples_per_epoch, len(tiles_df))
+
+        self.pos_slots = max_active_slides // 2
+        self.neg_slots = max_active_slides - self.pos_slots
+
+        self.slide_labels = tiles_df.groupby("slide_id")[target_col].first()
+        self.pos_slide_ids = self.slide_labels[self.slide_labels == 1].index.tolist()
+        self.neg_slide_ids = self.slide_labels[self.slide_labels == 0].index.tolist()
 
         self.master_slide_groups = {
             k: list(v) for k, v in tiles_df.groupby("slide_id").indices.items()
         }
 
-        self.slide_labels = tiles_df.groupby("slide_id")[target_col].first()
-
         self.remaining_tiles = {}
-        self.active_slides = []
+        self.active_pos = []
+        self.active_neg = []
 
-        self._reset_global_state()
+    def _reset_pool(self, pool_type: str):
+        """Refills and shuffles only the specified class pool."""
+        slide_ids = self.pos_slide_ids if pool_type == "pos" else self.neg_slide_ids
+        for sid in slide_ids:
+            tiles = list(self.master_slide_groups[sid])
+            random.shuffle(tiles)
+            self.remaining_tiles[sid] = tiles
 
-    def _reset_global_state(self):
-        """Reset tile pools and reshuffle tiles within each slide."""
-        self.remaining_tiles = {k: list(v) for k, v in self.master_slide_groups.items()}
-        for slide_id in self.remaining_tiles:
-            random.shuffle(self.remaining_tiles[slide_id])
+    def _get_next_slide(self, pool_type: str):
+        """Finds the next available slide for the specified class, refilling if necessary."""
+        slide_ids = self.pos_slide_ids if pool_type == "pos" else self.neg_slide_ids
+        active_list = self.active_pos if pool_type == "pos" else self.active_neg
 
-        self.active_slides = []
-
-    def _get_next_slide(self):
-        """Select a new slide from the remaining slides using inverse-frequency class weighting."""
-        available_slides = [
+        available = [
             s
-            for s, tiles in self.remaining_tiles.items()
-            if len(tiles) > 0 and s not in self.active_slides
+            for s in slide_ids
+            if len(self.remaining_tiles[s]) > 0 and s not in active_list
         ]
 
-        if not available_slides:
-            return None
+        if not available:
+            self._reset_pool(pool_type)
+            available = [
+                s
+                for s in slide_ids
+                if len(self.remaining_tiles[s]) > 0 and s not in active_list
+            ]
 
-        labels_subset = self.slide_labels.loc[pd.Index(available_slides)]
-        value_counts = labels_subset.value_counts()
-        weights = 1.0 / labels_subset.map(value_counts)
-
-        return random.choices(available_slides, weights=weights.tolist(), k=1)[0]
+        return random.choice(available) if available else None
 
     def __iter__(self):
-        self._reset_global_state()
+        # Fresh pools for a new epoch
+        self._reset_pool("pos")
+        self._reset_pool("neg")
+        self.active_pos = []
+        self.active_neg = []
+
         yielded_count = 0
+        yield_pos_next = True
 
         while yielded_count < self.samples_per_epoch:
-            while len(self.active_slides) < self.max_active_slides:
-                next_slide = self._get_next_slide()
-                if next_slide is not None:
-                    self.active_slides.append(next_slide)
-                else:
-                    break
+            # 1. Ensure Positive slots are full
+            while len(self.active_pos) < self.pos_slots:
+                nxt = self._get_next_slide("pos")
+                if nxt is not None:
+                    self.active_pos.append(nxt)
 
-            if not self.active_slides:
-                self._reset_global_state()
-                continue
+            while len(self.active_neg) < self.neg_slots:
+                nxt = self._get_next_slide("neg")
+                if nxt is not None:
+                    self.active_neg.append(nxt)
 
-            current_slide = random.choice(self.active_slides)
+            active_list = self.active_pos if yield_pos_next else self.active_neg
+            current_slide = random.choice(active_list)
+
             yield self.remaining_tiles[current_slide].pop()
             yielded_count += 1
+            yield_pos_next = not yield_pos_next
 
             if not self.remaining_tiles[current_slide]:
-                self.active_slides.remove(current_slide)
+                active_list.remove(current_slide)
 
     def __len__(self):
         return self.samples_per_epoch

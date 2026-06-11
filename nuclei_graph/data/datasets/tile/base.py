@@ -57,9 +57,7 @@ class BaseTileDataset(MetaTiledSlides[T]):
         self.metadata = metadata.set_index("slide_id")
         self.thresholds = thresholds
         self.efd_order = efd_order
-        self.carcinoma_filter = (
-            carcinoma_filter  # should only be used in the training mode
-        )
+        self.carcinoma_filter = carcinoma_filter  # only in training mode
         self.tile_size = tile_size
         self.margin = margin if margin is not None else tile_size / 4
         self.carcinoma_t = thresholds.get("carcinoma_roi_t")
