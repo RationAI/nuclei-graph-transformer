@@ -9,12 +9,17 @@ class StratifiedInterleavedSlideSampler(Sampler):
         self,
         tiles_df: pd.DataFrame,
         target_col: str = "carcinoma",
-        max_active_slides: int = 3,
+        max_active_slides: int = 4,
         samples_per_epoch: int = 10000,
     ):
-        """Tile Sampler that maintains a fixed number of active slides and stratifies slide selection by class label."""
+        """A custom Sampler that maintains a fixed pool of active slides.
+        
+        It ensures a balanced ratio of positive to negative classes in every batch. 
+        The global tile pool is fully reset and reshuffled at the start of every
+        epoch so that the model sees a random subset of `samples_per_epoch` tiles per epoch.
+        """
         self.tiles_df = tiles_df
-        self.max_active_slides = max_active_slides
+        self.max_active_slides = max_active_slides  # I/O optimization
         self.target_col = target_col
         self.samples_per_epoch = min(samples_per_epoch, len(tiles_df))
 
@@ -55,6 +60,7 @@ class StratifiedInterleavedSlideSampler(Sampler):
         return random.choices(available_slides, weights=weights.tolist(), k=1)[0]
 
     def __iter__(self):
+        self._reset_global_state()
         yielded_count = 0
 
         while yielded_count < self.samples_per_epoch:

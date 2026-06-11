@@ -14,7 +14,7 @@ defaults:
 monitor: validation/graph/loss
 
 trainer:
-  limit_train_batches: 150
+  limit_train_batches: 200
   max_epochs: 350
   gradient_clip_val: 0.7
   accumulate_grad_batches: 8
