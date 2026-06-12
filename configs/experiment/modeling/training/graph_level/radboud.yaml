@@ -30,7 +30,7 @@ data:
 
   dataset:
     crop_size_min: 400
-    crop_size_max: 12000
+    crop_size_max: 8192
     crop_pos_thr: 0.75
     alpha: 0.8
     efd_order: 10
