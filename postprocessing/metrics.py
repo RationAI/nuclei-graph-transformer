@@ -155,7 +155,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             for key, value in computed_graph.items():
                 if "confusion_matrix" in key:
                     disp_cf = ConfusionMatrixDisplay(
-                        confusion_matrix=value.numpy(),
+                        confusion_matrix=value.cpu().numpy(),
                         display_labels=["Negative", "Positive"],
                     )
                     fig, ax = plt.subplots(figsize=(6, 5))
