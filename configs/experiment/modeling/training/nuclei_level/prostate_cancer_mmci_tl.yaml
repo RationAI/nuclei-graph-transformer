@@ -50,5 +50,5 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "Train(MMCI): Nucleus-level Classifier, Polygons + Dense Attn"
+  run_name: "Train(MMCI): Nucleus-level Classifier, Polygons + Positions (RoPE) + Dense Attn"
   description: ""
