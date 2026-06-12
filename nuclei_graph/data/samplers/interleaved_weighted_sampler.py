@@ -60,7 +60,6 @@ class BalancedInterleavedSlideSampler(Sampler):
         return random.choice(available) if available else None
 
     def __iter__(self):
-        # Fresh pools for a new epoch
         self._reset_pool("pos")
         self._reset_pool("neg")
         self.active_pos = []
@@ -70,7 +69,6 @@ class BalancedInterleavedSlideSampler(Sampler):
         yield_pos_next = True
 
         while yielded_count < self.samples_per_epoch:
-            # 1. Ensure Positive slots are full
             while len(self.active_pos) < self.pos_slots:
                 nxt = self._get_next_slide("pos")
                 if nxt is not None:

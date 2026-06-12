@@ -1,4 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.callbacks.predictions.MILPredictionsCallback
-mlflow_artifact_path: "predictions"

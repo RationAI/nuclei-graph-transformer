@@ -11,3 +11,4 @@ config:
   num_layers: ???
   num_classes: ???
   drop_path_rate: ???
+  mil_mode: null

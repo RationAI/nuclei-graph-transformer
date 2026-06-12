@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: agreement
-  - /callbacks/plot_curves@trainer.callbacks.thresholds: wsl
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
 checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/checkpoints/epoch=323-step=28836/checkpoint.ckpt

@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation
-  - /callbacks/predictions@trainer.callbacks.predictions: wsl
+  - /callbacks/predictions@trainer.callbacks.predictions: nuclei
   #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks
   - _self_
 

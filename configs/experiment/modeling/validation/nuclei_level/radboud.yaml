@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: annotation
-  - /callbacks/plot_curves@trainer.callbacks.thresholds: wsl
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
 checkpoint: # TODO

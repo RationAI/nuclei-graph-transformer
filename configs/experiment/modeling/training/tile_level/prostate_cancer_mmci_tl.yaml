@@ -3,11 +3,11 @@
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: tile
+  - /model/meta_archs@model: crop
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: classification
   - /data/samplers@data.sampler: interleaved_weighted_sampler
-  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.train_strategy: annotation # dummy
   - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
@@ -36,9 +36,7 @@ data:
     tile_size: 512
     margin: 128
     random_rotate: true
-    uris:
-      - "mlflow-artifacts:/65/b587398845c54e1c84e8b60f11c42b15/artifacts/MMCI TL Train 512"
-      - "mlflow-artifacts:/65/a43da470f89848abb3a32e59c504ee1a/artifacts/MMCI TL Val 512"
+    uris: ${dataset.mlflow_uris.tiles.train}
     thresholds:
       tissue_roi_t: 0.5
       exclude_t: 0.0
@@ -63,6 +61,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
+      mil_mode: "embedding"
 
 metadata:
   run_name: "Train(MMCI): Tile-level Self Attention Transformer"

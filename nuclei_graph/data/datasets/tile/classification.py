@@ -11,7 +11,7 @@ from nuclei_graph.data.datasets.tile.base import (
     get_slide_data,
 )
 from nuclei_graph.data.supervision import DatasetSupervision
-from nuclei_graph.nuclei_graph_typing import Targets, TileGraph
+from nuclei_graph.nuclei_graph_typing import Sample, Targets
 
 
 class TileClassificationDataset(BaseTileDataset):
@@ -45,7 +45,7 @@ class TileClassificationDataset(BaseTileDataset):
         rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
         return rotated_pos, rotated_cos, rotated_sin
 
-    def __getitem__(self, idx: int) -> TileGraph:
+    def __getitem__(self, idx: int) -> Sample:
         tile = self.tiles.iloc[idx]
         props = self.slide_props[tile["stem"]]
         scaled_props = self.get_scaled_props(tile)
@@ -86,18 +86,20 @@ class TileClassificationDataset(BaseTileDataset):
                 crop_pos_centered = pos_rot
                 crop_features[..., -2], crop_features[..., -1] = cos_rot, sin_rot
 
-        return {
-            "features": torch.as_tensor(crop_features, dtype=torch.float32),
-            "labels": crop_labels,
-            "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
-            "sup_mask": torch.as_tensor(crop_sup_mask),
-            "roi_mask": torch.from_numpy(
-                self.get_roi_mask(scaled_props, centroids[crop_indices])
-            ),
-            "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
-            "metadata": {
-                "slide": tile["stem"],
-                "x": int(tile["x"]),
-                "y": int(tile["y"]),
-            },
-        }
+        return Sample(
+            {
+                "features": torch.as_tensor(crop_features, dtype=torch.float32),
+                "labels": crop_labels,
+                "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
+                "sup_mask": torch.as_tensor(crop_sup_mask),
+                "roi_mask": torch.from_numpy(
+                    self.get_roi_mask(scaled_props, centroids[crop_indices])
+                ),
+                "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
+                "metadata": {
+                    "slide_id": tile["stem"],
+                    "x": int(tile["x"]),
+                    "y": int(tile["y"]),
+                },
+            }
+        )

@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from lightning import Callback, LightningModule, Trainer
 
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
 class BasePredictionsCallback(Callback):
@@ -38,7 +38,7 @@ class BasePredictionsCallback(Callback):
             self.tmp_dir = None
 
 
-class WSLPredictionsCallback(BasePredictionsCallback):
+class NucleiPredictionCallback(BasePredictionsCallback):
     """Computes nucleus-level predictions.
 
     It saves a parquet file with nuclei IDs and prediction scores.
@@ -49,24 +49,29 @@ class WSLPredictionsCallback(BasePredictionsCallback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Outputs,
-        batch: PredictBatch,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        logits = outputs["nuclei"].squeeze(-1)
-        metadata = batch["metadata"][0]  # batch size is 1
+        nuclei_logits = outputs["nuclei"].squeeze(-1)
+        nuclei_preds = torch.sigmoid(nuclei_logits).cpu().numpy().flatten()
 
-        preds_t = torch.sigmoid(logits).cpu().numpy().flatten()
-        preds_df = pd.DataFrame(
-            {"id": metadata["nuclei_ids"], "nuclei_prediction": preds_t}
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required to save predictions."
+
+        slide_id = metadata["slide_id"][0]  # batch size is 1
+        nuclei_ids = metadata["nuclei_ids"][0]  # batch size is 1
+
+        preds_df = (
+            pd.DataFrame({"id": nuclei_ids, "nuclei_prediction": nuclei_preds})
+            .sort_values("id")
+            .reset_index(drop=True)
         )
-        preds_df = preds_df.sort_values("id").reset_index(drop=True)
-
-        self._save_parquet(preds_df, metadata["slide_id"])
+        self._save_parquet(preds_df, slide_id)
 
 
-class MILPredictionsCallback(BasePredictionsCallback):
-    """Computes predictions for the MIL architecture.
+class CropPredictionCallback(BasePredictionsCallback):
+    """Computes crop-level predictions.
 
     It saves a parquet file with nuclei IDs, nuclei and graph label predictions, and nuclei attention scores.
     """
@@ -76,26 +81,78 @@ class MILPredictionsCallback(BasePredictionsCallback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Outputs,
-        batch: PredictBatch,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        logits = outputs["nuclei"].squeeze(-1)
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required to save predictions."
+
+        slide_id = metadata["slide_id"][0]
+        nuclei_ids = metadata["nuclei_ids"][0]
+
+        nuclei_preds = torch.sigmoid(outputs["nuclei"].squeeze(-1))
         attn_scores = outputs["attn_weights"].squeeze(-1)
-
-        graph_pred = torch.sigmoid(outputs["graph"][0]).item()
-
-        metadata = batch["metadata"][0]  # batch size is 1
-        nuclei_preds = torch.sigmoid(logits).cpu().numpy().flatten()
+        graph_pred = torch.sigmoid(outputs["graph"].view(-1)[0])
 
         df = pd.DataFrame(
             {
-                "id": metadata["nuclei_ids"],
-                "nuclei_prediction": nuclei_preds,
+                "id": nuclei_ids,  # batch size is 1
+                "nuclei_prediction": nuclei_preds.cpu().numpy().flatten(),
                 "attention_score": attn_scores.cpu().numpy().flatten(),
-                "graph_prediction": graph_pred,
+                "graph_prediction": graph_pred.item(),
             }
         )
         df = df.sort_values("id").reset_index(drop=True)
 
-        self._save_parquet(df, metadata["slide_id"])
+        self._save_parquet(df, slide_id)
+
+
+class TilePredictionCallback(BasePredictionsCallback):
+    """Computes tile-level predictions.
+
+    Accumulates predictions across batches and saves a parquet file per slide
+    containing x, y coordinates and the graph prediction score.
+    """
+
+    def __init__(self, mlflow_artifact_path: str = "predictions") -> None:
+        super().__init__(mlflow_artifact_path)
+        self.predictions: list[dict] = []
+
+    def on_predict_batch_end(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        outputs: Outputs,
+        batch: Batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        logits_graph = outputs["graph"].view(-1)
+        preds_graph = torch.sigmoid(logits_graph).cpu().numpy()
+
+        slide_ids = batch["metadata"]["slide_id"]
+
+        for i in range(len(slide_ids)):
+            self.predictions.append(
+                {
+                    "slide_id": slide_ids[i],
+                    "x": batch["metadata"]["x"][i],
+                    "y": batch["metadata"]["y"][i],
+                    "tile_prediction": preds_graph[i],
+                }
+            )
+
+    def on_predict_epoch_end(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
+        if self.predictions:
+            df = pd.DataFrame(self.predictions)
+
+            for slide_id, group_df in df.groupby("slide_id"):
+                clean_df = group_df.drop(columns=["slide_id"]).reset_index(drop=True)
+                self._save_parquet(clean_df, str(slide_id))
+
+            self.predictions.clear()
+
+        super().on_predict_epoch_end(trainer, pl_module)

@@ -18,7 +18,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_rotation,
     normalize_efd_for_scale,
 )
-from nuclei_graph.nuclei_graph_typing import TileGraph
+from nuclei_graph.nuclei_graph_typing import Sample
 
 
 PERCENTAGES = [
@@ -206,5 +206,5 @@ class BaseTileDataset(MetaTiledSlides[T]):
         )
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> TileGraph:
+    def __getitem__(self, idx: int) -> Sample:
         raise NotImplementedError

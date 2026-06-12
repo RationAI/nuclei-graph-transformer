@@ -132,7 +132,7 @@ class BaseCurvesCallback(Callback):
         return fig, best_threshold
 
 
-class MILCurvesCallback(BaseCurvesCallback):
+class CropCurvesCallback(BaseCurvesCallback):
     """Generates ROC and Precision-Recall curves for graph and nuclei-level validation set."""
 
     def __init__(self) -> None:
@@ -191,8 +191,8 @@ class MILCurvesCallback(BaseCurvesCallback):
             self.nuclei_targets.clear()
 
 
-class WSLCurvesCallback(BaseCurvesCallback):
-    """Generates ROC and Precision-Recall curves for nuclei-level validation set WSL model."""
+class NucleiCurvesCallback(BaseCurvesCallback):
+    """Generates ROC and Precision-Recall curves for nuclei-level validation set."""
 
     def __init__(self) -> None:
         super().__init__()

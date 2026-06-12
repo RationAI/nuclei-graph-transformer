@@ -3,11 +3,11 @@
 defaults:
   - /experiment/modeling/prediction/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
-  - /model/meta_archs@model: graph
+  - /model/meta_archs@model: crop
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks/predictions@trainer.callbacks.predictions: mil # graph-level and nuclei-level preds
+  - /callbacks/predictions@trainer.callbacks.predictions: crop # graph-level and nuclei-level preds
   #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
   #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
   - _self_
@@ -33,6 +33,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.30
+      mil_mode: "logit"
 
 metadata:
   run_name: "📊 Predictions(MMCI): MIL Classifier"

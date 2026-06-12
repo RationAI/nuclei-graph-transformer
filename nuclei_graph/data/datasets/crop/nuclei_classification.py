@@ -2,11 +2,11 @@ import numpy as np
 import torch
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
-from nuclei_graph.nuclei_graph_typing import Crop
+from nuclei_graph.nuclei_graph_typing import Sample
 
 
 class NucleiClassificationDataset(BaseCropDataset):
-    def __getitem__(self, idx: int) -> Crop:
+    def __getitem__(self, idx: int) -> Sample:
         slide = self.metadata.iloc[idx]
         nuclei = self.get_nuclei(slide.slide_nuclei_path)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
@@ -58,12 +58,14 @@ class NucleiClassificationDataset(BaseCropDataset):
             crop_features[..., -2] = cos_rot
             crop_features[..., -1] = sin_rot
 
-        return Crop(
+        return Sample(
             {
-                "features": crop_features,
+                "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": {"nuclei": crop_nuclei_labels, "graph": None},
-                "pos": crop_pos_centered,
+                "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
+                "roi_mask": torch.ones(len(crop_indices), dtype=torch.bool),
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
+                "metadata": None,
             }
         )

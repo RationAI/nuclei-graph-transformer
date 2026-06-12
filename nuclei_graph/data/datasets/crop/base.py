@@ -17,7 +17,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_scale,
 )
 from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
-from nuclei_graph.nuclei_graph_typing import Crop, PredictCrop
+from nuclei_graph.nuclei_graph_typing import Sample
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
@@ -27,7 +27,7 @@ type AdjacencyGraph = list[list[Neighbor]]
 type Coords = NDArray[np.float32]
 
 
-class BaseCropDataset(Dataset[Crop | PredictCrop], ABC):
+class BaseCropDataset(Dataset[Sample], ABC):
     def __init__(
         self,
         metadata: DataFrame,
@@ -177,5 +177,5 @@ class BaseCropDataset(Dataset[Crop | PredictCrop], ABC):
         return min(randint(self.crop_size_min, self.crop_size_max), n)
 
     @abstractmethod
-    def __getitem__(self, idx: int) -> Crop | PredictCrop:
+    def __getitem__(self, idx: int) -> Sample:
         raise NotImplementedError

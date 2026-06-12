@@ -3,11 +3,11 @@
 defaults:
   - /experiment/modeling/validation/base@_here_
   - /data/sources/panda
-  - /model/meta_archs@model: graph
+  - /model/meta_archs@model: crop
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: graph_classification
   - /data/supervision@data.supervision.eval_strategy: annotation
-  - /callbacks/plot_curves@trainer.callbacks.thresholds: mil
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: crop
   - _self_
 
 checkpoint: # TODO
@@ -34,6 +34,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.30
+      mil_mode: "logit"
 
 metadata:
   run_name: "📊 Curves(Radboud): Crop-level Supervised MIL Classifier"

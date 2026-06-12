@@ -14,7 +14,7 @@ from PIL import Image as PILImage
 from PIL import ImageDraw
 from rationai.masks import slide_resolution, write_big_tiff
 
-from nuclei_graph.nuclei_graph_typing import Outputs, PredictBatch
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
 class BaseMasksCallback(Callback):
@@ -64,14 +64,21 @@ class NucleiPredictionMasksCallback(BaseMasksCallback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Outputs,
-        batch: PredictBatch,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        metadata = batch["metadata"][0]  # batch size is 1
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required to save predictions."
+
+        # Batch Size is 1
+        slide_id = metadata["slide_id"][0]
+        slide_path = metadata["slide_path"][0]
+        nuclei_ids = metadata["nuclei_ids"][0]
+        nuclei_path = metadata["slide_nuclei_path"][0]
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(Path(metadata["slide_path"])) as slide:
+        with OpenSlide(Path(slide_path)) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
@@ -81,20 +88,18 @@ class NucleiPredictionMasksCallback(BaseMasksCallback):
         mask = PILImage.new("L", mask_size, color=0)
         canvas = ImageDraw.Draw(mask)
 
-        # Extract 1D tensor outputs
         logits = outputs["nuclei"].squeeze(-1)
         preds_t = torch.sigmoid(logits).cpu().numpy().flatten()
 
         # Map predictions to IDs and sort to restore original file order
         preds_df = (
-            pd.DataFrame({"id": metadata["nuclei_ids"], "prediction": preds_t})
+            pd.DataFrame({"id": nuclei_ids, "prediction": preds_t})
             .sort_values("id")
             .reset_index(drop=True)
         )
 
         aligned_preds = preds_df["prediction"].values
 
-        nuclei_path = metadata["slide_nuclei_path"]
         nuclei_df = pd.read_parquet(nuclei_path, columns=["id", "polygon"])
         nuclei_df = nuclei_df.sort_values("id").reset_index(drop=True)
         polygons = nuclei_df["polygon"].values
@@ -106,7 +111,7 @@ class NucleiPredictionMasksCallback(BaseMasksCallback):
             pixel_val = int(pred * 255)
             canvas.polygon(scaled_poly, fill=pixel_val, outline=pixel_val)
 
-        output_path = self._get_output_path(metadata["slide_id"])
+        output_path = self._get_output_path(slide_id)
 
         write_big_tiff(
             image=pyvips.Image.new_from_array(np.array(mask)),
@@ -128,14 +133,21 @@ class AttentionMasksCallback(BaseMasksCallback):
         trainer: Trainer,
         pl_module: LightningModule,
         outputs: Outputs,
-        batch: PredictBatch,
+        batch: Batch,
         batch_idx: int,
         dataloader_idx: int = 0,
     ) -> None:
-        metadata = batch["metadata"][0]  # batch size is 1
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required to save predictions."
+
+        # Batch Size is 1
+        slide_id = metadata["slide_id"][0]
+        slide_path = metadata["slide_path"][0]
+        nuclei_ids = metadata["nuclei_ids"][0]
+        nuclei_path = metadata["slide_nuclei_path"][0]
 
         # get scale factors for converting polygon coordinates to mask pixel coordinates
-        with OpenSlide(Path(metadata["slide_path"])) as slide:
+        with OpenSlide(Path(slide_path)) as slide:
             mask_size = slide.level_dimensions[self.level]
             base_mpp_x, base_mpp_y = slide_resolution(slide, 0)
             mask_mpp_x, mask_mpp_y = slide_resolution(slide, self.level)
@@ -149,7 +161,7 @@ class AttentionMasksCallback(BaseMasksCallback):
         attn_scores_raw = attn.cpu().numpy().flatten()
 
         attn_df = (
-            pd.DataFrame({"id": metadata["nuclei_ids"], "score": attn_scores_raw})
+            pd.DataFrame({"id": nuclei_ids, "score": attn_scores_raw})
             .sort_values("id")
             .reset_index(drop=True)
         )
@@ -160,7 +172,6 @@ class AttentionMasksCallback(BaseMasksCallback):
         if max_score > 0:
             attn_scores = attn_scores / max_score
 
-        nuclei_path = metadata["slide_nuclei_path"]
         nuclei_df = pd.read_parquet(nuclei_path, columns=["id", "polygon"])
         nuclei_df = nuclei_df.sort_values("id").reset_index(drop=True)
         polygons = nuclei_df["polygon"].values
@@ -172,7 +183,7 @@ class AttentionMasksCallback(BaseMasksCallback):
             pixel_val = int(pred * 255)
             canvas.polygon(scaled_poly, fill=pixel_val, outline=pixel_val)
 
-        output_path = self._get_output_path(metadata["slide_id"])
+        output_path = self._get_output_path(slide_id)
 
         write_big_tiff(
             image=pyvips.Image.new_from_array(np.array(mask)),

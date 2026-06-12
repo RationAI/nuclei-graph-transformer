@@ -1,16 +1,12 @@
 from collections.abc import Iterable
-from functools import partial
 
 import pandas as pd
 from hydra.utils import instantiate
 from torch.utils.data import DataLoader
 
 from nuclei_graph.data.datamodules.base import METADATA_COLS_EVAL, BaseDataModule
-from nuclei_graph.data.utils import (
-    predict_collate_fn,
-    supervised_collate_fn,
-)
-from nuclei_graph.nuclei_graph_typing import Batch, PredictBatch
+from nuclei_graph.data.datamodules.collator import GraphCollator
+from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class CropDataModule(BaseDataModule):
@@ -140,8 +136,8 @@ class CropDataModule(BaseDataModule):
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=sampler is None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
+            collate_fn=GraphCollator(
+                block_size=self.block_size, k=self.k, predict=False
             ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
@@ -156,8 +152,8 @@ class CropDataModule(BaseDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
+            collate_fn=GraphCollator(
+                block_size=self.block_size, k=self.k, predict=False
             ),
         )
 
@@ -168,19 +164,19 @@ class CropDataModule(BaseDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                supervised_collate_fn, block_size=self.block_size, k=self.k
+            collate_fn=GraphCollator(
+                block_size=self.block_size, k=self.k, predict=False
             ),
         )
 
-    def predict_dataloader(self) -> Iterable[PredictBatch]:
+    def predict_dataloader(self) -> Iterable[Batch]:
         return DataLoader(
             self.predict_dataset,
             batch_size=1,
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=partial(
-                predict_collate_fn, block_size=self.block_size, k=self.k
+            collate_fn=GraphCollator(
+                block_size=self.block_size, k=self.k, predict=True
             ),
         )

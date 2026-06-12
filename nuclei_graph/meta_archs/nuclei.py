@@ -14,7 +14,8 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.nuclei_graph_typing import Batch, Outputs, PredictBatch
+from nuclei_graph.data.block_mask import create_ragged_block_quantized_knn_mask
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
 class NucleiModelMetaArch(LightningModule):
@@ -39,25 +40,36 @@ class NucleiModelMetaArch(LightningModule):
         self.val_step_losses: list[Tensor] = []
         self.val_step_sizes: list[int] = []
 
-    def forward(self, batch: Batch | dict[str, Any]) -> Outputs:
+    def forward(self, inputs: Batch) -> Outputs:
+        if "block_mask" not in inputs:
+            device = inputs["pos"].device
+            gpu_knns = [knn.to(device) for knn in inputs["all_knns"]]
+
+            inputs["block_mask"] = create_ragged_block_quantized_knn_mask(
+                gpu_knns, inputs["block_size"], total_seq_len=inputs["pos"].shape[0]
+            )
+
         return self.net(
-            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+            x=inputs["features"],
+            pos=inputs["pos"],
+            block_mask=inputs["block_mask"],
+            roi_mask=inputs["roi_mask"],
+            seq_lens=inputs["seq_lens"],
         )
 
     def training_step(self, batch: Batch) -> Tensor:
         seq_len = int(batch["seq_lens"].sum().item())
-
         sup_mask = batch["sup_mask"][:seq_len]
 
         assert batch["labels"]["nuclei"] is not None
         targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
-        logits = self(batch)["nuclei"]
-        logits_sup = logits[sup_mask].squeeze(-1)
+        logits = self(batch)
+        logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
-            return logits.sum() * 0.0
+            return logits_sup.sum() * 0.0
 
         # log the ratio of positive and negative nuclei in the batch
         n_pos = (targets_sup == 1).sum().float()
@@ -77,20 +89,19 @@ class NucleiModelMetaArch(LightningModule):
 
     def validation_step(self, batch: Batch) -> Outputs | None:
         seq_len = int(batch["seq_lens"].sum().item())
-
         sup_mask = batch["sup_mask"][:seq_len]
 
         assert batch["labels"]["nuclei"] is not None
         targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
         logits = self(batch)
-        logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
+        logits_nuclei_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
             return None
 
-        loss_sup = self.bce(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_nuclei_sup, targets_sup)
         self.log(
             "validation/loss",
             loss_sup,
@@ -98,7 +109,7 @@ class NucleiModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=sup_size,
         )
-        self.val_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        self.val_metrics.update(torch.sigmoid(logits_nuclei_sup), targets_sup.long())
         self.val_step_losses.append(loss_sup.detach() * sup_size)
         self.val_step_sizes.append(sup_size)
         return logits
@@ -138,14 +149,14 @@ class NucleiModelMetaArch(LightningModule):
         assert batch["labels"]["nuclei"] is not None
         targets_sup = batch["labels"]["nuclei"][:seq_len][sup_mask]
 
-        logits = self(batch)["nuclei"]
-        logits_sup = logits[sup_mask].squeeze(-1)
+        logits = self(batch)
+        logits_nuclei_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
         sup_size = targets_sup.numel()
         if sup_size == 0:
             return None
 
-        loss_sup = self.bce(logits_sup, targets_sup)
+        loss_sup = self.bce(logits_nuclei_sup, targets_sup)
         self.log(
             "test/loss",
             loss_sup,
@@ -153,15 +164,15 @@ class NucleiModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=sup_size,
         )
-        self.test_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        self.test_metrics.update(torch.sigmoid(logits_nuclei_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
         metrics = self.test_metrics.compute()
         self.log_dict(metrics, on_epoch=True, prog_bar=True)
         self.test_metrics.reset()
 
-    def predict_step(self, batch: PredictBatch) -> Outputs:
-        return self(batch["slide"])
+    def predict_step(self, batch: Batch) -> Outputs:
+        return self(batch)
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []

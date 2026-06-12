@@ -1,9 +1,21 @@
-from typing import TypedDict
+from typing import Any, NotRequired, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 from torch import Tensor
-from torch.nn.attention.flex_attention import BlockMask
+
+
+class Metadata(TypedDict):
+    slide_id: str
+
+    # Tile-specific
+    x: NotRequired[int]
+    y: NotRequired[int]
+
+    # Crop-specific
+    slide_path: NotRequired[str]
+    slide_nuclei_path: NotRequired[str]
+    nuclei_ids: NotRequired[NDArray[np.str_]]
 
 
 class Targets(TypedDict):
@@ -11,35 +23,14 @@ class Targets(TypedDict):
     graph: Tensor | None
 
 
-class Crop(TypedDict):
-    features: NDArray[np.float32]
-    labels: Targets
-    pos: NDArray[np.float32]
-    sup_mask: Tensor
-    seq_len: Tensor
-
-
-class TileMetadata(TypedDict):
-    slide: str
-    x: int
-    y: int
-
-
-class TileGraph(TypedDict):
+class Sample(TypedDict):
     features: Tensor
     labels: Targets
     pos: Tensor
     sup_mask: Tensor
     roi_mask: Tensor
     seq_len: Tensor
-    metadata: TileMetadata
-
-
-class CropMetadata(TypedDict):
-    slide_id: str
-    slide_path: str
-    slide_nuclei_path: str
-    nuclei_ids: NDArray[np.str_]
+    metadata: Metadata | None
 
 
 class Outputs(TypedDict):
@@ -48,38 +39,26 @@ class Outputs(TypedDict):
     attn_weights: Tensor
 
 
-class PredictCrop(TypedDict):
-    slide: Crop
-    metadata: CropMetadata
+class BatchMetadata(TypedDict):
+    slide_id: list[str]
+
+    x: NotRequired[list[int]]
+    y: NotRequired[list[int]]
+
+    slide_path: NotRequired[list[str]]
+    slide_nuclei_path: NotRequired[list[str]]
+    nuclei_ids: NotRequired[list[NDArray[np.str_]]]
 
 
 class Batch(TypedDict):
-    block_mask: BlockMask
-    features: Tensor
+    all_knns: list[Tensor]
+    block_size: int
     pos: Tensor
+    features: Tensor
+    sup_mask: Tensor
+    roi_mask: Tensor
+    seq_lens: Tensor
     labels: Targets
-    sup_mask: Tensor
-    seq_lens: Tensor
+    metadata: BatchMetadata | None
 
-
-class PredictBatch(TypedDict):
-    slide: Batch
-    metadata: list[CropMetadata]
-
-
-class BatchMetadata(TypedDict):
-    slide: list[str]
-    x: list[int]
-    y: list[int]
-
-
-class GraphInputs(TypedDict):
-    block_mask: BlockMask
-    features: Tensor
-    pos: Tensor
-    sup_mask: Tensor
-    seq_lens: Tensor
-
-
-type LabeledSampleBatch = tuple[GraphInputs, Targets, BatchMetadata]
-type UnlabeledSampleBatch = tuple[GraphInputs, BatchMetadata]
+    block_mask: NotRequired[Any]

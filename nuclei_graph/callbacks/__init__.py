@@ -3,10 +3,10 @@ from nuclei_graph.callbacks.nuclei_masks import (
     AttentionMasksCallback,
     NucleiPredictionMasksCallback,
 )
-from nuclei_graph.callbacks.plot_curves import MILCurvesCallback, WSLCurvesCallback
+from nuclei_graph.callbacks.plot_curves import CropCurvesCallback, NucleiCurvesCallback
 from nuclei_graph.callbacks.predictions import (
-    MILPredictionsCallback,
-    WSLPredictionsCallback,
+    CropPredictionCallback,
+    NucleiPredictionCallback,
 )
 from nuclei_graph.callbacks.spatial_permutation_importance import (
     SpatialPermutationImportanceCallback,
@@ -15,11 +15,11 @@ from nuclei_graph.callbacks.spatial_permutation_importance import (
 
 __all__ = [
     "AttentionMasksCallback",
-    "MILCurvesCallback",
-    "MILPredictionsCallback",
+    "CropCurvesCallback",
+    "CropPredictionCallback",
+    "NucleiCurvesCallback",
+    "NucleiPredictionCallback",
     "NucleiPredictionMasksCallback",
     "PermutationImportanceCallback",
     "SpatialPermutationImportanceCallback",
-    "WSLCurvesCallback",
-    "WSLPredictionsCallback",
 ]

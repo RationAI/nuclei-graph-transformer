@@ -37,6 +37,9 @@ class Layer(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
+        self.mil_mode = config.get("mil_mode", None)
+        assert self.mil_mode is None or self.mil_mode in ["embedding", "logit"]
+
         dpr = [
             x.item()
             for x in torch.linspace(0, config.drop_path_rate, config.num_layers)
@@ -44,6 +47,7 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
+
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
         self.input_proj = nn.Linear(config.node_features, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
@@ -56,7 +60,7 @@ class Transformer(nn.Module):
             nn.Linear(config.dim // 2, 1),
         )
 
-    def _prepare_features(self, x: Tensor, real_seq_len: int) -> Tensor:
+    def prepare_features(self, x: Tensor, real_seq_len: int) -> Tensor:
         norm_dim = self.batch_norm.num_features
         not_to_norm = x[..., norm_dim:]  # angles
 
@@ -65,36 +69,28 @@ class Transformer(nn.Module):
 
         return self.input_proj(torch.cat([norm_full, not_to_norm], dim=-1))
 
-    def _pool_graph_features(
-        self, x: Tensor, attn_scores: Tensor, seq_lens: Tensor, roi_mask: Tensor
+    def pool(
+        self, x: Tensor, attn_scores: Tensor, seq_lens_list: list[int]
     ) -> tuple[Tensor, Tensor]:
-        real_seq_len = seq_lens.sum().item()
+        """Pools node features/logits into graph features using attention scores as weights.
 
-        x = x[:real_seq_len]
-        attn_scores = attn_scores[:real_seq_len]
-        roi_mask = roi_mask[:real_seq_len]
-
-        # pool only nuclei in the ROI
-        attn_scores = attn_scores.masked_fill(
-            ~roi_mask.bool().unsqueeze(-1), float("-inf")
-        )
-
-        seq_lens_list = seq_lens.tolist()
+        Args:
+            x: Node features or logits.
+            attn_scores: Attention scores.
+            seq_lens_list: List of sequence lengths for each graph in the batch.
+        """
         x_split = torch.split(x, seq_lens_list)
         attn_scores_split = torch.split(attn_scores, seq_lens_list)
 
-        pooled_features_list = []
+        pooled_list = []
         attn_weights_list = []
 
-        for scores, features in zip(attn_scores_split, x_split, strict=True):
-            weights = torch.nan_to_num(torch.softmax(scores, dim=0), nan=0.0)
-            pooled_features_list.append(torch.sum(weights * features, dim=0))
+        for score, _x in zip(attn_scores_split, x_split, strict=True):
+            weights = torch.nan_to_num(torch.softmax(score, dim=0), nan=0.0)
+            pooled_list.append(torch.sum(weights * _x, dim=0))
             attn_weights_list.append(weights)
 
-        graph_features = torch.stack(pooled_features_list)
-        attn_weights = torch.cat(attn_weights_list)
-
-        return graph_features, attn_weights
+        return torch.stack(pooled_list), torch.cat(attn_weights_list)
 
     def forward(
         self,
@@ -102,22 +98,10 @@ class Transformer(nn.Module):
         pos: Tensor,
         block_mask: BlockMask,
         seq_lens: Tensor,
-        roi_mask: Tensor,
+        roi_mask: Tensor | None = None,
     ) -> Outputs:
-        """Forward pass of the Transformer model handling packed ragged sequences.
-
-        Args:
-            x: Target sequence of shape (N_total, d).
-            pos: Target positions of shape (N_total, 2).
-            block_mask: Batched BlockMask object for sparse attention.
-            seq_lens: Lengths of the individual sequences packed in x, shape (b,).
-            roi_mask: Boolean mask indicating ROI nodes, shape (N_total,).
-
-        Returns:
-            Outputs dict containing graph logits, nuclei logits, and attention weights.
-        """
         real_seq_len = int(seq_lens.sum().item())
-        x = self._prepare_features(x, real_seq_len)
+        x = self.prepare_features(x, real_seq_len)
 
         x = x.unsqueeze(0)
         pos = pos.unsqueeze(0)
@@ -127,14 +111,30 @@ class Transformer(nn.Module):
 
         x = self.final_norm(x)
         x = x.squeeze(0)
-        nuclei_logits = self.class_head(x)
 
+        nuclei_logits = self.class_head(x)
         attn_scores = self.attn_head(x)
 
-        graph_features, attn_weights = self._pool_graph_features(
-            x, attn_scores, seq_lens, roi_mask
-        )
-        graph_logits = self.class_head(graph_features)
+        real_seq_len = seq_lens.sum().item()
+
+        x = x[:real_seq_len]
+        nuclei_logits = nuclei_logits[:real_seq_len]
+        attn_scores = attn_scores[:real_seq_len]
+
+        if roi_mask is not None:  # pool only nuclei in ROI
+            roi_mask = roi_mask[:real_seq_len]
+            attn_scores = attn_scores.masked_fill(
+                ~roi_mask.bool().unsqueeze(-1), float("-inf")
+            )
+
+        seq_lens_list = seq_lens.tolist()
+        if self.mil_mode == "embedding":
+            pooled_features, attn_weights = self.pool(x, attn_scores, seq_lens_list)
+            graph_logits = self.class_head(pooled_features)
+        else:  # logit-level pooling
+            graph_logits, attn_weights = self.pool(
+                nuclei_logits, attn_scores, seq_lens_list
+            )
 
         return Outputs(
             graph=graph_logits,

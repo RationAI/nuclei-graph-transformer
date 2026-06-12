@@ -14,14 +14,11 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.nuclei_graph_typing import (
-    Batch,
-    Outputs,
-    PredictBatch,
-)
+from nuclei_graph.data.block_mask import create_ragged_block_quantized_knn_mask
+from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
-class GraphModelMetaArch(LightningModule):
+class CropModelMetaArch(LightningModule):
     def _create_metrics(self, prefix: str) -> MetricCollection:
         return MetricCollection(
             {
@@ -51,9 +48,21 @@ class GraphModelMetaArch(LightningModule):
         self.val_step_graph_losses: list[Tensor] = []
         self.val_step_graph_sizes: list[int] = []
 
-    def forward(self, batch: Batch) -> Outputs:
+    def forward(self, inputs: Batch) -> Outputs:
+        if "block_mask" not in inputs:
+            device = inputs["pos"].device
+            gpu_knns = [knn.to(device) for knn in inputs["all_knns"]]
+
+            inputs["block_mask"] = create_ragged_block_quantized_knn_mask(
+                gpu_knns, inputs["block_size"], total_seq_len=inputs["pos"].shape[0]
+            )
+
         return self.net(
-            batch["features"], batch["pos"], batch["block_mask"], batch["seq_lens"]
+            x=inputs["features"],
+            pos=inputs["pos"],
+            block_mask=inputs["block_mask"],
+            roi_mask=inputs["roi_mask"],
+            seq_lens=inputs["seq_lens"],
         )
 
     def training_step(self, batch: Batch) -> Tensor:
@@ -62,7 +71,6 @@ class GraphModelMetaArch(LightningModule):
         targets_graph = targets_graph.view(-1)
 
         logits_graph = self(batch)["graph"].view(-1)
-
         loss_graph = self.bce(logits_graph, targets_graph)
 
         self.log(
@@ -109,17 +117,13 @@ class GraphModelMetaArch(LightningModule):
 
         logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
-        sup_size = targets_sup.numel()
-        if sup_size == 0:  # empty supervision batch
-            return None
-
         loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "validation/nuclei/loss",
             loss_sup,
             on_epoch=True,
             prog_bar=True,
-            batch_size=sup_size,
+            batch_size=targets_sup.numel(),
         )
         self.val_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         return logits
@@ -195,16 +199,13 @@ class GraphModelMetaArch(LightningModule):
         logits_nuclei = logits["nuclei"]
         logits_sup = logits_nuclei[sup_mask].squeeze(-1)
 
-        sup_size = targets_sup.numel()
-        if sup_size == 0:
-            return None
         loss_sup = self.bce(logits_sup, targets_sup)
         self.log(
             "test/nuclei/loss",
             loss_sup,
             on_epoch=True,
             prog_bar=True,
-            batch_size=sup_size,
+            batch_size=targets_sup.numel(),
         )
         self.test_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
@@ -219,8 +220,8 @@ class GraphModelMetaArch(LightningModule):
         self.log_dict(nuclei_metrics, on_epoch=True, prog_bar=True)
         self.test_nuclei_metrics.reset()
 
-    def predict_step(self, batch: PredictBatch) -> Outputs:
-        return self(batch["slide"])
+    def predict_step(self, batch: Batch) -> Outputs:
+        return self(batch)
 
     def _get_optimizer_params(self) -> list[dict[str, Any]]:
         decay_params = []
@@ -235,7 +236,7 @@ class GraphModelMetaArch(LightningModule):
                 decay_params.append(w)
 
         return [
-            {"params": decay_params, "weight_decay": 1e-2},
+            {"params": decay_params, "weight_decay": 1e-3},
             {"params": no_decay_params, "weight_decay": 0.0},
         ]
 
