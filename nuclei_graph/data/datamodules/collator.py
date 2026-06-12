@@ -72,7 +72,7 @@ class GraphCollator:
             sorted_pos = pos_tensor[sort_indices]
 
             actual_k = min(self.k, n_nodes)
-            
+
             sorted_pos_np = sorted_pos.numpy()
             nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean")
             _, knn_np = nbrs.fit(sorted_pos_np).kneighbors(sorted_pos_np)
