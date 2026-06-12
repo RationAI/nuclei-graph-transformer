@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import pandas as pd
 from hydra.utils import instantiate
@@ -6,6 +6,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from ratiopath.model_selection import train_test_split
 from torch.utils.data import Dataset
+from lightning import LightningDataModule
 
 from nuclei_graph.data.supervision import (
     DatasetSupervision,
@@ -24,7 +25,7 @@ METADATA_COLS_EVAL = [
 ]
 
 
-class BaseDataModule(Dataset[Sample], ABC):
+class BaseDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,

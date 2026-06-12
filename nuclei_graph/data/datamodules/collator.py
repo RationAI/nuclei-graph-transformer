@@ -2,6 +2,7 @@ import math
 from typing import Any, Final, cast
 
 import torch
+from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
 
 from nuclei_graph.data.block_mask import (
@@ -71,8 +72,12 @@ class GraphCollator:
             sorted_pos = pos_tensor[sort_indices]
 
             actual_k = min(self.k, n_nodes)
-            dist_matrix = torch.cdist(sorted_pos, sorted_pos)
-            knn = dist_matrix.topk(actual_k, largest=False).indices
+            
+            sorted_pos_np = sorted_pos.numpy()
+            nbrs = NearestNeighbors(n_neighbors=actual_k, metric="euclidean")
+            _, knn_np = nbrs.fit(sorted_pos_np).kneighbors(sorted_pos_np)
+
+            knn = torch.from_numpy(knn_np)
 
             if actual_k < self.k:
                 pad = torch.full(
