@@ -4,7 +4,10 @@ from typing import Any, Final, cast
 import torch
 from torch import Tensor
 
-from nuclei_graph.data.block_mask import block_spatial_sort
+from nuclei_graph.data.block_mask import (
+    block_spatial_sort,
+    create_ragged_block_quantized_knn_mask,
+)
 from nuclei_graph.nuclei_graph_typing import Batch, BatchMetadata, Sample, Targets
 
 
@@ -52,8 +55,10 @@ class GraphCollator:
             raise ValueError("All samples in batch are empty.")
 
         all_pos, all_features, all_knns = [], [], []
-        all_labels_nuclei, all_labels_graph = [], []
-        all_sup_masks, all_roi_masks = [], []
+        all_labels_nuclei: list[Tensor] = []
+        all_labels_graph: list[Tensor] = []
+        all_sup_masks: list[Tensor] = []
+        all_roi_masks: list[Tensor] = []
 
         current_global_idx = 0
         for b in batch:
@@ -96,9 +101,14 @@ class GraphCollator:
             targets["nuclei"] = self._pad(torch.cat(all_labels_nuclei), target_seq_len)
             targets["graph"] = torch.cat(all_labels_graph) if all_labels_graph else None
 
+        block_mask = create_ragged_block_quantized_knn_mask(
+            all_knns, self.block_size, total_seq_len=target_seq_len
+        )
+
         return {
             "all_knns": all_knns,
             "block_size": self.block_size,
+            "block_mask": block_mask,
             "pos": self._pad(torch.cat(all_pos), target_seq_len),
             "features": self._pad(torch.cat(all_features), target_seq_len),
             "sup_mask": self._pad(

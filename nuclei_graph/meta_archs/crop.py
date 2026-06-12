@@ -14,7 +14,6 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
-from nuclei_graph.data.block_mask import create_ragged_block_quantized_knn_mask
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
@@ -49,14 +48,6 @@ class CropModelMetaArch(LightningModule):
         self.val_step_graph_sizes: list[int] = []
 
     def forward(self, inputs: Batch) -> Outputs:
-        if "block_mask" not in inputs:
-            device = inputs["pos"].device
-            gpu_knns = [knn.to(device) for knn in inputs["all_knns"]]
-
-            inputs["block_mask"] = create_ragged_block_quantized_knn_mask(
-                gpu_knns, inputs["block_size"], total_seq_len=inputs["pos"].shape[0]
-            )
-
         return self.net(
             x=inputs["features"],
             pos=inputs["pos"],

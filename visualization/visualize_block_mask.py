@@ -13,7 +13,7 @@ from nuclei_graph.data.block_mask import (
 flex_attention = torch.compile(flex_attention)
 
 
-def simulate_and_visualize():
+def simulate_and_visualize() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cpu":
         print(
@@ -67,7 +67,7 @@ def simulate_and_visualize():
         1, 1, N_total, N_total, dtype=torch.float16, device=device, requires_grad=True
     )
 
-    def score_mod(score, b, h, q_idx, kv_idx):
+    def score_mod(score, b, h, q_idx, kv_idx) -> torch.Tensor:
         return score + bias[b, h, q_idx, kv_idx]
 
     out = flex_attention(q, k, v, block_mask=block_mask, score_mod=score_mod)
@@ -142,7 +142,12 @@ def simulate_and_visualize():
                     weight="bold",
                     ha="center",
                     va="center",
-                    bbox=dict(facecolor="white", alpha=0.6, edgecolor="none", pad=1),
+                    bbox={
+                        "facecolor": "white",
+                        "alpha": 0.6,
+                        "edgecolor": "none",
+                        "pad": 1,
+                    },
                 )
 
         # Draw arrows based on the global evaluated mask
@@ -156,23 +161,27 @@ def simulate_and_visualize():
                 k_start = max(current_idx, k_gb * BLOCK_SIZE)
                 k_end = min(current_idx + seq_len, (k_gb + 1) * BLOCK_SIZE)
 
-                if q_start < q_end and k_start < k_end:
-                    if evaluated_mask[q_start:q_end, k_start:k_end].any():
-                        if q_gb in centroids and k_gb in centroids:
-                            cq, ck = centroids[q_gb], centroids[k_gb]
-                            ax_2d.annotate(
-                                "",
-                                xy=ck,
-                                xytext=cq,
-                                arrowprops=dict(
-                                    arrowstyle="->",
-                                    color="red",
-                                    alpha=0.4,
-                                    linewidth=1.5,
-                                    shrinkA=8,
-                                    shrinkB=8,
-                                ),
-                            )
+                if (
+                    q_start < q_end
+                    and k_start < k_end
+                    and evaluated_mask[q_start:q_end, k_start:k_end].any()
+                    and q_gb in centroids
+                    and k_gb in centroids
+                ):
+                    cq, ck = centroids[q_gb], centroids[k_gb]
+                    ax_2d.annotate(
+                        "",
+                        xy=ck,
+                        xytext=cq,
+                        arrowprops={
+                            "arrowstyle": "->",
+                            "color": "red",
+                            "alpha": 0.4,
+                            "linewidth": 1.5,
+                            "shrinkA": 8,
+                            "shrinkB": 8,
+                        },
+                    )
 
         ax_2d.set_title(
             f"Doc {doc_id} Spatial Keys\nGlobal Blocks: {first_global_block} - {last_global_block}"

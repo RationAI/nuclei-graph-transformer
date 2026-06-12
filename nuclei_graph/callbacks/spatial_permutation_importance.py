@@ -80,7 +80,7 @@ class SpatialPermutationImportanceCallback(Callback):
             base_targets.append(targets)
 
         base_scores = baseline_metrics.compute()
-        base_logits, base_targets = torch.cat(base_logits), torch.cat(base_targets)
+        base_logits_t, base_targets_t = torch.cat(base_logits), torch.cat(base_targets)
 
         for batch in tqdm(
             self.cached_batches, desc="Permuting Spatial Positions", leave=False
@@ -106,13 +106,13 @@ class SpatialPermutationImportanceCallback(Callback):
             perm_targets.append(targets)
 
         perm_scores = perm_metrics.compute()
-        perm_logits, perm_targets = torch.cat(perm_logits), torch.cat(perm_targets)
+        perm_logits_t, perm_targets_t = torch.cat(perm_logits), torch.cat(perm_targets)
 
-        base_prec, base_rec, _ = pr_curve(base_logits, base_targets)
-        perm_prec, perm_rec, _ = pr_curve(perm_logits, perm_targets)
+        base_prec, base_rec, _ = pr_curve(base_logits_t, base_targets_t)
+        perm_prec, perm_rec, _ = pr_curve(perm_logits_t, perm_targets_t)
 
         metric_drops = {
-            k: base_scores[k].item() - perm_scores[k].item() for k in base_scores.keys()
+            k: base_scores[k].item() - perm_scores[k].item() for k in base_scores
         }
 
         self._plot_and_log_results(
@@ -125,7 +125,14 @@ class SpatialPermutationImportanceCallback(Callback):
 
         self.cached_batches.clear()
 
-    def _plot_and_log_results(self, metric_drops, b_p, b_r, p_p, p_r) -> None:
+    def _plot_and_log_results(
+        self,
+        metric_drops: dict[str, float],
+        b_p: torch.Tensor,
+        b_r: torch.Tensor,
+        p_p: torch.Tensor,
+        p_r: torch.Tensor,
+    ) -> None:
         with tempfile.TemporaryDirectory() as output_dir:
             out_path = Path(output_dir)
 

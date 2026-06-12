@@ -1,8 +1,9 @@
-from typing import Any, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 from torch import Tensor
+from torch.nn.attention.flex_attention import BlockMask
 
 
 class Metadata(TypedDict):
@@ -53,6 +54,7 @@ class BatchMetadata(TypedDict):
 class Batch(TypedDict):
     all_knns: list[Tensor]
     block_size: int
+    block_mask: BlockMask
     pos: Tensor
     features: Tensor
     sup_mask: Tensor
@@ -60,5 +62,3 @@ class Batch(TypedDict):
     seq_lens: Tensor
     labels: Targets
     metadata: BatchMetadata | None
-
-    block_mask: NotRequired[Any]

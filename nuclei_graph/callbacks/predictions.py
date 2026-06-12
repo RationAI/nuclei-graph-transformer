@@ -131,14 +131,16 @@ class TilePredictionCallback(BasePredictionsCallback):
         logits_graph = outputs["graph"].view(-1)
         preds_graph = torch.sigmoid(logits_graph).cpu().numpy()
 
-        slide_ids = batch["metadata"]["slide_id"]
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required"
+        slide_ids = metadata["slide_id"]
 
         for i in range(len(slide_ids)):
             self.predictions.append(
                 {
                     "slide_id": slide_ids[i],
-                    "x": batch["metadata"]["x"][i],
-                    "y": batch["metadata"]["y"][i],
+                    "x": metadata["x"][i],
+                    "y": metadata["y"][i],
                     "tile_prediction": preds_graph[i],
                 }
             )

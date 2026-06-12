@@ -115,8 +115,6 @@ class Transformer(nn.Module):
         nuclei_logits = self.class_head(x)
         attn_scores = self.attn_head(x)
 
-        real_seq_len = seq_lens.sum().item()
-
         x = x[:real_seq_len]
         nuclei_logits = nuclei_logits[:real_seq_len]
         attn_scores = attn_scores[:real_seq_len]

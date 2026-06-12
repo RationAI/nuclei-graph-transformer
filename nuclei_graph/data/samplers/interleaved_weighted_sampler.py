@@ -1,4 +1,5 @@
 import random
+from collections.abc import Iterator
 
 import pandas as pd
 from torch.utils.data import Sampler
@@ -30,7 +31,7 @@ class BalancedInterleavedSlideSampler(Sampler):
         self.active_pos = []
         self.active_neg = []
 
-    def _reset_pool(self, pool_type: str):
+    def _reset_pool(self, pool_type: str) -> None:
         """Refills and shuffles only the specified class pool."""
         slide_ids = self.pos_slide_ids if pool_type == "pos" else self.neg_slide_ids
         for sid in slide_ids:
@@ -38,7 +39,7 @@ class BalancedInterleavedSlideSampler(Sampler):
             random.shuffle(tiles)
             self.remaining_tiles[sid] = tiles
 
-    def _get_next_slide(self, pool_type: str):
+    def _get_next_slide(self, pool_type: str) -> int | None:
         """Finds the next available slide for the specified class, refilling if necessary."""
         slide_ids = self.pos_slide_ids if pool_type == "pos" else self.neg_slide_ids
         active_list = self.active_pos if pool_type == "pos" else self.active_neg
@@ -59,7 +60,7 @@ class BalancedInterleavedSlideSampler(Sampler):
 
         return random.choice(available) if available else None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         self._reset_pool("pos")
         self._reset_pool("neg")
         self.active_pos = []
