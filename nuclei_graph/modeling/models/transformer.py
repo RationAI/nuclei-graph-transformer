@@ -47,7 +47,7 @@ class Transformer(nn.Module):
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        self.input_proj = nn.Linear(config.node_features, config.dim)
+        self.input_proj = nn.Linear(config.norm_dim, config.dim)
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
