@@ -2,6 +2,7 @@ import torch
 from timm.layers.drop import DropPath
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
+from torch.utils.checkpoint import checkpoint
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
@@ -118,7 +119,7 @@ class Transformer(nn.Module):
         angles = angles.unsqueeze(0)  # (1, N_total, num_angles)
 
         for layer in self.layers:
-            x = layer(x, pos, angles, block_mask)
+            x = checkpoint(layer, x, pos, angles, block_mask, use_reentrant=False)
 
         x = self.final_norm(x)
         x = x.squeeze(0)  # remove batch dim: (N_total, dim)
