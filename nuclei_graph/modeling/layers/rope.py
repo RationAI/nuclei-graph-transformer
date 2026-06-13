@@ -57,7 +57,6 @@ class RoPE(nn.Module):
         freqs = self.base_freqs[None, None, :]  # [1, 1, d/2]
 
         pos_phase = pos_phase * freqs
-        rot_phase = rot_phase * freqs
         total_phase = pos_phase + rot_phase
 
         cis = torch.polar(torch.ones_like(total_phase), total_phase)

@@ -67,7 +67,7 @@ class Transformer(nn.Module):
         norm_full = torch.zeros_like(x[..., :norm_dim])
         norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
-        x_out = self.input_proj(torch.cat([norm_full, not_to_norm], dim=-1))
+        x_out = self.input_proj(norm_full)
 
         return x_out, not_to_norm
 
