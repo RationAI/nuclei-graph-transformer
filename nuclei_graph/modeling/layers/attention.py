@@ -28,13 +28,14 @@ class RotarySparseAttention(nn.Module):
 
         self.rope = RoPE(self.head_dim)
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+    def forward(
+        self, x: Tensor, pos: Tensor, angles: Tensor, block_mask: BlockMask
+    ) -> Tensor:
         q, k, v = rearrange(
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
-
-        q = self.rope(q, pos)
-        k = self.rope(k, pos)
+        q = self.rope(q, pos, angles)
+        k = self.rope(k, pos, angles)
 
         x_out = flex_attention(q, k, v, block_mask=block_mask)
 
