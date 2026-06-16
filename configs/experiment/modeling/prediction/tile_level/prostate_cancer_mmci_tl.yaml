@@ -1,13 +1,14 @@
 # @package _global_
 
 defaults:
-  - /experiment/modeling/testing/base@_here_
+  - /experiment/modeling/prediction/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
   - /model/meta_archs@model: crop
   - /model/models@model.net: self_attn_transformer
-  - /data/datasets/tile@data.dataset: classification
-  - /data/supervision@data.supervision.eval_strategy: annotation # dummy
-  - /callbacks@trainer.callbacks.tile_histograms: tile_histograms
+  - /data/datasets/tile@data.dataset: prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
+  #- /callbacks/predictions@trainer.callbacks.predictions: tile
+  - /callbacks/masks@trainer.callbacks.tile_masks: tile
   - _self_
 
 checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
@@ -18,14 +19,14 @@ data:
 
   batch_size: 32
   k: 16
-  metadata: ${dataset.mlflow_uris.metadata}
+
+  metadata:
+    predict: ${dataset.mlflow_uris.metadata.test}
 
   dataset:
     tile_size: 512
     margin: 128
     efd_order: 16
-    random_rotate: false
-    carcinoma_filter: false
     uris: ${dataset.mlflow_uris.tiles.test}
     thresholds:
       tissue_roi_t: 0.5
@@ -50,5 +51,5 @@ model:
       mil_mode: "embedding"
 
 metadata:
-  run_name: "Tile Histograms(MMCI): Tile-level Classifier"
-  description: "[MLflow training run](${checkpoint_url})"
+  run_name: "Tile Masks(MMCI): Tile-level Classifier"
+  description: "Model: [MLflow training run](${checkpoint_url})"

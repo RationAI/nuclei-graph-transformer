@@ -13,6 +13,7 @@ from openslide import OpenSlide
 from PIL import Image as PILImage
 from PIL import ImageDraw
 from rationai.masks import slide_resolution, write_big_tiff
+from rationai.masks.mask_builders import ScalarMaskBuilder
 
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
@@ -52,6 +53,86 @@ class BaseMasksCallback(Callback):
                 )
             self.tmp_dir.cleanup()
             self.tmp_dir = None
+
+
+class TileHeatmapMasksCallback(BaseMasksCallback):
+    """Generates probability heatmaps for tile predictions."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("mlflow_artifact_path", "tile_heatmaps")
+        super().__init__(**kwargs)
+        self.mask_builders: dict[str, ScalarMaskBuilder] = {}
+
+    def _get_dataset(self, trainer: Trainer):
+        """Safely extracts the predict dataset from Lightning internals."""
+        if hasattr(trainer, "predict_dataloaders") and hasattr(
+            trainer.predict_dataloaders, "dataset"
+        ):
+            return trainer.predict_dataloaders.dataset
+        return trainer.datamodule.predict_dataset
+
+    def on_predict_batch_end(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        outputs: Outputs,
+        batch: Batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        logits_graph = outputs["graph"].view(-1)
+        preds_graph = torch.sigmoid(logits_graph).cpu()
+
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required"
+        slide_ids = metadata["slide_id"]
+        xs = metadata["x"]
+        ys = metadata["y"]
+
+        dataset = self._get_dataset(trainer)
+        unique_slides = set(slide_ids)
+
+        for slide_id in unique_slides:
+            if slide_id not in self.mask_builders:
+                slide_row = dataset.slides[dataset.slides["stem"] == slide_id].iloc[0]
+
+                if "mpp_x" in slide_row:
+                    mpp_x, mpp_y = slide_row["mpp_x"], slide_row["mpp_y"]
+                else:
+                    meta_row = dataset.metadata.loc[slide_id]
+                    mpp_x, mpp_y = meta_row["mpp_x"], meta_row["mpp_y"]
+
+                extent_tile = slide_row["tile_extent_x"]
+                stride = slide_row.get("stride_x", extent_tile)
+
+                self.mask_builders[slide_id] = ScalarMaskBuilder(
+                    save_dir=Path(self.tmp_dir.name),
+                    filename=str(slide_id),
+                    extent_x=int(slide_row["extent_x"]),
+                    extent_y=int(slide_row["extent_y"]),
+                    mpp_x=float(mpp_x),
+                    mpp_y=float(mpp_y),
+                    extent_tile=int(extent_tile),
+                    stride=int(stride),
+                    device="cpu",
+                )
+
+            indices = [i for i, sid in enumerate(slide_ids) if sid == slide_id]
+
+            slide_preds = preds_graph[indices].unsqueeze(-1)
+            slide_xs = torch.tensor([xs[i] for i in indices], dtype=torch.float32)
+            slide_ys = torch.tensor([ys[i] for i in indices], dtype=torch.float32)
+
+            self.mask_builders[slide_id].update(slide_preds, slide_xs, slide_ys)
+
+    def on_predict_epoch_end(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
+        if self.tmp_dir is not None:
+            for builder in self.mask_builders.values():
+                builder.save()
+            self.mask_builders.clear()
+        super().on_predict_epoch_end(trainer, pl_module)
 
 
 class NucleiPredictionMasksCallback(BaseMasksCallback):

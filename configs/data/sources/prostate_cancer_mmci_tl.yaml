@@ -48,8 +48,8 @@ dataset:
       train:
         - mlflow-artifacts:/65/b587398845c54e1c84e8b60f11c42b15/artifacts/MMCI TL Train 512
         - mlflow-artifacts:/65/a43da470f89848abb3a32e59c504ee1a/artifacts/MMCI TL Val 512
-      test: 
-        - mlflow-artifacts:/65/c47cd842fbf14bf399cd4aca43af3127/artifacts/MMCI TL Test 512
+      test:
+        - mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512 # filtered
 
     # preprocessing/metadata_mapping/prostate_cancer_mmci_tl.py
     metadata:

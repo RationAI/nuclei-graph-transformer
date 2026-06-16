@@ -1,3 +1,4 @@
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -52,28 +53,33 @@ class TileHistogramsCallback(Callback):
         pos_preds = preds[labels == 1]
         neg_preds = preds[labels == 0]
 
-        _, (ax_pos, ax_neg) = plt.subplots(1, 2, figsize=(14, 6))
+        with tempfile.TemporaryDirectory() as output_dir:
+            out_path = Path(output_dir)
 
-        ax_pos.hist(pos_preds, bins=20, range=(0, 1), color="green", alpha=0.7)
-        ax_pos.set_title("Positive Tiles")
-        ax_pos.set_xlabel("Predicted Probability")
-        ax_pos.set_ylabel("Count")
+            _, (ax_pos, ax_neg) = plt.subplots(1, 2, figsize=(14, 6))
 
-        ax_neg.hist(neg_preds, bins=20, range=(0, 1), color="red", alpha=0.7)
-        ax_neg.set_title("Negative Tiles")
-        ax_neg.set_xlabel("Predicted Probability")
-        ax_neg.set_ylabel("Count")
+            ax_pos.hist(pos_preds, bins=20, range=(0, 1), color="green", alpha=0.7)
+            ax_pos.set_title("Positive Tiles")
+            ax_pos.set_xlabel("Predicted Probability")
+            ax_pos.set_ylabel("Count")
 
-        plt.suptitle("Predicted Probability Histograms by Tile Class")
-        plt.tight_layout(rect=(0, 0, 1, 0.95))
-        
-        plot_path = Path("tile_histograms.png")
-        plt.savefig(plot_path)
+            ax_neg.hist(neg_preds, bins=20, range=(0, 1), color="red", alpha=0.7)
+            ax_neg.set_title("Negative Tiles")
+            ax_neg.set_xlabel("Predicted Probability")
+            ax_neg.set_ylabel("Count")
 
-        mlflow.log_artifact(str(plot_path), artifact_path="plots")
+            plt.suptitle("Predicted Probability Histograms by Tile Class")
+            plt.tight_layout(rect=(0, 0, 1, 0.95))
+            
+            plot_file = out_path / "tile_histograms.png" 
+            plt.savefig(plot_file, dpi=300)
 
-        plot_path.unlink(missing_ok=True)
-        plt.close()
+            if active_run := mlflow.active_run():
+                mlflow.log_artifact(
+                    str(out_path / "tile_histograms.png"), run_id=active_run.info.run_id
+                )
+
+            plt.close("all")
 
         self.all_preds.clear()
         self.all_labels.clear()

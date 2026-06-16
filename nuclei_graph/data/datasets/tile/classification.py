@@ -50,12 +50,10 @@ class TileClassificationDataset(BaseTileDataset):
         props = self.slide_props[tile["stem"]]
         scaled_props = self.get_scaled_props(tile)
 
-        # Tile-Crop Generation
         nuclei_path = self.slide_props[tile["stem"]]["slide_nuclei_path"]
         polygons, centroids, centroid_tree = get_slide_data(nuclei_path)
         crop_indices = self.get_crop_indices(scaled_props, centroids, centroid_tree)
 
-        # Supervision
         nuclei_sup = self.supervision.supervision_map[tile["stem"]].nuclei_supervision
         crop_sup_mask = nuclei_sup.get_sup_mask(len(centroids))[crop_indices]
         crop_nuclei_labels = nuclei_sup.get_targets(len(centroids))[crop_indices]
@@ -65,10 +63,15 @@ class TileClassificationDataset(BaseTileDataset):
             "graph": torch.tensor([float(tile["carcinoma"])]),
         }
 
-        # EFD Computation
         if len(crop_indices) == 0:
-            crop_features = np.zeros((0, self.efd_order * 4 + 3), dtype=np.float32)
-            crop_pos_centered = np.zeros((0, 2), dtype=np.float32)
+            crop_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
+            crop_pos_centered = np.zeros((1, 2), dtype=np.float32)
+
+            crop_sup_mask = np.array([False], dtype=bool)
+            crop_labels["nuclei"] = torch.tensor([0.0], dtype=torch.float32)
+
+            roi_mask = np.array([False], dtype=bool)
+            seq_len = 1
         else:
             crop_features = self.get_features(
                 polygons[crop_indices], props["mpp_x"], props["mpp_y"]
@@ -86,16 +89,17 @@ class TileClassificationDataset(BaseTileDataset):
                 crop_pos_centered = pos_rot
                 crop_features[..., -2], crop_features[..., -1] = cos_rot, sin_rot
 
+            roi_mask = self.get_roi_mask(scaled_props, centroids[crop_indices])
+            seq_len = len(crop_indices)
+
         return Sample(
             {
                 "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": crop_labels,
                 "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.as_tensor(crop_sup_mask),
-                "roi_mask": torch.from_numpy(
-                    self.get_roi_mask(scaled_props, centroids[crop_indices])
-                ),
-                "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
+                "roi_mask": torch.from_numpy(roi_mask),
+                "seq_len": torch.tensor(seq_len, dtype=torch.int32),
                 "metadata": {
                     "slide_id": tile["stem"],
                     "x": int(tile["x"]),

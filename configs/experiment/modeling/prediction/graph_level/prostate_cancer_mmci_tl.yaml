@@ -8,8 +8,8 @@ defaults:
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - /callbacks/predictions@trainer.callbacks.predictions: crop # graph-level and nuclei-level preds
-  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
-  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
+  #- /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
+  #- /callbacks/masks@trainer.callbacks.attn_masks: attention
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt

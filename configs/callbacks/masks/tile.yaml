@@ -1,6 +1,6 @@
 # @package _global_
 
-_target_: nuclei_graph.callbacks.nuclei_masks.NucleiPredictionMasksCallback
+_target_: nuclei_graph.callbacks.masks.TileHeatmapMasksCallback
 level: 2
 mask_tile_width: 512
 mask_tile_height: 512

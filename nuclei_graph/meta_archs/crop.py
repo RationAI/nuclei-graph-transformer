@@ -92,7 +92,8 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        self.val_graph_metrics.update(torch.sigmoid(logits_graph), targets_graph.long())
+        if batch["sup_mask"].any():
+            self.val_graph_metrics.update(torch.sigmoid(logits_graph), targets_graph.long())
 
         batch_size = targets_graph.size(0)
         self.val_step_graph_losses.append(loss_graph.detach() * batch_size)
@@ -116,7 +117,8 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_sup.numel(),
         )
-        self.val_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        if logits_sup.numel() > 0:
+            self.val_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
         return logits
 
     def on_validation_epoch_end(self) -> None:
@@ -175,9 +177,10 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        self.test_graph_metrics.update(
-            torch.sigmoid(logits_graph), targets_graph.long()
-        )
+        if batch["sup_mask"].any():
+            self.test_graph_metrics.update(
+                torch.sigmoid(logits_graph), targets_graph.long()
+            )
 
         # nuclei-level metrics
         seq_len = int(batch["seq_lens"].sum().item())
@@ -198,7 +201,8 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_sup.numel(),
         )
-        self.test_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
+        if logits_sup.numel() > 0:
+            self.test_nuclei_metrics.update(torch.sigmoid(logits_sup), targets_sup.long())
 
     def on_test_epoch_end(self) -> None:
         # compute and reset graph-level metrics

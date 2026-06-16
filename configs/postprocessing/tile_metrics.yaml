@@ -1,0 +1,16 @@
+# @package _global_
+
+metadata_uri: ???
+predictions_uri: ???
+label_column: ???
+threshold: ???
+mlflow_artifact_path: slide_tile_metrics.json
+
+checkpoint: ???
+checkpoint_url: ???
+
+metadata:
+  run_name: "Prediction metrics"
+  description: "Model: [MLflow training run](${checkpoint_url})"
+  hyperparams:
+    threshold: ${threshold}
