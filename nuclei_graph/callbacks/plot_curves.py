@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import matplotlib.figure
@@ -6,36 +8,62 @@ import mlflow
 import numpy as np
 import torch
 from lightning import Callback, LightningModule, Trainer
+from mlflow.tracking import MlflowClient
 from sklearn.metrics import auc, precision_recall_curve, roc_curve
 
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class BaseCurvesCallback(Callback):
+    def __init__(self, mlflow_run_id: str | None = None) -> None:
+        super().__init__()
+        self.mlflow_run_id = mlflow_run_id
+
     def _log_and_clear_curves(
         self,
         preds_list: list[torch.Tensor],
         targets_list: list[torch.Tensor],
         level_name: str,
     ) -> None:
-        """Computes, plots, logs, and clears ROC and PR curves."""
+        """Computes, plots, and logs ROC and PR curves."""
         if not preds_list:
             return
 
         y_pred = torch.cat(preds_list).numpy()
         y_true = torch.cat(targets_list).numpy()
 
-        title_prefix = "Slide-Level" if level_name == "graph" else "Nuclei-Level"
+        title_prefix = "Graph-Level" if level_name == "graph" else "Nuclei-Level"
 
         fig_roc, roc_t, j_t = self._perform_roc(y_true, y_pred, f"{title_prefix} ROC")
         fig_pr, pr_t = self._perform_pr(y_true, y_pred, f"{title_prefix} PR Curve")
 
-        mlflow.log_figure(fig_roc, f"plots/{level_name}_roc.png")
-        mlflow.log_figure(fig_pr, f"plots/{level_name}_precision_recall.png")
+        mlflow_run_id = self.mlflow_run_id
 
-        mlflow.log_metric(f"thresholds/{level_name}_tpr_threshold", float(roc_t))
-        mlflow.log_metric(f"thresholds/{level_name}_j_threshold", float(j_t))
-        mlflow.log_metric(f"thresholds/{level_name}_f1_threshold", float(pr_t))
+        if mlflow_run_id is None:
+            active_run = mlflow.active_run()
+            if active_run is not None:
+                mlflow_run_id = active_run.info.run_id
+
+        if mlflow_run_id is not None:
+            client = MlflowClient()
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+
+                roc_path = tmp_path / f"{level_name}_roc.png"
+                pr_path = tmp_path / f"{level_name}_precision_recall.png"
+
+                fig_roc.savefig(roc_path, dpi=1200)
+                fig_pr.savefig(pr_path, dpi=1200)
+
+                client.log_artifact(mlflow_run_id, str(roc_path), "curves")
+                client.log_artifact(mlflow_run_id, str(pr_path), "curves")
+
+            client.log_metric(
+                mlflow_run_id, f"thresholds/{level_name}_tpr", float(roc_t)
+            )
+            client.log_metric(mlflow_run_id, f"thresholds/{level_name}_j", float(j_t))
+            client.log_metric(mlflow_run_id, f"thresholds/{level_name}_f1", float(pr_t))
 
         plt.close(fig_roc)
         plt.close(fig_pr)
@@ -80,7 +108,7 @@ class BaseCurvesCallback(Callback):
         idx = np.where(np.isclose(tpr, 1.0))[0]
         if len(idx) > 0:
             tpr_idx = idx[np.argmin(fpr[idx])]
-            tpr_threshold = thresholds[tpr_idx]
+            tpr_threshold = float(thresholds[tpr_idx])
             tpr_label = f"TPR Thresh = {tpr_threshold:.3f}"
         else:
             tpr_idx = 0
@@ -135,8 +163,8 @@ class BaseCurvesCallback(Callback):
 class CropCurvesCallback(BaseCurvesCallback):
     """Generates ROC and Precision-Recall curves for graph and nuclei-level validation set."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, mlflow_run_id: str | None = None) -> None:
+        super().__init__(mlflow_run_id=mlflow_run_id)
         self.graph_preds: list[torch.Tensor] = []
         self.graph_targets: list[torch.Tensor] = []
         self.nuclei_preds: list[torch.Tensor] = []
@@ -176,26 +204,15 @@ class CropCurvesCallback(BaseCurvesCallback):
     ) -> None:
         if trainer.sanity_checking:
             return
-
-        if trainer.state.fn == "validate":
-            self._log_and_clear_curves(
-                self.graph_preds, self.graph_targets, "val_graph"
-            )
-            self._log_and_clear_curves(
-                self.nuclei_preds, self.nuclei_targets, "val_nuclei"
-            )
-        else:
-            self.graph_preds.clear()
-            self.graph_targets.clear()
-            self.nuclei_preds.clear()
-            self.nuclei_targets.clear()
+        self._log_and_clear_curves(self.graph_preds, self.graph_targets, "val_graph")
+        self._log_and_clear_curves(self.nuclei_preds, self.nuclei_targets, "val_nuclei")
 
 
 class NucleiCurvesCallback(BaseCurvesCallback):
     """Generates ROC and Precision-Recall curves for nuclei-level validation set."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, mlflow_run_id: str | None = None) -> None:
+        super().__init__(mlflow_run_id=mlflow_run_id)
         self.nuclei_preds: list[torch.Tensor] = []
         self.nuclei_targets: list[torch.Tensor] = []
 
@@ -227,11 +244,4 @@ class NucleiCurvesCallback(BaseCurvesCallback):
     ) -> None:
         if trainer.sanity_checking:
             return
-
-        if trainer.state.fn == "validate":
-            self._log_and_clear_curves(
-                self.nuclei_preds, self.nuclei_targets, "val_nuclei"
-            )
-        else:
-            self.nuclei_preds.clear()
-            self.nuclei_targets.clear()
+        self._log_and_clear_curves(self.nuclei_preds, self.nuclei_targets, "val_nuclei")

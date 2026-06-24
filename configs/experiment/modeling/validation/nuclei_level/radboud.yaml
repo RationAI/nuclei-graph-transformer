@@ -11,7 +11,9 @@ defaults:
   - _self_
 
 checkpoint: # TODO
-checkpoint_url: # TODO
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -36,4 +38,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Threshold Estimation(Radboud): Nuclei-Level WSL Classifier"
+  run_name: "📊 Evaluation (Radboud)"

@@ -10,8 +10,10 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/6ba361aa4280480fb5ff668dc11dba3b/artifacts/checkpoints/epoch=323-step=28836/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/6ba361aa4280480fb5ff668dc11dba3b
+checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
+
+mlflow_run_id: dcef7640331746ac97f6fe1ea4bd5574
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -22,7 +24,7 @@ data:
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    efd_order: 15
+    efd_order: 16
   supervision:
     paths: ${dataset.paths.supervision}
 
@@ -36,4 +38,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Threshold Estimation(MMCI): Nucleus-level Classifier, Polygons + Positions (RoPE) + k-NN Attn"
+  run_name: "📊 Evaluation (MMCI)"

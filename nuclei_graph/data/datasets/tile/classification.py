@@ -51,53 +51,53 @@ class TileClassificationDataset(BaseTileDataset):
         scaled_props = self.get_scaled_props(tile)
 
         nuclei_path = self.slide_props[tile["stem"]]["slide_nuclei_path"]
-        polygons, centroids, centroid_tree = get_slide_data(nuclei_path)
-        crop_indices = self.get_crop_indices(scaled_props, centroids, centroid_tree)
+        polygons, centroids, centroid_tree, _ = get_slide_data(nuclei_path)
+        tile_indices = self.get_tile_indices(scaled_props, centroids, centroid_tree)
 
         nuclei_sup = self.supervision.supervision_map[tile["stem"]].nuclei_supervision
-        crop_sup_mask = nuclei_sup.get_sup_mask(len(centroids))[crop_indices]
-        crop_nuclei_labels = nuclei_sup.get_targets(len(centroids))[crop_indices]
+        tile_sup_mask = nuclei_sup.get_sup_mask(len(centroids))[tile_indices]
+        tile_nuclei_labels = nuclei_sup.get_targets(len(centroids))[tile_indices]
         assert tile.get("carcinoma") is not None, "Tile carcinoma label is required."
-        crop_labels: Targets = {
-            "nuclei": torch.as_tensor(crop_nuclei_labels),
+        tile_labels: Targets = {
+            "nuclei": torch.as_tensor(tile_nuclei_labels),
             "graph": torch.tensor([float(tile["carcinoma"])]),
         }
 
-        if len(crop_indices) == 0:
-            crop_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
-            crop_pos_centered = np.zeros((1, 2), dtype=np.float32)
+        if len(tile_indices) == 0:
+            tile_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
+            tile_pos_centered = np.zeros((1, 2), dtype=np.float32)
 
-            crop_sup_mask = np.array([False], dtype=bool)
-            crop_labels["nuclei"] = torch.tensor([0.0], dtype=torch.float32)
+            tile_sup_mask = np.array([False], dtype=bool)
+            tile_labels["nuclei"] = torch.tensor([0.0], dtype=torch.float32)
 
             roi_mask = np.array([False], dtype=bool)
             seq_len = 1
         else:
-            crop_features = self.get_features(
-                polygons[crop_indices], props["mpp_x"], props["mpp_y"]
+            tile_features = self.get_features(
+                polygons[tile_indices], props["mpp_x"], props["mpp_y"]
             )
             scaled_centroids = centroids * np.array(
                 [props["mpp_x"], props["mpp_y"]], dtype=np.float32
             )
-            crop_pos = scaled_centroids[crop_indices]
-            crop_pos_centered = crop_pos - crop_pos.mean(axis=0)
+            tile_pos = scaled_centroids[tile_indices]
+            tile_pos_centered = tile_pos - tile_pos.mean(axis=0)
 
             if self.random_rotate:
                 pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
-                    crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
+                    tile_pos_centered, tile_features[..., -2], tile_features[..., -1]
                 )
-                crop_pos_centered = pos_rot
-                crop_features[..., -2], crop_features[..., -1] = cos_rot, sin_rot
+                tile_pos_centered = pos_rot
+                tile_features[..., -2], tile_features[..., -1] = cos_rot, sin_rot
 
-            roi_mask = self.get_roi_mask(scaled_props, centroids[crop_indices])
-            seq_len = len(crop_indices)
+            roi_mask = self.get_roi_mask(scaled_props, centroids[tile_indices])
+            seq_len = len(tile_indices)
 
         return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32),
-                "labels": crop_labels,
-                "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
-                "sup_mask": torch.as_tensor(crop_sup_mask),
+                "features": torch.as_tensor(tile_features, dtype=torch.float32),
+                "labels": tile_labels,
+                "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
+                "sup_mask": torch.as_tensor(tile_sup_mask),
                 "roi_mask": torch.from_numpy(roi_mask),
                 "seq_len": torch.tensor(seq_len, dtype=torch.int32),
                 "metadata": {

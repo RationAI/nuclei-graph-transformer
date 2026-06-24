@@ -2,3 +2,4 @@
 
 _target_: nuclei_graph.callbacks.predictions.TilePredictionCallback
 mlflow_artifact_path: "predictions"
+mlflow_run_id: ${mlflow_run_id}

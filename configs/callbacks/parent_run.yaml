@@ -1,0 +1,4 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.parent_run.ParentRunTagCallback
+parent_run_id: ${mlflow_parent_run_id}

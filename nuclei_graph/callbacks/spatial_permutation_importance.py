@@ -7,6 +7,7 @@ import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
+from mlflow.tracking import MlflowClient
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     BinaryAccuracy,
@@ -23,8 +24,9 @@ from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class SpatialPermutationImportanceCallback(Callback):
-    def __init__(self) -> None:
+    def __init__(self, mlflow_run_id: str | None = None) -> None:
         super().__init__()
+        self.mlflow_run_id = mlflow_run_id
         self.cached_batches: list[Batch] = []
 
     def on_test_batch_end(
@@ -68,6 +70,8 @@ class SpatialPermutationImportanceCallback(Callback):
         for batch in tqdm(self.cached_batches, desc="Baseline Metrics"):
             seq_len = int(batch["seq_lens"].sum().item())
             sup_mask = batch["sup_mask"][:seq_len]
+
+            assert batch["labels"] is not None and batch["labels"]["nuclei"] is not None
             targets = batch["labels"]["nuclei"][:seq_len][sup_mask].long()
 
             with torch.autocast(
@@ -87,6 +91,8 @@ class SpatialPermutationImportanceCallback(Callback):
         ):
             seq_len = int(batch["seq_lens"].sum().item())
             sup_mask = batch["sup_mask"][:seq_len]
+
+            assert batch["labels"] is not None and batch["labels"]["nuclei"] is not None
             targets = batch["labels"]["nuclei"][:seq_len][sup_mask].long()
 
             pos_perm = batch["pos"].clone()
@@ -134,7 +140,8 @@ class SpatialPermutationImportanceCallback(Callback):
         p_r: torch.Tensor,
     ) -> None:
         with tempfile.TemporaryDirectory() as output_dir:
-            out_path = Path(output_dir)
+            out_path = Path(output_dir) / "spatial_permutation"
+            out_path.mkdir(parents=True, exist_ok=True)
 
             fig1, ax1 = plt.subplots(figsize=(6, 6))
             ax1.bar(
@@ -150,7 +157,7 @@ class SpatialPermutationImportanceCallback(Callback):
             ax1.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
             plt.xticks(rotation=45, ha="right")
             plt.tight_layout()
-            fig1.savefig(out_path / "importance.png", dpi=300)
+            fig1.savefig(out_path / "metrics.png", dpi=1200)
 
             fig2, ax2 = plt.subplots(figsize=(6, 6))
             ax2.plot(b_r, b_p, label="Baseline (w/ RoPE)", color="blue")
@@ -161,14 +168,21 @@ class SpatialPermutationImportanceCallback(Callback):
             ax2.legend()
             ax2.grid(True, linestyle="--", alpha=0.6)
             plt.tight_layout()
-            fig2.savefig(out_path / "pr_curve.png", dpi=300)
+            fig2.savefig(out_path / "pr_curve.png", dpi=1200)
 
-            if active_run := mlflow.active_run():
-                mlflow.log_artifact(
-                    str(out_path / "importance.png"), run_id=active_run.info.run_id
-                )
-                mlflow.log_artifact(
-                    str(out_path / "pr_curve.png"), run_id=active_run.info.run_id
+            mlflow_run_id = self.mlflow_run_id
+
+            if mlflow_run_id is None:
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    mlflow_run_id = active_run.info.run_id
+
+            if mlflow_run_id is not None:
+                client = MlflowClient()
+                client.log_artifacts(
+                    run_id=mlflow_run_id,
+                    local_dir=str(out_path),
+                    artifact_path="spatial_permutation",
                 )
 
         plt.close("all")

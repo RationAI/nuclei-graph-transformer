@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import mlflow
 import torch
 from lightning import Callback, LightningModule, Trainer
+from mlflow.tracking import MlflowClient
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
@@ -13,9 +14,26 @@ from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class PermutationImportanceCallback(Callback):
-    def __init__(self, efd_order: int, feature_group_size: int = 3) -> None:
+    """Computes permutation feature importance on the test set.
+
+    At the end of the test epoch, each feature group is shuffled, the AUROC is recomputed,
+    and the drop relative to the baseline AUROC is used as the feature importance score.
+
+    Args:
+        efd_order: Number of EFD orders in the feature vector.
+        feature_group_size: Number of EFD orders per feature group.
+        run_id: Optional MLflow run ID for artifact logging.
+    """
+
+    def __init__(
+        self,
+        efd_order: int,
+        feature_group_size: int = 3,
+        mlflow_run_id: str | None = None,
+    ) -> None:
         super().__init__()
         self.efd_order = efd_order
+        self.mlflow_run_id = mlflow_run_id
         self.cached_batches: list[Batch] = []
         self.feature_groups = self._build_feature_groups(efd_order, feature_group_size)
 
@@ -138,11 +156,18 @@ class PermutationImportanceCallback(Callback):
         plt.tight_layout()
 
         with tempfile.TemporaryDirectory() as output_dir:
-            output_path = Path(output_dir) / "permutation_importance.png"
+            output_path = Path(output_dir) / "feature_importances.png"
             fig.savefig(output_path, dpi=1200)
 
-            active_run = mlflow.active_run()
-            if active_run is not None:
-                mlflow.log_artifact(str(output_path), run_id=active_run.info.run_id)
+            target_run_id = self.mlflow_run_id
+
+            if target_run_id is None:
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    target_run_id = active_run.info.run_id
+
+            if target_run_id is not None:
+                client = MlflowClient()
+                client.log_artifact(run_id=target_run_id, local_path=str(output_path))
 
         plt.close(fig)

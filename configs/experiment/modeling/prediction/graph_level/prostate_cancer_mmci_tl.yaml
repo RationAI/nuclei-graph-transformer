@@ -13,7 +13,9 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/b554746935e74b9fa04f6830ffb69ced
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -36,5 +38,4 @@ model:
       mil_mode: "logit"
 
 metadata:
-  run_name: "📊 Predictions(MMCI): MIL Classifier"
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  run_name: "📊 Evaluation (MMCI)"

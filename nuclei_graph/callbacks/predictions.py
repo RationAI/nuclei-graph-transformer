@@ -5,14 +5,20 @@ import mlflow
 import pandas as pd
 import torch
 from lightning import Callback, LightningModule, Trainer
+from mlflow.tracking import MlflowClient
 
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
 class BasePredictionsCallback(Callback):
-    def __init__(self, mlflow_artifact_path: str = "predictions") -> None:
+    def __init__(
+        self,
+        mlflow_artifact_path: str = "predictions",
+        mlflow_run_id: str | None = None,
+    ) -> None:
         super().__init__()
         self.mlflow_artifact_path = mlflow_artifact_path
+        self.mlflow_run_id = mlflow_run_id
         self.tmp_dir: tempfile.TemporaryDirectory[str] | None = None
 
     def on_predict_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
@@ -27,13 +33,21 @@ class BasePredictionsCallback(Callback):
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
         if self.tmp_dir is not None:
-            active_run = mlflow.active_run()
-            if active_run is not None:
-                mlflow.log_artifacts(
-                    self.tmp_dir.name,
-                    artifact_path=self.mlflow_artifact_path,
-                    run_id=active_run.info.run_id,
-                )
+            mlflow_run_id = self.mlflow_run_id
+
+            if mlflow_run_id is None:
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    mlflow_run_id = active_run.info.run_id
+
+            assert mlflow_run_id is not None
+
+            MlflowClient().log_artifacts(
+                run_id=mlflow_run_id,
+                local_dir=self.tmp_dir.name,
+                artifact_path=self.mlflow_artifact_path,
+            )
+
             self.tmp_dir.cleanup()
             self.tmp_dir = None
 
@@ -43,6 +57,16 @@ class NucleiPredictionCallback(BasePredictionsCallback):
 
     It saves a parquet file with nuclei IDs and prediction scores.
     """
+
+    def __init__(
+        self,
+        mlflow_artifact_path: str = "predictions",
+        mlflow_run_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            mlflow_artifact_path=mlflow_artifact_path, mlflow_run_id=mlflow_run_id
+        )
+        self.predictions: list[dict] = []
 
     def on_predict_batch_end(
         self,
@@ -75,6 +99,16 @@ class CropPredictionCallback(BasePredictionsCallback):
 
     It saves a parquet file with nuclei IDs, nuclei and graph label predictions, and nuclei attention scores.
     """
+
+    def __init__(
+        self,
+        mlflow_artifact_path: str = "predictions",
+        mlflow_run_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            mlflow_artifact_path=mlflow_artifact_path, mlflow_run_id=mlflow_run_id
+        )
+        self.predictions: list[dict] = []
 
     def on_predict_batch_end(
         self,
@@ -115,8 +149,14 @@ class TilePredictionCallback(BasePredictionsCallback):
     containing x, y coordinates and the graph prediction score.
     """
 
-    def __init__(self, mlflow_artifact_path: str = "predictions") -> None:
-        super().__init__(mlflow_artifact_path)
+    def __init__(
+        self,
+        mlflow_artifact_path: str = "predictions",
+        mlflow_run_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            mlflow_artifact_path=mlflow_artifact_path, mlflow_run_id=mlflow_run_id
+        )
         self.predictions: list[dict] = []
 
     def on_predict_batch_end(
@@ -142,6 +182,87 @@ class TilePredictionCallback(BasePredictionsCallback):
                     "x": metadata["x"][i],
                     "y": metadata["y"][i],
                     "tile_prediction": preds_graph[i],
+                }
+            )
+
+    def on_predict_epoch_end(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
+        if self.predictions:
+            df = pd.DataFrame(self.predictions)
+
+            for slide_id, group_df in df.groupby("slide_id"):
+                clean_df = group_df.drop(columns=["slide_id"]).reset_index(drop=True)
+                self._save_parquet(clean_df, str(slide_id))
+
+            self.predictions.clear()
+
+        super().on_predict_epoch_end(trainer, pl_module)
+
+
+class NucleiToTilePredictionCallback(BasePredictionsCallback):
+    """Computes tile-level predictions by aggregating nuclei-level predictions.
+
+    Supports 'max', 'mean', and 'top_k' pooling strategies.
+    """
+
+    def __init__(
+        self,
+        pooling_mode: str = "top_k",
+        k: int = 10,
+        mlflow_artifact_path: str = "predictions",
+        mlflow_run_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            mlflow_artifact_path=mlflow_artifact_path, mlflow_run_id=mlflow_run_id
+        )
+        assert pooling_mode in ["max", "mean", "top_k"], "Invalid pooling mode."
+        self.pooling_mode = pooling_mode
+        self.k = k
+        self.predictions: list[dict] = []
+
+    def on_predict_batch_end(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        outputs: Outputs,
+        batch: Batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        nuclei_logits = outputs["nuclei"].squeeze(-1)
+        nuclei_preds = torch.sigmoid(nuclei_logits)
+
+        metadata = batch["metadata"]
+        assert metadata is not None, "Metadata is required"
+        slide_ids = metadata["slide_id"]
+
+        seq_lens_tensor = batch["seq_lens"]
+        seq_lens_list = seq_lens_tensor.tolist()
+
+        preds_split = torch.split(nuclei_preds, seq_lens_list)
+
+        for i, valid_preds in enumerate(preds_split):
+            if len(valid_preds) == 0:
+                tile_pred = 0.0
+            else:
+                if self.pooling_mode == "max":
+                    tile_pred = valid_preds.max().item()
+
+                elif self.pooling_mode == "mean":
+                    tile_pred = valid_preds.mean().item()
+
+                elif self.pooling_mode == "top_k":
+                    actual_k = min(self.k, len(valid_preds))
+                    top_k_preds, _ = torch.topk(valid_preds, actual_k)
+                    tile_pred = top_k_preds.mean().item()
+
+            self.predictions.append(
+                {
+                    "slide_id": slide_ids[i],
+                    "x": metadata["x"][i],
+                    "y": metadata["y"][i],
+                    "tile_prediction": float(tile_pred),
                 }
             )
 

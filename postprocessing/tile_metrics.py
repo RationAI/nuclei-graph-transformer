@@ -99,7 +99,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "npv": BinaryNegativePredictiveValue(config.threshold),
                 "confusion_matrix": BinaryConfusionMatrix(config.threshold),
             },
-            prefix="prediction/tile/",
+            prefix="prediction/",
         )
 
         preds_t = torch.tensor(merged_df["tile_prediction"].values)

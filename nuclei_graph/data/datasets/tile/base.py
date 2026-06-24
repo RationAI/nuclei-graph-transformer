@@ -34,12 +34,14 @@ T = TypeVar("T", covariant=True)
 
 
 @lru_cache(maxsize=4)
-def get_slide_data(nuclei_path: str) -> tuple[np.ndarray, np.ndarray, KDTree]:
+def get_slide_data(
+    nuclei_path: str,
+) -> tuple[np.ndarray, np.ndarray, KDTree, NDArray[np.str_]]:
     nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
     polygons = np.array(nuclei["polygon"].tolist(), dtype=np.float32)
     centroids = np.stack(nuclei["centroid"].tolist())
     kdtree = KDTree(centroids)
-    return polygons, centroids, kdtree
+    return polygons, centroids, kdtree, nuclei["id"].to_numpy()
 
 
 class BaseTileDataset(MetaTiledSlides[T]):
@@ -169,7 +171,7 @@ class BaseTileDataset(MetaTiledSlides[T]):
             "y_extent": props["scaled_extent_y"],
         }
 
-    def get_crop_indices(
+    def get_tile_indices(
         self, props: dict[str, float], centroids: NDArray[np.float32], tree: KDTree
     ) -> NDArray[np.int64]:
         center_x = props["x_min"] + props["x_extent"] / 2
@@ -179,17 +181,17 @@ class BaseTileDataset(MetaTiledSlides[T]):
 
         candidates = np.array(tree.query_ball_point(center, radius), dtype=np.int64)
 
-        crop_indices = np.array([], dtype=np.int64)
+        tile_indices = np.array([], dtype=np.int64)
         if len(candidates) > 0:
             cx, cy = centroids[candidates, 0], centroids[candidates, 1]
-            crop_mask = (
+            tile_mask = (
                 (cx >= props["x_min"])
                 & (cx < props["x_max"])
                 & (cy >= props["y_min"])
                 & (cy < props["y_max"])
             )
-            crop_indices = candidates[crop_mask]
-        return crop_indices
+            tile_indices = candidates[tile_mask]
+        return tile_indices
 
     def get_roi_mask(
         self, props: dict[str, float], centroids: NDArray[np.float32]

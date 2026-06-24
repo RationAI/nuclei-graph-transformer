@@ -12,7 +12,9 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.e-infra.cz/#/experiments/37/runs/c6542ff73c8e4460a8451a1a9c757520
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -34,5 +36,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "📊 Predictions(Radboud): Nucleus-level WSL Classifier"
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  run_name: "📊 Evaluation (Radboud)"

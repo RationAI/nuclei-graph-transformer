@@ -12,7 +12,9 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/2ec2a07ee62943cfa6a1cb9ebaaa7458
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
@@ -51,5 +53,4 @@ model:
       mil_mode: "embedding"
 
 metadata:
-  run_name: "Tile Masks(MMCI): Tile-level Classifier"
-  description: "Model: [MLflow training run](${checkpoint_url})"
+  run_name: "📊 Evaluation (MMCI)"

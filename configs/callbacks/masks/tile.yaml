@@ -5,3 +5,4 @@ level: 2
 mask_tile_width: 512
 mask_tile_height: 512
 mlflow_artifact_path: "prediction_masks"
+mlflow_run_id: ${mlflow_run_id}

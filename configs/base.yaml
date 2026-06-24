@@ -8,6 +8,9 @@ project_path: /mnt/projects/nuclei_based_wsi_analysis
 mlflow_project_sc: mlflow-artifacts:/97 # sensitive cloud
 mlflow_project_pc: mlflow-artifacts:/37 # public cloud
 
+mlflow_run_id: null # setting this attaches artifacts to an existing run
+mlflow_parent_run_id: "" # setting this creates a nested run in MLflow UI (e.g. for evaluation runs, set this to the training run id)
+
 metadata:
   experiment_name: Nuclei Graph — Transformer
   run_name: ???

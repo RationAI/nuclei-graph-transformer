@@ -1,3 +1,4 @@
+import gc
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ import pyvips
 import torch
 from einops import rearrange
 from lightning import Callback, LightningModule, Trainer
+from mlflow.tracking import MlflowClient
 from openslide import OpenSlide
 from PIL import Image as PILImage
 from PIL import ImageDraw
@@ -25,12 +27,14 @@ class BaseMasksCallback(Callback):
         mask_tile_width: int = 512,
         mask_tile_height: int = 512,
         mlflow_artifact_path: str = "masks",
+        mlflow_run_id: str | None = None,
     ) -> None:
         super().__init__()
         self.level = level
         self.mask_tile_width = mask_tile_width
         self.mask_tile_height = mask_tile_height
         self.mlflow_artifact_path = mlflow_artifact_path
+        self.mlflow_run_id = mlflow_run_id
         self.tmp_dir: tempfile.TemporaryDirectory[str] | None = None
 
     def on_predict_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
@@ -44,13 +48,21 @@ class BaseMasksCallback(Callback):
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
         if self.tmp_dir is not None:
-            active_run = mlflow.active_run()
-            if active_run is not None:
-                mlflow.log_artifacts(
-                    self.tmp_dir.name,
+            mlflow_run_id = self.mlflow_run_id
+
+            if mlflow_run_id is None:
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    mlflow_run_id = active_run.info.run_id
+
+            if mlflow_run_id is not None:
+                client = MlflowClient()
+                client.log_artifacts(
+                    run_id=mlflow_run_id,
+                    local_dir=self.tmp_dir.name,
                     artifact_path=self.mlflow_artifact_path,
-                    run_id=active_run.info.run_id,
                 )
+
             self.tmp_dir.cleanup()
             self.tmp_dir = None
 
@@ -131,6 +143,7 @@ class TileHeatmapMasksCallback(BaseMasksCallback):
         if self.tmp_dir is not None:
             for builder in self.mask_builders.values():
                 builder.save()
+                gc.collect()
             self.mask_builders.clear()
         super().on_predict_epoch_end(trainer, pl_module)
 

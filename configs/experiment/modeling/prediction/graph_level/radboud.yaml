@@ -13,7 +13,9 @@ defaults:
   - _self_
 
 checkpoint: # TODO
-checkpoint_url: # TODO
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -36,5 +38,4 @@ model:
       mil_mode: "logit"
 
 metadata:
-  run_name: "📊 Predictions(Radboud): Crop-level Supervised Classifier"
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
+  run_name: "📊 Evaluation (Radboud)"

@@ -1,9 +1,12 @@
 # @package _global_
 
+defaults:
+  - /callbacks/parent_run@trainer.callbacks.parent_run_tag
+  - _self_
+
 mode: predict
 
 checkpoint: ???
-checkpoint_url: ???
 
 trainer:
   callbacks: {}
@@ -26,7 +29,5 @@ model:
 
 metadata:
   run_name: ???
-  description: "Predictions: [MLflow training run](${checkpoint_url})"
   hyperparams:
     prediction_supervision_mode: ${data.supervision.eval_strategy.mode}
-    checkpoint: ${checkpoint}

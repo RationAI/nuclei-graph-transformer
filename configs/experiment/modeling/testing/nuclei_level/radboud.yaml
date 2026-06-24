@@ -11,7 +11,9 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/97/77aac2970ef54a2b9fab6d3238585d4f/artifacts/checkpoints/epoch=321-step=7084/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/77aac2970ef54a2b9fab6d3238585d4f
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -32,5 +34,4 @@ model:
       drop_path_rate: 0.15
 
 metadata:
-  run_name: "Feature Importances(PANDA, Radboud): Local Classifier"
-  description: "[MLflow training run](${checkpoint_url})"
+  run_name: "📊 Evaluation (MMCI)"

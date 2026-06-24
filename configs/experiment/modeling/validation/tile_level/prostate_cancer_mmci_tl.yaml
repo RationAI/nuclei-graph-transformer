@@ -11,7 +11,9 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/3b4bd9d620744470a7aa096bc58f0e63
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
@@ -49,4 +51,4 @@ model:
       drop_path_rate: 0.25
 
 metadata:
-  run_name: "📊 Threshold Estimation(MMCI): Nuclei-level Classifier on Tiles"
+  run_name: "📊 Evaluation (MMCI)"

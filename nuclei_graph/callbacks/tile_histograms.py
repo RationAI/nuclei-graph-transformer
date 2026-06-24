@@ -7,15 +7,17 @@ import mlflow
 import numpy as np
 import torch
 from lightning import Callback, LightningModule, Trainer
+from mlflow.tracking import MlflowClient
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class TileHistogramsCallback(Callback):
-    def __init__(self) -> None:
+    def __init__(self, mlflow_run_id: str | None = None) -> None:
         """This callback creates prediction histograms for negative and positive tiles."""
         super().__init__()
+        self.mlflow_run_id = mlflow_run_id
         self.all_preds: list[np.ndarray] = []
         self.all_labels: list[np.ndarray] = []
 
@@ -29,7 +31,7 @@ class TileHistogramsCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         logits = outputs["graph"] if isinstance(outputs, dict) else outputs
-        
+
         targets = batch["labels"]["graph"] if isinstance(batch, dict) else batch[1]
 
         if logits is None or targets is None:
@@ -44,7 +46,7 @@ class TileHistogramsCallback(Callback):
     def on_test_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if not self.all_preds:
             return
-            
+
         assert isinstance(trainer.logger, MLFlowLogger)
 
         preds = np.concatenate(self.all_preds)
@@ -70,14 +72,20 @@ class TileHistogramsCallback(Callback):
 
             plt.suptitle("Predicted Probability Histograms by Tile Class")
             plt.tight_layout(rect=(0, 0, 1, 0.95))
-            
-            plot_file = out_path / "tile_histograms.png" 
-            plt.savefig(plot_file, dpi=300)
 
-            if active_run := mlflow.active_run():
-                mlflow.log_artifact(
-                    str(out_path / "tile_histograms.png"), run_id=active_run.info.run_id
-                )
+            plot_file = out_path / "tile_histograms.png"
+            plt.savefig(plot_file, dpi=1200)
+
+            mlflow_run_id = self.mlflow_run_id
+
+            if mlflow_run_id is None:
+                active_run = mlflow.active_run()
+                if active_run is not None:
+                    mlflow_run_id = active_run.info.run_id
+
+            if mlflow_run_id is not None:
+                client = MlflowClient()
+                client.log_artifact(run_id=mlflow_run_id, local_path=str(plot_file))
 
             plt.close("all")
 
