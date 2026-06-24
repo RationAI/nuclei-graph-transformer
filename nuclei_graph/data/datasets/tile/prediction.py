@@ -51,6 +51,8 @@ class TilePredictionDataset(BaseTileDataset):
                 "graph": torch.tensor([graph_label], dtype=torch.float32),
             }
 
+            # placeholder row has no real nucleus; keep length aligned with seq_len
+            tile_nuclei_ids = np.full(1, -1, dtype=nuclei_ids.dtype)
             seq_len = 1
         else:
             tile_polygons = polygons[tile_indices]
@@ -68,6 +70,7 @@ class TilePredictionDataset(BaseTileDataset):
                 self.get_roi_mask(scaled_props, centroids[tile_indices])
             )
             tile_labels: Targets = {"nuclei": None, "graph": None}
+            tile_nuclei_ids = nuclei_ids[tile_indices]
             seq_len = len(tile_indices)
 
         return Sample(
@@ -82,7 +85,7 @@ class TilePredictionDataset(BaseTileDataset):
                     "slide_id": str(tile["stem"]),
                     "x": int(tile["x"]),
                     "y": int(tile["y"]),
-                    "nuclei_ids": nuclei_ids[tile_indices],
+                    "nuclei_ids": tile_nuclei_ids,
                 },
             }
         )

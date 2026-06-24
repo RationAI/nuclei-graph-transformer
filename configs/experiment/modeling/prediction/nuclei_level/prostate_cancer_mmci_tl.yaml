@@ -7,13 +7,13 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  #- /callbacks/predictions@trainer.callbacks.predictions: nuclei
-  - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
+  - /callbacks/predictions@trainer.callbacks.predictions: nuclei
+  #- /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
 
-mlflow_run_id: dcef7640331746ac97f6fe1ea4bd5574
+mlflow_run_id: null
 mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
 data:

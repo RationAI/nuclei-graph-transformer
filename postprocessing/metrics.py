@@ -41,12 +41,12 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
 
 def setup_mlflow(config: DictConfig) -> tuple[MlflowClient, str | None]:
     """Initializes the MLflow client and extracts the target run ID."""
-    target_run_id = config.get("run_id")
-    if target_run_id is None:
+    mlflow_run_id = config.get("mlflow_run_id")
+    if mlflow_run_id is None:
         active_run = mlflow.active_run()
         if active_run is not None:
-            target_run_id = active_run.info.run_id
-    return MlflowClient(), target_run_id
+            mlflow_run_id = active_run.info.run_id
+    return MlflowClient(), mlflow_run_id
 
 
 def load_and_merge_data(config: DictConfig, predictions_dir: Path) -> pd.DataFrame:
@@ -125,7 +125,7 @@ def log_global_nuclei_metrics(
             "accuracy": BinaryAccuracy(config.threshold),
             "specificity": BinarySpecificity(config.threshold),
         },
-        prefix="prediction/",
+        prefix="test_thresholded/nuclei_",
     )
 
     preds_t = torch.tensor(merged_df["nuclei_prediction"].values)
@@ -178,7 +178,7 @@ def log_slide_level_graph_metrics(
             "specificity": BinarySpecificity(config.threshold),
             "confusion_matrix": BinaryConfusionMatrix(config.threshold),
         },
-        prefix="prediction/graph/",
+        prefix="test_thresholded/graph_",
     )
 
     preds_t = torch.tensor(graph_df["graph_prediction"].values)
@@ -215,7 +215,7 @@ def log_slide_level_graph_metrics(
 @hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    client, target_run_id = setup_mlflow(config)
+    client, mlflow_run_id = setup_mlflow(config)
 
     predictions_dir = Path(download_artifacts(config.predictions_uri))
     merged_df = load_and_merge_data(config, predictions_dir)
@@ -223,10 +223,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
 
-        log_per_slide_nuclei_metrics(merged_df, config, client, target_run_id)
-        log_global_nuclei_metrics(merged_df, config, client, target_run_id)
+        log_per_slide_nuclei_metrics(merged_df, config, client, mlflow_run_id)
+        log_global_nuclei_metrics(merged_df, config, client, mlflow_run_id)
         log_slide_level_graph_metrics(
-            merged_df, config, client, target_run_id, tmp_path
+            merged_df, config, client, mlflow_run_id, tmp_path
         )
 
 

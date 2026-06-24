@@ -82,6 +82,7 @@ class NucleiPredictionCallback(BasePredictionsCallback):
 
         metadata = batch["metadata"]
         assert metadata is not None, "Metadata is required to save predictions."
+        assert "nuclei_ids" in metadata and "slide_id" in metadata
 
         slide_id = metadata["slide_id"][0]  # batch size is 1
         nuclei_ids = metadata["nuclei_ids"][0]  # batch size is 1
@@ -121,9 +122,10 @@ class CropPredictionCallback(BasePredictionsCallback):
     ) -> None:
         metadata = batch["metadata"]
         assert metadata is not None, "Metadata is required to save predictions."
+        assert "nuclei_ids" in metadata and "slide_id" in metadata
 
-        slide_id = metadata["slide_id"][0]
         nuclei_ids = metadata["nuclei_ids"][0]
+        slide_id = metadata["slide_id"][0]
 
         nuclei_preds = torch.sigmoid(outputs["nuclei"].squeeze(-1))
         attn_scores = outputs["attn_weights"].squeeze(-1)
@@ -176,6 +178,7 @@ class TilePredictionCallback(BasePredictionsCallback):
         slide_ids = metadata["slide_id"]
 
         for i in range(len(slide_ids)):
+            assert "x" in metadata and "y" in metadata
             self.predictions.append(
                 {
                     "slide_id": slide_ids[i],
@@ -242,10 +245,9 @@ class NucleiToTilePredictionCallback(BasePredictionsCallback):
 
         preds_split = torch.split(nuclei_preds, seq_lens_list)
 
+        tile_pred = 0.0
         for i, valid_preds in enumerate(preds_split):
-            if len(valid_preds) == 0:
-                tile_pred = 0.0
-            else:
+            if len(valid_preds) != 0:
                 if self.pooling_mode == "max":
                     tile_pred = valid_preds.max().item()
 
@@ -257,6 +259,7 @@ class NucleiToTilePredictionCallback(BasePredictionsCallback):
                     top_k_preds, _ = torch.topk(valid_preds, actual_k)
                     tile_pred = top_k_preds.mean().item()
 
+            assert "x" in metadata and "y" in metadata
             self.predictions.append(
                 {
                     "slide_id": slide_ids[i],

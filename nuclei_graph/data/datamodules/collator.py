@@ -1,6 +1,7 @@
 import math
 from typing import Any, Final, cast
 
+import numpy as np
 import torch
 from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
@@ -34,19 +35,24 @@ class GraphCollator:
         pad = torch.full(pad_shape, value, dtype=x.dtype, device=x.device)
         return torch.cat((x, pad), dim=0)
 
-    def _aggregate_metadata(self, batch: list[Sample]) -> BatchMetadata | None:
+    def _aggregate_metadata(
+        self, batch: list[Sample], sort_indices_list: list[np.ndarray]
+    ) -> BatchMetadata | None:
         first = batch[0].get("metadata")
         if not first:
             return None
 
         metadata_dict: dict[str, list[Any]] = {key: [] for key in first}
 
-        for b in batch:
+        for b, sort_indices in zip(batch, sort_indices_list, strict=True):
             meta = b.get("metadata")
             if meta is None:
                 continue
             for key in first:
-                metadata_dict[key].append(meta.get(key))
+                value = meta.get(key)
+                if key == "nuclei_ids" and value is not None:
+                    value = value[sort_indices]
+                metadata_dict[key].append(value)
 
         return cast("BatchMetadata", metadata_dict)
 
@@ -60,6 +66,7 @@ class GraphCollator:
         all_labels_graph: list[Tensor] = []
         all_sup_masks: list[Tensor] = []
         all_roi_masks: list[Tensor] = []
+        all_sort_indices: list[np.ndarray] = []
 
         current_global_idx = 0
         for b in batch:
@@ -69,6 +76,7 @@ class GraphCollator:
             sort_indices = block_spatial_sort(
                 pos_tensor.numpy(), self.block_size, global_offset=current_global_idx
             )
+            all_sort_indices.append(sort_indices)
             sorted_pos = pos_tensor[sort_indices]
 
             actual_k = min(self.k, n_nodes)
@@ -94,7 +102,9 @@ class GraphCollator:
             if not self.predict:
                 assert b["labels"]["nuclei"] is not None
                 all_labels_nuclei.append(b["labels"]["nuclei"][sort_indices])
+
                 if b["labels"].get("graph") is not None:
+                    assert b["labels"]["graph"] is not None
                     all_labels_graph.append(b["labels"]["graph"])
 
             current_global_idx += len(sorted_pos)
@@ -124,5 +134,5 @@ class GraphCollator:
             ),
             "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
             "labels": targets,
-            "metadata": self._aggregate_metadata(batch),
+            "metadata": self._aggregate_metadata(batch, all_sort_indices),
         }

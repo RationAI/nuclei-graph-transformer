@@ -11,5 +11,5 @@ predictions_uri: mlflow-artifacts:/97/60b415c94ff044da9ef9757230b07222/artifacts
 label_column: carcinoma
 threshold: 0.5005
 
+mlflow_run_id: # TODO
 checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
-checkpoint_url: https://mlflow.rationai.cloud.trusted.e-infra.cz/#/experiments/97/runs/2ec2a07ee62943cfa6a1cb9ebaaa7458
