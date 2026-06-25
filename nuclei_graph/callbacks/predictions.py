@@ -60,7 +60,7 @@ class NucleiPredictionCallback(BasePredictionsCallback):
 
     def __init__(
         self,
-        mlflow_artifact_path: str = "predictions",
+        mlflow_artifact_path: str = "nuclei_predictions",
         mlflow_run_id: str | None = None,
     ) -> None:
         super().__init__(
@@ -153,7 +153,7 @@ class TilePredictionCallback(BasePredictionsCallback):
 
     def __init__(
         self,
-        mlflow_artifact_path: str = "predictions",
+        mlflow_artifact_path: str = "tile_predictions",
         mlflow_run_id: str | None = None,
     ) -> None:
         super().__init__(
@@ -213,7 +213,7 @@ class NucleiToTilePredictionCallback(BasePredictionsCallback):
         self,
         pooling_mode: str = "top_k",
         k: int = 10,
-        mlflow_artifact_path: str = "predictions",
+        mlflow_artifact_path: str = "tile_predictions",
         mlflow_run_id: str | None = None,
     ) -> None:
         super().__init__(

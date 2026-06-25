@@ -1,0 +1,6 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.plot_curves.NucleiToTileCurvesCallback
+pooling_mode: "top_k"
+k: 10
+mlflow_run_id: ${mlflow_run_id}

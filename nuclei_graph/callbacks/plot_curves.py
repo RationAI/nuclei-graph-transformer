@@ -14,6 +14,96 @@ from sklearn.metrics import auc, precision_recall_curve, roc_curve
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
+def plot_curve(
+    xs: np.ndarray,
+    ys: np.ndarray,
+    plot_label: str | None,
+    to_pinpoint: list[tuple[float, float]],
+    point_labels: list[str],
+    point_colors: list[str],
+    xlabel: str,
+    ylabel: str,
+    title: str,
+    loc: str,
+) -> matplotlib.figure.Figure:
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.plot(xs, ys, label=plot_label)
+
+    for i in range(len(to_pinpoint)):
+        x, y = to_pinpoint[i]
+        ax.scatter(x, y, color=point_colors[i], label=point_labels[i], zorder=5)
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(loc=loc)
+    ax.grid(True)
+    fig.tight_layout()
+    return fig
+
+
+def perform_roc(
+    y_true: np.ndarray, y_pred: np.ndarray, title: str
+) -> tuple[matplotlib.figure.Figure, float, float]:
+    fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+
+    idx = np.where(np.isclose(tpr, 1.0))[0]
+    if len(idx) > 0:
+        tpr_idx = idx[np.argmin(fpr[idx])]
+        tpr_threshold = float(thresholds[tpr_idx])
+        tpr_label = f"TPR Thresh = {tpr_threshold:.3f}"
+    else:
+        tpr_idx = 0
+        tpr_threshold = np.nan
+        tpr_label = "TPR Thresh = N/A"
+
+    j_scores = tpr - fpr
+    j_idx = np.argmax(j_scores)
+    j_threshold = thresholds[j_idx]
+
+    fig = plot_curve(
+        fpr,
+        tpr,
+        f"AUC = {roc_auc:.3f}",
+        [(fpr[tpr_idx], tpr[tpr_idx]), (fpr[j_idx], tpr[j_idx])],
+        [tpr_label, f"J Thresh = {j_threshold:.3f}"],
+        ["red", "green"],
+        "False Positive Rate",
+        "True Positive Rate",
+        title,
+        "lower right",
+    )
+    return fig, tpr_threshold, j_threshold
+
+
+def perform_pr(
+    y_true: np.ndarray, y_pred: np.ndarray, title: str
+) -> tuple[matplotlib.figure.Figure, float]:
+    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+
+    p = precision[:-1]
+    r = recall[:-1]
+
+    f1 = 2 * (p * r) / (p + r + 1e-8)
+    best_idx = np.argmax(f1)
+    best_threshold = thresholds[best_idx]
+
+    fig = plot_curve(
+        recall,
+        precision,
+        None,
+        [(recall[best_idx], precision[best_idx])],
+        [f"F1 Thresh = {best_threshold:.3f}"],
+        ["red"],
+        "Recall",
+        "Precision",
+        title,
+        "lower left",
+    )
+    return fig, best_threshold
+
+
 class BaseCurvesCallback(Callback):
     def __init__(self, mlflow_run_id: str | None = None) -> None:
         super().__init__()
@@ -34,8 +124,8 @@ class BaseCurvesCallback(Callback):
 
         title_prefix = "Graph-Level" if level_name == "graph" else "Nuclei-Level"
 
-        fig_roc, roc_t, j_t = self._perform_roc(y_true, y_pred, f"{title_prefix} ROC")
-        fig_pr, pr_t = self._perform_pr(y_true, y_pred, f"{title_prefix} PR Curve")
+        fig_roc, roc_t, j_t = perform_roc(y_true, y_pred, f"{title_prefix} ROC")
+        fig_pr, pr_t = perform_pr(y_true, y_pred, f"{title_prefix} PR Curve")
 
         mlflow_run_id = self.mlflow_run_id
 
@@ -70,94 +160,6 @@ class BaseCurvesCallback(Callback):
 
         preds_list.clear()
         targets_list.clear()
-
-    def _plot_curve(
-        self,
-        xs: np.ndarray,
-        ys: np.ndarray,
-        plot_label: str | None,
-        to_pinpoint: list[tuple[float, float]],
-        point_labels: list[str],
-        point_colors: list[str],
-        xlabel: str,
-        ylabel: str,
-        title: str,
-        loc: str,
-    ) -> matplotlib.figure.Figure:
-        fig, ax = plt.subplots(figsize=(7, 6))
-        ax.plot(xs, ys, label=plot_label)
-
-        for i in range(len(to_pinpoint)):
-            x, y = to_pinpoint[i]
-            ax.scatter(x, y, color=point_colors[i], label=point_labels[i], zorder=5)
-
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.legend(loc=loc)
-        ax.grid(True)
-        fig.tight_layout()
-        return fig
-
-    def _perform_roc(
-        self, y_true: np.ndarray, y_pred: np.ndarray, title: str
-    ) -> tuple[matplotlib.figure.Figure, float, float]:
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred)
-        roc_auc = auc(fpr, tpr)
-
-        idx = np.where(np.isclose(tpr, 1.0))[0]
-        if len(idx) > 0:
-            tpr_idx = idx[np.argmin(fpr[idx])]
-            tpr_threshold = float(thresholds[tpr_idx])
-            tpr_label = f"TPR Thresh = {tpr_threshold:.3f}"
-        else:
-            tpr_idx = 0
-            tpr_threshold = np.nan
-            tpr_label = "TPR Thresh = N/A"
-
-        j_scores = tpr - fpr
-        j_idx = np.argmax(j_scores)
-        j_threshold = thresholds[j_idx]
-
-        fig = self._plot_curve(
-            fpr,
-            tpr,
-            f"AUC = {roc_auc:.3f}",
-            [(fpr[tpr_idx], tpr[tpr_idx]), (fpr[j_idx], tpr[j_idx])],
-            [tpr_label, f"J Thresh = {j_threshold:.3f}"],
-            ["red", "green"],
-            "False Positive Rate",
-            "True Positive Rate",
-            title,
-            "lower right",
-        )
-        return fig, tpr_threshold, j_threshold
-
-    def _perform_pr(
-        self, y_true: np.ndarray, y_pred: np.ndarray, title: str
-    ) -> tuple[matplotlib.figure.Figure, float]:
-        precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
-
-        p = precision[:-1]
-        r = recall[:-1]
-
-        f1 = 2 * (p * r) / (p + r + 1e-8)
-        best_idx = np.argmax(f1)
-        best_threshold = thresholds[best_idx]
-
-        fig = self._plot_curve(
-            recall,
-            precision,
-            None,
-            [(recall[best_idx], precision[best_idx])],
-            [f"F1 Thresh = {best_threshold:.3f}"],
-            ["red"],
-            "Recall",
-            "Precision",
-            title,
-            "lower left",
-        )
-        return fig, best_threshold
 
 
 class CropCurvesCallback(BaseCurvesCallback):
@@ -245,3 +247,70 @@ class NucleiCurvesCallback(BaseCurvesCallback):
         if trainer.sanity_checking:
             return
         self._log_and_clear_curves(self.nuclei_preds, self.nuclei_targets, "val_nuclei")
+
+
+class NucleiToTileCurvesCallback(BaseCurvesCallback):
+    """Generates ROC and PR curves for tile-level scores pooled from a nuclei-level model.
+
+    Requires the validation dataset to carry real tile labels (e.g.
+    `TileClassificationDataset`, not the label-less prediction dataset).
+    """
+
+    def __init__(
+        self,
+        pooling_mode: str = "top_k",
+        k: int = 10,
+        mlflow_run_id: str | None = None,
+    ) -> None:
+        super().__init__(mlflow_run_id=mlflow_run_id)
+        assert pooling_mode in ["max", "mean", "top_k"], "Invalid pooling mode."
+        self.pooling_mode = pooling_mode
+        self.k = k
+        self.tile_preds: list[torch.Tensor] = []
+        self.tile_targets: list[torch.Tensor] = []
+
+    def _pool(self, valid_preds: torch.Tensor) -> torch.Tensor:
+        if self.pooling_mode == "max":
+            return valid_preds.max()
+        if self.pooling_mode == "mean":
+            return valid_preds.mean()
+        actual_k = min(self.k, len(valid_preds))
+        top_k_preds, _ = torch.topk(valid_preds, actual_k)
+        return top_k_preds.mean()
+
+    def on_validation_batch_end(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        outputs: Any,
+        batch: Batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        if trainer.sanity_checking or outputs is None:
+            return
+
+        targets_graph = batch["labels"]["graph"]
+        if targets_graph is None:
+            return
+
+        nuclei_preds = torch.sigmoid(outputs["nuclei"].squeeze(-1))
+        seq_lens_list = batch["seq_lens"].tolist()
+        preds_split = torch.split(nuclei_preds, seq_lens_list)
+
+        tile_preds = torch.stack(
+            [
+                self._pool(valid_preds) if len(valid_preds) > 0 else torch.zeros(())
+                for valid_preds in preds_split
+            ]
+        )
+
+        self.tile_preds.append(tile_preds.detach().cpu())
+        self.tile_targets.append(targets_graph.view(-1).detach().cpu())
+
+    def on_validation_epoch_end(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
+        if trainer.sanity_checking:
+            return
+        self._log_and_clear_curves(self.tile_preds, self.tile_targets, "val_tile")

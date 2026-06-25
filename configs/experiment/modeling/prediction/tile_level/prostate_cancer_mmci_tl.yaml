@@ -7,14 +7,14 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  #- /callbacks/predictions@trainer.callbacks.predictions: tile
-  - /callbacks/masks@trainer.callbacks.tile_masks: tile
+  - /callbacks/predictions@trainer.callbacks.predictions: nuclei_to_tile # tile nuclei_to_tile
+  #- /callbacks/masks@trainer.callbacks.tile_masks: tile
   - _self_
 
-checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: null
+mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
@@ -53,4 +53,4 @@ model:
       mil_mode: "embedding" # embedding logit
 
 metadata:
-  run_name: "📊 Evaluation (MMCI)"
+  run_name: "📊 Tile-level Evaluation (MMCI)"

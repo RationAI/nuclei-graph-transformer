@@ -7,9 +7,9 @@ defaults:
 metadata_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512/tiles.parquet
 slides_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512/slides.parquet
 carcinoma_roi_t: 0.5
-predictions_uri: mlflow-artifacts:/97/60b415c94ff044da9ef9757230b07222/artifacts/predictions
+predictions_uri: mlflow-artifacts:/97/13f22c1798094ce7a908c241088ade91/artifacts/tile_predictions
 label_column: carcinoma
-threshold: 0.5005
+threshold:
 
-mlflow_run_id: # TODO
-checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
+mlflow_run_id: 13f22c1798094ce7a908c241088ade91
+checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt

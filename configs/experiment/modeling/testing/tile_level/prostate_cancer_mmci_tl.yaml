@@ -12,8 +12,8 @@ defaults:
 
 checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt
 
-mlflow_run_id: null
-mlflow_parent_run_id: null
+mlflow_run_id: 1477005785554e9f9c51b377b6c52818
+mlflow_parent_run_id: 2ec2a07ee62943cfa6a1cb9ebaaa7458
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule

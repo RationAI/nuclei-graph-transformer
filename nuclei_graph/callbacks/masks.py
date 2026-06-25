@@ -74,6 +74,7 @@ class TileHeatmapMasksCallback(BaseMasksCallback):
         kwargs.setdefault("mlflow_artifact_path", "tile_heatmaps")
         super().__init__(**kwargs)
         self.mask_builders: dict[str, ScalarMaskBuilder] = {}
+        self.downsamples: dict[str, float] = {}
 
     def _get_dataset(self, trainer: Trainer):
         """Safely extracts the predict dataset from Lightning internals."""
@@ -98,6 +99,8 @@ class TileHeatmapMasksCallback(BaseMasksCallback):
         metadata = batch["metadata"]
         assert metadata is not None, "Metadata is required"
         slide_ids = metadata["slide_id"]
+
+        assert "x" in metadata and "y" in metadata
         xs = metadata["x"]
         ys = metadata["y"]
 
@@ -117,23 +120,35 @@ class TileHeatmapMasksCallback(BaseMasksCallback):
                 extent_tile = slide_row["tile_extent_x"]
                 stride = slide_row.get("stride_x", extent_tile)
 
+                slide_path = dataset.metadata.loc[slide_id]["slide_path"]
+                with OpenSlide(Path(slide_path)) as slide:
+                    downsample = slide.level_downsamples[self.level]
+
+                self.downsamples[slide_id] = downsample
+
+                assert self.tmp_dir is not None
                 self.mask_builders[slide_id] = ScalarMaskBuilder(
                     save_dir=Path(self.tmp_dir.name),
                     filename=str(slide_id),
-                    extent_x=int(slide_row["extent_x"]),
-                    extent_y=int(slide_row["extent_y"]),
-                    mpp_x=float(mpp_x),
-                    mpp_y=float(mpp_y),
-                    extent_tile=int(extent_tile),
-                    stride=int(stride),
+                    extent_x=round(int(slide_row["extent_x"]) / downsample),
+                    extent_y=round(int(slide_row["extent_y"]) / downsample),
+                    mpp_x=float(mpp_x) * downsample,
+                    mpp_y=float(mpp_y) * downsample,
+                    extent_tile=round(int(extent_tile) / downsample),
+                    stride=round(int(stride) / downsample),
                     device="cpu",
                 )
 
             indices = [i for i, sid in enumerate(slide_ids) if sid == slide_id]
+            downsample = self.downsamples[slide_id]
 
             slide_preds = preds_graph[indices].unsqueeze(-1)
-            slide_xs = torch.tensor([xs[i] for i in indices], dtype=torch.float32)
-            slide_ys = torch.tensor([ys[i] for i in indices], dtype=torch.float32)
+            slide_xs = torch.tensor(
+                [xs[i] / downsample for i in indices], dtype=torch.float32
+            )
+            slide_ys = torch.tensor(
+                [ys[i] / downsample for i in indices], dtype=torch.float32
+            )
 
             self.mask_builders[slide_id].update(slide_preds, slide_xs, slide_ys)
 
@@ -167,6 +182,12 @@ class NucleiPredictionMasksCallback(BaseMasksCallback):
 
         # Batch Size is 1
         slide_id = metadata["slide_id"][0]
+
+        assert (
+            "slide_path" in metadata
+            and "nuclei_ids" in metadata
+            and "slide_nuclei_path" in metadata
+        )
         slide_path = metadata["slide_path"][0]
         nuclei_ids = metadata["nuclei_ids"][0]
         nuclei_path = metadata["slide_nuclei_path"][0]
@@ -236,6 +257,11 @@ class AttentionMasksCallback(BaseMasksCallback):
 
         # Batch Size is 1
         slide_id = metadata["slide_id"][0]
+        assert (
+            "slide_path" in metadata
+            and "nuclei_ids" in metadata
+            and "slide_nuclei_path" in metadata
+        )
         slide_path = metadata["slide_path"][0]
         nuclei_ids = metadata["nuclei_ids"][0]
         nuclei_path = metadata["slide_nuclei_path"][0]
