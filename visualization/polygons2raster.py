@@ -1,32 +1,14 @@
-"""Script for creating a visualization of the nuclei segmentation results and their labels.
-
-Assumes the following structure of input data:
-1. Segmented nuclei (`preprocessing/nuclei_segmentation.py`):
-<NUCLEI_PATH>/
-    <DATASET_NAME>/
-        slide_id=<SLIDE_NAME>/
-            *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
-
-2. (Optional) Model Predictions (`nuclei_graph/callbacks/prediction_labels.py`):
-<PREDICTIONS_URI>/
-    <SLIDE_NAME>.parquet (columns "id" (str), "prediction" (int))
-
-3. (Optional) Heatmap labels (`preprocessing/unipolar_heatmap_labels.py`) for positive slides:
-<HEATMAP_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and <LABEL_COLUMN> (int))
-
-4. (Optional) CAM labels (`preprocessing/cam_labels.py`):
-<CAM_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), "cam_label" (int), and "cam_score" (float))
+"""Script for visualizing segmented nuclei polygons rasterized onto a single-channel mask.
 
 Visualization Modes:
 1) Outline: Only outline the segmented nuclei polygons.
-2) Predictions: Creates nuclei masks according to model predictions — nuclei predicted as positive are filled;
-    `predictions_uri` and `pred_thr` must be provided.
-3) Heatmap-based Labeling: Creates nuclei masks for positive slides according to heatmap labels — nuclei
-    inside heatmaps are filled; `heatmap_labels_uri` must be provided.
-4) CAM-based Pseudo Labeling: Creates nuclei masks for positive slides according to CAM pseudo-labels — nuclei
-    inside specified high-confidence CAM regions (positive or negative) are filled; `cam_labels_uri` must be provided.
+2) Predictions: Creates nuclei masks according to model predictions (`nuclei_graph/callbacks/predictions.py`) —
+    nuclei with `nuclei_prediction` ≥ `pred_thr` are filled; `predictions_uri` and `pred_thr` must be provided.
+3) Heatmap-based Labeling: Creates nuclei masks for positive slides according to heatmap labels
+    (`preprocessing/unipolar_heatmap_labels.py`) — nuclei inside heatmaps are filled; `heatmap_labels_uri` must be provided.
+4) CAM-based Pseudo Labeling: Creates nuclei masks for positive slides according to CAM pseudo-labels
+    (`preprocessing/cam_labels.py`) — nuclei inside specified high-confidence CAM regions (positive or negative)
+    are filled; `cam_labels_uri` must be provided.
 """
 
 from pathlib import Path

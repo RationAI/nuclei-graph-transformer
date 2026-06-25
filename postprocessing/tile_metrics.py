@@ -26,9 +26,8 @@ from torchmetrics.classification import (
 def get_predictions(predictions_dir: Path) -> pd.DataFrame:
     all_preds = []
     for parquet_path in predictions_dir.rglob("*.parquet"):
-        slide_id = parquet_path.stem
         slide_pred_df = pd.read_parquet(parquet_path)
-        slide_pred_df["slide_id"] = slide_id
+        slide_pred_df["slide_id"] = parquet_path.stem
         all_preds.append(slide_pred_df)
     return pd.concat(all_preds, ignore_index=True)
 
@@ -65,7 +64,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "precision": BinaryPrecision(config.threshold),
                 "recall": BinaryRecall(config.threshold),
                 "specificity": BinarySpecificity(config.threshold),
-                "npv": BinaryNegativePredictiveValue(config.threshold),
+                "negative_predictive_value": BinaryNegativePredictiveValue(
+                    config.threshold
+                ),
             }
         )
 
@@ -96,7 +97,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "recall": BinaryRecall(config.threshold),
                 "accuracy": BinaryAccuracy(config.threshold),
                 "specificity": BinarySpecificity(config.threshold),
-                "npv": BinaryNegativePredictiveValue(config.threshold),
+                "negative_predictive_value": BinaryNegativePredictiveValue(
+                    config.threshold
+                ),
                 "confusion_matrix": BinaryConfusionMatrix(config.threshold),
             },
             prefix="test_thresholded/",

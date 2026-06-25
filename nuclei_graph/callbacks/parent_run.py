@@ -15,7 +15,10 @@ class ParentRunTagCallback(Callback):
         if not self.parent_run_id:
             return
 
-        assert isinstance(trainer.logger, MLFlowLogger)
+        assert (
+            isinstance(trainer.logger, MLFlowLogger)
+            and trainer.logger.run_id is not None
+        )
         MlflowClient().set_tag(
             trainer.logger.run_id, MLFLOW_PARENT_RUN_ID, self.parent_run_id
         )

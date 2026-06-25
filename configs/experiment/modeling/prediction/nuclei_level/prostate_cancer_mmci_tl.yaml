@@ -8,13 +8,13 @@ defaults:
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   - /callbacks/predictions@trainer.callbacks.predictions: nuclei
-  #- /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
+  - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/7e99f68ecce045f79d3d21ddf86f20e8/artifacts/checkpoints/epoch=277-step=6116/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
+mlflow_parent_run_id: 7e99f68ecce045f79d3d21ddf86f20e8
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule

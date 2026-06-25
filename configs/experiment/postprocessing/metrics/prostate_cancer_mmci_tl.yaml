@@ -8,10 +8,10 @@ metadata_uri: ${dataset.mlflow_uris.metadata.test}
 predictions_uri: mlflow-artifacts:/97/7b860f365eca4a96bd4edc0c058f6188/artifacts/predictions
 supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: annot_label # annot_label pred_label
-threshold: 0.604
+threshold:
 
-mlflow_run_id: 7b860f365eca4a96bd4edc0c058f6188
-checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
+mlflow_run_id: 1eff4704af7d4d5ea828038da4c0f664
+checkpoint: mlflow-artifacts:/97/7e99f68ecce045f79d3d21ddf86f20e8/artifacts/checkpoints/epoch=277-step=6116/checkpoint.ckpt
 
 metadata:
   run_name: "Evaluation Annotation" # Annotation Virchow2

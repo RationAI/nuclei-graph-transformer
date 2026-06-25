@@ -11,9 +11,9 @@ defaults:
   - /callbacks@trainer.callbacks.spatial_permutation_importance: spatial_permutation_importance
   - _self_
 
-checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/7e99f68ecce045f79d3d21ddf86f20e8/artifacts/checkpoints/epoch=277-step=6116/checkpoint.ckpt
 
-mlflow_run_id: 7b860f365eca4a96bd4edc0c058f6188
+mlflow_run_id: 1eff4704af7d4d5ea828038da4c0f664
 mlflow_parent_run_id: null
 
 data:

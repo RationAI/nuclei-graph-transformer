@@ -1,10 +1,10 @@
 defaults:
   - base
   - _self_
-  #- /experiment/modeling/training: graph_level/prostate_cancer_mmci_tl # graph_level nuclei_level tile_level / prostate_cancer_mmci_tl radboud
+  - /experiment/modeling/training: nuclei_level/prostate_cancer_mmci_tl # graph_level nuclei_level tile_level / prostate_cancer_mmci_tl radboud
   #- /experiment/modeling/prediction: nuclei_level/prostate_cancer_mmci_tl
   #- /experiment/modeling/validation: nuclei_level/prostate_cancer_mmci_tl
-  - /experiment/modeling/testing: nuclei_level/prostate_cancer_mmci_tl
+  #- /experiment/modeling/testing: nuclei_level/prostate_cancer_mmci_tl
 
 seed: ${random_seed:}
 mode: ???
