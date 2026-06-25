@@ -106,7 +106,9 @@ def log_per_slide_nuclei_metrics(
         table_data = {
             str(k): v for k, v in slide_results_df.to_dict(orient="list").items()
         }
-        client.log_dict(run_id, table_data, config.mlflow_artifact_path)
+        client.log_table(
+            run_id=run_id, data=table_data, artifact_file=config.mlflow_artifact_path
+        )
 
 
 def log_global_nuclei_metrics(
