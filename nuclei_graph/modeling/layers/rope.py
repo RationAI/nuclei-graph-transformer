@@ -14,15 +14,14 @@ class RoPE(nn.Module):
         - "Rethinking RoPE: A Mathematical Blueprint for N-dimensional Rotary Positional Embedding" (https://arxiv.org/abs/2504.06308)
     """
 
-    def __init__(
-        self, dim: int, pos_dim: int = 2, angle_dim: int = 2, theta: float = 100.0
-    ) -> None:
+    rot_harmonics: Tensor  # Type hint
+
+    def __init__(self, dim: int, pos_dim: int = 2, theta: float = 100.0) -> None:
         """Initialize RoPE module.
 
         Args:
             dim: The feature dimension of the input tensor. Must be even.
             pos_dim: The dimensionality of the position vectors (e.g., 1 for 1D, 2 for 2D).
-            angle_dim: The dimensionality of the angle vectors.
             theta: The base value for the RoPE frequency calculation.
         """
         super().__init__()
@@ -31,10 +30,12 @@ class RoPE(nn.Module):
         self.head_dim = dim // 2
 
         base = 1.0 / (theta ** (torch.arange(0, self.head_dim).float() / self.head_dim))
-        self.register_buffer("base_freqs", base, persistent=False)
+        self.base_freqs = nn.Parameter(base)
 
         self.W_pos = orthogonal(nn.Linear(pos_dim, self.head_dim, bias=False))
-        self.W_rot = orthogonal(nn.Linear(angle_dim, self.head_dim, bias=False))
+
+        harmonics = torch.arange(1, self.head_dim + 1, dtype=torch.float32)
+        self.register_buffer("rot_harmonics", harmonics, persistent=False)
 
         self.P = orthogonal(
             nn.Linear(dim, dim, bias=False),
@@ -48,16 +49,17 @@ class RoPE(nn.Module):
         Args:
             x ([b, h, n, d]): Input tensor.
             positions ([b, n, pos_dim]): Positions tensor.
-            angles ([b, n, angle_dim]): Angles tensor.
+            angles ([b, n, angle_dim]): Angles tensor (expected as cos, sin).
         """
         x = self.P(x.float())
-        pos_phase = self.W_pos(positions)  # [b, n, d/2]
-        rot_phase = self.W_rot(angles)  # [b, n, d/2]
 
-        freqs = self.base_freqs[None, None, :]  # [1, 1, d/2]
+        pos_phase = self.W_pos(positions) * self.base_freqs  # [b, n, d/2]
+        nucleus_angle = torch.atan2(angles[..., 1], angles[..., 0]).unsqueeze(
+            -1
+        )  # [b, n, 1]
 
-        pos_phase = pos_phase * freqs
-        rot_phase = rot_phase * freqs
+        rot_phase = nucleus_angle * self.rot_harmonics  # [b, n, d/2]
+
         total_phase = pos_phase + rot_phase
 
         cis = torch.polar(torch.ones_like(total_phase), total_phase)

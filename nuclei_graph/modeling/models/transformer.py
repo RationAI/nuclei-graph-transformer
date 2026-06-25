@@ -56,11 +56,9 @@ class Transformer(nn.Module):
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
         self.pos_encoder = MLPSpatialEmbedding(dim=config.dim)
-
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
-
         self.attn_head = nn.Sequential(
             nn.Linear(config.dim, config.dim // 2),
             nn.Tanh(),
