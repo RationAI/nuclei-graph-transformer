@@ -1,0 +1,18 @@
+# @package _global_
+
+nuclei_predictions_uri: ???
+metadata_uri: ???
+pooling_mode: top_k
+k: 10
+mlflow_artifact_path: tile_predictions
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
+
+checkpoint: ???
+
+metadata:
+  run_name: "Nuclei to Tile Pooling Evaluation"
+  hyperparams:
+    pooling_mode: ${pooling_mode}
+    k: ${k}

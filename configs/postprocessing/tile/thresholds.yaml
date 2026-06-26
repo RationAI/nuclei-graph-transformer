@@ -1,0 +1,17 @@
+# @package _global_
+
+metadata_uri: ???
+slides_uri: ???
+predictions_uri: ???
+carcinoma_roi_t: ???
+label_column: ???
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
+
+checkpoint: ???
+
+metadata:
+  run_name: "Tile Threshold Estimation"
+  hyperparams:
+    carcinoma_roi_t: ${carcinoma_roi_t}

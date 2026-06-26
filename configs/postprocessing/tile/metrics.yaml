@@ -4,13 +4,13 @@ metadata_uri: ???
 predictions_uri: ???
 label_column: ???
 threshold: ???
+
 mlflow_artifact_path: slide_tile_metrics.json
 mlflow_run_id: null
 
 checkpoint: ???
 
 metadata:
-  run_name: ???
-  description: "Model: [MLflow training run](${checkpoint_url})"
+  run_name: "Tile-level Evaluation"
   hyperparams:
     threshold: ${threshold}

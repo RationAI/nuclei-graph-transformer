@@ -1,7 +1,7 @@
 from lightning import Callback, LightningModule, Trainer
-from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+
+from nuclei_graph.mlflow_utils import tag_parent_run
 
 
 class ParentRunTagCallback(Callback):
@@ -19,6 +19,4 @@ class ParentRunTagCallback(Callback):
             isinstance(trainer.logger, MLFlowLogger)
             and trainer.logger.run_id is not None
         )
-        MlflowClient().set_tag(
-            trainer.logger.run_id, MLFLOW_PARENT_RUN_ID, self.parent_run_id
-        )
+        tag_parent_run(trainer.logger.run_id, self.parent_run_id)

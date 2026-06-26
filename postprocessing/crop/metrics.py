@@ -3,7 +3,6 @@ from tempfile import TemporaryDirectory
 
 import hydra
 import matplotlib.pyplot as plt
-import mlflow
 import pandas as pd
 import torch
 from mlflow.artifacts import download_artifacts
@@ -24,6 +23,8 @@ from torchmetrics.classification import (
     BinarySpecificity,
 )
 
+from postprocessing.mlflow_utils import setup_mlflow
+
 
 def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame:
     """Loads all parquet predictions and concatenates them."""
@@ -37,16 +38,6 @@ def get_predictions(slide_ids: pd.Series, predictions_dir: Path) -> pd.DataFrame
         all_preds.append(slide_pred_df)
 
     return pd.concat(all_preds, ignore_index=True)
-
-
-def setup_mlflow(config: DictConfig) -> tuple[MlflowClient, str | None]:
-    """Initializes the MLflow client and extracts the target run ID."""
-    mlflow_run_id = config.get("mlflow_run_id")
-    if mlflow_run_id is None:
-        active_run = mlflow.active_run()
-        if active_run is not None:
-            mlflow_run_id = active_run.info.run_id
-    return MlflowClient(), mlflow_run_id
 
 
 def load_and_merge_data(config: DictConfig, predictions_dir: Path) -> pd.DataFrame:
@@ -213,8 +204,10 @@ def log_slide_level_graph_metrics(
             client.log_metric(run_id, k, float(v))
 
 
-@with_cli_args(["+postprocessing=metrics"])
-@hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
+@with_cli_args(["+postprocessing=crop/metrics"])
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     client, mlflow_run_id = setup_mlflow(config)

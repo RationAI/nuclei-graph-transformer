@@ -19,12 +19,10 @@ class TilePredictionDataset(BaseTileDataset):
         thresholds: dict[str, float],
         tile_size: int,
         margin: float | None = None,
-        random_rotate: bool | None = False,
         efd_order: int = 16,
-        carcinoma_filter: bool = False,
     ) -> None:
         super().__init__(
-            metadata, uris, thresholds, efd_order, carcinoma_filter, tile_size, margin
+            metadata, uris, thresholds, efd_order, False, tile_size, margin
         )
 
     def __getitem__(self, idx: int) -> Sample:
@@ -36,22 +34,16 @@ class TilePredictionDataset(BaseTileDataset):
         nuclei_path = self.slide_props[tile["stem"]]["slide_nuclei_path"]
         polygons, centroids, centroid_tree, nuclei_ids = get_slide_data(nuclei_path)
         tile_indices = self.get_tile_indices(scaled_props, centroids, centroid_tree)
+        tile_labels: Targets = {"nuclei": None, "graph": None}
 
         # EFD Computation
-        if len(tile_indices) == 0:
+        if len(tile_indices) == 0:  # empty tile, no nuclei
             tile_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
             tile_pos_centered = np.zeros((1, 2), dtype=np.float32)
 
             tile_sup_mask = torch.tensor([False], dtype=torch.bool)
             roi_mask = torch.tensor([False], dtype=torch.bool)
 
-            graph_label = tile.get("carcinoma", 0.0)
-            tile_labels: Targets = {
-                "nuclei": torch.tensor([0.0], dtype=torch.float32),
-                "graph": torch.tensor([graph_label], dtype=torch.float32),
-            }
-
-            # placeholder row has no real nucleus; keep length aligned with seq_len
             tile_nuclei_ids = np.full(1, -1, dtype=nuclei_ids.dtype)
             seq_len = 1
         else:
@@ -69,7 +61,6 @@ class TilePredictionDataset(BaseTileDataset):
             roi_mask = torch.from_numpy(
                 self.get_roi_mask(scaled_props, centroids[tile_indices])
             )
-            tile_labels: Targets = {"nuclei": None, "graph": None}
             tile_nuclei_ids = nuclei_ids[tile_indices]
             seq_len = len(tile_indices)
 

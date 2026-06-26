@@ -8,7 +8,6 @@ from nuclei_graph.callbacks.plot_curves import CropCurvesCallback, NucleiCurvesC
 from nuclei_graph.callbacks.predictions import (
     CropPredictionCallback,
     NucleiPredictionCallback,
-    NucleiToTilePredictionCallback,
     TilePredictionCallback,
 )
 from nuclei_graph.callbacks.spatial_permutation_importance import (
@@ -24,7 +23,6 @@ __all__ = [
     "NucleiCurvesCallback",
     "NucleiPredictionCallback",
     "NucleiPredictionMasksCallback",
-    "NucleiToTilePredictionCallback",
     "PermutationImportanceCallback",
     "SpatialPermutationImportanceCallback",
     "TileHeatmapMasksCallback",

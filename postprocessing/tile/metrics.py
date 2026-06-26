@@ -5,7 +5,6 @@ import hydra
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
-from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
@@ -22,38 +21,17 @@ from torchmetrics.classification import (
     BinarySpecificity,
 )
 
-
-def get_predictions(predictions_dir: Path) -> pd.DataFrame:
-    all_preds = []
-    for parquet_path in predictions_dir.rglob("*.parquet"):
-        slide_pred_df = pd.read_parquet(parquet_path)
-        slide_pred_df["slide_id"] = parquet_path.stem
-        all_preds.append(slide_pred_df)
-    return pd.concat(all_preds, ignore_index=True)
+from postprocessing.tile.data_loading import load_tile_predictions_with_labels
 
 
-@with_cli_args(["+postprocessing=metrics"])
-@hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
+@with_cli_args(["+postprocessing=tile/metrics"])
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    predictions_dir = Path(download_artifacts(config.predictions_uri))
-
-    tiles_df = pd.read_parquet(download_artifacts(config.metadata_uri))
-    slides_df = pd.read_parquet(download_artifacts(config.slides_uri))
-
-    id_to_stem = dict(zip(slides_df["id"], slides_df["stem"], strict=True))
-    tiles_df["slide_id"] = tiles_df["slide_id"].map(id_to_stem)
-
-    carcinoma_roi_t = config.carcinoma_roi_t
-    tiles_df["carcinoma"] = (
-        tiles_df["carcinoma_roi_percentage"] > carcinoma_roi_t
-    ).astype(int)
-
-    preds_df = get_predictions(predictions_dir)
-    merged_df = pd.merge(preds_df, tiles_df, on=["slide_id", "x", "y"], how="inner")
-
+    merged_df = load_tile_predictions_with_labels(config)
     target_col = config.label_column
-    merged_df[target_col] = merged_df[target_col].fillna(0).astype(int)
 
     with TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
