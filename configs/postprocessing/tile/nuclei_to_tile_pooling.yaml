@@ -12,7 +12,7 @@ mlflow_parent_run_id: null
 checkpoint: ???
 
 metadata:
-  run_name: "Nuclei to Tile Pooling Evaluation"
+  run_name: Nuclei to Tile Pooling Evaluation
   hyperparams:
     pooling_mode: ${pooling_mode}
     k: ${k}

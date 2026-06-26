@@ -12,6 +12,6 @@ mlflow_parent_run_id: null
 checkpoint: ???
 
 metadata:
-  run_name: "Tile Threshold Estimation"
+  run_name: Tile Threshold Estimation
   hyperparams:
     carcinoma_roi_t: ${carcinoma_roi_t}

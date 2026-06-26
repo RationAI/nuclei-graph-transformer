@@ -11,6 +11,6 @@ mlflow_run_id: null
 checkpoint: ???
 
 metadata:
-  run_name: "Tile-level Evaluation"
+  run_name: Tile-level Evaluation
   hyperparams:
     threshold: ${threshold}
