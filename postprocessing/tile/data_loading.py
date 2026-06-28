@@ -1,3 +1,5 @@
+"""Shared loaders for tile-level prediction artifacts used by other postprocessing scripts."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +8,7 @@ from omegaconf import DictConfig
 
 
 def get_predictions(predictions_dir: Path) -> pd.DataFrame:
+    """Concatenates per-slide pooled-tile-prediction parquet files into a single DataFrame."""
     all_preds = []
     for parquet_path in predictions_dir.rglob("*.parquet"):
         slide_pred_df = pd.read_parquet(parquet_path)
@@ -14,9 +17,9 @@ def get_predictions(predictions_dir: Path) -> pd.DataFrame:
     return pd.concat(all_preds, ignore_index=True)
 
 
-def load_tile_predictions_with_labels(config: DictConfig) -> pd.DataFrame:
+def load_tile_predictions(config: DictConfig) -> pd.DataFrame:
     """Loads pooled tile predictions and merges them with ground-truth tile labels."""
-    predictions_dir = Path(download_artifacts(config.predictions_uri))
+    predictions_dir = Path(download_artifacts(config.tile_predictions_uri))
 
     tiles_df = pd.read_parquet(download_artifacts(config.metadata_uri))
     slides_df = pd.read_parquet(download_artifacts(config.slides_uri))

@@ -297,11 +297,16 @@ class NucleiToTileCurvesCallback(BaseCurvesCallback):
         nuclei_preds = torch.sigmoid(outputs["nuclei"].squeeze(-1))
         seq_lens_list = batch["seq_lens"].tolist()
         preds_split = torch.split(nuclei_preds, seq_lens_list)
+        roi_mask_split = torch.split(batch["roi_mask"], seq_lens_list)
 
         tile_preds = torch.stack(
             [
-                self._pool(valid_preds) if len(valid_preds) > 0 else torch.zeros(())
-                for valid_preds in preds_split
+                self._pool(valid_preds[roi_mask])
+                if roi_mask.any()
+                else torch.zeros(())
+                for valid_preds, roi_mask in zip(
+                    preds_split, roi_mask_split, strict=True
+                )
             ]
         )
 

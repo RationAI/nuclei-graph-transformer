@@ -1,3 +1,9 @@
+"""Builds per-slide heatmaps of tile-level predictions.
+
+For each slide, loads its pooled tile predictions and rasterizes them into a scalar
+heatmap using. The resulting heatmaps are logged as artifacts on the MLflow run.
+"""
+
 import gc
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -62,9 +68,10 @@ def build_slide_heatmap(
 )
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    assert logger.run_id is not None
     tag_parent_run(logger.run_id, config.get("mlflow_parent_run_id"))
 
-    predictions_dir = Path(download_artifacts(config.predictions_uri))
+    predictions_dir = Path(download_artifacts(config.pooled_predictions_uri))
     preds_df = get_predictions(predictions_dir)
 
     slides_df = pd.read_parquet(download_artifacts(config.slides_uri)).set_index("stem")

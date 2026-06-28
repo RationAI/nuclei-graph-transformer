@@ -1,3 +1,15 @@
+"""Computes tile-level classification metrics from pooled predictions.
+
+Loads pooled tile predictions merged with their ground-truth labels and computes:
+
+- Per-slide metrics (accuracy, precision, recall, specificity, negative
+  predictive value), logged as a table.
+- Global tile-level metrics, logged as scalar metrics plus the confusion matrix
+
+Intended to be run after `thresholds.py` has selected a threshold and
+`nuclei_to_tile_pooling.py` has produced the pooled tile predictions.
+"""
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -21,7 +33,7 @@ from torchmetrics.classification import (
     BinarySpecificity,
 )
 
-from postprocessing.tile.data_loading import load_tile_predictions_with_labels
+from postprocessing.tile.data_loading import load_tile_predictions
 
 
 @with_cli_args(["+postprocessing=tile/metrics"])
@@ -30,7 +42,7 @@ from postprocessing.tile.data_loading import load_tile_predictions_with_labels
 )
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
-    merged_df = load_tile_predictions_with_labels(config)
+    merged_df = load_tile_predictions(config)
     target_col = config.label_column
 
     with TemporaryDirectory() as tmp_dir:

@@ -1,6 +1,6 @@
 # @package _global_
 
-predictions_uri: ???
+pooled_predictions_uri: ???
 metadata_uri: ???
 slides_uri: ???
 level: 2

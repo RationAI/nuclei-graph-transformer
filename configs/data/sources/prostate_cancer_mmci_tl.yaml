@@ -44,12 +44,12 @@ dataset:
         cam: ${mlflow_project_sc}/23749f39b3f8451485a5c4bc75fd37bd/artifacts/missing_cam_masks.csv
         annotation: ${mlflow_project_sc}/fb2e33383e2548c48e5bd4f2a77e47a8/artifacts/missing_annotations.csv
 
-    tiles:
+    tiles: # filtered
       train:
-        - mlflow-artifacts:/65/b587398845c54e1c84e8b60f11c42b15/artifacts/MMCI TL Train 512
-        - mlflow-artifacts:/65/a43da470f89848abb3a32e59c504ee1a/artifacts/MMCI TL Val 512
+        - mlflow-artifacts:/65/4c8c0a88482f4eef900a86990be51783/artifacts/MMCI TL Train_512
+        - mlflow-artifacts:/65/1cbc0977226d4a389ee97c136c54e673/artifacts/MMCI TL Val_512
       test:
-        - mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512 # filtered
+        - mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512
 
     # preprocessing/metadata_mapping/prostate_cancer_mmci_tl.py
     metadata:

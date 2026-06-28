@@ -2,15 +2,63 @@
 
 defaults:
   - /data/sources/prostate_cancer_mmci_tl
+  - /data/datasets/tile@data.dataset: classification
+  - /data/supervision@data.supervision.eval_strategy: agreement
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
   - _self_
 
-metadata_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512/tiles.parquet
-slides_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512/slides.parquet
-carcinoma_roi_t: 0.5
-predictions_uri: mlflow-artifacts:/97/09409303fdb048f3b30d05722763a2c0/artifacts/tile_predictions
-label_column: carcinoma
+pooling_mode: top_k
+k: 10
 
-mlflow_run_id: 09409303fdb048f3b30d05722763a2c0
+data:
+  _target_: nuclei_graph.data.datamodules.tile.TileDataModule
+
+  batch_size: 1
+  num_workers: 0
+  eval_num_workers: 0
+  block_size: 128
+
+  k: 16
+  split_stratify_col: "is_carcinoma"
+  split_group_col: "patient_id"
+  split_size: 0.1
+  metadata: ${dataset.mlflow_uris.metadata}
+
+  dataset:
+    uris: ${dataset.mlflow_uris.tiles.train}
+    tile_size: 512
+    margin: 128
+    efd_order: 16
+    thresholds:
+      tissue_roi_t: 0.5
+      exclude_t: 0.0
+      another_pathology_t: 0.0
+      residual_t: 0.25
+      blur_t: 0.25
+      folding_t: 0.25
+      carcinoma_roi_t: 0.5
+
+  supervision:
+    paths: ${dataset.paths.supervision}
+    train_strategy: null
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      efd_order: 16
+      node_features: 67 # efd_order * 4 + 3 (scale + sin/cos angles)
+      norm_dim: 65 # efd_order * 4 + 1 (scale)
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      num_classes: 1
+      drop_path_rate: 0.15
+
+mlflow_run_id: 60b2e64ac2e640d3a124c9e6004b9a63
 mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt

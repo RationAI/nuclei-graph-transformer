@@ -17,6 +17,7 @@ mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
+
   batch_size: 16
   k: 16
   split_stratify_col: "is_carcinoma"

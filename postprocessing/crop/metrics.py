@@ -1,3 +1,17 @@
+"""Computes nuclei- and slide-level classification metrics from crop predictions.
+
+Loads per-slide crop prediction parquets, merges them with nuclei-level
+supervision and slide metadata, and logs:
+
+- Per-slide nuclei-level metrics (accuracy, precision, recall, specificity,
+  negative predictive value), logged as a table.
+- Global nuclei-level metrics (the above plus AUPRC/AUROC), logged as scalar
+  metrics.
+- Slide-level graph metrics derived from a single `graph_prediction` per
+  slide, including a confusion matrix plot and a CSV of misclassified slides;
+  skipped if no `graph_prediction` column is present.
+"""
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
