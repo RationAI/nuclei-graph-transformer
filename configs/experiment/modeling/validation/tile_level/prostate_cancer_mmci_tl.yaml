@@ -27,6 +27,7 @@ data:
 
   dataset:
     efd_order: 16
+    #patch_size: 48
     tile_size: 512
     margin: 128
     uris: ${dataset.mlflow_uris.tiles.train}
@@ -50,6 +51,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
+      embedding_mode: "efd" # "efd", "bbox", "both"
 
 metadata:
   run_name: "📊 Evaluation (MMCI)"

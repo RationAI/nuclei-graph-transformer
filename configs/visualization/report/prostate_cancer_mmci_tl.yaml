@@ -11,7 +11,7 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
   metrics_run_ids:
-    - 09409303fdb048f3b30d05722763a2c0
+    - aed1da3432694541bfdb82364acfc660
   template_asset_path: report_template.html
 
   save:
@@ -34,7 +34,7 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    09409303fdb048f3b30d05722763a2c0:
+    aed1da3432694541bfdb82364acfc660:
       artifact_file: "slide_tile_metrics.json"
       slide_item_key: "slide_id"
 
@@ -85,13 +85,13 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: tile_heatmaps
-      run_id: 09409303fdb048f3b30d05722763a2c0
+      run_id: aed1da3432694541bfdb82364acfc660
       layer_name: "Pooled Nuclei-to-tile preds"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 83
+          threshold: 66
         color: "#00FF00" # green
 
 metadata:

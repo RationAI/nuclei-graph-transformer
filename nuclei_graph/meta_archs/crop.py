@@ -54,6 +54,7 @@ class CropModelMetaArch(LightningModule):
             block_mask=inputs["block_mask"],
             roi_mask=inputs["roi_mask"],
             seq_lens=inputs["seq_lens"],
+            bboxes=inputs.get("bboxes"),
         )
 
     def training_step(self, batch: Batch) -> Tensor:

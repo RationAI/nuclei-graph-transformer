@@ -12,3 +12,4 @@ config:
   num_classes: ???
   drop_path_rate: ???
   mil_mode: null
+  embedding_mode: efd # efd, bbox, or both

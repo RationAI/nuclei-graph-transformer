@@ -24,6 +24,7 @@ class GraphClassificationDataset(BaseCropDataset):
         efd_order: int = 16,
         full_slide: bool = False,
         random_rotate: bool = False,
+        patch_size: int | None = None,
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -34,6 +35,7 @@ class GraphClassificationDataset(BaseCropDataset):
             efd_order=efd_order,
             full_slide=full_slide,
             random_rotate=random_rotate,
+            patch_size=patch_size,
         )
         self.crop_pos_thr = crop_pos_thr
         self.pos_slide_indices = np.where(self.metadata["is_carcinoma"])[0].tolist()
@@ -130,7 +132,7 @@ class GraphClassificationDataset(BaseCropDataset):
             crop_features[..., -2] = cos_rot
             crop_features[..., -1] = sin_rot
 
-        return Sample(
+        sample = Sample(
             {
                 "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": {"nuclei": crop_nuclei_labels, "graph": crop_graph_label},
@@ -141,3 +143,7 @@ class GraphClassificationDataset(BaseCropDataset):
                 "metadata": None,
             }
         )
+        bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
+        if bboxes is not None:
+            sample["bboxes"] = bboxes
+        return sample

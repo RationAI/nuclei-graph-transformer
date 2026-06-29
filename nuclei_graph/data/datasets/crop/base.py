@@ -5,10 +5,13 @@ from random import choice, randint, randrange, uniform
 
 import numpy as np
 import pandas as pd
+import torch
 from degraph import build_spatial_graph
 from einops import rearrange
 from numpy.typing import NDArray
 from pandas import DataFrame
+from ratiopath.openslide import OpenSlide
+from torch import Tensor
 from torch.utils.data import Dataset
 
 from nuclei_graph.data.efd import (
@@ -18,6 +21,9 @@ from nuclei_graph.data.efd import (
 )
 from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
 from nuclei_graph.nuclei_graph_typing import Sample
+
+
+MAX_CROP_PATCH_SIDE = 8192
 
 
 type PriorityQueueItem = tuple[float, int]  # (cost, node_idx)
@@ -38,6 +44,7 @@ class BaseCropDataset(Dataset[Sample], ABC):
         efd_order: int = 16,
         full_slide: bool = False,
         random_rotate: bool = False,
+        patch_size: int | None = None,
     ) -> None:
         self.metadata = metadata
         self.supervision = supervision
@@ -47,6 +54,7 @@ class BaseCropDataset(Dataset[Sample], ABC):
         self.efd_order = efd_order
         self.full_slide = full_slide
         self.random_rotate = random_rotate
+        self.patch_size = patch_size
 
     def __len__(self) -> int:
         return len(self.metadata)
@@ -167,6 +175,103 @@ class BaseCropDataset(Dataset[Sample], ABC):
     ) -> np.ndarray:
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         return np.stack(nuclei["centroid"].tolist()) * mpps
+
+    def clip_box(
+        self, lx: int, ly: int, rx: int, ry: int, wsi_w: int, wsi_h: int
+    ) -> tuple[int, int, int, int]:
+        """Clips a `[lx, rx) x [ly, ry)` box to the slide bounds.
+
+        Returns `(read_x, read_y, read_w, read_h)`; `read_w`/`read_h` are <= 0 when the box
+        doesn't overlap the slide at all.
+        """
+        read_x, read_y = max(0, lx), max(0, ly)
+        read_w = min(wsi_w, rx) - read_x
+        read_h = min(wsi_h, ry) - read_y
+        return read_x, read_y, read_w, read_h
+
+    def get_nuclei_bboxes(
+        self, nuclei: pd.DataFrame, slide_path: str, crop_indices: NDArray[np.int64]
+    ) -> Tensor | None:
+        """Extracts a fixed-size RGB patch from the WSI around each cropped nucleus's centroid.
+
+        Returns None when `patch_size` is not configured (bbox extraction disabled). When the
+        cropped nuclei span a small enough area (e.g. a local training/eval crop, where they
+        come from a spatially-clustered connected component), every patch is sliced out of a
+        single `read_region` call covering their union (the "crop patch"). For more spread-out
+        cases (e.g. a full-slide pass) it falls back to one `read_region` call per nucleus,
+        since reading the union could otherwise try to decode too large an area at once.
+        """
+        if self.patch_size is None:
+            return None
+
+        raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
+        half_patch = self.patch_size // 2
+
+        lx = raw_centroids[:, 0].astype(np.int64) - half_patch
+        ly = raw_centroids[:, 1].astype(np.int64) - half_patch
+        rx, ry = lx + self.patch_size, ly + self.patch_size
+
+        with OpenSlide(slide_path) as wsi:
+            wsi_w, wsi_h = wsi.dimensions
+
+            union_w = int(rx.max() - lx.min())
+            union_h = int(ry.max() - ly.min())
+            use_crop_patch = max(union_w, union_h) <= MAX_CROP_PATCH_SIDE
+
+            crop_patch, crop_patch_x, crop_patch_y = None, 0, 0
+            if use_crop_patch:
+                crop_patch_x, crop_patch_y, crop_patch_w, crop_patch_h = self.clip_box(
+                    int(lx.min()),
+                    int(ly.min()),
+                    int(rx.max()),
+                    int(ry.max()),
+                    wsi_w,
+                    wsi_h,
+                )
+                crop_patch = (
+                    np.array(
+                        wsi.read_region(
+                            (crop_patch_x, crop_patch_y),
+                            0,
+                            (crop_patch_w, crop_patch_h),
+                        ).convert("RGB")
+                    )
+                    if crop_patch_w > 0 and crop_patch_h > 0
+                    else np.zeros((0, 0, 3), dtype=np.uint8)
+                )
+
+            bboxes = []
+            for i in range(len(raw_centroids)):
+                canvas = np.full(
+                    (self.patch_size, self.patch_size, 3), 255, dtype=np.uint8
+                )
+                read_x, read_y, read_w, read_h = self.clip_box(
+                    int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]), wsi_w, wsi_h
+                )
+
+                if read_w > 0 and read_h > 0:
+                    if use_crop_patch:
+                        assert crop_patch is not None
+                        src_x = read_x - crop_patch_x
+                        src_y = read_y - crop_patch_y
+                        patch = crop_patch[
+                            src_y : src_y + read_h, src_x : src_x + read_w
+                        ]
+                    else:
+                        patch = np.array(
+                            wsi.read_region(
+                                (read_x, read_y), 0, (read_w, read_h)
+                            ).convert("RGB")
+                        )
+
+                    canvas_x, canvas_y = read_x - int(lx[i]), read_y - int(ly[i])
+                    canvas[
+                        canvas_y : canvas_y + read_h, canvas_x : canvas_x + read_w
+                    ] = patch
+
+                bboxes.append(canvas)
+
+        return torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2)
 
     def get_nuclei_sup(self, slide_id: str) -> NucleiSupervision:
         assert self.supervision is not None

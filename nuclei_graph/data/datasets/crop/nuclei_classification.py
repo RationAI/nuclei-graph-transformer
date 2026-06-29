@@ -58,7 +58,7 @@ class NucleiClassificationDataset(BaseCropDataset):
             crop_features[..., -2] = cos_rot
             crop_features[..., -1] = sin_rot
 
-        return Sample(
+        sample = Sample(
             {
                 "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": {"nuclei": crop_nuclei_labels, "graph": None},
@@ -69,3 +69,7 @@ class NucleiClassificationDataset(BaseCropDataset):
                 "metadata": None,
             }
         )
+        bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
+        if bboxes is not None:
+            sample["bboxes"] = bboxes
+        return sample

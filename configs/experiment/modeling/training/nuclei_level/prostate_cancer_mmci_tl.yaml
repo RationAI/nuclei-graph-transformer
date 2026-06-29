@@ -20,7 +20,7 @@ trainer:
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  batch_size: 32
+  batch_size: 8
   k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
@@ -32,6 +32,7 @@ data:
     crop_size_max: 8192
     alpha: 0.8
     efd_order: 16
+    patch_size: 48 # bbox nuclei embeddings
     random_rotate: true
 
   supervision:
@@ -50,6 +51,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
+      embedding_mode: "bbox" # "efd", "bbox", "both"
 
 metadata:
   run_name: "Train(MMCI): Nucleus-level Classifier, Polygons + Positions (RoPE) + kNN Attn"

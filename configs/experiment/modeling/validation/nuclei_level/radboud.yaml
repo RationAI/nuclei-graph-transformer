@@ -24,7 +24,8 @@ data:
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    efd_order: 10
+    efd_order: 16
+    #patch_size: 48
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 
@@ -36,6 +37,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
+      embedding_mode: "efd" # "efd", "bbox", "both"
 
 metadata:
   run_name: "📊 Evaluation (Radboud)"

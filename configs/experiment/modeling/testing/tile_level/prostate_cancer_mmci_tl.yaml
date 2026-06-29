@@ -25,9 +25,11 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
+    #patch_size: 48
     random_rotate: false
     carcinoma_filter: false
     uris: ${dataset.mlflow_uris.tiles.test}
+
     thresholds:
       tissue_roi_t: 0.5
       exclude_t: 0.0
@@ -49,6 +51,7 @@ model:
       num_layers: 8
       drop_path_rate: 0.25
       mil_mode: "embedding" # embedding logit
+      embedding_mode: "efd" # "efd", "bbox", "both"
 
 metadata:
   run_name: "📊 Evaluation (MMCI)"

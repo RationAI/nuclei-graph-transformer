@@ -61,11 +61,14 @@ class GraphCollator:
         if not batch:
             raise ValueError("All samples in batch are empty.")
 
+        has_bboxes = "bboxes" in batch[0]
+
         all_pos, all_features, all_knns = [], [], []
         all_labels_nuclei: list[Tensor] = []
         all_labels_graph: list[Tensor] = []
         all_sup_masks: list[Tensor] = []
         all_roi_masks: list[Tensor] = []
+        all_bboxes: list[Tensor] = []
         all_sort_indices: list[np.ndarray] = []
 
         current_global_idx = 0
@@ -99,6 +102,9 @@ class GraphCollator:
             all_sup_masks.append(b["sup_mask"][sort_indices])
             all_roi_masks.append(b["roi_mask"][sort_indices])
 
+            if has_bboxes:
+                all_bboxes.append(b["bboxes"][sort_indices])
+
             if not self.predict:
                 assert b["labels"]["nuclei"] is not None
                 all_labels_nuclei.append(b["labels"]["nuclei"][sort_indices])
@@ -120,7 +126,7 @@ class GraphCollator:
             all_knns, self.block_size, total_seq_len=target_seq_len
         )
 
-        return {
+        result: Batch = {
             "all_knns": all_knns,
             "block_size": self.block_size,
             "block_mask": block_mask,
@@ -136,3 +142,6 @@ class GraphCollator:
             "labels": targets,
             "metadata": self._aggregate_metadata(batch, all_sort_indices),
         }
+        if has_bboxes:
+            result["bboxes"] = self._pad(torch.cat(all_bboxes), target_seq_len)
+        return result

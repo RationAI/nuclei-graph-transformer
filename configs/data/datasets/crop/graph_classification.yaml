@@ -2,3 +2,4 @@
 
 _target_: nuclei_graph.data.datasets.crop.graph_classification.GraphClassificationDataset
 efd_order: ???
+patch_size: null

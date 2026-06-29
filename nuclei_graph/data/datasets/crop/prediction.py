@@ -8,13 +8,18 @@ from nuclei_graph.nuclei_graph_typing import Sample
 
 class PredictionDataset(BaseCropDataset):
     def __init__(
-        self, metadata: DataFrame, alpha: float = 0.8, efd_order: int = 16
+        self,
+        metadata: DataFrame,
+        alpha: float = 0.8,
+        efd_order: int = 16,
+        patch_size: int | None = None,
     ) -> None:
         super().__init__(
             metadata=metadata,
             alpha=alpha,
             efd_order=efd_order,
             full_slide=True,
+            patch_size=patch_size,
         )
 
     def __getitem__(self, idx: int) -> Sample:
@@ -28,7 +33,7 @@ class PredictionDataset(BaseCropDataset):
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
         crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
 
-        return Sample(
+        sample = Sample(
             {
                 "features": torch.as_tensor(crop_features, dtype=torch.float32),
                 "labels": {"nuclei": None, "graph": None},
@@ -44,3 +49,7 @@ class PredictionDataset(BaseCropDataset):
                 },
             }
         )
+        bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
+        if bboxes is not None:
+            sample["bboxes"] = bboxes
+        return sample

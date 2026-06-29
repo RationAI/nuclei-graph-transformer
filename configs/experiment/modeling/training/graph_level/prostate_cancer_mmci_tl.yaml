@@ -21,7 +21,7 @@ trainer:
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 32
-  k: 32
+  k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -32,7 +32,8 @@ data:
     crop_size_max: 8192
     crop_pos_thr: 0.75
     alpha: 0.8
-    efd_order: 10
+    efd_order: 16
+    #patch_size: 48
     random_rotate: true
 
   supervision:
@@ -52,6 +53,7 @@ model:
       num_layers: 8
       drop_path_rate: 0.25
       mil_mode: "logit" # embedding logit
+      embedding_mode: "efd" # "efd", "bbox", "both"
 
 metadata:
   run_name: "Train(MMCI): Crop-level SL Self Attention Transformer"

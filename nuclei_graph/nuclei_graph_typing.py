@@ -32,6 +32,7 @@ class Sample(TypedDict):
     roi_mask: Tensor
     seq_len: Tensor
     metadata: Metadata | None
+    bboxes: NotRequired[Tensor]
 
 
 class Outputs(TypedDict):
@@ -62,3 +63,4 @@ class Batch(TypedDict):
     seq_lens: Tensor
     labels: Targets
     metadata: BatchMetadata | None
+    bboxes: NotRequired[Tensor]

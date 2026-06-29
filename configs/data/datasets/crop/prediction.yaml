@@ -2,3 +2,4 @@
 
 _target_: nuclei_graph.data.datasets.crop.prediction.PredictionDataset
 efd_order: ???
+patch_size: null
