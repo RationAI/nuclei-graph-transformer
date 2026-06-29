@@ -7,7 +7,6 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: classification
   - /data/supervision@data.supervision.eval_strategy: annotation # dummy
-  - /callbacks@trainer.callbacks.tile_histograms: tile_histograms
   - _self_
 
 checkpoint: mlflow-artifacts:/97/2ec2a07ee62943cfa6a1cb9ebaaa7458/artifacts/checkpoints/epoch=188-step=3780/checkpoint.ckpt

@@ -8,9 +8,6 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - _self_
 
-pooling_mode: top_k
-k: 10
-
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
 
@@ -49,8 +46,8 @@ model:
   net:
     config:
       efd_order: 16
-      node_features: 67 # efd_order * 4 + 3 (scale + sin/cos angles)
-      norm_dim: 65 # efd_order * 4 + 1 (scale)
+      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},1} # efd_order * 4 + scale
       dim: 256
       hidden_dim: 1024
       num_heads: 8
@@ -58,7 +55,7 @@ model:
       num_classes: 1
       drop_path_rate: 0.15
 
-mlflow_run_id: 60b2e64ac2e640d3a124c9e6004b9a63
+mlflow_run_id: null
 mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt

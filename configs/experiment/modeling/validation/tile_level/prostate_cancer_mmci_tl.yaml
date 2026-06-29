@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: classification
   - /data/supervision@data.supervision.eval_strategy: agreement
-  - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei_to_tile # crop nuclei_to_tile
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: crop
   - _self_
 
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt

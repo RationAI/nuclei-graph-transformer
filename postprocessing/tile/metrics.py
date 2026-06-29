@@ -1,7 +1,6 @@
 """Computes tile-level classification metrics from pooled predictions.
 
 Loads pooled tile predictions merged with their ground-truth labels and computes:
-
 - Per-slide metrics (accuracy, precision, recall, specificity, negative
   predictive value), logged as a table.
 - Global tile-level metrics, logged as scalar metrics plus the confusion matrix

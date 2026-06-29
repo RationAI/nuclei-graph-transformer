@@ -12,16 +12,13 @@ Most callbacks accept an optional `mlflow_run_id` constructor argument: when set
 3. **ROC/PR Curves** (`plot_curves.py`, [output structure](#curves-output))  
    Computes and logs ROC and Precision-Recall curves, plus optimal-threshold metrics, for graph- and/or nuclei-level validation predictions.
 
-4. **Tile Histograms** (`tile_histograms.py`, [output structure](#tile-histograms-output))  
-   Plots prediction-probability histograms for positive and negative test tiles.
-
-5. **Permutation Feature Importance** (`feature_importances.py`, [output structure](#feature-importances-output))  
+4. **Permutation Feature Importance** (`feature_importances.py`, [output structure](#feature-importances-output))  
    Measures the AUROC drop from shuffling each EFD feature group on the test set.
 
-6. **Spatial Permutation Importance** (`spatial_permutation_importance.py`, [output structure](#spatial-permutation-output))  
+5. **Spatial Permutation Importance** (`spatial_permutation_importance.py`, [output structure](#spatial-permutation-output))  
    Measures the metric drop from shuffling nuclei spatial positions on the test set.
 
-7. **Parent Run Tagging** (`parent_run.py`)  
+6. **Parent Run Tagging** (`parent_run.py`)  
    Tags the active MLflow run with `mlflow.parentRunId`, nesting it under an existing run (e.g. the training run a checkpoint came from) in the MLflow UI. 
 
 ## Output Structure Overview
@@ -46,9 +43,9 @@ Most callbacks accept an optional `mlflow_run_id` constructor argument: when set
   - `nuclei_prediction` (`float`)
   - `attention_score` (`float`)
   - `graph_prediction` (`float`): repeated for every row of the slide.
-- `TilePredictionCallback` / `NucleiToTilePredictionCallback` (one row = one tile):
+- `TilePredictionCallback` (one row = one tile):
   - `x` (`int`), `y` (`int`)
-  - `tile_prediction` (`float`): graph-level logit (`TilePredictionCallback`) or pooled nuclei-level score (`NucleiToTilePredictionCallback`; pooling mode configurable via `pooling_mode`/`k`).
+  - `tile_prediction` (`float`): graph-level logit (`TilePredictionCallback`).
 
 <p align="right"><a href="#callbacks-overview">↑ back</a></p>
 
@@ -90,21 +87,6 @@ where `<level_name>` is `val_graph` and/or `val_nuclei` (`CropCurvesCallback` lo
 - `thresholds/<level_name>_tpr`: threshold achieving TPR ≈ 1.0 with the lowest FPR.
 - `thresholds/<level_name>_j`: threshold maximizing Youden's J statistic (TPR − FPR).
 - `thresholds/<level_name>_f1`: threshold maximizing F1 score.
-
-<p align="right"><a href="#callbacks-overview">↑ back</a></p>
-
----
-
-<a id="tile-histograms-output"></a>
-### Tile Histograms: `tile_histograms.py`
-
-**Location**: MLflow artifacts
-
-**Output layout**:
-```text
-tile_histograms.png
-```
-Side-by-side histograms of predicted probabilities for positive and negative test tiles.
 
 <p align="right"><a href="#callbacks-overview">↑ back</a></p>
 

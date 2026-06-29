@@ -1,4 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.callbacks.tile_histograms.TileHistogramsCallback
-mlflow_run_id: ${mlflow_run_id}

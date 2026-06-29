@@ -1,5 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.callbacks.predictions.NucleiToTilePredictionCallback
-mlflow_artifact_path: "tile_predictions"
-mlflow_run_id: ${mlflow_run_id}

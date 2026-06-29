@@ -3,7 +3,7 @@
 nuclei_predictions_uri: ???
 metadata_uri: ???
 pooling_mode: top_k
-k: 10
+k: 16
 mlflow_artifact_path: tile_predictions
 
 mlflow_run_id: null

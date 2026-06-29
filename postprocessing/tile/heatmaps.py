@@ -1,7 +1,7 @@
 """Builds per-slide heatmaps of tile-level predictions.
 
 For each slide, loads its pooled tile predictions and rasterizes them into a scalar
-heatmap using. The resulting heatmaps are logged as artifacts on the MLflow run.
+heatmap. The resulting heatmaps are logged as artifacts on the MLflow run.
 """
 
 import gc

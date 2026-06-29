@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks/predictions@trainer.callbacks.predictions: nuclei_to_tile # tile nuclei_to_tile
+  - /callbacks/predictions@trainer.callbacks.predictions: tile
   #- /callbacks/masks@trainer.callbacks.tile_masks: tile
   - _self_
 
