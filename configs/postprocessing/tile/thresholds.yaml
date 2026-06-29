@@ -9,4 +9,4 @@ mlflow_parent_run_id: null
 checkpoint: ???
 
 metadata:
-  run_name: Tile Threshold Estimation (Validation)
+  run_name: Nuclei-to-Tile Thresholds (MMCI)

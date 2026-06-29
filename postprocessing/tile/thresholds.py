@@ -294,7 +294,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
         client.log_artifact(mlflow_run_id, str(roc_path), "curves")
         client.log_artifact(mlflow_run_id, str(pr_path), "curves")
-        client.log_artifact(mlflow_run_id, str(stats_path), "curves")
+        client.log_artifact(mlflow_run_id, str(stats_path))
 
     client.log_metric(mlflow_run_id, "thresholds/tile_tpr", tpr_t)
     client.log_metric(mlflow_run_id, "thresholds/tile_j", j_t)
