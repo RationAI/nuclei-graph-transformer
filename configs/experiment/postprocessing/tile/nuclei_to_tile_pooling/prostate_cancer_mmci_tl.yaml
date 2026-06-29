@@ -16,6 +16,8 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
+    patch_size: 48 # bbox nuclei embeddings
+
     thresholds:
       tissue_roi_t: 0.5
       exclude_t: 0.0
@@ -27,7 +29,6 @@ data:
 
 mlflow_run_id: aed1da3432694541bfdb82364acfc660
 mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
-checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
 
 metadata:
   run_name: "📊 Nuclei-Tile Pooling (MMCI)"
