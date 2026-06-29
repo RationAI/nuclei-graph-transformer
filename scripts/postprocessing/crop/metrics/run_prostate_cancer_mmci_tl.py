@@ -2,7 +2,7 @@ from kube_jobs import storage, submit_job
 
 
 submit_job(
-    job_name="nuclei-graph-metrics-prostate-cancer-mmci-tl",
+    job_name="nuclei-graph-crop-metrics-prostate-cancer-mmci-tl",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=2,
@@ -12,7 +12,7 @@ submit_job(
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m postprocessing.metrics +experiment=postprocessing/metrics/prostate_cancer_mmci_tl",
+        "uv run -m postprocessing.crop.metrics +experiment=postprocessing/crop/metrics/prostate_cancer_mmci_tl",
     ],
     storage=[storage.secure.DATA],
 )
