@@ -9,7 +9,7 @@ slides_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI
 carcinoma_roi_t: 0.5
 tile_predictions_uri: mlflow-artifacts:/97/aed1da3432694541bfdb82364acfc660/artifacts/tile_predictions
 label_column: carcinoma
-threshold:
+threshold: 0.6594
 
 mlflow_run_id: aed1da3432694541bfdb82364acfc660
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
