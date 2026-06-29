@@ -30,4 +30,4 @@ mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
 
 metadata:
-  run_name: "📊 Nuclei-Tile Pooling (MMCI)"
+  run_name: "📊 Nuclei-Tile ${pooling_mode} Pooling (MMCI)"
