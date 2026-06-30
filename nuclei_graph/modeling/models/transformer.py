@@ -44,6 +44,21 @@ class CNN(nn.Module):
         return self.head(self.features(x))
 
 
+class MLPSpatialEmbedding(nn.Module):
+    """(state_dict compatibility with old checkpoints)."""
+
+    def __init__(self, dim: int) -> None:
+        super().__init__()
+        self.proj = nn.Sequential(
+            nn.Linear(2, dim),
+            nn.GELU(),
+            nn.Linear(dim, dim),
+        )
+
+    def forward(self, pos: Tensor) -> Tensor:
+        return self.proj(pos)
+
+
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
@@ -89,16 +104,26 @@ class Transformer(nn.Module):
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
 
-        if self.embedding_mode in ("efd", "both"):
-            self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-            self.input_proj = nn.Linear(config.node_features, config.dim)
+        # if self.embedding_mode in ("efd", "both"):
+        #     self.batch_norm = nn.BatchNorm1d(config.norm_dim)
+        #     self.input_proj = nn.Linear(config.node_features, config.dim)
 
-        if self.embedding_mode in ("bbox", "both"):
-            self.patch_cnn = CNN(out_dim=config.dim)
+        # if self.embedding_mode in ("bbox", "both"):
+        #     self.patch_cnn = CNN(out_dim=config.dim)
 
-        if self.embedding_mode == "both":
-            self.efd_norm = nn.RMSNorm(config.dim)
-            self.cnn_norm = nn.RMSNorm(config.dim)
+        # if self.embedding_mode == "both":
+        #     self.efd_norm = nn.RMSNorm(config.dim)
+        #     self.cnn_norm = nn.RMSNorm(config.dim)
+
+        ###
+        self.batch_norm = nn.BatchNorm1d(config.norm_dim)
+        self.input_proj = nn.Linear(config.node_features, config.dim)
+        self.patch_cnn = CNN(out_dim=config.dim)
+        self.efd_norm = nn.RMSNorm(config.dim)
+        self.cnn_norm = nn.RMSNorm(config.dim)
+        self.pos_scale = nn.Parameter(torch.tensor(1.0))
+        self.pos_encoder = MLPSpatialEmbedding(config.dim)
+        ###
 
         self.final_norm = nn.RMSNorm(config.dim)
 
