@@ -13,8 +13,6 @@ EMBEDDING_MODES = ("efd", "bbox", "both")
 
 
 class CNN(nn.Module):
-    """Small CNN encoding a fixed-size nucleus image patch into a `out_dim`-vector."""
-
     def __init__(self, out_dim: int) -> None:
         super().__init__()
 
@@ -102,7 +100,7 @@ class Transformer(nn.Module):
         if self.embedding_mode in ("bbox", "both"):
             self.patch_cnn = CNN(out_dim=config.dim)
 
-        if self.embedding_mode == "both":  # match scales before summing
+        if self.embedding_mode == "both":
             self.efd_norm = nn.RMSNorm(config.dim)
             self.cnn_norm = nn.RMSNorm(config.dim)
 
