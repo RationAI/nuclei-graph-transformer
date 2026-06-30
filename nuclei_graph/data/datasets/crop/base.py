@@ -2,7 +2,7 @@ import heapq
 import math
 from abc import ABC, abstractmethod
 from random import choice, randint, randrange, uniform
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 import numpy as np
 import pandas as pd
@@ -237,6 +237,7 @@ class BaseCropDataset(Dataset[Sample], ABC):
         `source` is an already-decoded region expected to fully cover the (slide-clipped)
         `box`. Out-of-slide area is left white.
         """
+        assert self.patch_size is not None
         canvas = np.full((self.patch_size, self.patch_size, 3), 255, dtype=np.uint8)
         clipped = self.clip_box(box, slide_size)
 
@@ -307,8 +308,9 @@ class BaseCropDataset(Dataset[Sample], ABC):
                         bboxes[i] = self.extract_patch(source, box, slide_size)
 
             assert all(b is not None for b in bboxes)
+            filled_bboxes = cast("list[NDArray[np.uint8]]", bboxes)
 
-        return torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2)
+        return torch.from_numpy(np.stack(filled_bboxes)).permute(0, 3, 1, 2)
 
     def get_nuclei_sup(self, slide_id: str) -> NucleiSupervision:
         assert self.supervision is not None
