@@ -32,7 +32,7 @@ data:
     crop_size_max: 8192
     alpha: 0.8
     efd_order: 16
-    patch_size: 48 # bbox nuclei embeddings
+    patch_size: 48
     random_rotate: true
 
   supervision:

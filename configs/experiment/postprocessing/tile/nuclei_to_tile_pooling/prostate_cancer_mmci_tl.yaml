@@ -16,7 +16,6 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
-    patch_size: 48 # bbox nuclei embeddings
 
     thresholds:
       tissue_roi_t: 0.5

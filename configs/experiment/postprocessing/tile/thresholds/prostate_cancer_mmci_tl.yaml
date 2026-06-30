@@ -27,7 +27,6 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 15
-    patch_size: 48 # bbox nuclei embeddings
 
     thresholds:
       tissue_roi_t: 0.5
@@ -41,6 +40,8 @@ data:
   supervision:
     paths: ${dataset.paths.supervision}
     train_strategy: null
+
+patch_size: 48 # bbox nuclei embeddings for the nuclei prediction pass
 
 model:
   lr: 1e-4

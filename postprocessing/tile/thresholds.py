@@ -162,7 +162,9 @@ def predict_nuclei(
     slides_df = dataset.metadata.loc[stems].reset_index()
 
     predict_dataset = PredictionDataset(
-        metadata=slides_df, efd_order=config.data.dataset.efd_order
+        metadata=slides_df,
+        efd_order=config.data.dataset.efd_order,
+        patch_size=config.get("patch_size"),
     )
     predict_loader = DataLoader(
         predict_dataset,

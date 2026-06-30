@@ -34,7 +34,6 @@ data:
 
   dataset:
     efd_order: 16
-    #patch_size: 48
     tile_size: 512
     margin: 128
     random_rotate: true

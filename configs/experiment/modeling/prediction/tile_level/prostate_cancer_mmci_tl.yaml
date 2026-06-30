@@ -29,7 +29,6 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
-    #patch_size: 48
     uris: ${dataset.mlflow_uris.tiles.test}
 
     thresholds:

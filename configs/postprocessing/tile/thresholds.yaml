@@ -3,6 +3,8 @@
 pooling_modes: [max, mean, top_k]
 k_values: [4, 8, 10, 16, 24, 32]
 
+#patch_size: 48
+
 mlflow_run_id: null
 mlflow_parent_run_id: null
 

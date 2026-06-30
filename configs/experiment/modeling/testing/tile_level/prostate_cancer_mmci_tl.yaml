@@ -25,7 +25,6 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
-    #patch_size: 48
     random_rotate: false
     carcinoma_filter: false
     uris: ${dataset.mlflow_uris.tiles.test}
