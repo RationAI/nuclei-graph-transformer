@@ -62,3 +62,4 @@ metadata:
     num_heads: ${model.net.config.num_heads}
     num_layers: ${model.net.config.num_layers}
     drop_path_rate: ${model.net.config.drop_path_rate}
+    embedding_mode: ${oc.select:model.net.config.embedding_mode,"efd"}
