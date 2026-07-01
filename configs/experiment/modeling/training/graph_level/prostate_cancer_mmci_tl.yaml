@@ -52,9 +52,9 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      mil_mode: "logit" # "embedding" "logit"
+      mil_mode: "embedding" # "embedding" "logit"
       embedding_mode: "efd" # "efd", "bbox", "both"
 
 metadata:
   run_name: "Train(MMCI): Crop-level SL Self Attention Transformer"
-  description: "MIL logit pooling"
+  description: "MIL embedding pooling"
