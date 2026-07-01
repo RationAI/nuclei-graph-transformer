@@ -6,8 +6,8 @@ defaults:
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
 slides_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512/slides.parquet
-pooled_predictions_uri: mlflow-artifacts:/97/aed1da3432694541bfdb82364acfc660/artifacts/tile_predictions
+tile_predictions_uri: mlflow-artifacts:/97/0e8d56ce2a8048ab9895884137df7d4e/artifacts/tile_predictions
 level: 2
 
-mlflow_run_id: aed1da3432694541bfdb82364acfc660
-mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
+mlflow_run_id: 0e8d56ce2a8048ab9895884137df7d4e
+mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
