@@ -52,6 +52,7 @@ metadata:
     crop_size_max: ${oc.select:data.dataset.crop_size_max,null}
     alpha: ${oc.select:data.dataset.alpha,null}
     k: ${oc.select:data.k,null}
+    random_rotate: ${oc.select:data.dataset.random_rotate,null}
 
     # model
     efd_order: ${data.dataset.efd_order}
