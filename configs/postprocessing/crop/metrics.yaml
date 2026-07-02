@@ -8,8 +8,6 @@ threshold: ???
 mlflow_artifact_path: slide_nuclei_metrics.json
 mlflow_run_id: null
 
-checkpoint: ???
-
 metadata:
   run_name: "Evaluation"
   hyperparams:
