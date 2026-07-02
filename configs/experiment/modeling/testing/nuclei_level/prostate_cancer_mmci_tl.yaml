@@ -11,18 +11,18 @@ defaults:
   - /callbacks@trainer.callbacks.spatial_permutation_importance: spatial_permutation_importance
   - _self_
 
-checkpoint: mlflow-artifacts:/97/7e99f68ecce045f79d3d21ddf86f20e8/artifacts/checkpoints/epoch=277-step=6116/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
 
-mlflow_run_id: 1eff4704af7d4d5ea828038da4c0f664
-mlflow_parent_run_id: null
+mlflow_run_id: null
+mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   k: 16
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
-    efd_order: 16
-    #patch_size: 48
+    efd_order: 15
+    patch_size: 48
   supervision:
     paths: ${dataset.paths.supervision}
 
