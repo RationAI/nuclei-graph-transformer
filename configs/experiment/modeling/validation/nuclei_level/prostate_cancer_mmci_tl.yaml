@@ -12,7 +12,7 @@ defaults:
 
 checkpoint: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
 
-mlflow_run_id: 3eb35a6fb8874727bc25737e4924625c
+mlflow_run_id: cb91e7d320404d66a1dbae4d161f537e
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
 
 data:
