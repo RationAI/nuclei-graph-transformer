@@ -71,8 +71,8 @@ def set_filling_and_get_outline_color(
             cam_df = pd.read_parquet(cam_path)
             nuclei = nuclei.merge(cam_df, on="id", how="inner")
             # fill both positive and negative regions (or pick one class to fill; comment out as needed)
-            nuclei.loc[nuclei["cam_label"] == 1, "fill_color"] = 255
-            # nuclei.loc[nuclei["cam_label"] == 0, "fill_color"] = 255
+            # nuclei.loc[nuclei["cam_label"] == 1, "fill_color"] = 255
+            nuclei.loc[nuclei["cam_label"] == 0, "fill_color"] = 255
 
     return nuclei, outline_color
 
