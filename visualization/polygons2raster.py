@@ -61,7 +61,8 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             heatmap_df = pd.read_parquet(heatmap_path)
             nuclei = nuclei.merge(heatmap_df, on="id", how="inner")
-            nuclei.loc[nuclei[label_column] == 1, "fill_color"] = 255
+            # nuclei.loc[nuclei[label_column] == 1, "fill_color"] = 255
+            nuclei.loc[nuclei[label_column] == 0, "fill_color"] = 255
 
         case 4:  # CAM-based Pseudo Labeling
             assert cam_labels_dir is not None
