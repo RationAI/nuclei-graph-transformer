@@ -58,6 +58,7 @@ def set_filling_and_get_outline_color(
             assert heatmap_labels_dir is not None and label_column is not None
             heatmap_path = heatmap_labels_dir / f"{slide_path.stem}.parquet"
             if not heatmap_path.exists():  # negative slide
+                nuclei.loc[nuclei[label_column] == 0, "fill_color"] = 255
                 return nuclei, outline_color
             heatmap_df = pd.read_parquet(heatmap_path)
             nuclei = nuclei.merge(heatmap_df, on="id", how="inner")
@@ -68,6 +69,7 @@ def set_filling_and_get_outline_color(
             assert cam_labels_dir is not None
             cam_path = cam_labels_dir / f"{slide_path.stem}.parquet"
             if not cam_path.exists():  # negative slide
+                nuclei.loc[nuclei["cam_label"] == 0, "fill_color"] = 255
                 return nuclei, outline_color
             cam_df = pd.read_parquet(cam_path)
             nuclei = nuclei.merge(cam_df, on="id", how="inner")
