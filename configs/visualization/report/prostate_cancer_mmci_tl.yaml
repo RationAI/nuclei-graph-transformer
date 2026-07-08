@@ -9,9 +9,15 @@ test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifac
 
 reporter:
   _target_: report.reporter.ReportAssembler
-  title: "Nuclei Carcinoma Predictions: MMCI Tile-Level Annotations Data"
-  metrics_run_ids:
-    - aed1da3432694541bfdb82364acfc660
+  title: "MMCI TL Test — Annotation-based Nuclei Ground Truth"
+  # metrics_run_ids:
+  #   - 0e8d56ce2a8048ab9895884137df7d4e
+  #   - aed1da3432694541bfdb82364acfc660
+  # metrics_target_metrics:
+  #   - AUROC
+  #   - precision
+  #   - recall
+  metrics_target_step: test_thresholded
   template_asset_path: report_template.html
 
   save:
@@ -27,39 +33,64 @@ reporter:
     _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
     artifact_uris:
       - mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test
+      #- mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations
     metadata_filename: slides_mapping.parquet
     item_path_col: slide_path
     item_name_col: slide_id
     ground_truth_col: is_carcinoma
     layer_name: Prostate WSI
 
-  evaluation_runs:
-    aed1da3432694541bfdb82364acfc660:
-      artifact_file: "slide_tile_metrics.json"
-      slide_item_key: "slide_id"
+  # evaluation_runs:
+  #   0e8d56ce2a8048ab9895884137df7d4e:
+  #     artifact_file: "slide_tile_metrics.json"
+  #     slide_item_key: "slide_id"
+
+  #   aed1da3432694541bfdb82364acfc660:
+  #     artifact_file: "slide_tile_metrics.json"
+  #     slide_item_key: "slide_id"
 
   mask_retrievers:
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: cam_masks
-      run_id: 23749f39b3f8451485a5c4bc75fd37bd
-      layer_name: CAM (VGG-16 Stain)
-      shader_conf:
-        visible: False
-        type: bipolar-heatmap
-        params:
-          threshold: 40
-          opacity: 0.5
-          colorHigh: "#00FF00" # green
-          colorLow: "#FF0000" # red
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: cam_masks
+    #   run_id: 23749f39b3f8451485a5c4bc75fd37bd
+    #   layer_name: CAM (VGG-16 Stain)
+    #   shader_conf:
+    #     visible: True
+    #     type: bipolar-heatmap
+    #     params:
+    #       threshold: 40
+    #       opacity: 0.6
+    #       colorHigh: "#00FF00" # green
+    #       colorLow: "#FF0000" # red
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   shader_conf:
+    #     type: heatmap
+    #     params:
+    #       use_mode: mask_clip
+    #   run_id: 4ea7cee809a2443389855facba548959
+    #   dir_name: tissue_masks
+    #   layer_name: Tissue
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: a17476854c5f456698d3f77bce322ec4
+      layer_name: Positive Nuclei
       shader_conf:
-        type: heatmap
-        params:
-          use_mode: mask_clip
-      run_id: 4ea7cee809a2443389855facba548959
-      dir_name: tissue_masks
-      layer_name: Tissue
+        visible: True
+        #opacity: 0.5
+        #type: edge
+        color: "#00FF00"
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: 05a444c75aaa49cba98acb6a0f9cdf40
+      layer_name: Negative Nuclei
+      shader_conf:
+        visible: True
+        #opacity: 0.5
+        #type: edge
+        color: "#FF0000"
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: annotation_masks
@@ -71,28 +102,47 @@ reporter:
         type: edge
         color: "#1F971B"
 
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: heatmaps
-      run_id: a40c5a17026840bea1828b78af46752d
-      layer_name: Virchow2 Prediction Heatmap
-      shader_conf:
-        type: heatmap
-        params:
-          threshold: 85
-        visible: False
-        opacity: 0.80
-        color: "#FFA500" # orange
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: cam_masks
+    #   run_id: 23749f39b3f8451485a5c4bc75fd37bd
+    #   layer_name: CAM Mask
+    #   shader_conf:
+    #     visible: True
+    #     color: "#00FF00"
 
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: tile_heatmaps
-      run_id: aed1da3432694541bfdb82364acfc660
-      layer_name: "Pooled Nuclei-to-tile preds"
-      shader_conf:
-        visible: True
-        type: heatmap
-        params:
-          threshold: 66
-        color: "#00FF00" # green
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: heatmaps
+    #   run_id: a40c5a17026840bea1828b78af46752d
+    #   layer_name: Virchow2 Heatmap
+    #   shader_conf:
+    #     type: heatmap
+    #     params:
+    #       threshold: 85
+    #     visible: False
+    #     opacity: 0.80
+    #     color: "#FFA500" # orange
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: tile_heatmaps
+    #   run_id: 0e8d56ce2a8048ab9895884137df7d4e
+    #   layer_name: "CNN Embedding"
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     params:
+    #       threshold: 70
+    #     color: "#00FF00" # green
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: tile_heatmaps
+    #   run_id: aed1da3432694541bfdb82364acfc660
+    #   layer_name: "Polygon Embedding"
+    #   shader_conf:
+    #     visible: True
+    #     type: heatmap
+    #     params:
+    #       threshold: 66
+    #     color: "#0000FF" # blue
 
 metadata:
   run_name: Report — Nuclei Masks
