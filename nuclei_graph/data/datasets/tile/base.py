@@ -141,7 +141,7 @@ class BaseTileDataset(MetaTiledSlides[T]):
                 )
                 self.tiles = self.tiles[mask]
 
-    def get_features(self, polygons, mpp_x, mpp_y):
+    def get_efd_features(self, polygons, mpp_x, mpp_y):
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         contours = rearrange(polygons, "b (v d) -> b v d", d=2) * mpps
 

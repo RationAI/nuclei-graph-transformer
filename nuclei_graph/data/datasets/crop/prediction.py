@@ -13,6 +13,7 @@ class PredictionDataset(BaseCropDataset):
         alpha: float = 0.8,
         efd_order: int = 16,
         patch_size: int | None = None,
+        embedding_mode: str = "efd",
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -20,6 +21,7 @@ class PredictionDataset(BaseCropDataset):
             efd_order=efd_order,
             full_slide=True,
             patch_size=patch_size,
+            embedding_mode=embedding_mode,
         )
 
     def __getitem__(self, idx: int) -> Sample:
@@ -28,14 +30,26 @@ class PredictionDataset(BaseCropDataset):
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
         crop_indices = np.arange(len(nuclei), dtype=int)  # full-slide
-        crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
         crop_pos = centroids[crop_indices]
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
-        crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
 
-        sample = Sample(
+        crop_features, crop_bboxes = None, None
+        if self.embedding_mode == "efd":
+            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+            crop_features = self.get_efd_features(
+                crop_polygons, slide.mpp_x, slide.mpp_y
+            )
+        elif self.embedding_mode == "bbox":
+            crop_bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
+
+        assert crop_features is not None or crop_bboxes is not None
+
+        return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32),
+                "features": torch.as_tensor(crop_features, dtype=torch.float32)
+                if crop_features is not None
+                else None,
+                "bboxes": crop_bboxes,
                 "labels": {"nuclei": None, "graph": None},
                 "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.ones(len(crop_indices), dtype=torch.bool),
@@ -48,7 +62,3 @@ class PredictionDataset(BaseCropDataset):
                 },
             }
         )
-        bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
-        if bboxes is not None:
-            sample["bboxes"] = bboxes
-        return sample

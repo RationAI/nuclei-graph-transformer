@@ -46,7 +46,9 @@ class NucleiClassificationDataset(BaseCropDataset):
 
         if self.embedding_mode == "efd":
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+            crop_features = self.get_efd_features(
+                crop_polygons, slide.mpp_x, slide.mpp_y
+            )
         elif self.embedding_mode == "bbox":
             crop_bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
 

@@ -165,7 +165,7 @@ class BaseCropDataset(Dataset[Sample], ABC):
         global_crop_indices = keep_indices[local_crop_indices]
         return np.array(global_crop_indices, dtype=np.int64)
 
-    def get_features(
+    def get_efd_features(
         self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
     ) -> NDArray[np.float32]:
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)

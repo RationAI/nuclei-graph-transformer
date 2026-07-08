@@ -45,7 +45,7 @@ class TilePredictionDataset(BaseTileDataset):
             seq_len = 1
         else:
             tile_polygons = polygons[tile_indices]
-            tile_features = self.get_features(
+            tile_features = self.get_efd_features(
                 tile_polygons, props["mpp_x"], props["mpp_y"]
             )
             scaled_centroids = centroids * np.array(
@@ -61,6 +61,7 @@ class TilePredictionDataset(BaseTileDataset):
         return Sample(
             {
                 "features": torch.as_tensor(tile_features, dtype=torch.float32),
+                "bboxes": None,
                 "labels": tile_labels,
                 "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
                 "sup_mask": tile_sup_mask,

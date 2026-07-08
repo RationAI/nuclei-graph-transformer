@@ -72,7 +72,7 @@ class TileClassificationDataset(BaseTileDataset):
 
             seq_len = 1
         else:
-            tile_features = self.get_features(
+            tile_features = self.get_efd_features(
                 polygons[tile_indices], props["mpp_x"], props["mpp_y"]
             )
             scaled_centroids = centroids * np.array(
@@ -93,6 +93,7 @@ class TileClassificationDataset(BaseTileDataset):
         return Sample(
             {
                 "features": torch.as_tensor(tile_features, dtype=torch.float32),
+                "bboxes": None,
                 "labels": tile_labels,
                 "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.as_tensor(tile_sup_mask),
