@@ -23,7 +23,8 @@ data:
     predict: ${dataset.providers.radboud.metadata.test}
   dataset:
     efd_order: 15
-    #patch_size: 48
+    patch_size: 48
+    embedding_mode: "efd" # "efd", "bbox"
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 
@@ -35,7 +36,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      embedding_mode: "efd" # "efd", "bbox", "both"
+      embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
   run_name: "📊 Evaluation (Radboud)"

@@ -31,3 +31,4 @@ metadata:
   run_name: ???
   hyperparams:
     prediction_supervision_mode: ${data.supervision.eval_strategy.mode}
+    embedding_mode: ${oc.select:data.dataset.embedding_mode,"efd"}

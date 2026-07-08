@@ -70,7 +70,6 @@ class TileClassificationDataset(BaseTileDataset):
             tile_sup_mask = np.array([False], dtype=bool)
             tile_labels["nuclei"] = torch.tensor([0.0], dtype=torch.float32)
 
-            roi_mask = np.array([False], dtype=bool)
             seq_len = 1
         else:
             tile_features = self.get_features(
@@ -89,7 +88,6 @@ class TileClassificationDataset(BaseTileDataset):
                 tile_pos_centered = pos_rot
                 tile_features[..., -2], tile_features[..., -1] = cos_rot, sin_rot
 
-            roi_mask = self.get_roi_mask(scaled_props, centroids[tile_indices])
             seq_len = len(tile_indices)
 
         return Sample(
@@ -98,7 +96,6 @@ class TileClassificationDataset(BaseTileDataset):
                 "labels": tile_labels,
                 "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.as_tensor(tile_sup_mask),
-                "roi_mask": torch.from_numpy(roi_mask),
                 "seq_len": torch.tensor(seq_len, dtype=torch.int32),
                 "metadata": {
                     "slide_id": tile["stem"],

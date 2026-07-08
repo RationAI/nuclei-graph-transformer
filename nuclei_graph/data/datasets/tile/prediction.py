@@ -40,10 +40,7 @@ class TilePredictionDataset(BaseTileDataset):
         if len(tile_indices) == 0:  # empty tile, no nuclei
             tile_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
             tile_pos_centered = np.zeros((1, 2), dtype=np.float32)
-
             tile_sup_mask = torch.tensor([False], dtype=torch.bool)
-            roi_mask = torch.tensor([False], dtype=torch.bool)
-
             tile_nuclei_ids = np.full(1, -1, dtype=nuclei_ids.dtype)
             seq_len = 1
         else:
@@ -58,9 +55,6 @@ class TilePredictionDataset(BaseTileDataset):
             tile_pos_centered = tile_pos - tile_pos.mean(axis=0)
 
             tile_sup_mask = torch.ones(len(tile_indices), dtype=torch.bool)
-            roi_mask = torch.from_numpy(
-                self.get_roi_mask(scaled_props, centroids[tile_indices])
-            )
             tile_nuclei_ids = nuclei_ids[tile_indices]
             seq_len = len(tile_indices)
 
@@ -70,7 +64,6 @@ class TilePredictionDataset(BaseTileDataset):
                 "labels": tile_labels,
                 "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
                 "sup_mask": tile_sup_mask,
-                "roi_mask": roi_mask,
                 "seq_len": torch.tensor(seq_len, dtype=torch.int32),
                 "metadata": {
                     "slide_id": str(tile["stem"]),

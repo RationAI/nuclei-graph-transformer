@@ -7,10 +7,11 @@ threshold: ???
 
 mlflow_artifact_path: slide_tile_metrics.json
 mlflow_run_id: null
+mlflow_parent_run_id: null
 
 checkpoint: ???
 
 metadata:
-  run_name: Tile-level Evaluation
+  run_name: TL Test (MMCI) Evaluation
   hyperparams:
     threshold: ${threshold}

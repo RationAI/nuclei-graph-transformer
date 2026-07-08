@@ -32,6 +32,7 @@ from torchmetrics.classification import (
     BinarySpecificity,
 )
 
+from nuclei_graph.mlflow_utils import tag_parent_run
 from postprocessing.tile.data_loading import load_tile_predictions
 
 
@@ -41,6 +42,9 @@ from postprocessing.tile.data_loading import load_tile_predictions
 )
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    assert logger.run_id is not None
+    tag_parent_run(logger.run_id, config.get("mlflow_parent_run_id"))
+
     merged_df = load_tile_predictions(config)
     target_col = config.label_column
 

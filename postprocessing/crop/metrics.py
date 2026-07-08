@@ -37,6 +37,7 @@ from torchmetrics.classification import (
     BinarySpecificity,
 )
 
+from nuclei_graph.mlflow_utils import tag_parent_run
 from postprocessing.mlflow_utils import setup_mlflow
 
 
@@ -224,6 +225,9 @@ def log_slide_level_graph_metrics(
 )
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    assert logger.run_id is not None
+    tag_parent_run(logger.run_id, config.get("mlflow_parent_run_id"))
+
     client, mlflow_run_id = setup_mlflow(config)
 
     predictions_dir = Path(download_artifacts(config.predictions_uri))

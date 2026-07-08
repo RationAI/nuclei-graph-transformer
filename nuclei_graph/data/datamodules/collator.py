@@ -61,13 +61,13 @@ class GraphCollator:
         if not batch:
             raise ValueError("All samples in batch are empty.")
 
-        has_bboxes = "bboxes" in batch[0]
+        has_features = batch[0].get("features") is not None
+        has_bboxes = batch[0].get("bboxes") is not None
 
         all_pos, all_features, all_knns = [], [], []
         all_labels_nuclei: list[Tensor] = []
         all_labels_graph: list[Tensor] = []
         all_sup_masks: list[Tensor] = []
-        all_roi_masks: list[Tensor] = []
         all_bboxes: list[Tensor] = []
         all_sort_indices: list[np.ndarray] = []
 
@@ -98,11 +98,13 @@ class GraphCollator:
 
             all_pos.append(sorted_pos)
             all_knns.append(knn)
-            all_features.append(b["features"][sort_indices])
             all_sup_masks.append(b["sup_mask"][sort_indices])
-            all_roi_masks.append(b["roi_mask"][sort_indices])
 
+            if has_features:
+                assert b["features"] is not None
+                all_features.append(b["features"][sort_indices])
             if has_bboxes:
+                assert b["bboxes"] is not None
                 all_bboxes.append(b["bboxes"][sort_indices])
 
             if not self.predict:
@@ -126,22 +128,23 @@ class GraphCollator:
             all_knns, self.block_size, total_seq_len=target_seq_len
         )
 
-        result: Batch = {
-            "all_knns": all_knns,
-            "block_size": self.block_size,
-            "block_mask": block_mask,
-            "pos": self._pad(torch.cat(all_pos), target_seq_len),
-            "features": self._pad(torch.cat(all_features), target_seq_len),
-            "sup_mask": self._pad(
-                torch.cat(all_sup_masks), target_seq_len, value=False
-            ),
-            "roi_mask": self._pad(
-                torch.cat(all_roi_masks), target_seq_len, value=False
-            ),
-            "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
-            "labels": targets,
-            "metadata": self._aggregate_metadata(batch, all_sort_indices),
-        }
-        if has_bboxes:
-            result["bboxes"] = self._pad(torch.cat(all_bboxes), target_seq_len)
-        return result
+        return Batch(
+            {
+                "all_knns": all_knns,
+                "block_size": self.block_size,
+                "block_mask": block_mask,
+                "pos": self._pad(torch.cat(all_pos), target_seq_len),
+                "features": self._pad(torch.cat(all_features), target_seq_len)
+                if has_features
+                else None,
+                "bboxes": self._pad(torch.cat(all_bboxes), target_seq_len)
+                if has_bboxes
+                else None,
+                "sup_mask": self._pad(
+                    torch.cat(all_sup_masks), target_seq_len, value=False
+                ),
+                "seq_lens": torch.stack([b["seq_len"] for b in batch]).to(torch.int32),
+                "labels": targets,
+                "metadata": self._aggregate_metadata(batch, all_sort_indices),
+            }
+        )

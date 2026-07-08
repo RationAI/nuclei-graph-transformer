@@ -6,10 +6,7 @@ from torch.utils.checkpoint import checkpoint
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
-from nuclei_graph.nuclei_graph_typing import Outputs
-
-
-EMBEDDING_MODES = ("efd", "bbox", "both")
+from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
 class CNN(nn.Module):
@@ -108,16 +105,12 @@ class Transformer(nn.Module):
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
 
-        # if self.embedding_mode in ("efd", "both"):
+        # if self.embedding_mode == "efd":
         #     self.batch_norm = nn.BatchNorm1d(config.norm_dim)
         #     self.input_proj = nn.Linear(config.node_features, config.dim)
 
-        # if self.embedding_mode in ("bbox", "both"):
+        # if self.embedding_mode == "bbox":
         #     self.patch_cnn = CNN(out_dim=config.dim)
-
-        # if self.embedding_mode == "both":
-        #     self.efd_norm = nn.RMSNorm(config.dim)
-        #     self.cnn_norm = nn.RMSNorm(config.dim)
 
         ###
         self.batch_norm = nn.BatchNorm1d(config.norm_dim)
@@ -132,7 +125,6 @@ class Transformer(nn.Module):
         self.final_norm = nn.RMSNorm(config.dim)
 
         self.class_head = nn.Linear(config.dim, config.num_classes)
-
         self.attn_head = nn.Sequential(
             nn.Linear(config.dim, config.dim // 2),
             nn.Tanh(),
@@ -156,22 +148,6 @@ class Transformer(nn.Module):
             chunk = (chunk / 127.5) - 1.0
             outputs.append(self.patch_cnn(chunk))
         return torch.cat(outputs, dim=0)
-
-    def prepare_features(
-        self, x: Tensor, bboxes: Tensor | None, real_seq_len: int
-    ) -> Tensor:
-        if self.embedding_mode == "efd":
-            return self.embed_efd(x, real_seq_len)
-
-        assert bboxes is not None, (
-            f"bboxes are required for embedding_mode={self.embedding_mode!r}"
-        )
-        if self.embedding_mode == "bbox":
-            return self.embed_patches(bboxes)
-
-        return self.efd_norm(self.embed_efd(x, real_seq_len)) + self.cnn_norm(
-            self.embed_patches(bboxes)
-        )
 
     def pool(
         self, x: Tensor, attn_scores: Tensor, seq_lens_list: list[int]
@@ -202,36 +178,35 @@ class Transformer(nn.Module):
         pos: Tensor,
         block_mask: BlockMask,
         seq_lens: Tensor,
-        roi_mask: Tensor | None = None,
         bboxes: Tensor | None = None,
     ) -> Outputs:
         real_seq_len = int(seq_lens.sum().item())
-        x = self.prepare_features(x, bboxes, real_seq_len)
+
+        # Prepare embeddings
+        if self.embedding_mode == "efd":
+            x = self.embed_efd(x, real_seq_len)
+        else:
+            assert bboxes is not None  # embedding_mode == "bbox"
+            x = self.embed_patches(bboxes)
 
         x = x.unsqueeze(0)
         pos = pos.unsqueeze(0)
 
         for layer in self.layers:
             x = checkpoint(layer, x, pos, block_mask, use_reentrant=False)
-
         x = self.final_norm(x)
         x = x.squeeze(0)
 
         nuclei_logits = self.class_head(x)
         attn_scores = self.attn_head(x)
 
-        x = x[:real_seq_len]
+        # Truncate to real sequence length
         nuclei_logits = nuclei_logits[:real_seq_len]
         attn_scores = attn_scores[:real_seq_len]
-
-        if roi_mask is not None:  # pool only nuclei in ROI
-            roi_mask = roi_mask[:real_seq_len]
-            attn_scores = attn_scores.masked_fill(
-                ~roi_mask.bool().unsqueeze(-1), float("-inf")
-            )
+        x = x[:real_seq_len]
 
         seq_lens_list = seq_lens.tolist()
-        if self.mil_mode == "embedding":
+        if self.mil_mode == "embedding":  # embedding-level pooling
             pooled_features, attn_weights = self.pool(x, attn_scores, seq_lens_list)
             graph_logits = self.class_head(pooled_features)
         else:  # logit-level pooling

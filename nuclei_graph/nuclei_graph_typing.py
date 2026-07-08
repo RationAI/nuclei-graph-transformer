@@ -6,6 +6,9 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
+EMBEDDING_MODES = ("efd", "bbox")
+
+
 class Metadata(TypedDict):
     slide_id: str
 
@@ -25,14 +28,13 @@ class Targets(TypedDict):
 
 
 class Sample(TypedDict):
-    features: Tensor
+    features: Tensor | None
     labels: Targets
     pos: Tensor
     sup_mask: Tensor
-    roi_mask: Tensor
     seq_len: Tensor
     metadata: Metadata | None
-    bboxes: NotRequired[Tensor]
+    bboxes: Tensor | None
 
 
 class Outputs(TypedDict):
@@ -57,10 +59,9 @@ class Batch(TypedDict):
     block_size: int
     block_mask: BlockMask
     pos: Tensor
-    features: Tensor
+    features: Tensor | None
     sup_mask: Tensor
-    roi_mask: Tensor
     seq_lens: Tensor
     labels: Targets
     metadata: BatchMetadata | None
-    bboxes: NotRequired[Tensor]
+    bboxes: Tensor | None

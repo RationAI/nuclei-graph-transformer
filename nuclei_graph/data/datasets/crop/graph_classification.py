@@ -25,6 +25,7 @@ class GraphClassificationDataset(BaseCropDataset):
         full_slide: bool = False,
         random_rotate: bool = False,
         patch_size: int | None = None,
+        embedding_mode: str = "efd",
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -36,6 +37,7 @@ class GraphClassificationDataset(BaseCropDataset):
             full_slide=full_slide,
             random_rotate=random_rotate,
             patch_size=patch_size,
+            embedding_mode=embedding_mode,
         )
         self.crop_pos_thr = crop_pos_thr
         self.pos_slide_indices = np.where(self.metadata["is_carcinoma"])[0].tolist()
@@ -116,8 +118,13 @@ class GraphClassificationDataset(BaseCropDataset):
         )
 
         # Embeddings
-        crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-        crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+        crop_features, crop_bboxes = None, None
+
+        if self.embedding_mode == "efd":
+            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+            crop_features = self.get_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+        elif self.embedding_mode == "bbox":
+            crop_bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
 
         # Positions
         crop_pos = centroids[crop_indices]
@@ -125,25 +132,29 @@ class GraphClassificationDataset(BaseCropDataset):
 
         # Augmentations
         if self.random_rotate and not self.full_slide:
+            cos_angles = crop_features[..., -2] if crop_features is not None else None
+            sin_angles = crop_features[..., -1] if crop_features is not None else None
             pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
-                crop_pos_centered, crop_features[..., -2], crop_features[..., -1]
+                crop_pos_centered, cos_angles, sin_angles
             )
             crop_pos_centered = pos_rot
-            crop_features[..., -2] = cos_rot
-            crop_features[..., -1] = sin_rot
 
-        sample = Sample(
+            if self.embedding_mode == "efd":
+                assert crop_features is not None
+                crop_features[..., -2] = cos_rot
+                crop_features[..., -1] = sin_rot
+
+        assert crop_features is not None or crop_bboxes is not None
+        return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32),
+                "features": torch.as_tensor(crop_features, dtype=torch.float32)
+                if crop_features is not None
+                else None,
+                "bboxes": crop_bboxes,
                 "labels": {"nuclei": crop_nuclei_labels, "graph": crop_graph_label},
                 "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
-                "roi_mask": torch.ones(len(crop_indices), dtype=torch.bool),
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
                 "metadata": None,
             }
         )
-        bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
-        if bboxes is not None:
-            sample["bboxes"] = bboxes
-        return sample

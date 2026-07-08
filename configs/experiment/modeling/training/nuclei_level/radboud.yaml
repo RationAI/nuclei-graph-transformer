@@ -33,7 +33,8 @@ data:
     crop_size_max: 8192
     alpha: 0.8
     efd_order: 16
-    #patch_size: 48
+    patch_size: 48
+    embedding_mode: "efd" # "efd", "bbox"
     random_rotate: true
 
   supervision:
@@ -52,7 +53,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      embedding_mode: "efd" # "efd", "bbox", "both"
+      embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
   run_name: "Train(Radboud): Nucleus-level WSL Self Attention Transformer"

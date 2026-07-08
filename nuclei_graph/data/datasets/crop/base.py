@@ -21,7 +21,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_scale,
 )
 from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
-from nuclei_graph.nuclei_graph_typing import Sample
+from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Sample
 
 
 MAX_CROP_PATCH_SIDE = 8192
@@ -79,6 +79,7 @@ class BaseCropDataset(Dataset[Sample], ABC):
         full_slide: bool = False,
         random_rotate: bool = False,
         patch_size: int | None = None,
+        embedding_mode: str = "efd",
     ) -> None:
         self.metadata = metadata
         self.supervision = supervision
@@ -89,6 +90,11 @@ class BaseCropDataset(Dataset[Sample], ABC):
         self.full_slide = full_slide
         self.random_rotate = random_rotate
         self.patch_size = patch_size
+        self.embedding_mode = embedding_mode
+
+        assert self.embedding_mode in EMBEDDING_MODES, (
+            f"Invalid embedding_mode: {self.embedding_mode}"
+        )
 
     def __len__(self) -> int:
         return len(self.metadata)
@@ -180,9 +186,11 @@ class BaseCropDataset(Dataset[Sample], ABC):
     def random_rotate_graph(
         self,
         pos: NDArray[np.float32],
-        cos_angles: NDArray[np.float32],
-        sin_angles: NDArray[np.float32],
-    ) -> tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]]:
+        cos_angles: NDArray[np.float32] | None,
+        sin_angles: NDArray[np.float32] | None,
+    ) -> tuple[
+        NDArray[np.float32], NDArray[np.float32] | None, NDArray[np.float32] | None
+    ]:
         theta = uniform(0, 2 * math.pi)
 
         rotation_matrix = np.array(
@@ -190,6 +198,8 @@ class BaseCropDataset(Dataset[Sample], ABC):
             dtype=np.float32,
         )
         rotated_pos = pos @ rotation_matrix.T
+        if cos_angles is None or sin_angles is None:
+            return rotated_pos, None, None
 
         # the original angles are doubled
         c2 = math.cos(2 * theta)
@@ -197,7 +207,6 @@ class BaseCropDataset(Dataset[Sample], ABC):
 
         rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
         rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
-
         return rotated_pos, rotated_cos, rotated_sin
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:

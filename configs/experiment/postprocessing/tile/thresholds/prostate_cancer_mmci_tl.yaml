@@ -57,7 +57,7 @@ model:
       num_layers: 8
       num_classes: 1
       drop_path_rate: 0.15
-      embedding_mode: "bbox" # "efd", "bbox", "both"
+      embedding_mode: "bbox" # "efd", "bbox"
 
 mlflow_run_id: null
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588

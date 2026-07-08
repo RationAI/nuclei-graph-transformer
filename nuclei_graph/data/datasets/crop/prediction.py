@@ -39,7 +39,6 @@ class PredictionDataset(BaseCropDataset):
                 "labels": {"nuclei": None, "graph": None},
                 "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.ones(len(crop_indices), dtype=torch.bool),
-                "roi_mask": torch.ones(len(crop_indices), dtype=torch.bool),
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),
                 "metadata": {
                     "slide_id": slide.slide_id,
