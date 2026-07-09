@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import hydra
+from mlflow.artifacts import download_artifacts
 import mlflow
 import mlflow.data.pandas_dataset
 import numpy as np
@@ -138,17 +139,21 @@ def get_dataframes(
     return df[final_cols], summary_df
 
 
+def uris2df(uris: list[str]) -> pd.DataFrame:
+    """Loads and merges multiple metadata .CSV files into a single DataFrame."""
+    batches = [pd.read_csv(download_artifacts(uri)) for uri in uris]
+    return pd.concat(batches, ignore_index=True)
+
+
 @with_cli_args(["+exploration=panda/save_metadataset"])
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
-    exclude_slides = (
-        pd.read_csv(Path(config.exclude_slides))["slide_stem"].tolist()
-        if config.exclude_slides
-        else []
-    )
+    exclude_slides = []
+    if config.exclude_slides:
+        exclude_slides = uris2df(config.exclude_slides)["slide_stem"].tolist()
 
     with TemporaryDirectory() as output_dir:
         df, summary_df = get_dataframes(
