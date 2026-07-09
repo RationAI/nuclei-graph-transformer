@@ -31,7 +31,7 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: ${mlflow_project_pc}/4d0f33b6a0774f16b1002072766d5797/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/520a6e160a034073b5a03858840d4df2/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
