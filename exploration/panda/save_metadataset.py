@@ -2,13 +2,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import hydra
-from mlflow.artifacts import download_artifacts
 import mlflow
 import mlflow.data.pandas_dataset
 import numpy as np
 import pandas as pd
 import ray
 import tifffile
+from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
