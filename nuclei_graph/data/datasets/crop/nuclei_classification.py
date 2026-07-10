@@ -43,7 +43,6 @@ class NucleiClassificationDataset(BaseCropDataset):
 
         # Embeddings
         crop_features, crop_bboxes = None, None
-
         if self.embedding_mode == "efd":
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_features = self.get_efd_features(
