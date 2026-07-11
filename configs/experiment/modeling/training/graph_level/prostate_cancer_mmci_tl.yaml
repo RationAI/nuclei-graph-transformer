@@ -53,7 +53,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      mil_mode: "embeddlogiting" # "embedding" "logit"
+      mil_mode: "logit" # "embedding" "logit"
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
