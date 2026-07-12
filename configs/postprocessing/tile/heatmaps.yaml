@@ -11,3 +11,5 @@ mlflow_parent_run_id: null
 
 metadata:
   run_name: Tile-level Heatmaps
+  hyperparams:
+    level: ${level}

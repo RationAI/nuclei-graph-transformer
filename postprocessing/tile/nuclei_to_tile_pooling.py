@@ -52,7 +52,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             ).set_index("id")["nuclei_prediction"]
 
             tile_preds_df = pool_slide_tiles(
-                tiles, dataset, nuclei_preds, config.pooling_mode, config.k
+                tiles, dataset, nuclei_preds, config.pooling_mode, config.pooling_k
             )
             tile_preds_df.to_parquet(
                 tmp_path / f"{stem}.parquet", index=False, engine="pyarrow"

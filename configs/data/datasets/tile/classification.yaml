@@ -4,5 +4,6 @@ _target_: nuclei_graph.data.datasets.tile.classification.TileClassificationDatas
 uris: ???
 thresholds: ???
 efd_order: ???
+embedding_mode: ???
 tile_size: ???
 margin: ???

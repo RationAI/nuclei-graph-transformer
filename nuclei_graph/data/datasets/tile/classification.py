@@ -1,6 +1,4 @@
-import math
 from collections.abc import Iterable
-from random import uniform
 
 import numpy as np
 import torch
@@ -22,78 +20,114 @@ class TileClassificationDataset(BaseTileDataset):
         thresholds: dict[str, float],
         supervision: DatasetSupervision,
         tile_size: int,
+        embedding_mode: str,
         random_rotate: bool | None = False,
         margin: float | None = None,
         efd_order: int = 16,
         carcinoma_filter: bool = True,
+        patch_size: int | None = None,
     ) -> None:
         super().__init__(
-            metadata, uris, thresholds, efd_order, carcinoma_filter, tile_size, margin
+            metadata,
+            uris,
+            thresholds,
+            efd_order,
+            embedding_mode,
+            carcinoma_filter,
+            tile_size,
+            margin,
+            patch_size,
         )
         self.supervision = supervision
         self.random_rotate = random_rotate
-
-    def random_rotate_graph(self, pos, cos_angles, sin_angles):
-        theta = uniform(0, 2 * math.pi)
-        rotation_matrix = np.array(
-            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
-            dtype=np.float32,
-        )
-        rotated_pos = pos @ rotation_matrix.T
-        c2, s2 = math.cos(2 * theta), math.sin(2 * theta)
-        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
-        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
-        return rotated_pos, rotated_cos, rotated_sin
 
     def __getitem__(self, idx: int) -> Sample:
         tile = self.tiles.iloc[idx]
         props = self.slide_props[tile["stem"]]
         scaled_props = self.get_scaled_props(tile)
 
+        # Nuclei Data
         nuclei_path = self.slide_props[tile["stem"]]["slide_nuclei_path"]
         polygons, centroids, centroid_tree, _ = get_slide_data(nuclei_path)
         tile_indices = self.get_tile_indices(scaled_props, centroids, centroid_tree)
 
+        # Supervision
         nuclei_sup = self.supervision.supervision_map[tile["stem"]].nuclei_supervision
         tile_sup_mask = nuclei_sup.get_sup_mask(len(centroids))[tile_indices]
         tile_nuclei_labels = nuclei_sup.get_targets(len(centroids))[tile_indices]
+
         assert tile.get("carcinoma") is not None, "Tile carcinoma label is required."
         tile_labels: Targets = {
             "nuclei": torch.as_tensor(tile_nuclei_labels),
             "graph": torch.tensor([float(tile["carcinoma"])]),
         }
 
-        if len(tile_indices) == 0:
-            tile_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
-            tile_pos_centered = np.zeros((1, 2), dtype=np.float32)
+        # Embeddings
+        tile_features, tile_bboxes = None, None
 
+        if len(tile_indices) == 0:  # empty tile, no nuclei
+            if self.embedding_mode == "efd":
+                tile_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
+            elif self.embedding_mode == "spatial":
+                tile_features = np.zeros((1, 8), dtype=np.float32)
+            elif self.embedding_mode == "bbox":
+                assert self.patch_size is not None
+                tile_bboxes = torch.zeros(
+                    (1, 3, self.patch_size, self.patch_size), dtype=torch.uint8
+                )
+
+            tile_pos_centered = np.zeros((1, 2), dtype=np.float32)
             tile_sup_mask = np.array([False], dtype=bool)
             tile_labels["nuclei"] = torch.tensor([0.0], dtype=torch.float32)
-
             seq_len = 1
         else:
-            tile_features = self.get_efd_features(
-                polygons[tile_indices], props["mpp_x"], props["mpp_y"]
-            )
-            scaled_centroids = centroids * np.array(
+            scaled_centroids = centroids[tile_indices] * np.array(
                 [props["mpp_x"], props["mpp_y"]], dtype=np.float32
             )
-            tile_pos = scaled_centroids[tile_indices]
-            tile_pos_centered = tile_pos - tile_pos.mean(axis=0)
 
+            if self.embedding_mode == "efd":
+                tile_features = self.get_efd_features(
+                    polygons[tile_indices], props["mpp_x"], props["mpp_y"]
+                )
+            elif self.embedding_mode == "spatial":
+                tile_features = self.get_spatial_features(scaled_centroids)
+            elif self.embedding_mode == "bbox":
+                tile_bboxes = self.get_nuclei_bboxes(
+                    centroids[tile_indices], props["slide_path"]
+                )
+
+            tile_pos_centered = scaled_centroids - scaled_centroids.mean(axis=0)
+
+            # Augmentations
             if self.random_rotate:
+                cos_angles, sin_angles = None, None
+                if self.embedding_mode == "efd":
+                    assert tile_features is not None
+                    cos_angles = tile_features[..., -2]
+                    sin_angles = tile_features[..., -1]
+
                 pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
-                    tile_pos_centered, tile_features[..., -2], tile_features[..., -1]
+                    tile_pos_centered, cos_angles, sin_angles
                 )
                 tile_pos_centered = pos_rot
-                tile_features[..., -2], tile_features[..., -1] = cos_rot, sin_rot
+
+                if self.embedding_mode == "efd":  # rotate angles in the EFD features
+                    assert tile_features is not None
+                    tile_features[..., -2], tile_features[..., -1] = cos_rot, sin_rot
 
             seq_len = len(tile_indices)
 
+        assert (
+            tile_features is not None
+            or tile_bboxes is not None
+            or self.embedding_mode == "pos_only"
+        )
         return Sample(
             {
-                "features": torch.as_tensor(tile_features, dtype=torch.float32),
-                "bboxes": None,
+                "features": torch.as_tensor(tile_features, dtype=torch.float32)
+                if tile_features is not None
+                else None,
+                "bboxes": tile_bboxes,
                 "labels": tile_labels,
                 "pos": torch.as_tensor(tile_pos_centered, dtype=torch.float32),
                 "sup_mask": torch.as_tensor(tile_sup_mask),

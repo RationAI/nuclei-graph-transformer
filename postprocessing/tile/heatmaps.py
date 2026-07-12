@@ -87,12 +87,12 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
         for slide_id, slide_preds in preds_df.groupby("slide_id"):
             build_slide_heatmap(
-                slide_id,
-                slide_preds,
-                slides_df.loc[slide_id],
-                metadata_df.loc[slide_id],
-                config.level,
-                tmp_path,
+                slide_id=slide_id,
+                slide_preds=slide_preds,
+                slide_row=slides_df.loc[slide_id],
+                metadata_row=metadata_df.loc[slide_id],
+                level=config.level,
+                save_dir=tmp_path,
             )
             gc.collect()
 

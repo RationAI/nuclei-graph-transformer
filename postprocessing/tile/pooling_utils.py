@@ -3,9 +3,7 @@ import torch
 from torch import Tensor
 
 from nuclei_graph.data.datasets.tile.base import BaseTileDataset, get_slide_data
-
-
-POOLING_MODES = ("max", "mean", "top_k")
+from nuclei_graph.nuclei_graph_typing import POOLING_MODES
 
 
 def pool_predictions(preds: Tensor, mode: str, k: int = 10) -> Tensor:
@@ -15,8 +13,7 @@ def pool_predictions(preds: Tensor, mode: str, k: int = 10) -> Tensor:
         return preds.max()
     if mode == "mean":
         return preds.mean()
-    actual_k = min(k, len(preds))
-    top_k_preds, _ = torch.topk(preds, actual_k)
+    top_k_preds, _ = torch.topk(preds, min(k, len(preds)))
     return top_k_preds.mean()
 
 

@@ -23,7 +23,7 @@ data:
   dataset:
     efd_order: 15
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
   supervision:
     paths: ${dataset.paths.supervision}
 

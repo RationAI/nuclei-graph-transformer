@@ -2,17 +2,26 @@
 
 nuclei_predictions_uri: ???
 metadata_uri: ???
-pooling_mode: top_k
-k: 16
-mlflow_artifact_path: tile_predictions
+pooling_mode: ???
+pooling_k: null
 
+mlflow_artifact_path: tile_predictions
 mlflow_run_id: null
 mlflow_parent_run_id: null
+
+data:
+  dataset:
+    uris: ${dataset.mlflow_uris.tiles.test}
+    tile_size: ???
+    margin: ???
+    efd_order: ???
+    embedding_mode: ???
+    thresholds: ???
 
 checkpoint: ???
 
 metadata:
-  run_name: Nuclei to Tile Pooling Evaluation
+  run_name: "Evaluation: Nuclei to Tile Pooling"
   hyperparams:
     pooling_mode: ${pooling_mode}
-    k: ${k}
+    pooling_k: ${oc.select:pooling_k,null}

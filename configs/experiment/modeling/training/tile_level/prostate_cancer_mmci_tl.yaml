@@ -37,7 +37,7 @@ data:
     tile_size: 512
     margin: 128
     random_rotate: true
-    uris: ${dataset.mlflow_uris.tiles.train}
+    uris: ${dataset.mlflow_uris.tiles.512.train}
 
     thresholds:
       tissue_roi_t: 0.5

@@ -62,7 +62,6 @@ Most callbacks accept an optional `mlflow_run_id` constructor argument: when set
   <SLIDE_NAME>.tiff
 ```
 
-- `TileHeatmapMasksCallback` (default path: `tile_heatmaps`): per-tile graph-level prediction heatmap.
 - `NucleiPredictionMasksCallback` (default path: `prediction_masks`): per-nucleus prediction score painted onto its polygon.
 - `AttentionMasksCallback` (default path: `attention_masks`): per-nucleus attention score (normalized to its slide's max) painted onto its polygon.
 

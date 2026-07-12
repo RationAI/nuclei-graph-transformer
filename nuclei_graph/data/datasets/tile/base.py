@@ -5,7 +5,6 @@ from typing import TypeVar
 
 import numpy as np
 import pandas as pd
-from einops import rearrange
 from numpy.typing import NDArray
 from pandas import DataFrame
 from rationai.mlkit.data.datasets import MetaTiledSlides
@@ -13,11 +12,7 @@ from ratiopath.openslide import OpenSlide
 from scipy.spatial import KDTree
 from torch.utils.data import Dataset
 
-from nuclei_graph.data.efd import (
-    elliptic_fourier_descriptors,
-    normalize_efd_for_rotation,
-    normalize_efd_for_scale,
-)
+from nuclei_graph.data.datasets.nuclei_features import NucleiFeatureExtractor
 from nuclei_graph.nuclei_graph_typing import Sample
 
 
@@ -44,25 +39,29 @@ def get_slide_data(
     return polygons, centroids, kdtree, nuclei["id"].to_numpy()
 
 
-class BaseTileDataset(MetaTiledSlides[T]):
+class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
     def __init__(
         self,
         metadata: DataFrame,
         uris: Iterable[str],
         thresholds: dict[str, float],
         efd_order: int,
+        embedding_mode: str,
         carcinoma_filter: bool,
         tile_size: int = 512,
         margin: float | None = None,
+        patch_size: int | None = None,
     ) -> None:
         super().__init__(uris=uris)
         self.metadata = metadata.set_index("slide_id")
         self.thresholds = thresholds
         self.efd_order = efd_order
-        self.carcinoma_filter = carcinoma_filter  # only in training mode
+        self.carcinoma_filter = carcinoma_filter
         self.tile_size = tile_size
         self.margin = margin if margin is not None else tile_size / 4
         self.carcinoma_t = thresholds.get("carcinoma_roi_t")
+        self.embedding_mode = embedding_mode
+        self.patch_size = patch_size
 
         # self.tiles metadataset is created in the parent class
         self.prepare_tiles()
@@ -73,7 +72,7 @@ class BaseTileDataset(MetaTiledSlides[T]):
         return len(self.tiles)
 
     def generate_datasets(self) -> Iterable[Dataset[T]]:
-        return [self]  # placeholder
+        return [self]
 
     def get_slide_properties(self):
         slide_props = {}
@@ -100,6 +99,7 @@ class BaseTileDataset(MetaTiledSlides[T]):
                 "mpp_x": float(meta_row["mpp_x"]),
                 "mpp_y": float(meta_row["mpp_y"]),
                 "slide_nuclei_path": str(meta_row["slide_nuclei_path"]),
+                "slide_path": str(meta_row["slide_path"]),
             }
         return slide_props
 
@@ -140,21 +140,6 @@ class BaseTileDataset(MetaTiledSlides[T]):
                     (slide_label.astype(int) == 1) & (self.tiles["carcinoma"] == 0)
                 )
                 self.tiles = self.tiles[mask]
-
-    def get_efd_features(self, polygons, mpp_x, mpp_y):
-        mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
-        contours = rearrange(polygons, "b (v d) -> b v d", d=2) * mpps
-
-        efds = elliptic_fourier_descriptors(contours.astype(np.float64), self.efd_order)
-        efds, angles = normalize_efd_for_rotation(efds)
-        cos_angles, sin_angles = np.cos(2.0 * angles), np.sin(2.0 * angles)
-        efds, scales = normalize_efd_for_scale(efds)
-        log_scales = np.log(scales + 1e-6)
-        efds = rearrange(efds, "n order c -> n (order c)")
-
-        return np.concatenate(
-            [efds, log_scales, cos_angles, sin_angles], axis=-1
-        ).astype(np.float32)
 
     def get_scaled_props(self, tile: pd.Series) -> dict[str, float]:
         """Computes tile properties in the coordinate space of the nuclei polygons."""

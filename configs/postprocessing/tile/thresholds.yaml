@@ -3,12 +3,47 @@
 pooling_modes: [max, mean, top_k]
 k_values: [4, 8, 10, 16, 24, 32]
 
-#patch_size: 48
+patch_size: ???
 
 mlflow_run_id: null
 mlflow_parent_run_id: null
 
 checkpoint: ???
 
+data:
+  _target_: nuclei_graph.data.datamodules.tile.TileDataModule
+  num_workers: 0
+  eval_num_workers: 0
+
+  batch_size: 1
+  block_size: 128
+
+  supervision:
+    train_strategy: null
+
+  dataset:
+    uris: ???
+    tile_size: ???
+    margin: ???
+    efd_order: ???
+    thresholds: ???
+
+model:
+  lr: ???
+  warmup_epochs: ???
+  net:
+    config:
+      efd_order: ${data.dataset.efd_order}
+      node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},1} # efd_order * 4 + scale
+      embedding_mode: ??? # "efd", "bbox", "spatial", "pos_only"
+      num_classes: 1
+
 metadata:
   run_name: Nuclei-to-Tile Thresholds (MMCI)
+  hyperparams:
+    tile_size: ${data.dataset.tile_size}
+    margin: ${data.dataset.margin}
+    efd_order: ${data.dataset.efd_order}
+    thresholds: ${data.dataset.thresholds}
+    embedding_mode: ${model.net.config.embedding_mode}

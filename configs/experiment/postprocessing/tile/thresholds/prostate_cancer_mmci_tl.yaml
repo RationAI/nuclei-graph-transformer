@@ -9,13 +9,6 @@ defaults:
   - _self_
 
 data:
-  _target_: nuclei_graph.data.datamodules.tile.TileDataModule
-
-  batch_size: 1
-  num_workers: 0
-  eval_num_workers: 0
-  block_size: 128
-
   k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
@@ -23,10 +16,11 @@ data:
   metadata: ${dataset.mlflow_uris.metadata}
 
   dataset:
-    uris: ${dataset.mlflow_uris.tiles.train}
-    tile_size: 512
-    margin: 128
+    uris: ${dataset.mlflow_uris.tiles.224.train} # ${dataset.mlflow_uris.tiles.512.train} ${dataset.mlflow_uris.tiles.224.train}
+    tile_size: 224 # 512 224
+    margin: 56 # 128 56
     efd_order: 15
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
 
     thresholds:
       tissue_roi_t: 0.5
@@ -57,7 +51,7 @@ model:
       num_layers: 8
       num_classes: 1
       drop_path_rate: 0.15
-      embedding_mode: "bbox" # "efd", "bbox"
+      embedding_mode: ${data.dataset.embedding_mode}
 
 mlflow_run_id: null
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588

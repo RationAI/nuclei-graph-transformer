@@ -2,4 +2,5 @@
 
 _target_: nuclei_graph.data.datasets.crop.nuclei_classification.NucleiClassificationDataset
 efd_order: ???
+embedding_mode: ???
 patch_size: null

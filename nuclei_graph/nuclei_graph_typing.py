@@ -1,4 +1,4 @@
-from typing import NotRequired, TypedDict
+from typing import NamedTuple, NotRequired, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -6,7 +6,35 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-EMBEDDING_MODES = ("efd", "bbox")
+EMBEDDING_MODES = ("efd", "bbox", "spatial", "pos_only")
+POOLING_MODES = ("max", "mean", "top_k")  # nuclei-to-tile pooling
+MAX_CROP_PATCH_SIDE = 8192
+
+
+class Box(NamedTuple):
+    lx: int
+    ly: int
+    rx: int
+    ry: int
+
+    @property
+    def w(self) -> int:
+        return self.rx - self.lx
+
+    @property
+    def h(self) -> int:
+        return self.ry - self.ly
+
+
+class SlideSize(NamedTuple):
+    w: int
+    h: int
+
+
+class DecodedRegion(NamedTuple):
+    array: NDArray[np.uint8]
+    origin_x: int
+    origin_y: int
 
 
 class Metadata(TypedDict):

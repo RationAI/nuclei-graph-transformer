@@ -123,7 +123,7 @@ def plot_pr(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[plt.Figure, float]:
 
 
 class NucleiPredictionsCollector(Callback):
-    """Collects per-nucleus predictions in memory instead of writing them to disk."""
+    """Collects per-nucleus predictions (in memory)."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -157,14 +157,16 @@ class NucleiPredictionsCollector(Callback):
 def predict_nuclei(
     config: DictConfig, dataset: BaseTileDataset, logger: MLFlowLogger
 ) -> dict[str, pd.Series]:
-    """Runs the checkpointed nuclei model on the validation slides, in memory."""
+    """Runs the checkpointed nuclei model on the validation slides."""
     stems = dataset.tiles["stem"].unique()
     slides_df = dataset.metadata.loc[stems].reset_index()
 
+    # Crop-level predictions
     predict_dataset = PredictionDataset(
         metadata=slides_df,
         efd_order=config.data.dataset.efd_order,
         patch_size=config.get("patch_size"),
+        embedding_mode=config.model.net.config.embedding_mode,
     )
     predict_loader = DataLoader(
         predict_dataset,
@@ -185,7 +187,7 @@ def predict_nuclei(
 
 def pool_tiles(
     dataset: BaseTileDataset,
-    nuclei_preds_by_stem: dict[str, pd.Series],
+    nuclei_preds: dict[str, pd.Series],
     pooling_mode: str,
     k: int,
 ) -> pd.DataFrame:
@@ -193,7 +195,7 @@ def pool_tiles(
     pooled = []
     for stem, tiles in dataset.tiles.groupby("stem"):
         tile_preds_df = pool_slide_tiles(
-            tiles, dataset, nuclei_preds_by_stem[stem], pooling_mode, k
+            tiles, dataset, nuclei_preds[stem], pooling_mode, k
         )
         tile_preds_df["carcinoma"] = tiles["carcinoma"].to_numpy()
         pooled.append(tile_preds_df)
@@ -222,7 +224,7 @@ def evaluate_pooling(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]
 def sweep_pooling(
     config: DictConfig,
     dataset: BaseTileDataset,
-    nuclei_preds_by_stem: dict[str, pd.Series],
+    nuclei_preds: dict[str, pd.Series],
 ) -> tuple[str, int | None, pd.DataFrame, pd.DataFrame]:
     """Pools tiles for every (pooling_mode, k) combination and picks the best by ROC AUC.
 
@@ -236,7 +238,7 @@ def sweep_pooling(
             [int(k) for k in config.k_values] if mode == "top_k" else [None]
         )
         for k in k_candidates:
-            merged_df = pool_tiles(dataset, nuclei_preds_by_stem, mode, k or 0)
+            merged_df = pool_tiles(dataset, nuclei_preds, mode, k or 0)
             merged_dfs[mode, k] = merged_df
 
             metrics = evaluate_pooling(
@@ -266,14 +268,14 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     datamodule.setup("validate")
     dataset = datamodule.validation_dataset
 
-    nuclei_preds_by_stem = predict_nuclei(config, dataset, logger)
+    nuclei_preds = predict_nuclei(config, dataset, logger)
+    best_mode, best_k, merged_df, stats_df = sweep_pooling(
+        config, dataset, nuclei_preds
+    )
 
     client, mlflow_run_id = setup_mlflow(config)
     assert mlflow_run_id is not None
 
-    best_mode, best_k, merged_df, stats_df = sweep_pooling(
-        config, dataset, nuclei_preds_by_stem
-    )
     client.set_tag(mlflow_run_id, "thresholds/best_pooling_mode", best_mode)
     if best_k is not None:
         client.log_metric(mlflow_run_id, "thresholds/best_k", best_k)

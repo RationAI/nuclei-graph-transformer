@@ -8,7 +8,7 @@ defaults:
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
 nuclei_predictions_uri: mlflow-artifacts:/97/3eb35a6fb8874727bc25737e4924625c/artifacts/predictions
 pooling_mode: top_k
-k: 24
+pooling_k: 24
 
 data:
   dataset:
@@ -16,6 +16,7 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 15
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
 
     thresholds:
       tissue_roi_t: 0.5
@@ -28,6 +29,3 @@ data:
 
 mlflow_run_id: 0e8d56ce2a8048ab9895884137df7d4e
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
-
-metadata:
-  run_name: "📊 Nuclei-Tile Pooling (MMCI)"

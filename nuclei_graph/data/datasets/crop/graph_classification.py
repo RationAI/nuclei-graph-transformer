@@ -19,13 +19,13 @@ class GraphClassificationDataset(BaseCropDataset):
         supervision: DatasetSupervision | None,
         crop_size_min: int,
         crop_size_max: int,
+        embedding_mode: str,
         crop_pos_thr: float = 0.75,
         alpha: float = 0.8,
         efd_order: int = 16,
         full_slide: bool = False,
         random_rotate: bool = False,
         patch_size: int | None = None,
-        embedding_mode: str = "efd",
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -107,7 +107,6 @@ class GraphClassificationDataset(BaseCropDataset):
                         crop_indices = curr_crop_indices
                         break
                     curr_slide_idx = choice(self.pos_slide_indices)
-
         assert crop_indices is not None
 
         # Supervision
@@ -125,8 +124,12 @@ class GraphClassificationDataset(BaseCropDataset):
             crop_features = self.get_efd_features(
                 crop_polygons, slide.mpp_x, slide.mpp_y
             )
+        elif self.embedding_mode == "spatial":
+            crop_pos_scaled = centroids[crop_indices]
+            crop_features = self.get_spatial_features(crop_pos_scaled)
         elif self.embedding_mode == "bbox":
-            crop_bboxes = self.get_nuclei_bboxes(nuclei, slide.slide_path, crop_indices)
+            raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
+            crop_bboxes = self.get_nuclei_bboxes(raw_centroids, slide.slide_path)
 
         # Positions
         crop_pos = centroids[crop_indices]
@@ -134,8 +137,11 @@ class GraphClassificationDataset(BaseCropDataset):
 
         # Augmentations
         if self.random_rotate and not self.full_slide:
-            cos_angles = crop_features[..., -2] if crop_features is not None else None
-            sin_angles = crop_features[..., -1] if crop_features is not None else None
+            cos_angles, sin_angles = None, None
+            if self.embedding_mode == "efd":
+                assert crop_features is not None
+                cos_angles, sin_angles = crop_features[..., -2], crop_features[..., -1]
+
             pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
                 crop_pos_centered, cos_angles, sin_angles
             )
@@ -146,7 +152,11 @@ class GraphClassificationDataset(BaseCropDataset):
                 crop_features[..., -2] = cos_rot
                 crop_features[..., -1] = sin_rot
 
-        assert crop_features is not None or crop_bboxes is not None
+        assert (
+            crop_features is not None
+            or crop_bboxes is not None
+            or self.embedding_mode == "pos_only"
+        )
         return Sample(
             {
                 "features": torch.as_tensor(crop_features, dtype=torch.float32)

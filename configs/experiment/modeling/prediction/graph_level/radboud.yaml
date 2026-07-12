@@ -25,7 +25,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 
