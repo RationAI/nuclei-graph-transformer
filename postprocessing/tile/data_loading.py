@@ -19,9 +19,7 @@ def get_predictions(predictions_dir: Path) -> pd.DataFrame:
 
 def load_tile_predictions(config: DictConfig) -> pd.DataFrame:
     """Loads pooled tile predictions and merges them with ground-truth tile labels."""
-    predictions_dir = Path(download_artifacts(config.tile_predictions_uri))
-
-    tiles_df = pd.read_parquet(download_artifacts(config.metadata_uri))
+    tiles_df = pd.read_parquet(download_artifacts(config.tiles_uri))
     slides_df = pd.read_parquet(download_artifacts(config.slides_uri))
 
     id_to_stem = dict(zip(slides_df["id"], slides_df["stem"], strict=True))
@@ -30,6 +28,7 @@ def load_tile_predictions(config: DictConfig) -> pd.DataFrame:
         tiles_df["carcinoma_roi_percentage"] > config.carcinoma_roi_t
     ).astype(int)
 
+    predictions_dir = Path(download_artifacts(config.tile_predictions_uri))
     preds_df = get_predictions(predictions_dir)
     merged_df = pd.merge(preds_df, tiles_df, on=["slide_id", "x", "y"], how="inner")
 

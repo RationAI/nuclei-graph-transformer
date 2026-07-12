@@ -4,7 +4,7 @@ defaults:
   - /data/sources/prostate_cancer_mmci_tl
   - _self_
 
-metadata_uri: ${dataset.mlflow_uris.tiles.224.test}
+tiles_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_224/tiles.parquet
 slides_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_224/slides.parquet
 tile_predictions_uri: mlflow-artifacts:/97/3e4eb6964d754fcb942405701863e7b3/artifacts/tile_predictions
 
