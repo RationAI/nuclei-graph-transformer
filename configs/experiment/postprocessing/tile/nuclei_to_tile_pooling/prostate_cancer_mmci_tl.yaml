@@ -6,13 +6,13 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-nuclei_predictions_uri: mlflow-artifacts:/97/3eb35a6fb8874727bc25737e4924625c/artifacts/predictions
+nuclei_predictions_uri: mlflow-artifacts:/97/cb91e7d320404d66a1dbae4d161f537e/artifacts/predictions
 pooling_mode: top_k
 pooling_k: 24
 
 data:
   dataset:
-    uris: ${dataset.mlflow_uris.tiles.test}
+    uris: ${dataset.mlflow_uris.tiles.512.test}
     tile_size: 512
     margin: 128
     efd_order: 15
@@ -27,5 +27,5 @@ data:
       folding_t: 0.25
       carcinoma_roi_t: 0.5
 
-mlflow_run_id: 0e8d56ce2a8048ab9895884137df7d4e
+mlflow_run_id: d71f75b79814443c872f14981ffa3233
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
