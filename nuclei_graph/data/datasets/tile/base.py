@@ -52,6 +52,8 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
         margin: float | None = None,
         patch_size: int | None = None,
     ) -> None:
+        if isinstance(uris, str):
+            uris = [uris]
         super().__init__(uris=uris)
         self.metadata = metadata.set_index("slide_id")
         self.thresholds = thresholds

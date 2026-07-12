@@ -49,12 +49,14 @@ dataset:
         train:
           - mlflow-artifacts:/65/4c8c0a88482f4eef900a86990be51783/artifacts/MMCI TL Train_512
           - mlflow-artifacts:/65/1cbc0977226d4a389ee97c136c54e673/artifacts/MMCI TL Val_512
-        test: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512
+        test:
+          - mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_512
       "224":
         train:
           - mlflow-artifacts:/65/4c8c0a88482f4eef900a86990be51783/artifacts/MMCI TL Train_224
           - mlflow-artifacts:/65/1cbc0977226d4a389ee97c136c54e673/artifacts/MMCI TL Val_224
-        test: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_224
+        test:
+          - mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_224
 
     # preprocessing/metadata_mapping/prostate_cancer_mmci_tl.py
     metadata:
