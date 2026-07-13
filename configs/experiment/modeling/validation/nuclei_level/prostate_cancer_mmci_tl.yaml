@@ -6,13 +6,13 @@ defaults:
   - /model/meta_archs@model: nuclei
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: nuclei_classification
-  - /data/supervision@data.supervision.eval_strategy: annotation # annotation agreement
+  - /data/supervision@data.supervision.eval_strategy: agreement
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
 checkpoint: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
 
-mlflow_run_id: null
+mlflow_run_id: 8365dc2b0ba14b1f8cc0811eb5059ceb
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
 
 data:

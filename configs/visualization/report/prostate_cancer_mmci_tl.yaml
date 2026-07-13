@@ -11,7 +11,7 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "MMCI TL Test — Nuclei Predictions"
   metrics_run_ids:
-    - 0912754fc78e46ebae60ecc494e6dbd2
+    - 85f66281ba684456be3393948d101889
     #- aed1da3432694541bfdb82364acfc660
   # metrics_target_metrics:
   #   - AUROC
@@ -41,7 +41,7 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    0912754fc78e46ebae60ecc494e6dbd2:
+    85f66281ba684456be3393948d101889:
       artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
@@ -72,38 +72,38 @@ reporter:
       dir_name: tissue_masks
       layer_name: Tissue
 
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: annotation_masks
-      run_id: fb2e33383e2548c48e5bd4f2a77e47a8
-      layer_name: Annotation
-      shader_conf:
-        visible: True
-        opacity: 0.5
-        type: edge
-        color: "#1F971B"
-
     # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: heatmaps
-    #   run_id: a40c5a17026840bea1828b78af46752d
-    #   layer_name: Virchow2 Heatmap
+    #   dir_name: annotation_masks
+    #   run_id: fb2e33383e2548c48e5bd4f2a77e47a8
+    #   layer_name: Annotation
     #   shader_conf:
-    #     type: heatmap
-    #     params:
-    #       threshold: 85
     #     visible: True
-    #     opacity: 0.80
-    #     color: "#FFA500" # orange
+    #     opacity: 0.5
+    #     type: edge
+    #     color: "#1F971B"
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: heatmaps
+      run_id: a40c5a17026840bea1828b78af46752d
+      layer_name: Virchow2 Heatmap
+      shader_conf:
+        type: heatmap
+        params:
+          threshold: 85
+        visible: True
+        opacity: 0.80
+        color: "#FFA500" # orange
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: 0912754fc78e46ebae60ecc494e6dbd2
-      layer_name: "Polygon Embedding"
+      run_id: b3c9cdcd28a641e4810cb6e0753a0ee7
+      layer_name: "CNN Embedding"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 46
-        color: "#0000FF" # blue
+          threshold: 29
+        color: "#00FF00" # green
 
 metadata:
   run_name: Report — Nuclei Masks
