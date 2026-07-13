@@ -19,8 +19,8 @@ data:
     uris: ${dataset.mlflow_uris.tiles.224.train} # ${dataset.mlflow_uris.tiles.512.train} ${dataset.mlflow_uris.tiles.224.train}
     tile_size: 224 # 512 224
     margin: 56 # 128 56
-    efd_order: 15
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
+    efd_order: 16
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
 
     thresholds:
       tissue_roi_t: 0.5
@@ -35,7 +35,7 @@ data:
     paths: ${dataset.paths.supervision}
     train_strategy: null
 
-patch_size: 48 # bbox nuclei embeddings for the nuclei prediction pass
+patch_size: 48
 
 model:
   lr: 1e-4
@@ -54,6 +54,6 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 mlflow_run_id: null
-mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
+mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63
 
-checkpoint: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/3b4bd9d620744470a7aa096bc58f0e63/artifacts/checkpoints/epoch=304-step=6710/checkpoint.ckpt
