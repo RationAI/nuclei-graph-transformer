@@ -13,7 +13,7 @@ defaults:
 
 checkpoint: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
 
-mlflow_run_id: cb91e7d320404d66a1dbae4d161f537e
+mlflow_run_id: b3c9cdcd28a641e4810cb6e0753a0ee7
 mlflow_parent_run_id: 165e61bac286468cb78f737649e39588
 
 data:
@@ -23,7 +23,7 @@ data:
   dataset:
     efd_order: 15
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
   supervision:
     paths: ${dataset.paths.supervision}
 

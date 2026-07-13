@@ -9,9 +9,9 @@ test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifac
 
 reporter:
   _target_: report.reporter.ReportAssembler
-  title: "MMCI TL Test — Nuclei-to-Tile Pooled Predictions"
+  title: "MMCI TL Test — Nuclei Predictions"
   metrics_run_ids:
-    - 36e8f50d12934b749bf844ed6cc00969
+    - 0912754fc78e46ebae60ecc494e6dbd2
     #- aed1da3432694541bfdb82364acfc660
   # metrics_target_metrics:
   #   - AUROC
@@ -41,8 +41,8 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    36e8f50d12934b749bf844ed6cc00969:
-      artifact_file: "slide_tile_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
+    0912754fc78e46ebae60ecc494e6dbd2:
+      artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
     # aed1da3432694541bfdb82364acfc660:
@@ -95,26 +95,15 @@ reporter:
     #     color: "#FFA500" # orange
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: tile_heatmaps
-      run_id: 36e8f50d12934b749bf844ed6cc00969
-      layer_name: "CNN Embedding"
+      dir_name: prediction_masks
+      run_id: 0912754fc78e46ebae60ecc494e6dbd2
+      layer_name: "Polygon Embedding"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 68
-        color: "#00FF00" # green
-
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: tile_heatmaps
-    #   run_id: aed1da3432694541bfdb82364acfc660
-    #   layer_name: "Polygon Embedding"
-    #   shader_conf:
-    #     visible: True
-    #     type: heatmap
-    #     params:
-    #       threshold: 66
-    #     color: "#0000FF" # blue
+          threshold: 46
+        color: "#0000FF" # blue
 
 metadata:
   run_name: Report — Nuclei Masks
