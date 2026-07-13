@@ -151,11 +151,9 @@ def uris2df(uris: list[str]) -> pd.DataFrame:
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
-    exclude_slides = (
-        pd.read_csv(Path(config.exclude_slides))["slide_stem"].tolist()
-        if config.exclude_slides
-        else []
-    )
+    exclude_slides = []
+    if config.exclude_slides:
+        exclude_slides = uris2df(config.exclude_slides)["slide_stem"].tolist()
 
     with TemporaryDirectory() as output_dir:
         df, summary_df = get_dataframes(
