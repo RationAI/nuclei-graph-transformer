@@ -11,34 +11,34 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
-class SmallCNN(nn.Module):
-    def __init__(self, out_dim: int) -> None:
-        super().__init__()
+# class CNN(nn.Module):
+#     def __init__(self, out_dim: int) -> None:
+#         super().__init__()
 
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 8, 3, padding=1, bias=False),
-            nn.GroupNorm(4, 8),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-            nn.Conv2d(8, 16, 3, padding=1, bias=False),
-            nn.GroupNorm(4, 16),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-            nn.Conv2d(16, 32, 3, padding=1, bias=False),
-            nn.GroupNorm(4, 32),
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((1, 1)),
-        )
+#         self.features = nn.Sequential(
+#             nn.Conv2d(3, 8, 3, padding=1, bias=False),
+#             nn.GroupNorm(4, 8),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2),
+#             nn.Conv2d(8, 16, 3, padding=1, bias=False),
+#             nn.GroupNorm(4, 16),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2),
+#             nn.Conv2d(16, 32, 3, padding=1, bias=False),
+#             nn.GroupNorm(4, 32),
+#             nn.ReLU(inplace=True),
+#             nn.AdaptiveAvgPool2d((1, 1)),
+#         )
 
-        self.head = nn.Sequential(
-            nn.Flatten(),
-            nn.Dropout(0.1),
-            nn.Linear(32, out_dim),
-            nn.LayerNorm(out_dim),
-        )
+#         self.head = nn.Sequential(
+#             nn.Flatten(),
+#             nn.Dropout(0.1),
+#             nn.Linear(32, out_dim),
+#             nn.LayerNorm(out_dim),
+#         )
 
-    def forward(self, x: Tensor) -> Tensor:
-        return self.head(self.features(x))
+#     def forward(self, x: Tensor) -> Tensor:
+#         return self.head(self.features(x))
 
 
 class CNN(nn.Module):
@@ -256,9 +256,9 @@ class Transformer(nn.Module):
         elif self.embedding_mode == "spatial":
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             x = self.embed_spatial(x, real_seq_len)
-        elif self.embedding_mode == "pos_only":
-            scaled_pos = pos / 1000.0
-            x = self.pos_content_encoder(scaled_pos)
+        # elif self.embedding_mode == "pos_only":
+        #     scaled_pos = pos / 1000.0
+        #     x = self.pos_content_encoder(scaled_pos)
         else:  # self.embedding_mode == "bbox":
             assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
             x = self.embed_patches(bboxes)

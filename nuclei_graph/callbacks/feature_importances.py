@@ -28,7 +28,7 @@ class PermutationImportanceCallback(Callback):
     def __init__(
         self,
         efd_order: int,
-        feature_group_size: int = 3,
+        feature_group_size: int = 2,
         mlflow_run_id: str | None = None,
     ) -> None:
         super().__init__()
