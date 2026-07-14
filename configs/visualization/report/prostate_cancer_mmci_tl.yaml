@@ -11,7 +11,7 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "MMCI TL Test — Nuclei Predictions"
   metrics_run_ids:
-    - 85f66281ba684456be3393948d101889
+    - 91436399b95e4908a127d7825e138749
     #- aed1da3432694541bfdb82364acfc660
   # metrics_target_metrics:
   #   - AUROC
@@ -41,7 +41,7 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    85f66281ba684456be3393948d101889:
+    91436399b95e4908a127d7825e138749:
       artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
@@ -96,14 +96,14 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: b3c9cdcd28a641e4810cb6e0753a0ee7
-      layer_name: "CNN Embedding"
+      run_id: 0912754fc78e46ebae60ecc494e6dbd2
+      layer_name: "Polygon Embedding"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 29
-        color: "#00FF00" # green
+          threshold: 46
+        color: "#0000FF" # blue 00FF00
 
 metadata:
   run_name: Report — Nuclei Masks

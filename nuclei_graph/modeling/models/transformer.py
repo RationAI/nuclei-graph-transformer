@@ -11,65 +11,29 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
-# class CNN(nn.Module):
-#     def __init__(self, out_dim: int) -> None:
-#         super().__init__()
-
-#         self.features = nn.Sequential(
-#             nn.Conv2d(3, 8, 3, padding=1, bias=False),
-#             nn.GroupNorm(4, 8),
-#             nn.ReLU(inplace=True),
-#             nn.MaxPool2d(2),
-#             nn.Conv2d(8, 16, 3, padding=1, bias=False),
-#             nn.GroupNorm(4, 16),
-#             nn.ReLU(inplace=True),
-#             nn.MaxPool2d(2),
-#             nn.Conv2d(16, 32, 3, padding=1, bias=False),
-#             nn.GroupNorm(4, 32),
-#             nn.ReLU(inplace=True),
-#             nn.AdaptiveAvgPool2d((1, 1)),
-#         )
-
-#         self.head = nn.Sequential(
-#             nn.Flatten(),
-#             nn.Dropout(0.1),
-#             nn.Linear(32, out_dim),
-#             nn.LayerNorm(out_dim),
-#         )
-
-#     def forward(self, x: Tensor) -> Tensor:
-#         return self.head(self.features(x))
-
-
 class CNN(nn.Module):
     def __init__(self, out_dim: int) -> None:
         super().__init__()
 
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1, bias=False),
-            nn.GroupNorm(8, 16),
+            nn.Conv2d(3, 8, 3, padding=1, bias=False),
+            nn.GroupNorm(4, 8),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2),
+            nn.Conv2d(8, 16, 3, padding=1, bias=False),
+            nn.GroupNorm(4, 16),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(2),
             nn.Conv2d(16, 32, 3, padding=1, bias=False),
-            nn.GroupNorm(8, 32),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1, bias=False),
-            nn.GroupNorm(8, 64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, 3, padding=1, bias=False),
-            nn.GroupNorm(8, 128),
+            nn.GroupNorm(4, 32),
             nn.ReLU(inplace=True),
             nn.AdaptiveAvgPool2d((1, 1)),
         )
 
         self.head = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128, 512),
-            nn.GELU(),
             nn.Dropout(0.1),
-            nn.Linear(512, out_dim),
+            nn.Linear(32, out_dim),
             nn.LayerNorm(out_dim),
         )
 
@@ -77,19 +41,55 @@ class CNN(nn.Module):
         return self.head(self.features(x))
 
 
-class MLPSpatialEmbedding(nn.Module):
-    """state_dict compatibility with old checkpoints."""
+# class CNN(nn.Module):
+#     def __init__(self, out_dim: int) -> None:
+#         super().__init__()
 
-    def __init__(self, dim: int) -> None:
-        super().__init__()
-        self.proj = nn.Sequential(
-            nn.Linear(2, dim),
-            nn.GELU(),
-            nn.Linear(dim, dim),
-        )
+#         self.features = nn.Sequential(
+#             nn.Conv2d(3, 16, 3, padding=1, bias=False),
+#             nn.GroupNorm(8, 16),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2),
+#             nn.Conv2d(16, 32, 3, padding=1, bias=False),
+#             nn.GroupNorm(8, 32),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2),
+#             nn.Conv2d(32, 64, 3, padding=1, bias=False),
+#             nn.GroupNorm(8, 64),
+#             nn.ReLU(inplace=True),
+#             nn.MaxPool2d(2),
+#             nn.Conv2d(64, 128, 3, padding=1, bias=False),
+#             nn.GroupNorm(8, 128),
+#             nn.ReLU(inplace=True),
+#             nn.AdaptiveAvgPool2d((1, 1)),
+#         )
 
-    def forward(self, pos: Tensor) -> Tensor:
-        return self.proj(pos)
+#         self.head = nn.Sequential(
+#             nn.Flatten(),
+#             nn.Linear(128, 512),
+#             nn.GELU(),
+#             nn.Dropout(0.1),
+#             nn.Linear(512, out_dim),
+#             nn.LayerNorm(out_dim),
+#         )
+
+# def forward(self, x: Tensor) -> Tensor:
+#     return self.head(self.features(x))
+
+
+# class MLPSpatialEmbedding(nn.Module):
+#     """state_dict compatibility with old checkpoints."""
+
+#     def __init__(self, dim: int) -> None:
+#         super().__init__()
+#         self.proj = nn.Sequential(
+#             nn.Linear(2, dim),
+#             nn.GELU(),
+#             nn.Linear(dim, dim),
+#         )
+
+#     def forward(self, pos: Tensor) -> Tensor:
+#         return self.proj(pos)
 
 
 class FourierSpatialEmbedding(nn.Module):
@@ -156,22 +156,22 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
-        # if self.embedding_mode in ["efd", "spatial"]:
-        #     self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        #     self.input_proj = nn.Linear(config.node_features, config.dim)
-        # elif self.embedding_mode == "bbox":
-        #     self.patch_cnn = CNN(out_dim=config.dim)
-        # elif self.embedding_mode == "pos_only":
-        #     self.pos_content_encoder = FourierSpatialEmbedding(dim=config.dim)
+        if self.embedding_mode in ["efd", "spatial"]:
+            self.batch_norm = nn.BatchNorm1d(config.norm_dim)
+            self.input_proj = nn.Linear(config.node_features, config.dim)
+        elif self.embedding_mode == "bbox":
+            self.patch_cnn = CNN(out_dim=config.dim)
+        elif self.embedding_mode == "pos_only":
+            self.pos_content_encoder = FourierSpatialEmbedding(dim=config.dim)
 
         ### For compatibility with old checkpoints
-        self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        self.input_proj = nn.Linear(config.node_features, config.dim)
-        self.patch_cnn = CNN(out_dim=config.dim)
-        self.efd_norm = nn.RMSNorm(config.dim)
-        self.cnn_norm = nn.RMSNorm(config.dim)
-        self.pos_scale = nn.Parameter(torch.tensor(1.0))
-        self.pos_encoder = MLPSpatialEmbedding(config.dim)
+        # self.batch_norm = nn.BatchNorm1d(config.norm_dim)
+        # self.input_proj = nn.Linear(config.node_features, config.dim)
+        # self.patch_cnn = CNN(out_dim=config.dim)
+        # self.efd_norm = nn.RMSNorm(config.dim)
+        # self.cnn_norm = nn.RMSNorm(config.dim)
+        # self.pos_scale = nn.Parameter(torch.tensor(1.0))
+        # self.pos_encoder = MLPSpatialEmbedding(config.dim)
         ###
 
         self.final_norm = nn.RMSNorm(config.dim)
@@ -256,9 +256,9 @@ class Transformer(nn.Module):
         elif self.embedding_mode == "spatial":
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             x = self.embed_spatial(x, real_seq_len)
-        # elif self.embedding_mode == "pos_only":
-        #     scaled_pos = pos / 1000.0
-        #     x = self.pos_content_encoder(scaled_pos)
+        elif self.embedding_mode == "pos_only":
+            scaled_pos = pos / 1000.0
+            x = self.pos_content_encoder(scaled_pos)
         else:  # self.embedding_mode == "bbox":
             assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
             x = self.embed_patches(bboxes)
