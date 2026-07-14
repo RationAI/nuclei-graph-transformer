@@ -53,8 +53,8 @@ model:
       num_heads: 4
       num_layers: 4
       drop_path_rate: 0.25
-      mil_mode: "logit" # "embedding" "logit"
+      mil_mode: "embedding" # "embedding" "logit"
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(MMCI): Crop-level Classification, Polygon embedding + logit pooling"
+  run_name: "Train(MMCI): Crop-level Classification, Polygon embedding + embedding pooling"
