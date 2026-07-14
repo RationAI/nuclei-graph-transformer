@@ -29,123 +29,123 @@ class BlockMask(torch.nn.attention.flex_attention.BlockMask):
         return BlockMask(*mapped_attributes)
 
 
-# def create_ragged_block_quantized_knn_mask(
-#     neighbor_indices_list: list[Tensor],
-#     block_size: int,
-#     total_seq_len: int | None = None,
-# ) -> BlockMask:
-#     """Creates a BlockMask for tightly packed sequences, optionally padded."""
-#     device = neighbor_indices_list[0].device
+def create_ragged_block_quantized_knn_mask(
+    neighbor_indices_list: list[Tensor],
+    block_size: int,
+    total_seq_len: int | None = None,
+) -> BlockMask:
+    """Creates a BlockMask for tightly packed sequences, optionally padded."""
+    device = neighbor_indices_list[0].device
 
-#     # === 1. Tightly Pack & Shift KNN Indices ===
-#     packed_neighbors_list = []
-#     doc_ids_list = []
-#     current_offset = 0
+    # === 1. Tightly Pack & Shift KNN Indices ===
+    packed_neighbors_list = []
+    doc_ids_list = []
+    current_offset = 0
 
-#     for doc_id, neighbors in enumerate(neighbor_indices_list):
-#         N_i = neighbors.shape[0]
+    for doc_id, neighbors in enumerate(neighbor_indices_list):
+        N_i = neighbors.shape[0]
 
-#         offset_neighbors = torch.where(
-#             neighbors >= 0, neighbors + current_offset, neighbors
-#         )
-#         packed_neighbors_list.append(offset_neighbors)
+        offset_neighbors = torch.where(
+            neighbors >= 0, neighbors + current_offset, neighbors
+        )
+        packed_neighbors_list.append(offset_neighbors)
 
-#         doc_ids_list.append(
-#             torch.full((N_i,), doc_id, dtype=torch.int32, device=device)
-#         )
-#         current_offset += N_i
+        doc_ids_list.append(
+            torch.full((N_i,), doc_id, dtype=torch.int32, device=device)
+        )
+        current_offset += N_i
 
-#     packed_neighbors = torch.cat(packed_neighbors_list, dim=0)  # (N_total, K)
-#     doc_ids = torch.cat(doc_ids_list, dim=0)  # (N_total,)
+    packed_neighbors = torch.cat(packed_neighbors_list, dim=0)  # (N_total, K)
+    doc_ids = torch.cat(doc_ids_list, dim=0)  # (N_total,)
 
-#     N_real, K = packed_neighbors.shape
-#     if total_seq_len is None:
-#         total_seq_len = N_real
-#     if total_seq_len < N_real:
-#         raise ValueError(
-#             f"total_seq_len ({total_seq_len}) must be >= packed length ({N_real})"
-#         )
-#     if total_seq_len > N_real:
-#         pad_doc_ids = torch.full(
-#             (total_seq_len - N_real,), -1, dtype=torch.int32, device=device
-#         )
-#         doc_ids = torch.cat((doc_ids, pad_doc_ids), dim=0)
+    N_real, K = packed_neighbors.shape
+    if total_seq_len is None:
+        total_seq_len = N_real
+    if total_seq_len < N_real:
+        raise ValueError(
+            f"total_seq_len ({total_seq_len}) must be >= packed length ({N_real})"
+        )
+    if total_seq_len > N_real:
+        pad_doc_ids = torch.full(
+            (total_seq_len - N_real,), -1, dtype=torch.int32, device=device
+        )
+        doc_ids = torch.cat((doc_ids, pad_doc_ids), dim=0)
 
-#     num_blocks = math.ceil(total_seq_len / block_size)
+    num_blocks = math.ceil(total_seq_len / block_size)
 
-#     # === 2. Build Global Adjacency Matrix (2D) ===
-#     # Map token-level connections to block-level connections
-#     q_idx = torch.arange(N_real, device=device)
-#     q_block_ids = (q_idx // block_size).unsqueeze(1).expand(N_real, K)
-#     kv_block_ids = packed_neighbors // block_size
+    # === 2. Build Global Adjacency Matrix (2D) ===
+    # Map token-level connections to block-level connections
+    q_idx = torch.arange(N_real, device=device)
+    q_block_ids = (q_idx // block_size).unsqueeze(1).expand(N_real, K)
+    kv_block_ids = packed_neighbors // block_size
 
-#     valid_conn = packed_neighbors >= 0
+    valid_conn = packed_neighbors >= 0
 
-#     # We keep this 2D until the end to save memory and avoid broad casting overhead
-#     adj_matrix = torch.zeros((num_blocks, num_blocks), dtype=torch.bool, device=device)
-#     adj_matrix[q_block_ids[valid_conn], kv_block_ids[valid_conn]] = True
+    # We keep this 2D until the end to save memory and avoid broad casting overhead
+    adj_matrix = torch.zeros((num_blocks, num_blocks), dtype=torch.bool, device=device)
+    adj_matrix[q_block_ids[valid_conn], kv_block_ids[valid_conn]] = True
 
-#     kv_num_blocks = adj_matrix.sum(dim=-1, dtype=torch.int32)
+    kv_num_blocks = adj_matrix.sum(dim=-1, dtype=torch.int32)
 
-#     # === 3. Compress to Dense KV Indices ===
-#     col_indices = (
-#         torch.arange(num_blocks, dtype=torch.int32, device=device)
-#         .unsqueeze(0)
-#         .expand(num_blocks, num_blocks)
-#     )
+    # === 3. Compress to Dense KV Indices ===
+    col_indices = (
+        torch.arange(num_blocks, dtype=torch.int32, device=device)
+        .unsqueeze(0)
+        .expand(num_blocks, num_blocks)
+    )
 
-#     # Push invalid connections to the back (value: num_blocks + 1) and sort them out
-#     masked_col_indices = torch.where(adj_matrix, col_indices, num_blocks + 1)
-#     sorted_indices, _ = masked_col_indices.sort(dim=-1)
+    # Push invalid connections to the back (value: num_blocks + 1) and sort them out
+    masked_col_indices = torch.where(adj_matrix, col_indices, num_blocks + 1)
+    sorted_indices, _ = masked_col_indices.sort(dim=-1)
 
-#     kv_indices = torch.where(
-#         sorted_indices > num_blocks,
-#         torch.tensor(-1, dtype=torch.int32, device=device),
-#         sorted_indices.to(torch.int32),
-#     )
+    kv_indices = torch.where(
+        sorted_indices > num_blocks,
+        torch.tensor(-1, dtype=torch.int32, device=device),
+        sorted_indices.to(torch.int32),
+    )
 
-#     # === 4. Optimize Fast Path (Pure vs Mixed Blocks) ===
-#     block_starts = torch.arange(num_blocks, device=device) * block_size
-#     block_ends = torch.clamp(block_starts + block_size - 1, max=total_seq_len - 1)
+    # === 4. Optimize Fast Path (Pure vs Mixed Blocks) ===
+    block_starts = torch.arange(num_blocks, device=device) * block_size
+    block_ends = torch.clamp(block_starts + block_size - 1, max=total_seq_len - 1)
 
-#     is_pure_block = doc_ids[block_starts] == doc_ids[block_ends]
+    is_pure_block = doc_ids[block_starts] == doc_ids[block_ends]
 
-#     valid_kv_mask = kv_indices >= 0
-#     safe_kv_indices = torch.where(valid_kv_mask, kv_indices, 0)
+    valid_kv_mask = kv_indices >= 0
+    safe_kv_indices = torch.where(valid_kv_mask, kv_indices, 0)
 
-#     is_kv_pure = is_pure_block[safe_kv_indices]
+    is_kv_pure = is_pure_block[safe_kv_indices]
 
-#     mixed_q_mask = ~is_pure_block
-#     mixed_kv_mask = valid_kv_mask & (~is_kv_pure)
+    mixed_q_mask = ~is_pure_block
+    mixed_kv_mask = valid_kv_mask & (~is_kv_pure)
 
-#     full_kv_indices = kv_indices.clone()
+    full_kv_indices = kv_indices.clone()
 
-#     # Demote boundary-crossing blocks to the slow path (-1)
-#     full_kv_indices.masked_fill_(mixed_q_mask.unsqueeze(-1), -1)
-#     full_kv_indices.masked_fill_(mixed_kv_mask, -1)
+    # Demote boundary-crossing blocks to the slow path (-1)
+    full_kv_indices.masked_fill_(mixed_q_mask.unsqueeze(-1), -1)
+    full_kv_indices.masked_fill_(mixed_kv_mask, -1)
 
-#     sort_keys = torch.where(full_kv_indices == -1, num_blocks + 1, full_kv_indices)
-#     sorted_full_indices, _ = sort_keys.sort(dim=-1)
+    sort_keys = torch.where(full_kv_indices == -1, num_blocks + 1, full_kv_indices)
+    sorted_full_indices, _ = sort_keys.sort(dim=-1)
 
-#     # Push the -1 "holes" to the back so valid indices are contiguous
-#     full_kv_indices = torch.where(
-#         sorted_full_indices > num_blocks,
-#         torch.tensor(-1, dtype=torch.int32, device=device),
-#         sorted_full_indices.to(torch.int32),
-#     )
+    # Push the -1 "holes" to the back so valid indices are contiguous
+    full_kv_indices = torch.where(
+        sorted_full_indices > num_blocks,
+        torch.tensor(-1, dtype=torch.int32, device=device),
+        sorted_full_indices.to(torch.int32),
+    )
 
-#     full_kv_num_blocks = (full_kv_indices != -1).sum(dim=-1, dtype=torch.int32)
+    full_kv_num_blocks = (full_kv_indices != -1).sum(dim=-1, dtype=torch.int32)
 
-#     # === 5. Reshape for BlockMask (Batch=1, Heads=1) ===
-#     return BlockMask.from_kv_blocks(
-#         kv_num_blocks=kv_num_blocks.view(1, 1, num_blocks),
-#         kv_indices=kv_indices.view(1, 1, num_blocks, num_blocks),
-#         full_kv_num_blocks=full_kv_num_blocks.view(1, 1, num_blocks),
-#         full_kv_indices=full_kv_indices.view(1, 1, num_blocks, num_blocks),
-#         BLOCK_SIZE=(block_size, block_size),
-#         mask_mod=_MaskMod(doc_ids),
-#         seq_lengths=(total_seq_len, total_seq_len),
-#     )
+    # === 5. Reshape for BlockMask (Batch=1, Heads=1) ===
+    return BlockMask.from_kv_blocks(
+        kv_num_blocks=kv_num_blocks.view(1, 1, num_blocks),
+        kv_indices=kv_indices.view(1, 1, num_blocks, num_blocks),
+        full_kv_num_blocks=full_kv_num_blocks.view(1, 1, num_blocks),
+        full_kv_indices=full_kv_indices.view(1, 1, num_blocks, num_blocks),
+        BLOCK_SIZE=(block_size, block_size),
+        mask_mod=_MaskMod(doc_ids),
+        seq_lengths=(total_seq_len, total_seq_len),
+    )
 
 
 def create_dense_document_mask(
