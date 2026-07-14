@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import torch.nn.attention.flex_attention
 from torch import Tensor
-from torch.nn.attention.flex_attention import create_block_mask
 from torch.utils._pytree import tree_map_only
 
 

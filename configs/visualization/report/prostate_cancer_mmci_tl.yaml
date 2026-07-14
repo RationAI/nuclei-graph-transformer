@@ -11,7 +11,7 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "MMCI TL Test — Nuclei Predictions"
   metrics_run_ids:
-    - 91436399b95e4908a127d7825e138749
+    - dd7da3ade2a748ffa93115f906eafdde
     #- aed1da3432694541bfdb82364acfc660
   # metrics_target_metrics:
   #   - AUROC
@@ -41,7 +41,7 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    91436399b95e4908a127d7825e138749:
+    dd7da3ade2a748ffa93115f906eafdde:
       artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
@@ -72,37 +72,37 @@ reporter:
       dir_name: tissue_masks
       layer_name: Tissue
 
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: annotation_masks
-    #   run_id: fb2e33383e2548c48e5bd4f2a77e47a8
-    #   layer_name: Annotation
-    #   shader_conf:
-    #     visible: True
-    #     opacity: 0.5
-    #     type: edge
-    #     color: "#1F971B"
-
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: heatmaps
-      run_id: a40c5a17026840bea1828b78af46752d
-      layer_name: Virchow2 Heatmap
+      dir_name: annotation_masks
+      run_id: fb2e33383e2548c48e5bd4f2a77e47a8
+      layer_name: Annotation
       shader_conf:
-        type: heatmap
-        params:
-          threshold: 85
         visible: True
-        opacity: 0.80
-        color: "#FFA500" # orange
+        opacity: 0.5
+        type: edge
+        color: "#1F971B"
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: heatmaps
+    #   run_id: a40c5a17026840bea1828b78af46752d
+    #   layer_name: Virchow2 Heatmap
+    #   shader_conf:
+    #     type: heatmap
+    #     params:
+    #       threshold: 85
+    #     visible: True
+    #     opacity: 0.80
+    #     color: "#FFA500" # orange
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: 0912754fc78e46ebae60ecc494e6dbd2
+      run_id: dd7da3ade2a748ffa93115f906eafdde
       layer_name: "Polygon Embedding"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 46
+          threshold: 56
         color: "#0000FF" # blue 00FF00
 
 metadata:
