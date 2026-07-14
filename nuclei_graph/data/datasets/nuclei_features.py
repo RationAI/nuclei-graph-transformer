@@ -50,12 +50,16 @@ class NucleiFeatureExtractor:
         n = len(pos)
         tree = KDTree(pos)
 
+        # Distances to k-th nearest neighbors
         dists_all, _ = tree.query(pos, k=6)
         dists = dists_all[:, [1, 3, 5]]
 
+        # Mean and Variance of local spacing
         mean_dist = np.mean(dists_all[:, 1:], axis=1, keepdims=True)
         std_dist = np.std(dists_all[:, 1:], axis=1, keepdims=True)
 
+        # Local Density (Nuclei count within 20µm and 50µm radii)
+        # subtract 1 to exclude the nucleus itself from its own density count
         count_r20 = np.array(
             [len(idx) - 1 for idx in tree.query_ball_point(pos, r=20)]
         )[..., None]
