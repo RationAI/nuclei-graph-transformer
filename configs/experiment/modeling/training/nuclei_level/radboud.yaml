@@ -34,7 +34,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
     random_rotate: true
 
   supervision:
@@ -58,5 +58,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Radboud): NL Classifier, CNN BBox 48x48"
+  run_name: "Train(Radboud): NL Classifier, Polygons + k-NN Attn"
   description: ""
