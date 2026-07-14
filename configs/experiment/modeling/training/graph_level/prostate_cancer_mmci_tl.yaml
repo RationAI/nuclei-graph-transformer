@@ -34,7 +34,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
     random_rotate: true
 
   supervision:
@@ -48,13 +48,13 @@ model:
   warmup_epochs: 8
   net:
     config:
-      dim: 256
-      hidden_dim: 1024
-      num_heads: 8
-      num_layers: 8
+      dim: 128
+      hidden_dim: 512
+      num_heads: 4
+      num_layers: 4
       drop_path_rate: 0.25
       mil_mode: "logit" # "embedding" "logit"
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(MMCI): Crop-level Classification, CNN nuclei bbox enc, logit pooling"
+  run_name: "Train(MMCI): Crop-level Classification, Polygon embedding + logit pooling"
