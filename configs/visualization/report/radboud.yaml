@@ -8,7 +8,7 @@ train_metadata_uri: mlflow-artifacts:/37/9e541079930843408775c3fec5cdaf0d/artifa
 test_metadata_uri: mlflow-artifacts:/37/9e541079930843408775c3fec5cdaf0d/artifacts/panda/slides_mapping_test.parquet
 
 reporter:
-  title: Nuclei Carcinoma PANDA Predictions
+  title: PANDA Radboud Test — Annotation-based Nuclei Ground Truth
   metrics_run_ids: []
   template_asset_path: report_template.html
 
@@ -37,10 +37,32 @@ reporter:
       run_id: fd754d3c074441b6aed4bcf7aaf6cf2c
       layer_name: Annotation
       shader_conf:
-        visible: False
+        visible: True
         opacity: 0.5
         type: edge
         color: "#FF0000"
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: 616344d5bc98439da3e0e9e689b3967e
+      layer_name: "Negative Nuclei" # "Segmentation Polygon"
+      shader_conf:
+        visible: True
+        type: heatmap
+        # params:
+        #   threshold: 56
+        color: "#FF0000" 
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: nuclei_masks
+      run_id: 1e0a9c505fd94185a79841ff3223f899
+      layer_name: "Positive Nuclei" # "Segmentation Polygon"
+      shader_conf:
+        visible: True
+        type: heatmap
+        # params:
+        #   threshold: 56
+        color: "#00FF00" 
 
 metadata:
   run_name: Report — Nuclei Masks
