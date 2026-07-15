@@ -1,6 +1,7 @@
 import math
 
 import torch
+from mlflow import config
 from timm.layers.drop import DropPath
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
@@ -156,7 +157,7 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
-        if self.embedding_mode in ["efd", "spatial"]:
+        if self.embedding_mode in ["efd", "spatial", "efd_spatial"]:
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(config.node_features, config.dim)
         elif self.embedding_mode == "bbox":
@@ -209,10 +210,17 @@ class Transformer(nn.Module):
         return self.input_proj(norm_full)
 
     def prepare_features(
-        self, x: Tensor, bboxes: Tensor | None, real_seq_len: int
+        self, x: Tensor, pos: Tensor, bboxes: Tensor | None, real_seq_len: int
     ) -> Tensor:
-        if self.embedding_mode == "efd":
+        if self.embedding_mode in ["efd", "efd_spatial"]:
+            assert x is not None, "EFD features cannot be None in 'efd' mode."
             return self.embed_efd(x, real_seq_len)
+        elif self.embedding_mode == "spatial":
+            assert x is not None, "Spatial features cannot be None in 'spatial' mode."
+            return self.embed_spatial(x, real_seq_len)
+        elif self.embedding_mode == "pos_only":
+            scaled_pos = pos / 3300  # estimated crop size from training data
+            return self.pos_content_encoder(scaled_pos)
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
 
@@ -249,19 +257,7 @@ class Transformer(nn.Module):
     ) -> Outputs:
         real_seq_len = int(seq_lens.sum().item())
 
-        # Prepare embeddings
-        if self.embedding_mode == "efd":
-            assert x is not None, "EFD features cannot be None in 'efd' mode."
-            x = self.embed_efd(x, real_seq_len)
-        elif self.embedding_mode == "spatial":
-            assert x is not None, "Spatial features cannot be None in 'spatial' mode."
-            x = self.embed_spatial(x, real_seq_len)
-        elif self.embedding_mode == "pos_only":
-            scaled_pos = pos / 3300
-            x = self.pos_content_encoder(scaled_pos)
-        else:  # self.embedding_mode == "bbox":
-            assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
-            x = self.embed_patches(bboxes)
+        x = self.prepare_features(x, pos, bboxes, real_seq_len)
 
         x = x.unsqueeze(0)
         pos = pos.unsqueeze(0)

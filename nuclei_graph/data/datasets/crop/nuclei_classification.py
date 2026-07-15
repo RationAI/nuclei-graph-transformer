@@ -51,6 +51,17 @@ class NucleiClassificationDataset(BaseCropDataset):
         elif self.embedding_mode == "spatial":
             crop_pos_scaled = centroids[crop_indices]
             crop_features = self.get_spatial_features(crop_pos_scaled)
+        elif self.embedding_mode == "efd_spatial":
+            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+            efd_feats = self.get_efd_features(crop_polygons, slide.mpp_x, slide.mpp_y)
+            spatial_feats = self.get_spatial_features(centroids[crop_indices])
+
+            efd_to_norm = efd_feats[..., :-2]
+            angles = efd_feats[..., -2:]
+
+            crop_features = np.concatenate(
+                [efd_to_norm, spatial_feats, angles], axis=-1
+            )
         elif self.embedding_mode == "bbox":
             raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
             crop_bboxes = self.get_nuclei_bboxes(raw_centroids, slide.slide_path)
@@ -62,7 +73,8 @@ class NucleiClassificationDataset(BaseCropDataset):
         # Augmentations
         if self.random_rotate and not self.full_slide:
             cos_angles, sin_angles = None, None
-            if self.embedding_mode == "efd":
+
+            if self.embedding_mode in ["efd", "efd_spatial"]:
                 assert crop_features is not None
                 cos_angles, sin_angles = crop_features[..., -2], crop_features[..., -1]
 
@@ -70,8 +82,7 @@ class NucleiClassificationDataset(BaseCropDataset):
                 crop_pos_centered, cos_angles, sin_angles
             )
             crop_pos_centered = pos_rot
-
-            if self.embedding_mode == "efd":  # rotate angles in the EFD features
+            if self.embedding_mode in ["efd", "efd_spatial"]:
                 assert crop_features is not None
                 crop_features[..., -2] = cos_rot
                 crop_features[..., -1] = sin_rot
