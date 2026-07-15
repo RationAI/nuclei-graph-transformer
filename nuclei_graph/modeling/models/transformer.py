@@ -96,10 +96,7 @@ class CNN(nn.Module):
 class FourierSpatialEmbedding(nn.Module):
     def __init__(self, dim: int, num_heads: int = 4, sigma: float = 1.0) -> None:
         super().__init__()
-
-        B = torch.randn(2, dim // 2) * sigma
-        self.register_buffer("B", B)
-
+        self.B = nn.Parameter(torch.randn(2, dim // 2) * sigma)
         self.mlp = nn.Sequential(
             nn.Linear(dim, dim * num_heads),
             nn.GELU(),
