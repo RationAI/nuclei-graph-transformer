@@ -34,7 +34,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "spatial" # "efd", "bbox", "spatial", "pos_only"
     random_rotate: true
 
   supervision:
@@ -50,8 +50,8 @@ model:
     config:
       dim: 256
       hidden_dim: 1024
-      # node_features: 8 # override for "spatial" embeddings
-      # norm_dim: 8 # override for "spatial" embeddings
+      node_features: 8 # override for "spatial" embeddings
+      norm_dim: 8 # override for "spatial" embeddings
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
