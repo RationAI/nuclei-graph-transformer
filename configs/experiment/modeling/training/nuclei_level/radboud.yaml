@@ -58,5 +58,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Radboud): NL Classifier, CNN BBox 48x48 + RoPE + k-NN"
+  run_name: "Train(Radboud): NL Classifier, Polygons + Dense Attn"
   description: ""
