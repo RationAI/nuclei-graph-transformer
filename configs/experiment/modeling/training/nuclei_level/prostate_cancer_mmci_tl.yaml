@@ -33,7 +33,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "pos_only" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
+    embedding_mode: "efd_spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
 
   supervision:
@@ -52,8 +52,8 @@ model:
 
       # node_features: 8 # override for "spatial" embeddings
       # norm_dim: 8 # override for "spatial" embeddings
-      # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},8} # override for "efd_spatial" embeddings
-      # node_features: ${add:${data.model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},8} # override for "efd_spatial" embeddings
+      node_features: ${add:${data.model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
 
       num_heads: 8
       num_layers: 8
