@@ -41,7 +41,7 @@ class CNN(nn.Module):
         return self.head(self.features(x))
 
 
-# class CNN(nn.Module):
+# class BiggerCNN(nn.Module):
 #     def __init__(self, out_dim: int) -> None:
 #         super().__init__()
 
@@ -93,23 +93,23 @@ class CNN(nn.Module):
 
 
 class FourierSpatialEmbedding(nn.Module):
-    B: Tensor
-
-    def __init__(self, dim: int, sigma: float = 1.0) -> None:
+    def __init__(self, dim: int, num_heads: int = 4, sigma: float = 1.0) -> None:
         super().__init__()
+
         B = torch.randn(2, dim // 2) * sigma
         self.register_buffer("B", B)
 
         self.mlp = nn.Sequential(
-            nn.Linear(dim, dim),
+            nn.Linear(dim, dim * num_heads),
             nn.GELU(),
-            nn.Linear(dim, dim),
+            nn.Linear(dim * num_heads, dim),
+            nn.LayerNorm(dim),
         )
 
     def forward(self, pos: Tensor) -> Tensor:
         projected = 2.0 * math.pi * (pos @ self.B)
-        fourier_feats = torch.cat([torch.sin(projected), torch.cos(projected)], dim=-1)
-        return self.mlp(fourier_feats)
+        fourier = torch.cat([torch.sin(projected), torch.cos(projected)], dim=-1)
+        return self.mlp(fourier)
 
 
 class Layer(nn.Module):
@@ -257,7 +257,7 @@ class Transformer(nn.Module):
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             x = self.embed_spatial(x, real_seq_len)
         elif self.embedding_mode == "pos_only":
-            scaled_pos = pos / 1000.0
+            scaled_pos = pos / 3300
             x = self.pos_content_encoder(scaled_pos)
         else:  # self.embedding_mode == "bbox":
             assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
