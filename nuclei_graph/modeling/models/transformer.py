@@ -1,7 +1,4 @@
-import math
-
 import torch
-from mlflow import config
 from timm.layers.drop import DropPath
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
@@ -92,23 +89,9 @@ class Transformer(nn.Module):
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
         elif self.embedding_mode == "pos_only":
-            x_full = torch.zeros(pos.shape[0], self.blank_node_token.shape[0],
-                                device=pos.device, dtype=pos.dtype)
-            x_full[:real_seq_len] = self.blank_node_token.unsqueeze(0).expand(real_seq_len, -1)
-            return x_full
-
-        ### For compatibility with old checkpoints
-        # self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-        # self.input_proj = nn.Linear(config.node_features, config.dim)
-        # self.patch_cnn = CNN(out_dim=config.dim)
-        # self.efd_norm = nn.RMSNorm(config.dim)
-        # self.cnn_norm = nn.RMSNorm(config.dim)
-        # self.pos_scale = nn.Parameter(torch.tensor(1.0))
-        # self.pos_encoder = MLPSpatialEmbedding(config.dim)
-        ###
+            self.blank_node_token = nn.Parameter(torch.randn(config.dim) * 0.02)
 
         self.final_norm = nn.RMSNorm(config.dim)
-
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
         self.attn_head = nn.Sequential(
@@ -151,7 +134,16 @@ class Transformer(nn.Module):
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             return self.embed_spatial(x, real_seq_len)
         elif self.embedding_mode == "pos_only":
-            return self.blank_node_token.unsqueeze(0).expand(real_seq_len, -1)
+            x_full = torch.zeros(
+                pos.shape[0],
+                self.blank_node_token.shape[0],
+                device=pos.device,
+                dtype=pos.dtype,
+            )
+            x_full[:real_seq_len] = self.blank_node_token.unsqueeze(0).expand(
+                real_seq_len, -1
+            )
+            return x_full
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
 
