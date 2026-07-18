@@ -42,75 +42,6 @@ class CNN(nn.Module):
         return self.head(self.features(x))
 
 
-# class BiggerCNN(nn.Module):
-#     def __init__(self, out_dim: int) -> None:
-#         super().__init__()
-
-#         self.features = nn.Sequential(
-#             nn.Conv2d(3, 16, 3, padding=1, bias=False),
-#             nn.GroupNorm(8, 16),
-#             nn.ReLU(inplace=True),
-#             nn.MaxPool2d(2),
-#             nn.Conv2d(16, 32, 3, padding=1, bias=False),
-#             nn.GroupNorm(8, 32),
-#             nn.ReLU(inplace=True),
-#             nn.MaxPool2d(2),
-#             nn.Conv2d(32, 64, 3, padding=1, bias=False),
-#             nn.GroupNorm(8, 64),
-#             nn.ReLU(inplace=True),
-#             nn.MaxPool2d(2),
-#             nn.Conv2d(64, 128, 3, padding=1, bias=False),
-#             nn.GroupNorm(8, 128),
-#             nn.ReLU(inplace=True),
-#             nn.AdaptiveAvgPool2d((1, 1)),
-#         )
-
-#         self.head = nn.Sequential(
-#             nn.Flatten(),
-#             nn.Linear(128, 512),
-#             nn.GELU(),
-#             nn.Dropout(0.1),
-#             nn.Linear(512, out_dim),
-#             nn.LayerNorm(out_dim),
-#         )
-
-# def forward(self, x: Tensor) -> Tensor:
-#     return self.head(self.features(x))
-
-
-# class MLPSpatialEmbedding(nn.Module):
-#     """state_dict compatibility with old checkpoints."""
-
-#     def __init__(self, dim: int) -> None:
-#         super().__init__()
-#         self.proj = nn.Sequential(
-#             nn.Linear(2, dim),
-#             nn.GELU(),
-#             nn.Linear(dim, dim),
-#         )
-
-#     def forward(self, pos: Tensor) -> Tensor:
-#         return self.proj(pos)
-
-
-class FourierSpatialEmbedding(nn.Module):
-    def __init__(self, dim: int, num_heads: int = 4, sigma: float = 1.0) -> None:
-        super().__init__()
-        B = torch.randn(2, dim // 2) * sigma
-        self.register_buffer("B", B)
-        self.mlp = nn.Sequential(
-            nn.Linear(dim, dim * num_heads),
-            nn.GELU(),
-            nn.Linear(dim * num_heads, dim),
-            nn.LayerNorm(dim),
-        )
-
-    def forward(self, pos: Tensor) -> Tensor:
-        projected = 2.0 * math.pi * (pos @ self.B)
-        fourier = torch.cat([torch.sin(projected), torch.cos(projected)], dim=-1)
-        return self.mlp(fourier)
-
-
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
@@ -161,7 +92,10 @@ class Transformer(nn.Module):
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
         elif self.embedding_mode == "pos_only":
-            self.pos_content_encoder = FourierSpatialEmbedding(dim=config.dim)
+            x_full = torch.zeros(pos.shape[0], self.blank_node_token.shape[0],
+                                device=pos.device, dtype=pos.dtype)
+            x_full[:real_seq_len] = self.blank_node_token.unsqueeze(0).expand(real_seq_len, -1)
+            return x_full
 
         ### For compatibility with old checkpoints
         # self.batch_norm = nn.BatchNorm1d(config.norm_dim)
@@ -217,8 +151,7 @@ class Transformer(nn.Module):
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             return self.embed_spatial(x, real_seq_len)
         elif self.embedding_mode == "pos_only":
-            scaled_pos = pos / 3300  # estimated crop size from training data
-            return self.pos_content_encoder(scaled_pos)
+            return self.blank_node_token.unsqueeze(0).expand(real_seq_len, -1)
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
 
