@@ -11,10 +11,10 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/c6542ff73c8e4460a8451a1a9c757520/artifacts/epoch=307-step=6776/wsl_cam_checkpoint.ckpt
+checkpoint: mlflow-artifacts:/37/36be300e0299458b88d233158017cb59/artifacts/checkpoints/epoch=131-step=14388/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: null
+mlflow_parent_run_id: 36be300e0299458b88d233158017cb59
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -39,4 +39,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "📊 Evaluation (Radboud)"
+  run_name: "NL Test (Radboud) Evaluation: Annotations"
