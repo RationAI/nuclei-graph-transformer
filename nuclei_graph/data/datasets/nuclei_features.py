@@ -50,15 +50,15 @@ class NucleiFeatureExtractor:
         n = len(pos)
         tree = KDTree(pos)
 
-        # Distances to k-th nearest neighbors
+        # k-NN distances: k=1,3,5
         dists_all, _ = tree.query(pos, k=6)
         dists = dists_all[:, [1, 3, 5]]
 
-        # Mean and Variance of local spacing
+        # Local spacing mean/variance
         mean_dist = np.mean(dists_all[:, 1:], axis=1, keepdims=True)
         std_dist = np.std(dists_all[:, 1:], axis=1, keepdims=True)
 
-        # Local Density (Nuclei count within 20µm and 50µm radii)
+        # Local Density (Nuclei count within 20µm and 50µm radii);
         # subtract 1 to exclude the nucleus itself from its own density count
         count_r20 = np.array(
             [len(idx) - 1 for idx in tree.query_ball_point(pos, r=20)]
@@ -66,7 +66,8 @@ class NucleiFeatureExtractor:
         count_r50 = np.array(
             [len(idx) - 1 for idx in tree.query_ball_point(pos, r=50)]
         )[..., None]
-
+        
+        # Delaunay degree
         tri = Delaunay(pos)
         indptr, _ = tri.vertex_neighbor_vertices
         degree = np.array([indptr[i + 1] - indptr[i] for i in range(n)])[..., None]
