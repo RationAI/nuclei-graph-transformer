@@ -3,6 +3,7 @@
 mode: fit
 
 monitor: ???
+checkpoint_mode: ???
 
 trainer:
   accumulate_grad_batches: 1
@@ -11,7 +12,7 @@ trainer:
     - _target_: lightning.pytorch.callbacks.ModelCheckpoint
       save_top_k: 1
       monitor: ${monitor}
-      mode: ${mode}
+      mode: ${checkpoint_mode}
 
 data:
   block_size: 128
