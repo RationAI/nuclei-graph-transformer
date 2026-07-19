@@ -42,7 +42,7 @@ class CropModelMetaArch(LightningModule):
         self.val_nuclei_metrics = self._create_metrics("validation/nuclei/")
         self.test_nuclei_metrics = self._create_metrics("test/nuclei/")
 
-        self.best_val_graph_loss = float("inf")
+        self.best_val_graph_auroc = 0.0
         self.best_val_graph_metrics: dict[str, Tensor] = {}
         self.val_step_graph_losses: list[Tensor] = []
         self.val_step_graph_sizes: list[int] = []
@@ -126,12 +126,10 @@ class CropModelMetaArch(LightningModule):
         return logits
 
     def on_validation_epoch_end(self) -> None:
-        # compute and reset nuclei-level metrics
         nuclei_metrics = self.val_nuclei_metrics.compute()
         self.log_dict(nuclei_metrics, on_epoch=True, prog_bar=True)
         self.val_nuclei_metrics.reset()
 
-        # compute and reset graph-level metrics
         graph_metrics = self.val_graph_metrics.compute()
         self.log_dict(graph_metrics, on_epoch=True, prog_bar=True)
         self.val_graph_metrics.reset()
@@ -139,7 +137,6 @@ class CropModelMetaArch(LightningModule):
         if not self.val_step_graph_losses:
             return
 
-        # compute the best validation graph loss
         total_loss = torch.stack(self.val_step_graph_losses).sum()
         total_size = sum(self.val_step_graph_sizes)
         val_loss = (total_loss / total_size).item()
@@ -147,11 +144,15 @@ class CropModelMetaArch(LightningModule):
         self.val_step_graph_losses.clear()
         self.val_step_graph_sizes.clear()
 
-        if val_loss < self.best_val_graph_loss:
-            self.best_val_graph_loss = val_loss
-            val_loss_name = "best/validation/graph/loss"
+        current_auroc = graph_metrics["validation/graph/AUROC"].item()
+
+        if current_auroc > self.best_val_graph_auroc:
+            self.best_val_graph_auroc = current_auroc
+
             best_metrics: dict[str, Tensor] = {
-                val_loss_name: torch.tensor(val_loss, dtype=torch.float32),
+                "best/validation/graph/loss": torch.tensor(
+                    val_loss, dtype=torch.float32
+                ),
                 "best/graph/epoch": torch.tensor(
                     self.current_epoch, dtype=torch.float32
                 ),
