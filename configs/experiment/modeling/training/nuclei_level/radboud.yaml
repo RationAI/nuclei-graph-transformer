@@ -35,7 +35,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd_spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
+    embedding_mode: "spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
 
   supervision:
