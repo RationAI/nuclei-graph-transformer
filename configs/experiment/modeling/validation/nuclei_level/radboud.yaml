@@ -22,7 +22,7 @@ data:
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
-  metadata: ${dataset.mlflow_uris.metadata}
+  metadata: ${dataset.providers.radboud.metadata}
   dataset:
     efd_order: 16
     patch_size: 48
