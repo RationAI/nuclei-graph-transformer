@@ -49,8 +49,7 @@ class NucleiClassificationDataset(BaseCropDataset):
                 crop_polygons, slide.mpp_x, slide.mpp_y
             )
         elif self.embedding_mode == "spatial":
-            crop_pos_scaled = centroids[crop_indices]
-            crop_features = self.get_spatial_features(crop_pos_scaled)
+            crop_features = self.get_spatial_features(centroids[crop_indices])
         elif self.embedding_mode == "efd_spatial":
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             efd_feats = self.get_efd_features(crop_polygons, slide.mpp_x, slide.mpp_y)
