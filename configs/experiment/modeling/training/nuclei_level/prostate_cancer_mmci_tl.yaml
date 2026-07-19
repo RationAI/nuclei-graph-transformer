@@ -11,7 +11,8 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: agreement
   - _self_
 
-monitor: validation/loss
+monitor: validation/AUROC
+mode: max
 
 trainer:
   max_epochs: 350
