@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(MMCI): NL Classifier, Polygons + Spatial Stats + RoPE + k-NN Attn"
+  run_name: "Train(MMCI): NL Classifier, Polygons + Spatial Stats + RoPE + dense Attn"
   description: ""
