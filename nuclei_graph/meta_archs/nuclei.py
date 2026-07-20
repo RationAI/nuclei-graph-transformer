@@ -34,7 +34,7 @@ class NucleiModelMetaArch(LightningModule):
         self.val_metrics = MetricCollection(metrics, prefix="validation/")
         self.test_metrics = MetricCollection(metrics, prefix="test/")
 
-        self.best_val_auroc = 0.0
+        self.best_val_loss = float("inf")
         self.best_val_metrics: dict[str, Tensor] = {}
         self.val_step_losses: list[Tensor] = []
         self.val_step_sizes: list[int] = []
@@ -120,10 +120,8 @@ class NucleiModelMetaArch(LightningModule):
         self.val_step_losses.clear()
         self.val_step_sizes.clear()
 
-        current_auroc = metrics["validation/AUROC"].item()
-
-        if current_auroc > self.best_val_auroc:
-            self.best_val_auroc = current_auroc
+        if val_loss < self.best_val_loss:
+            self.best_val_loss = val_loss
             best_metrics: dict[str, Tensor] = {
                 "best/validation/loss": torch.tensor(val_loss, dtype=torch.float32),
                 "best/epoch": torch.tensor(self.current_epoch, dtype=torch.float32),

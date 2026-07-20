@@ -11,8 +11,8 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
 
-monitor: validation/graph/AUROC
-checkpoint_mode: max
+monitor: validation/graph/loss
+checkpoint_mode: min
 
 trainer:
   limit_train_batches: 200

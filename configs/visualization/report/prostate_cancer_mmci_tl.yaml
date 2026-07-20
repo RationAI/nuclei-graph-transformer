@@ -11,7 +11,7 @@ reporter:
   _target_: report.reporter.ReportAssembler
   title: "MMCI TL Test — Nuclei Predictions"
   metrics_run_ids:
-    - 61805cdc65bd42cbac4a3614eab250b0
+    - c468689e30ff470e9f60675c0eb38ab6
   # metrics_target_metrics:
   #   - AUROC
   #   - precision
@@ -40,7 +40,7 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    61805cdc65bd42cbac4a3614eab250b0:
+    c468689e30ff470e9f60675c0eb38ab6:
       artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
@@ -67,37 +67,37 @@ reporter:
       dir_name: tissue_masks
       layer_name: Tissue
 
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: annotation_masks
-    #   run_id: fb2e33383e2548c48e5bd4f2a77e47a8
-    #   layer_name: Annotation
-    #   shader_conf:
-    #     visible: True
-    #     opacity: 0.5
-    #     type: edge
-    #     color: "#1F971B"
-
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: heatmaps
-      run_id: a40c5a17026840bea1828b78af46752d
-      layer_name: Virchow2 Heatmap
+      dir_name: annotation_masks
+      run_id: fb2e33383e2548c48e5bd4f2a77e47a8
+      layer_name: Annotation
       shader_conf:
-        type: heatmap
-        params:
-          threshold: 85
         visible: True
-        opacity: 0.80
-        color: "#FFA500" # orange
+        opacity: 0.5
+        type: edge
+        color: "#1F971B"
+
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: heatmaps
+    #   run_id: a40c5a17026840bea1828b78af46752d
+    #   layer_name: Virchow2 Heatmap
+    #   shader_conf:
+    #     type: heatmap
+    #     params:
+    #       threshold: 85
+    #     visible: True
+    #     opacity: 0.80
+    #     color: "#FFA500" # orange
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: b1f34ae2a5904afaa6917d4e8bd5a56d
+      run_id: c468689e30ff470e9f60675c0eb38ab6
       layer_name: "Spatial Stats Embedding"
       shader_conf:
         visible: True
         type: heatmap
         params:
-          threshold: 28
+          threshold: 88
         color: "#0000FF" # blue 00FF00
 
 metadata:
