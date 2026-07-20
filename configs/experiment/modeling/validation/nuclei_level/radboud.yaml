@@ -18,7 +18,7 @@ mlflow_parent_run_id: 35305c5f928c429baf74d283e52b16f5
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 32
+  k: 16
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
