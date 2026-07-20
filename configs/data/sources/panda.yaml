@@ -47,3 +47,17 @@ dataset:
       supervision:
         # preprocessing/unipolar_heatmap_labels.py
         annotation: ${project_path}/nuclei_supervision/PANDA/Radboud/annotation
+
+      tiles: # filtered
+        "512":
+          train:
+            - mlflow-artifacts:/38/e1ef2698c62541e4a5e92a65ecb36fa5/artifacts/PANDA - Radboud train_512
+            - mlflow-artifacts:/38/b38ca47d6fd4422a9f8d5a32fcae221c/artifacts/PANDA - Radboud val_512
+          test:
+            - mlflow-artifacts:/38/0525b745d0954fb6ace98ead20042faf/artifacts/PANDA - Radboud test_512
+        "224":
+          train:
+            - mlflow-artifacts:/38/e1ef2698c62541e4a5e92a65ecb36fa5/artifacts/PANDA - Radboud train_224
+            - mlflow-artifacts:/38/b38ca47d6fd4422a9f8d5a32fcae221c/artifacts/PANDA - Radboud val_224
+          test:
+            - mlflow-artifacts:/38/0525b745d0954fb6ace98ead20042faf/artifacts/PANDA - Radboud test_224
