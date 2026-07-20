@@ -1,0 +1,16 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+tiles_uri: ${dataset.providers.radboud.tiles.224.test[0]}/tiles.parquet # ${dataset.providers.radboud.tiles.224.test[0]}/tiles.parquet ${dataset.providers.radboud.tiles.224.test[0]}/tiles.parquet
+slides_uri: ${dataset.providers.radboud.tiles.224.test[0]}/slides.parquet # ${dataset.providers.radboud.tiles.224.test[0]}/slides.parquet ${dataset.providers.radboud.tiles.224.test[0]}/slides.parquet
+tile_predictions_uri: mlflow-artifacts:/97/d1166c77b9d147a68aed9dbbccd5fa31/artifacts/tile_predictions
+
+label_column: carcinoma
+carcinoma_roi_t: 0.5
+threshold: 
+
+mlflow_run_id:
+mlflow_parent_run_id: 

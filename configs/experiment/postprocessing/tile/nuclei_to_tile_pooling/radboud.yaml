@@ -1,0 +1,31 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - /data/datasets/tile@data.dataset: prediction
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+nuclei_predictions_uri: mlflow-artifacts:/97/7b860f365eca4a96bd4edc0c058f6188/artifacts/predictions
+pooling_mode: 
+pooling_k: 
+
+data:
+  dataset:
+    metadata: ${dataset.providers.radboud.tiles.224.test} # ${dataset.providers.radboud.tiles.512.test} ${dataset.providers.radboud.tiles.224.test}
+    tile_size: 224 # 512 224
+    margin: 56 # 128 56
+    efd_order: 16
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
+
+    thresholds:
+      tissue_roi_t: 0.5
+      exclude_t: 0.0
+      another_pathology_t: 0.0
+      residual_t: 0.25
+      blur_t: 0.25
+      folding_t: 0.25
+      carcinoma_roi_t: 0.5
+
+mlflow_run_id: d1166c77b9d147a68aed9dbbccd5fa31
+mlflow_parent_run_id: 3b4bd9d620744470a7aa096bc58f0e63

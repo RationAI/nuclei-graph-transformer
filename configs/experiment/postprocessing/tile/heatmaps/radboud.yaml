@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+slides_uri: ${dataset.mlflow_uris.tiles.224.test[0]}/slides.parquet # ${dataset.mlflow_uris.tiles.512.test[0]}/slides.parquet ${dataset.mlflow_uris.tiles.224.test[0]}/slides.parquet
+tile_predictions_uri: mlflow-artifacts:/97/d1166c77b9d147a68aed9dbbccd5fa31/artifacts/tile_predictions
+
+mlflow_run_id: 
+mlflow_parent_run_id: 
