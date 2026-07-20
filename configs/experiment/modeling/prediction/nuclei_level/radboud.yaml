@@ -11,10 +11,10 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/36be300e0299458b88d233158017cb59/artifacts/checkpoints/epoch=131-step=14388/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/37/35305c5f928c429baf74d283e52b16f5/artifacts/checkpoints/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: 36be300e0299458b88d233158017cb59
+mlflow_parent_run_id: 35305c5f928c429baf74d283e52b16f5
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -34,8 +34,8 @@ model:
       dim: 256
       hidden_dim: 1024
 
-      node_features: 9 # override for "spatial" embeddings
-      norm_dim: 9 # override for "spatial" embeddings
+      # node_features: 9 # override for "spatial" embeddings
+      # norm_dim: 9 # override for "spatial" embeddings
       # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},10} # override for "efd_spatial" embeddings
       # node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
 
