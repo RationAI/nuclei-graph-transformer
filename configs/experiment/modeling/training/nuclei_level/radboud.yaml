@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Radboud): NL Classifier, Spatial Stats w Angles + RopE + k-NN Attn"
+  run_name: "Train(Radboud): NL Classifier, Spatial Stats w Angles + RopE + Dense Attn"
   description: ""
