@@ -6,7 +6,7 @@ supervision and slide metadata, and logs:
 - Per-slide nuclei-level metrics (accuracy, precision, recall, specificity,
   negative predictive value), logged as a table.
 - Global nuclei-level metrics (the above plus AUPRC/AUROC), logged as scalar
-  metrics.
+  metrics along with 95% confidence intervals computed via slide-level bootstrapping.
 - Slide-level graph metrics derived from a single `graph_prediction` per
   slide, including a confusion matrix plot and a CSV of misclassified slides;
   skipped if no `graph_prediction` column is present.
@@ -17,6 +17,7 @@ from tempfile import TemporaryDirectory
 
 import hydra
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
 from mlflow.artifacts import download_artifacts
@@ -24,7 +25,12 @@ from mlflow.tracking import MlflowClient
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
-from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    average_precision_score,
+    roc_auc_score,
+)
+from sklearn.utils import resample
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (
     BinaryAccuracy,
@@ -117,13 +123,44 @@ def log_per_slide_nuclei_metrics(
         )
 
 
+def compute_bootstrapped_cis(
+    merged_df: pd.DataFrame, label_col: str, pred_col: str, n_iterations: int = 1000
+) -> dict[str, float]:
+    """Computes 95% CIs using fast slide-level bootstrapping."""
+    slide_groups = [group for _, group in merged_df.groupby("slide_id")]
+
+    auroc_scores = []
+    auprc_scores = []
+
+    for _ in range(n_iterations):
+        resampled_groups = resample(slide_groups, n_samples=len(slide_groups))
+        assert resampled_groups is not None
+
+        y_true = np.concatenate([g[label_col].values for g in resampled_groups])
+        y_pred = np.concatenate([g[pred_col].values for g in resampled_groups])
+
+        # Ensure we have both classes in the resample to avoid metric crashes
+        if len(np.unique(y_true)) < 2:
+            continue
+
+        auroc_scores.append(roc_auc_score(y_true, y_pred))
+        auprc_scores.append(average_precision_score(y_true, y_pred))
+
+    return {
+        "AUROC_lower_95": np.percentile(auroc_scores, 2.5),
+        "AUROC_upper_95": np.percentile(auroc_scores, 97.5),
+        "AUPRC_lower_95": np.percentile(auprc_scores, 2.5),
+        "AUPRC_upper_95": np.percentile(auprc_scores, 97.5),
+    }
+
+
 def log_global_nuclei_metrics(
     merged_df: pd.DataFrame,
     config: DictConfig,
     client: MlflowClient,
     run_id: str | None,
 ) -> None:
-    """Calculates and logs global nuclei-level metrics across all slides."""
+    """Calculates and logs global nuclei-level metrics and their bootstrapped CIs."""
     global_nuclei_metrics = MetricCollection(
         {
             "AUPRC": BinaryAveragePrecision(),
@@ -140,9 +177,22 @@ def log_global_nuclei_metrics(
     targets_t = torch.tensor(merged_df[config.label_column].values).long()
     computed = global_nuclei_metrics(preds_t, targets_t)
 
+    # Calculate Bootstrapped Confidence Intervals
+    cis = compute_bootstrapped_cis(
+        merged_df=merged_df,
+        label_col=config.label_column,
+        pred_col="nuclei_prediction",
+        n_iterations=2000,
+    )
+
     if run_id is not None:
-        for k, v in computed.items():
-            client.log_metric(run_id, k, float(v))
+        # Log standard metrics
+        # for k, v in computed.items():
+        #     client.log_metric(run_id, k, float(v))
+
+        # Log confidence intervals
+        for k, v in cis.items():
+            client.log_metric(run_id, f"test_thresholded/nuclei_{k}", float(v))
 
 
 def log_slide_level_graph_metrics(
