@@ -42,6 +42,7 @@ from torchmetrics.classification import (
     BinaryRecall,
     BinarySpecificity,
 )
+from tqdm import tqdm
 
 from nuclei_graph.mlflow_utils import tag_parent_run
 from postprocessing.mlflow_utils import setup_mlflow
@@ -132,7 +133,7 @@ def compute_bootstrapped_cis(
     auroc_scores = []
     auprc_scores = []
 
-    for _ in range(n_iterations):
+    for _ in tqdm(range(n_iterations), desc="Bootstrapping CIs"):
         resampled_groups = resample(slide_groups, n_samples=len(slide_groups))
         assert resampled_groups is not None
 
