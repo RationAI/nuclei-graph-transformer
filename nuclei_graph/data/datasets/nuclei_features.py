@@ -141,10 +141,15 @@ class NucleiFeatureExtractor:
         return DecodedRegion(array, box.lx, box.ly)
 
     def extract_patch(
-        self, source: DecodedRegion, box: Box, slide_size: SlideSize, read_size_px: int
+        self,
+        source: DecodedRegion,
+        box: Box,
+        slide_size: SlideSize,
+        read_size_px_x: int,
+        read_size_px_y: int,
     ) -> NDArray[np.uint8]:
         """Slices a single nucleus's `box` patch out of `source`."""
-        canvas = np.full((read_size_px, read_size_px, 3), 255, dtype=np.uint8)
+        canvas = np.full((read_size_px_x, read_size_px_y, 3), 255, dtype=np.uint8)
         clipped = self.clip_box(box, slide_size)
 
         if clipped.w > 0 and clipped.h > 0:
@@ -197,7 +202,7 @@ class NucleiFeatureExtractor:
                 for i in range(len(centroids)):
                     box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
                     raw_patch = self.extract_patch(
-                        source, box, slide_size, read_size_px
+                        source, box, slide_size, read_size_px_x, read_size_px_y
                     )
                     bboxes[i] = cv2.resize(
                         raw_patch,
@@ -205,9 +210,10 @@ class NucleiFeatureExtractor:
                         interpolation=cv2.INTER_LINEAR,
                     )
             else:
-                cell_size = MAX_CROP_PATCH_SIDE - read_size_px
-                cell_x = centroids_px[:, 0].astype(np.int64) // cell_size
-                cell_y = centroids_px[:, 1].astype(np.int64) // cell_size
+                cell_size_x = MAX_CROP_PATCH_SIDE - read_size_px_x
+                cell_size_y = MAX_CROP_PATCH_SIDE - read_size_px_y
+                cell_x = centroids_px[:, 0].astype(np.int64) // cell_size_x
+                cell_y = centroids_px[:, 1].astype(np.int64) // cell_size_y
 
                 cells: dict[tuple[int, int], list[int]] = {}
                 for i, (gx, gy) in enumerate(
@@ -218,10 +224,10 @@ class NucleiFeatureExtractor:
                 for (gx, gy), indices in cells.items():
                     cell_box = self.clip_box(
                         Box(
-                            gx * cell_size - half_read,
-                            gy * cell_size - half_read,
-                            (gx + 1) * cell_size + half_read,
-                            (gy + 1) * cell_size + half_read,
+                            gx * cell_size_x - half_read_x,
+                            gy * cell_size_y - half_read_y,
+                            (gx + 1) * cell_size_x + half_read_x,
+                            (gy + 1) * cell_size_y + half_read_y,
                         ),
                         slide_size,
                     )
@@ -229,7 +235,7 @@ class NucleiFeatureExtractor:
                     for i in indices:
                         box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
                         raw_patch = self.extract_patch(
-                            source, box, slide_size, read_size_px
+                            source, box, slide_size, read_size_px_x, read_size_px_y
                         )
                         bboxes[i] = cv2.resize(
                             raw_patch,
