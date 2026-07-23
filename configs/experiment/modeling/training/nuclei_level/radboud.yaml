@@ -35,7 +35,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
+    embedding_mode: "efd_spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
 
   supervision:
@@ -53,13 +53,13 @@ model:
       hidden_dim: 1024
       # node_features: 9 # override for "spatial" embeddings
       # norm_dim: 9 # override for "spatial" embeddings
-      # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},10} # override for "efd_spatial" embeddings
-      # node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},10} # override for "efd_spatial" embeddings
+      node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Radboud): NL Classifier, CNN BBox 48x48 + RoPE + k-NN Attn"
+  run_name: "Train(Radboud): NL Classifier, Polygons + Spatial Stats w Angles + RoPE + k-NN Attn"
   description: ""
