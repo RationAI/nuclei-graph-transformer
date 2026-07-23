@@ -8,7 +8,11 @@ from torch.nn.attention.flex_attention import BlockMask
 
 EMBEDDING_MODES = ("efd", "bbox", "spatial", "pos_only", "efd_spatial")
 POOLING_MODES = ("max", "mean", "top_k")  # nuclei-to-tile pooling
+
 MAX_CROP_PATCH_SIDE = 8192
+
+# Target nuclei patch physical size — estimated patch is 48px * 0.2339um ~ 11.23um
+TARGET_BBOX_CONTEXT_UM = 11.0
 
 
 class Box(NamedTuple):
