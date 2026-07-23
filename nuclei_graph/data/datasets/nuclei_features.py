@@ -141,15 +141,10 @@ class NucleiFeatureExtractor:
         return DecodedRegion(array, box.lx, box.ly)
 
     def extract_patch(
-        self,
-        source: DecodedRegion,
-        box: Box,
-        slide_size: SlideSize,
-        read_size_px_x: int,
-        read_size_px_y: int,
+        self, source: DecodedRegion, box: Box, slide_size: SlideSize
     ) -> NDArray[np.uint8]:
         """Slices a single nucleus's `box` patch out of `source`."""
-        canvas = np.full((read_size_px_x, read_size_px_y, 3), 255, dtype=np.uint8)
+        canvas = np.full((box.h, box.w, 3), 255, dtype=np.uint8)
         clipped = self.clip_box(box, slide_size)
 
         if clipped.w > 0 and clipped.h > 0:
@@ -201,9 +196,7 @@ class NucleiFeatureExtractor:
                 source = self.read_region(wsi, union_box)
                 for i in range(len(centroids)):
                     box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                    raw_patch = self.extract_patch(
-                        source, box, slide_size, read_size_px_x, read_size_px_y
-                    )
+                    raw_patch = self.extract_patch(source, box, slide_size)
                     bboxes[i] = cv2.resize(
                         raw_patch,
                         (self.patch_size, self.patch_size),
@@ -234,9 +227,7 @@ class NucleiFeatureExtractor:
                     source = self.read_region(wsi, cell_box)
                     for i in indices:
                         box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                        raw_patch = self.extract_patch(
-                            source, box, slide_size, read_size_px_x, read_size_px_y
-                        )
+                        raw_patch = self.extract_patch(source, box, slide_size)
                         bboxes[i] = cv2.resize(
                             raw_patch,
                             (self.patch_size, self.patch_size),
