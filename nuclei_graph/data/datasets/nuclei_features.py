@@ -168,15 +168,17 @@ class NucleiFeatureExtractor:
         if self.patch_size is None:
             return None
 
-        read_size_px = int(TARGET_BBOX_CONTEXT_UM / mpp_x)
-        half_read = read_size_px // 2
+        read_size_px_x = int(TARGET_BBOX_CONTEXT_UM / mpp_x)
+        read_size_px_y = int(TARGET_BBOX_CONTEXT_UM / mpp_y)
+        half_read_x = read_size_px_x // 2
+        half_read_y = read_size_px_y // 2
 
         # Convert to Pixels
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         centroids_px = centroids / mpps
-        lx = centroids_px[:, 0].astype(np.int64) - half_read
-        ly = centroids_px[:, 1].astype(np.int64) - half_read
-        rx, ry = lx + read_size_px, ly + read_size_px
+        lx = centroids_px[:, 0].astype(np.int64) - half_read_x
+        ly = centroids_px[:, 1].astype(np.int64) - half_read_y
+        rx, ry = lx + read_size_px_x, ly + read_size_px_y
 
         with OpenSlide(slide_path) as wsi:
             slide_size = SlideSize(*wsi.dimensions)
