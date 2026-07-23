@@ -32,7 +32,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 16
+    efd_order: 24
     patch_size: 48
     embedding_mode: "efd_spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
