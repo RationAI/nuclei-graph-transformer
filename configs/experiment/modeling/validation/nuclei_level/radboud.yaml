@@ -10,10 +10,10 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/35305c5f928c429baf74d283e52b16f5/artifacts/checkpoints/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/37/45d1cd7e7f3b4678acd0efd761e6db39/artifacts/checkpoints/epoch=216-step=23653/checkpoint.ckpt
 
-mlflow_run_id: null
-mlflow_parent_run_id: 35305c5f928c429baf74d283e52b16f5
+mlflow_run_id: df4dd32f68bf40ada18d90a389191d77
+mlflow_parent_run_id: 45d1cd7e7f3b4678acd0efd761e6db39
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -26,7 +26,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only"
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 
