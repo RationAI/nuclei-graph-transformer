@@ -1,6 +1,7 @@
 import math
 from random import uniform
 
+import cv2
 import numpy as np
 import torch
 from einops import rearrange
@@ -15,6 +16,7 @@ from nuclei_graph.data.efd import (
 )
 from nuclei_graph.nuclei_graph_typing import (
     MAX_CROP_PATCH_SIDE,
+    TARGET_BBOX_CONTEXT_UM,
     Box,
     DecodedRegion,
     SlideSize,
@@ -141,13 +143,8 @@ class NucleiFeatureExtractor:
     def extract_patch(
         self, source: DecodedRegion, box: Box, slide_size: SlideSize
     ) -> NDArray[np.uint8]:
-        """Slices a single nucleus's `box` patch out of `source`.
-
-        `source` is an already-decoded region expected to fully cover the (slide-clipped)
-        `box`. Out-of-slide area is left white.
-        """
-        assert self.patch_size is not None
-        canvas = np.full((self.patch_size, self.patch_size, 3), 255, dtype=np.uint8)
+        """Slices a single nucleus's `box` patch out of `source`."""
+        canvas = np.full((box.h, box.w, 3), 255, dtype=np.uint8)
         clipped = self.clip_box(box, slide_size)
 
         if clipped.w > 0 and clipped.h > 0:
@@ -161,16 +158,27 @@ class NucleiFeatureExtractor:
         return canvas
 
     def get_nuclei_bboxes(
-        self, raw_centroids: NDArray[np.float32], slide_path: str
+        self,
+        centroids: NDArray[np.float32],
+        slide_path: str,
+        mpp_x: float,
+        mpp_y: float,
     ) -> torch.Tensor | None:
         """Extracts a fixed-size RGB patch from the WSI around each nucleus's centroid."""
         if self.patch_size is None:
             return None
 
-        half_patch = self.patch_size // 2
-        lx = raw_centroids[:, 0].astype(np.int64) - half_patch
-        ly = raw_centroids[:, 1].astype(np.int64) - half_patch
-        rx, ry = lx + self.patch_size, ly + self.patch_size
+        read_size_px_x = int(TARGET_BBOX_CONTEXT_UM / mpp_x)
+        read_size_px_y = int(TARGET_BBOX_CONTEXT_UM / mpp_y)
+        half_read_x = read_size_px_x // 2
+        half_read_y = read_size_px_y // 2
+
+        # Convert to Pixels
+        mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
+        centroids_px = centroids / mpps
+        lx = centroids_px[:, 0].astype(np.int64) - half_read_x
+        ly = centroids_px[:, 1].astype(np.int64) - half_read_y
+        rx, ry = lx + read_size_px_x, ly + read_size_px_y
 
         with OpenSlide(slide_path) as wsi:
             slide_size = SlideSize(*wsi.dimensions)
@@ -178,20 +186,27 @@ class NucleiFeatureExtractor:
             union_w = int(rx.max() - lx.min())
             union_h = int(ry.max() - ly.min())
 
-            bboxes: list[NDArray[np.uint8] | None] = [None] * len(raw_centroids)
+            bboxes: list[NDArray[np.uint8] | None] = [None] * len(centroids)
+
             if max(union_w, union_h) <= MAX_CROP_PATCH_SIDE:
                 union_box = self.clip_box(
                     Box(int(lx.min()), int(ly.min()), int(rx.max()), int(ry.max())),
                     slide_size,
                 )
                 source = self.read_region(wsi, union_box)
-                for i in range(len(raw_centroids)):
+                for i in range(len(centroids)):
                     box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                    bboxes[i] = self.extract_patch(source, box, slide_size)
+                    raw_patch = self.extract_patch(source, box, slide_size)
+                    bboxes[i] = cv2.resize(
+                        raw_patch,
+                        (self.patch_size, self.patch_size),
+                        interpolation=cv2.INTER_LINEAR,
+                    )
             else:
-                cell_size = MAX_CROP_PATCH_SIDE - self.patch_size
-                cell_x = raw_centroids[:, 0].astype(np.int64) // cell_size
-                cell_y = raw_centroids[:, 1].astype(np.int64) // cell_size
+                cell_size_x = MAX_CROP_PATCH_SIDE - read_size_px_x
+                cell_size_y = MAX_CROP_PATCH_SIDE - read_size_px_y
+                cell_x = centroids_px[:, 0].astype(np.int64) // cell_size_x
+                cell_y = centroids_px[:, 1].astype(np.int64) // cell_size_y
 
                 cells: dict[tuple[int, int], list[int]] = {}
                 for i, (gx, gy) in enumerate(
@@ -202,18 +217,22 @@ class NucleiFeatureExtractor:
                 for (gx, gy), indices in cells.items():
                     cell_box = self.clip_box(
                         Box(
-                            gx * cell_size - half_patch,
-                            gy * cell_size - half_patch,
-                            (gx + 1) * cell_size + half_patch,
-                            (gy + 1) * cell_size + half_patch,
+                            gx * cell_size_x - half_read_x,
+                            gy * cell_size_y - half_read_y,
+                            (gx + 1) * cell_size_x + half_read_x,
+                            (gy + 1) * cell_size_y + half_read_y,
                         ),
                         slide_size,
                     )
                     source = self.read_region(wsi, cell_box)
                     for i in indices:
                         box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                        bboxes[i] = self.extract_patch(source, box, slide_size)
+                        raw_patch = self.extract_patch(source, box, slide_size)
+                        bboxes[i] = cv2.resize(
+                            raw_patch,
+                            (self.patch_size, self.patch_size),
+                            interpolation=cv2.INTER_LINEAR,
+                        )
 
-            assert all(b is not None for b in bboxes)
-
+        assert all(b is not None for b in bboxes)
         return torch.from_numpy(np.stack(bboxes)).permute(0, 3, 1, 2)

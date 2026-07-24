@@ -82,7 +82,10 @@ class TilePredictionDataset(BaseTileDataset):
                 tile_features = self.get_spatial_features(scaled_centroids)
             elif self.embedding_mode == "bbox":
                 tile_bboxes = self.get_nuclei_bboxes(
-                    centroids[tile_indices], props["slide_path"]
+                    centroids[tile_indices],
+                    props["slide_path"],
+                    props["mpp_x"],
+                    props["mpp_y"],
                 )
             tile_pos_centered = scaled_centroids - scaled_centroids.mean(axis=0)
             tile_sup_mask = torch.ones(len(tile_indices), dtype=torch.bool)

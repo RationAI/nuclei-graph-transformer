@@ -34,7 +34,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
 
   supervision:
@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(MMCI) 2: NL Classifier, Polygons + RoPE + k-NN Attn"
+  run_name: "Train(MMCI): NL Classifier, CNN BBox + RoPE + k-NN Attn"
   description: ""

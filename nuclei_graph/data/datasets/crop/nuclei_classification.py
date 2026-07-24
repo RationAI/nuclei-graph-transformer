@@ -62,8 +62,9 @@ class NucleiClassificationDataset(BaseCropDataset):
                 [efd_to_norm, spatial_feats, angles], axis=-1
             )
         elif self.embedding_mode == "bbox":
-            raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
-            crop_bboxes = self.get_nuclei_bboxes(raw_centroids, slide.slide_path)
+            crop_bboxes = self.get_nuclei_bboxes(
+                centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
+            )
 
         # Positions
         crop_pos = centroids[crop_indices]
