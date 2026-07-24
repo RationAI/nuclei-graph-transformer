@@ -188,8 +188,8 @@ def log_global_nuclei_metrics(
 
     if run_id is not None:
         # Log standard metrics
-        # for k, v in computed.items():
-        #     client.log_metric(run_id, k, float(v))
+        for k, v in computed.items():
+            client.log_metric(run_id, k, float(v))
 
         # Log confidence intervals
         for k, v in cis.items():
