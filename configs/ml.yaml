@@ -2,8 +2,8 @@ defaults:
   - base
   - _self_
   #- /experiment/modeling/training: nuclei_level/radboud # graph_level nuclei_level tile_level / prostate_cancer_mmci_tl radboud
-  - /experiment/modeling/prediction: nuclei_level/radboud
-  #- /experiment/modeling/validation: nuclei_level/radboud
+  #- /experiment/modeling/prediction: nuclei_level/radboud
+  - /experiment/modeling/validation: nuclei_level/radboud
   #- /experiment/modeling/testing: nuclei_level/prostate_cancer_mmci_tl
 
 seed: ${random_seed:}
