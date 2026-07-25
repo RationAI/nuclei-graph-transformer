@@ -5,13 +5,13 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.providers.radboud.metadata.test}
-predictions_uri: mlflow-artifacts:/37/0a476c6cb926403c904e884c44e0f4b3/artifacts/predictions
+predictions_uri: mlflow-artifacts:/37/2ebcde74391643819b6b5e8d5e769ab5/artifacts/predictions
 supervision_dir: ${dataset.providers.radboud.supervision.annotation}
 label_column: annot_label
-threshold: 0.4111
+threshold: 0.3963
 
-mlflow_run_id: 0a476c6cb926403c904e884c44e0f4b3
-mlflow_parent_run_id: b188487c51614984af2ecb66bc1f5a54
+mlflow_run_id: 2ebcde74391643819b6b5e8d5e769ab5
+mlflow_parent_run_id: b189e172b3c54319b031df58a7f9f37c
 
 metadata:
   run_name: "NL Test (MMCI) Evaluation: Annotation" 
