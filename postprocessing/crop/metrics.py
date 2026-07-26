@@ -179,21 +179,21 @@ def log_global_nuclei_metrics(
     computed = global_nuclei_metrics(preds_t, targets_t)
 
     # Calculate Bootstrapped Confidence Intervals
-    cis = compute_bootstrapped_cis(
-        merged_df=merged_df,
-        label_col=config.label_column,
-        pred_col="nuclei_prediction",
-        n_iterations=2000,
-    )
+    # cis = compute_bootstrapped_cis(
+    #     merged_df=merged_df,
+    #     label_col=config.label_column,
+    #     pred_col="nuclei_prediction",
+    #     n_iterations=2000,
+    # )
 
     if run_id is not None:
         # Log standard metrics
-        # for k, v in computed.items():
-        #     client.log_metric(run_id, k, float(v))
+        for k, v in computed.items():
+            client.log_metric(run_id, k, float(v))
 
         # Log confidence intervals
-        for k, v in cis.items():
-            client.log_metric(run_id, f"test_thresholded/nuclei_{k}", float(v))
+        # for k, v in cis.items():
+        #     client.log_metric(run_id, f"test_thresholded/nuclei_{k}", float(v))
 
 
 def log_slide_level_graph_metrics(
