@@ -61,11 +61,15 @@ dataset:
             - mlflow-artifacts:/38/b38ca47d6fd4422a9f8d5a32fcae221c/artifacts/PANDA - Radboud val_224
           test:
             - mlflow-artifacts:/38/0525b745d0954fb6ace98ead20042faf/artifacts/PANDA - Radboud test_224
-  
+
     karolinska:
+      # preprocessing/data_split.py
+      split: ${mlflow_project_pc}/e0a2375343ed4af4a972efb3351e83fc/artifacts/karolinska_split/split.csv
+
+      # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: null
-        test: mlflow-artifacts:/37/e7659ee54a1d47fda6392f79419af339/artifacts/panda/slides_mapping.parquet
+        train: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
       supervision:
