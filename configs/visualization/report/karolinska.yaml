@@ -45,7 +45,7 @@ reporter:
   mask_retrievers:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: carcinoma_mask
-      run_id: cd504aaafb8c408184584d808a99cf15
+      run_id: 25c1a70a17d142fdaa12d399939c52a8
       layer_name: Annotation
       shader_conf:
         visible: True
