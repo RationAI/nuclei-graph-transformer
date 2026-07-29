@@ -23,7 +23,7 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
 
   batch_size: 32
-  k: 40
+  k: 16
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -33,7 +33,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 16
+    efd_order: 8
     patch_size: 48
     embedding_mode: "spatial" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=40 Train(Radboud): NL Classifier, Spatial Stats w Angles & density ratio + RoPE + k-NN Attn"
+  run_name: "k=16, efd=8 Train(Radboud): NL Classifier, Spatial Stats w Angles & density ratio + RoPE + k-NN Attn"
   description: ""
