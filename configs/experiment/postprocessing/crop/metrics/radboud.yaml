@@ -14,4 +14,4 @@ mlflow_run_id: c7a843a8bf1a4a6bb9aa348b9177477a
 mlflow_parent_run_id: db9c7574ee004847b81b50659a6eac1a
 
 metadata:
-  run_name: "NL Test (MMCI) Evaluation: Annotation" 
+  run_name: "NL Test (Radboud) Evaluation: Annotation" 
