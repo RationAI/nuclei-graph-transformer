@@ -17,8 +17,9 @@ dataset:
       slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
 
       # slides to exclude based on QC masks (see prostate cancer repository)
-      exclude_qc: /mnt/projects/prostate_cancer/cancer/qc_masks/PANDA -
-        Radboud/to_exclude_based_on_qc.csv
+      exclude_qc:
+        - "/mnt/projects/prostate_cancer/cancer/qc_masks/PANDA - Radboud/to_exclude_based_on_qc.csv"
+        - "/mnt/projects/prostate_cancer/cancer/qc_masks/PANDA - Karolinska/to_exclude_based_on_qc.csv"
 
     nuclei:
       raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
@@ -31,7 +32,7 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py
-    exploration: ${mlflow_project_pc}/74fe4bc0d7494f5ab723a89e321d0e77/artifacts/panda/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/520a6e160a034073b5a03858840d4df2/artifacts/panda/slides_metadata.csv
 
   providers:
     radboud:
