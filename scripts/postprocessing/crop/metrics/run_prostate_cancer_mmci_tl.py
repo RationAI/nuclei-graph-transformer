@@ -5,8 +5,8 @@ submit_job(
     job_name="nuclei-graph-crop-metrics-prostate-cancer-mmci-tl",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
-    cpu=2,
-    memory="8Gi",
+    cpu=6,
+    memory="64Gi",
     public=False,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
