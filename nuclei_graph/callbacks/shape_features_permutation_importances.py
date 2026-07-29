@@ -13,7 +13,7 @@ from tqdm import tqdm
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
-class PermutationImportanceCallback(Callback):
+class ShapePermutationImportanceCallback(Callback):
     """Computes permutation feature importance on the test set.
 
     At the end of the test epoch, each feature group is shuffled, the AUROC is recomputed,
@@ -150,13 +150,13 @@ class PermutationImportanceCallback(Callback):
 
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.bar(names, drops, color="coral", edgecolor="black")
-        ax.set_title("Permutation Feature Importance (Drop in AUROC)")
+        ax.set_title("Shape Features Permutation Importance (Drop in AUROC)")
         ax.set_ylabel("AUROC Decrease")
         plt.xticks(rotation=45, ha="right")
         plt.tight_layout()
 
         with tempfile.TemporaryDirectory() as output_dir:
-            output_path = Path(output_dir) / "feature_importances.png"
+            output_path = Path(output_dir) / "shape_feature_importances.png"
             fig.savefig(output_path, dpi=1200)
 
             target_run_id = self.mlflow_run_id

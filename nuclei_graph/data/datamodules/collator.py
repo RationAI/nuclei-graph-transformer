@@ -8,7 +8,6 @@ from torch import Tensor
 
 from nuclei_graph.data.block_mask import (
     block_spatial_sort,
-    create_dense_document_mask,
 )
 from nuclei_graph.nuclei_graph_typing import Batch, BatchMetadata, Sample, Targets
 

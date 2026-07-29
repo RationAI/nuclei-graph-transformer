@@ -1,0 +1,4 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.position_importance.PositionImportanceCallback
+mlflow_run_id: ${mlflow_run_id}

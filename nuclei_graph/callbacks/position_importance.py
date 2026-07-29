@@ -23,7 +23,7 @@ from tqdm import tqdm
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
-class SpatialPermutationImportanceCallback(Callback):
+class PositionImportanceCallback(Callback):
     def __init__(self, mlflow_run_id: str | None = None) -> None:
         super().__init__()
         self.mlflow_run_id = mlflow_run_id
@@ -140,7 +140,7 @@ class SpatialPermutationImportanceCallback(Callback):
         p_r: torch.Tensor,
     ) -> None:
         with tempfile.TemporaryDirectory() as output_dir:
-            out_path = Path(output_dir) / "spatial_permutation"
+            out_path = Path(output_dir) / "position_permutation_importance"
             out_path.mkdir(parents=True, exist_ok=True)
 
             fig1, ax1 = plt.subplots(figsize=(6, 6))
@@ -151,7 +151,7 @@ class SpatialPermutationImportanceCallback(Callback):
                 edgecolor="black",
             )
             ax1.axhline(0, color="black", linewidth=0.8, linestyle="--")
-            ax1.set_title("Spatial Permutation Importance")
+            ax1.set_title("Position Permutation Importance")
             ax1.set_ylabel("Metric Decrease")
             ax1.yaxis.set_major_locator(MaxNLocator(nbins=15))
             ax1.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
@@ -182,7 +182,7 @@ class SpatialPermutationImportanceCallback(Callback):
                 client.log_artifacts(
                     run_id=mlflow_run_id,
                     local_dir=str(out_path),
-                    artifact_path="spatial_permutation",
+                    artifact_path="position_permutation_importance",
                 )
 
         plt.close("all")

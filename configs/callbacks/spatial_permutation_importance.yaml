@@ -1,4 +1,0 @@
-# @package _global_
-
-_target_: nuclei_graph.callbacks.spatial_permutation_importance.SpatialPermutationImportanceCallback
-mlflow_run_id: ${mlflow_run_id}

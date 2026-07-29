@@ -1,6 +1,6 @@
 # @package _global_
 
-_target_: nuclei_graph.callbacks.feature_importances.PermutationImportanceCallback
+_target_: nuclei_graph.callbacks.spatial_features_permutation_importances.SpatialPermutationImportanceCallback
 mlflow_run_id: ${mlflow_run_id}
 efd_order: ${data.dataset.efd_order}
 feature_group_size: 2
