@@ -69,8 +69,8 @@ dataset:
 
       # preprocessing/metadata_mapping/panda.py
       metadata:
-        train: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_train.parquet
-        test: ${mlflow_project_pc}/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_test.parquet
+        train: ${mlflow_project_pc}/53cf24a94202486ca063607d5a588b34/artifacts/panda/slides_mapping_train.parquet
+        test: ${mlflow_project_pc}/53cf24a94202486ca063607d5a588b34/artifacts/panda/slides_mapping_test.parquet
         predict: null
 
       supervision:
