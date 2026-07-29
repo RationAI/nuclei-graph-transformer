@@ -70,15 +70,14 @@ class NucleiFeatureExtractor:
         mean_cos = np.mean(np.cos(angles), axis=1, keepdims=True)
         angular_dispersion = 1.0 - np.sqrt(mean_sin**2 + mean_cos**2)
 
-        # Relative Local Density (within 20µm and 50µm radii)
-        counts_20 = [len(idx) - 1 for idx in tree.query_ball_point(pos, r=20)]
-        counts_array_20 = np.array(counts_20, dtype=np.float32)
-
-        counts_50 = [len(idx) - 1 for idx in tree.query_ball_point(pos, r=50)]
-        counts_array_50 = np.array(counts_50, dtype=np.float32)
-
-        relative_densities_20 = counts_array_20 / (counts_array_20.mean() + 1e-6)
-        relative_densities_50 = counts_array_50 / (counts_array_50.mean() + 1e-6)
+        # Local Density (Nuclei count within 20µm and 50µm radii);
+        # subtract 1 to exclude the nucleus itself from its own density count
+        count_r20 = np.array(
+            [len(idx) - 1 for idx in tree.query_ball_point(pos, r=20)]
+        )[..., None]
+        count_r50 = np.array(
+            [len(idx) - 1 for idx in tree.query_ball_point(pos, r=50)]
+        )[..., None]
 
         # Delaunay degree
         tri = Delaunay(pos)
@@ -91,8 +90,8 @@ class NucleiFeatureExtractor:
                 mean_dist,
                 std_dist,
                 angular_dispersion,
-                relative_densities_20,
-                relative_densities_50,
+                count_r20,
+                count_r50,
                 degree,
             ]
         ).astype(np.float32)
