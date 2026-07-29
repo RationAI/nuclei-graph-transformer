@@ -12,7 +12,7 @@ submit_job(
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run python -m postprocessing.metrics +experiment=postprocessing/metrics/...",
+        "uv run python -m postprocessing.crop.metrics +experiment=postprocessing/crop/metrics/...",
     ],
     storage=[storage.public.DATA],
 )
