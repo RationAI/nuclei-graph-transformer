@@ -23,7 +23,7 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
 
   batch_size: 32
-  k: 40
+  k: 8
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=40 Train(Karolinska): NL Classifier, Spatial Stats w Angles & density ratio + RoPE + k-NN Attn"
+  run_name: "k=8 Train(Karolinska): NL Classifier, Spatial Stats w Angles & density ratio + RoPE + k-NN Attn"
   description: ""
