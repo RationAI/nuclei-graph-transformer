@@ -79,6 +79,9 @@ class NucleiFeatureExtractor:
             [len(idx) - 1 for idx in tree.query_ball_point(pos, r=50)]
         )[..., None]
 
+        # encodes whether density is concentrated locally (tight glands) or diffuse (stroma)
+        density_ratio = count_r20 / (count_r50 + 1e-6)
+
         # Delaunay degree
         tri = Delaunay(pos)
         indptr, _ = tri.vertex_neighbor_vertices
@@ -92,6 +95,7 @@ class NucleiFeatureExtractor:
                 angular_dispersion,
                 count_r20,
                 count_r50,
+                density_ratio,
                 degree,
             ]
         ).astype(np.float32)
