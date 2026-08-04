@@ -32,7 +32,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 6
+    efd_order: 8
     patch_size: 48
     embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
     random_rotate: true
@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "efd=6 Train(MMCI): NL Classifier, Polygons + RoPE + k-NN Attn"
+  run_name: "efd=8 Train(MMCI): NL Classifier, Polygons + RoPE + k-NN Attn"
   description: ""
