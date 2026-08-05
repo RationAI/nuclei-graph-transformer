@@ -54,7 +54,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: nuclei_masks
-      run_id: da80bc53cfb14825b5dbbbea51c5e5eb
+      run_id: 645ff6674f1b4d3a810de66bb372b863
       layer_name: "Segmentation Polygon"
       shader_conf:
         visible: True
