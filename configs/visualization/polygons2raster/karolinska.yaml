@@ -14,8 +14,8 @@ cam_labels_dir: null
 predictions_uri: null
 pred_thr: null
 metadata_uris:
-  - ${dataset.providers.karolinska.metadata.train}
-  #- ${dataset.providers.karolinska.metadata.test}
+  #- ${dataset.providers.karolinska.metadata.train}
+  - ${dataset.providers.karolinska.metadata.test}
 nuclei_path: ${dataset.paths.nuclei.standardized}
 mlflow_artifact_path: nuclei_masks
 
