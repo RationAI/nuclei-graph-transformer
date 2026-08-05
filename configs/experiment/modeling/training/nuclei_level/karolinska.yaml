@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Karolinska): NL Classifier, Polygons + k-NN Attn"
+  run_name: "Train(Karolinska): NL Classifier, Polygons + RoPE + k-NN Attn"
   description: ""
