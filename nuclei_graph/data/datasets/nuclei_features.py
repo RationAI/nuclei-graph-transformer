@@ -32,7 +32,7 @@ class NucleiFeatureExtractor:
     def get_efd_features(
         self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
     ) -> NDArray[np.float32]:
-        """Computes Elliptic Fourier Descriptors (EFDs) for a set of nuclei polygons."""
+        """Computes Elliptic Fourier Descriptors for a set of nuclei polygons."""
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         contours = rearrange(polygons, "b (v d) -> b v d", d=2) * mpps
         efds = elliptic_fourier_descriptors(contours.astype(np.float64), self.efd_order)
@@ -48,79 +48,45 @@ class NucleiFeatureExtractor:
         return features.astype(np.float32)
 
     def get_spatial_features(self, pos: NDArray[np.float32]) -> NDArray[np.float32]:
-        """Computes explicit spatial/topological statistics for a spatial embedding."""
+        """Computes explicit spatial statistics."""
         n = len(pos)
         tree = KDTree(pos)
 
-        # Local spacing: absolute µm distances to k-th nearest neighbours (k=1, k=3, k=5 in µm)
+        # 1. K-NN Distances
         dists_all, indices = tree.query(pos, k=6)
-        dists = dists_all[:, [1, 3, 5]]  
+        d1 = dists_all[:, 1:2]
+        d3 = dists_all[:, 3:4]
+        d5 = dists_all[:, 5:6]
+        
+        d1_d3_ratio = d1 / (d3 + 1e-6)
+        d1_d5_ratio = d1 / (d5 + 1e-6)
+
         mean_dist = np.mean(dists_all[:, 1:], axis=1, keepdims=True)
         std_dist = np.std(dists_all[:, 1:], axis=1, keepdims=True)
+        cv_dist = std_dist / (mean_dist + 1e-6)  # Coefficient of Variation
 
-        # Angular Dispersion: circular variance [0, 1]
-        # Captures directionality: 0 = aligned (glandular), 1 = isotropic (stromal)
+        # 2. Angular Dispersion
         nn_indices = np.asarray(indices)[:, 1:]
-        diffs = pos[nn_indices] - pos[:, None, :]  # [N, 5, 2]
-        angles = np.arctan2(diffs[..., 1], diffs[..., 0])  # [N, 5]
+        diffs = pos[nn_indices] - pos[:, None, :]  
+        angles = np.arctan2(diffs[..., 1], diffs[..., 0])  
         mean_sin = np.mean(np.sin(angles), axis=1, keepdims=True)
         mean_cos = np.mean(np.cos(angles), axis=1, keepdims=True)
         angular_dispersion = 1.0 - np.sqrt(mean_sin**2 + mean_cos**2)
 
-        # Local Density (Nuclei count within 20µm and 50µm radii);
-        # (subtract 1 to exclude the nucleus itself from its own density count)
-        count_r20 = np.array(
-            [len(idx) - 1 for idx in tree.query_ball_point(pos, r=20)]
-        )[..., None]
-        count_r50 = np.array(
-            [len(idx) - 1 for idx in tree.query_ball_point(pos, r=50)]
-        )[..., None]
-
-        # encodes whether density is concentrated locally (tight glands) or diffuse (stroma)
-        density_ratio = count_r20 / (count_r50 + 1e-6)
-
-        # Delaunay degree
+        # 3. Delaunay Degree 
         tri = Delaunay(pos)
         indptr, _ = tri.vertex_neighbor_vertices
         degree = np.array([indptr[i + 1] - indptr[i] for i in range(n)])[..., None]
 
         return np.column_stack(
             [
-                dists,
-                mean_dist,
-                std_dist,
+                d1_d3_ratio,
+                d1_d5_ratio,
+                cv_dist,
                 angular_dispersion,
-                count_r20,
-                count_r50,
-                density_ratio,
                 degree,
             ]
         ).astype(np.float32)
-
-    def random_rotate_graph(
-        self,
-        pos: NDArray[np.float32],
-        cos_angles: NDArray[np.float32] | None,
-        sin_angles: NDArray[np.float32] | None,
-    ) -> tuple[
-        NDArray[np.float32], NDArray[np.float32] | None, NDArray[np.float32] | None
-    ]:
-        theta = uniform(0, 2 * math.pi)
-
-        rotation_matrix = np.array(
-            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
-            dtype=np.float32,
-        )
-        rotated_pos = pos @ rotation_matrix.T
-        if cos_angles is None or sin_angles is None:
-            return rotated_pos, None, None
-
-        c2 = math.cos(2 * theta)
-        s2 = math.sin(2 * theta)
-
-        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
-        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
-        return rotated_pos, rotated_cos, rotated_sin
 
     def clip_box(self, box: Box, slide_size: SlideSize) -> Box:
         """Clips `box` to the slide bounds.
