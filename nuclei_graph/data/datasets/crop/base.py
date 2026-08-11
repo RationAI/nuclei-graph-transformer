@@ -122,6 +122,31 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         global_crop_indices = keep_indices[local_crop_indices]
         return np.array(global_crop_indices, dtype=np.int64)
 
+    def random_rotate_graph(
+        self,
+        pos: NDArray[np.float32],
+        cos_angles: NDArray[np.float32] | None,
+        sin_angles: NDArray[np.float32] | None,
+    ) -> tuple[
+        NDArray[np.float32], NDArray[np.float32] | None, NDArray[np.float32] | None
+    ]:
+        theta = uniform(0, 2 * math.pi)
+
+        rotation_matrix = np.array(
+            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
+            dtype=np.float32,
+        )
+        rotated_pos = pos @ rotation_matrix.T
+        if cos_angles is None or sin_angles is None:
+            return rotated_pos, None, None
+
+        c2 = math.cos(2 * theta)
+        s2 = math.sin(2 * theta)
+
+        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
+        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
+        return rotated_pos, rotated_cos, rotated_sin
+
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
         nuclei = pd.read_parquet(nuclei_path)
         return nuclei.sort_values("id").reset_index(drop=True)
