@@ -57,7 +57,7 @@ class NucleiFeatureExtractor:
         d1 = dists_all[:, 1:2]
         d3 = dists_all[:, 3:4]
         d5 = dists_all[:, 5:6]
-        
+
         d1_d3_ratio = d1 / (d3 + 1e-6)
         d1_d5_ratio = d1 / (d5 + 1e-6)
 
@@ -67,13 +67,13 @@ class NucleiFeatureExtractor:
 
         # 2. Angular Dispersion
         nn_indices = np.asarray(indices)[:, 1:]
-        diffs = pos[nn_indices] - pos[:, None, :]  
-        angles = np.arctan2(diffs[..., 1], diffs[..., 0])  
+        diffs = pos[nn_indices] - pos[:, None, :]
+        angles = np.arctan2(diffs[..., 1], diffs[..., 0])
         mean_sin = np.mean(np.sin(angles), axis=1, keepdims=True)
         mean_cos = np.mean(np.cos(angles), axis=1, keepdims=True)
         angular_dispersion = 1.0 - np.sqrt(mean_sin**2 + mean_cos**2)
 
-        # 3. Delaunay Degree 
+        # 3. Delaunay Degree
         tri = Delaunay(pos)
         indptr, _ = tri.vertex_neighbor_vertices
         degree = np.array([indptr[i + 1] - indptr[i] for i in range(n)])[..., None]

@@ -31,24 +31,24 @@ from nuclei_graph.nuclei_graph_typing import Batch
 
 _SPATIAL_FEATURE_GROUPS: dict[str, slice | list[int]] = {
     # Individual kNN distances — tests whether each distance scale matters
-    "kNN dist k=1":         slice(0, 1),
-    "kNN dist k=3":         slice(1, 2),
-    "kNN dist k=5":         slice(2, 3),
+    "kNN dist k=1": slice(0, 1),
+    "kNN dist k=3": slice(1, 2),
+    "kNN dist k=5": slice(2, 3),
     # Mean + std together — captures overall spacing distribution
     "Local spacing (mean+std)": slice(3, 5),
     # All five spacing features together — full local-spacing group
-    "All kNN spacing":      slice(0, 5),
+    "All kNN spacing": slice(0, 5),
     # Directional organisation of the neighbourhood
-    "Angular dispersion":   slice(5, 6),
+    "Angular dispersion": slice(5, 6),
     # Absolute density at two radii
-    "Density @ 20 µm":      slice(6, 7),
-    "Density @ 50 µm":      slice(7, 8),
+    "Density @ 20 µm": slice(6, 7),
+    "Density @ 50 µm": slice(7, 8),
     # Density profile shape (ratio, radius-invariant to absolute count)
     "Density ratio (20/50)": slice(8, 9),
     # Graph topology
-    "Delaunay degree":      slice(9, 10),
+    "Delaunay degree": slice(9, 10),
     # Compound groups — useful for understanding which scale matters most
-    "All density features": slice(6, 9),   # count_r20, count_r50, ratio
+    "All density features": slice(6, 9),  # count_r20, count_r50, ratio
     "All spatial features": slice(0, 10),  # sanity check: should reproduce full drop
 }
 
@@ -212,8 +212,6 @@ class SpatialPermutationImportanceCallback(Callback):
 
             if target_run_id is not None:
                 client = MlflowClient()
-                client.log_artifact(
-                    run_id=target_run_id, local_path=str(output_path)
-                )
+                client.log_artifact(run_id=target_run_id, local_path=str(output_path))
 
         plt.close(fig)
