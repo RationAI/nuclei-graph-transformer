@@ -37,24 +37,36 @@ class PointNetLocalAggregation(nn.Module):
         B, N, _ = pos.shape
         if N <= 1:
             return torch.zeros(B, N, self.out_dim, device=pos.device, dtype=pos.dtype)
+
         k_eff = min(self.k, N - 1)
 
-        # pairwise distance matrix & k-NN search
-        dists = torch.cdist(pos, pos)
-        _, knn_indices = torch.topk(dists, k_eff + 1, dim=-1, largest=False)
-        knn_indices = knn_indices[:, :, 1:]  # Exclude self-loop at index 0
+        chunk_size = 2048
+        knn_indices_list = []
+
+        for i in range(0, N, chunk_size):
+            pos_chunk = pos[:, i : i + chunk_size, :]  # [B, C, 2]
+
+            # Compute distances only for this chunk against all points
+            dists_chunk = torch.cdist(pos_chunk, pos)  # [B, C, N]
+
+            # Get top k+1 (index 0 is the self-loop)
+            _, knn_idx = torch.topk(dists_chunk, k_eff + 1, dim=-1, largest=False)
+
+            # Drop the self-loop and store
+            knn_indices_list.append(knn_idx[:, :, 1:])
+
+        # concatenate chunks back together
+        knn_indices = torch.cat(knn_indices_list, dim=1)  # [B, N, k_eff]
 
         # relative neighbor positions
         batch_idx = torch.arange(B, device=pos.device).view(B, 1, 1).expand(B, N, k_eff)
         knn_pos = pos[batch_idx, knn_indices]  # [B, N, k_eff, 2]
         rel_pos = knn_pos - pos.unsqueeze(2)  # [B, N, k_eff, 2]
 
-        # Scale Normalization
         local_dists = torch.norm(rel_pos, dim=-1, keepdim=True)
         max_dists = local_dists.max(dim=2, keepdim=True)[0]
         rel_pos_norm = rel_pos / (max_dists + 1e-6)
 
-        # MLP + Max-Pooling
         x = rel_pos_norm.permute(0, 3, 1, 2)  # [B, 2, N, k_eff]
         x = self.mlp(x)  # [B, out_dim, N, k_eff]
         x = torch.max(x, dim=3)[0]  # [B, out_dim, N]
