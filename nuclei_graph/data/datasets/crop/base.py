@@ -1,8 +1,7 @@
 import heapq
-from abc import ABC, abstractmethod
-from random import choice, randint, randrange
-from random import uniform
 import math
+from abc import ABC, abstractmethod
+from random import choice, randint, randrange, uniform
 
 import numpy as np
 import pandas as pd
