@@ -11,7 +11,7 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/12124d890ff740ffbb1de13c2f695871/artifacts/checkpoint/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/33ceba088acb4e2297fa3316f11e97c3/artifacts/checkpoints/epoch=193-step=8730/checkpoint.ckpt
 
 mlflow_run_id: null
 mlflow_parent_run_id: 12124d890ff740ffbb1de13c2f695871

@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.nn.attention.flex_attention import BlockMask
 
 
-EMBEDDING_MODES = ("efd", "bbox", "spatial", "pos_only", "efd_spatial")
+EMBEDDING_MODES = ("efd", "bbox", "spatial", "pointnet", "efd_pointnet")
 POOLING_MODES = ("max", "mean", "top_k")  # nuclei-to-tile pooling
 
 MAX_CROP_PATCH_SIDE = 8192
