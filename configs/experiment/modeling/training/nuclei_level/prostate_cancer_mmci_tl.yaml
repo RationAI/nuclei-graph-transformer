@@ -32,9 +32,9 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 0
+    efd_order: 16
     patch_size: 48
-    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
+    embedding_mode: "efd_pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
     random_rotate: true
 
   supervision:
@@ -65,5 +65,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k Ablation: k=12: PointNet + RoPE + k-NN Attn"
+  run_name: "Polygons + PointNet + RoPE + k-NN Attn"
   description: ""
