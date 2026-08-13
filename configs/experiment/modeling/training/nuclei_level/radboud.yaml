@@ -33,7 +33,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 0
+    efd_order: 16
     patch_size: 48
     embedding_mode: "efd_pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
     random_rotate: true
