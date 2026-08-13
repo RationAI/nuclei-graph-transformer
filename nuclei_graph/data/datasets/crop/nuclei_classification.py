@@ -43,7 +43,7 @@ class NucleiClassificationDataset(BaseCropDataset):
         # Embeddings
         crop_features, crop_bboxes = None, None
 
-        if self.embedding_mode == "efd":
+        if self.embedding_mode in ["efd", "efd_pointnet"]:
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_features = self.get_efd_features(
                 crop_polygons, slide.mpp_x, slide.mpp_y
@@ -65,6 +65,8 @@ class NucleiClassificationDataset(BaseCropDataset):
             crop_bboxes = self.get_nuclei_bboxes(
                 centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
             )
+        elif self.embedding_mode == "pointnet":
+            crop_features = np.zeros((len(crop_indices), 1), dtype=np.float32)
 
         # Positions
         crop_pos = centroids[crop_indices]
@@ -74,7 +76,7 @@ class NucleiClassificationDataset(BaseCropDataset):
         if self.random_rotate and not self.full_slide:
             cos_angles, sin_angles = None, None
 
-            if self.embedding_mode in ["efd", "efd_spatial"]:
+            if self.embedding_mode in ["efd", "efd_spatial", "efd_pointnet"]:
                 assert crop_features is not None
                 cos_angles, sin_angles = crop_features[..., -2], crop_features[..., -1]
 
@@ -82,7 +84,8 @@ class NucleiClassificationDataset(BaseCropDataset):
                 crop_pos_centered, cos_angles, sin_angles
             )
             crop_pos_centered = pos_rot
-            if self.embedding_mode in ["efd", "efd_spatial"]:
+
+            if self.embedding_mode in ["efd", "efd_spatial", "efd_pointnet"]:
                 assert crop_features is not None
                 crop_features[..., -2] = cos_rot
                 crop_features[..., -1] = sin_rot
@@ -90,7 +93,7 @@ class NucleiClassificationDataset(BaseCropDataset):
         assert (
             crop_features is not None
             or crop_bboxes is not None
-            or self.embedding_mode == "pos_only"
+            or self.embedding_mode in ["pos_only", "pointnet"]
         )
         return Sample(
             {
