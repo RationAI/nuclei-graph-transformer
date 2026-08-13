@@ -10,26 +10,25 @@ from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
 class PointNetLocalAggregation(nn.Module):
-    """Implicit Geometric Tokenizer: Local Set Abstraction layer over k-NN spatial coordinates."""
-
     def __init__(
         self,
         k: int = 5,
         in_channels: int = 2,
         hidden_dim: int = 16,
         out_dim: int = 32,
+        scale: float = 50.0,   # fixed physical scale for normalisation
     ) -> None:
         super().__init__()
         self.k = k
         self.out_dim = out_dim
+        self.scale = scale
 
-        # 1x1 Convolutions act as a shared MLP applied to each neighbor
         self.mlp = nn.Sequential(
             nn.Conv2d(in_channels, hidden_dim, kernel_size=1),
-            nn.BatchNorm2d(hidden_dim),
+            nn.GroupNorm(min(4, hidden_dim), hidden_dim),  # B=1 safe
             nn.ReLU(inplace=True),
             nn.Conv2d(hidden_dim, out_dim, kernel_size=1),
-            nn.BatchNorm2d(out_dim),
+            nn.GroupNorm(min(4, out_dim), out_dim),
             nn.ReLU(inplace=True),
         )
 
@@ -39,39 +38,28 @@ class PointNetLocalAggregation(nn.Module):
             return torch.zeros(B, N, self.out_dim, device=pos.device, dtype=pos.dtype)
 
         k_eff = min(self.k, N - 1)
-
         chunk_size = 2048
         knn_indices_list = []
 
         for i in range(0, N, chunk_size):
-            pos_chunk = pos[:, i : i + chunk_size, :]  # [B, C, 2]
-
-            # Compute distances only for this chunk against all points
-            dists_chunk = torch.cdist(pos_chunk, pos)  # [B, C, N]
-
-            # Get top k+1 (index 0 is the self-loop)
+            pos_chunk = pos[:, i:i + chunk_size, :]
+            dists_chunk = torch.cdist(pos_chunk, pos)
             _, knn_idx = torch.topk(dists_chunk, k_eff + 1, dim=-1, largest=False)
-
-            # Drop the self-loop and store
             knn_indices_list.append(knn_idx[:, :, 1:])
 
-        # concatenate chunks back together
         knn_indices = torch.cat(knn_indices_list, dim=1)  # [B, N, k_eff]
 
-        # relative neighbor positions
         batch_idx = torch.arange(B, device=pos.device).view(B, 1, 1).expand(B, N, k_eff)
-        knn_pos = pos[batch_idx, knn_indices]  # [B, N, k_eff, 2]
-        rel_pos = knn_pos - pos.unsqueeze(2)  # [B, N, k_eff, 2]
+        knn_pos = pos[batch_idx, knn_indices]   # [B, N, k_eff, 2]
+        rel_pos = knn_pos - pos.unsqueeze(2)    # [B, N, k_eff, 2]
 
-        local_dists = torch.norm(rel_pos, dim=-1, keepdim=True)
-        max_dists = local_dists.max(dim=2, keepdim=True)[0]
-        rel_pos_norm = rel_pos / (max_dists + 1e-6)
+        rel_pos_norm = rel_pos / self.scale
 
-        x = rel_pos_norm.permute(0, 3, 1, 2)  # [B, 2, N, k_eff]
-        x = self.mlp(x)  # [B, out_dim, N, k_eff]
-        x = torch.max(x, dim=3)[0]  # [B, out_dim, N]
+        x = rel_pos_norm.permute(0, 3, 1, 2)   # [B, 2, N, k_eff]
+        x = self.mlp(x)                          # [B, out_dim, N, k_eff]
+        x = torch.max(x, dim=3)[0]              # [B, out_dim, N]
 
-        return x.permute(0, 2, 1)  # [B, N, out_dim]
+        return x.permute(0, 2, 1)               # [B, N, out_dim]
 
 
 class CNN(nn.Module):
@@ -155,7 +143,7 @@ class Transformer(nn.Module):
             )
 
         # Projections based on the selected embedding mode
-        if self.embedding_mode in ["efd", "spatial", "efd_spatial"]:
+        if self.embedding_mode == "efd":
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(config.node_features, config.dim)
         elif self.embedding_mode == "pointnet":
@@ -221,12 +209,6 @@ class Transformer(nn.Module):
             outputs.append(self.patch_cnn(chunk))
         return torch.cat(outputs, dim=0)
 
-    def embed_spatial(self, x: Tensor, real_seq_len: int) -> Tensor:
-        """Embeds spatial statistics. All features are normalized."""
-        norm_full = torch.zeros_like(x)
-        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len])
-        return self.input_proj(norm_full)
-
     def prepare_features(
         self,
         x: Tensor,
@@ -248,9 +230,6 @@ class Transformer(nn.Module):
             pn_feats = self.embed_pointnet(pos, seq_lens)
             combined = torch.cat([efd_feats, pn_feats], dim=-1)
             return self.input_proj(combined)
-        elif self.embedding_mode == "spatial":
-            assert x is not None, "Spatial features cannot be None in 'spatial' mode."
-            return self.embed_spatial(x, real_seq_len)
 
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
