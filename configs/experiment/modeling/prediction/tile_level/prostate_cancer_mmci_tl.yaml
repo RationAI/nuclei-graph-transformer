@@ -29,7 +29,7 @@ data:
     tile_size: 512 # 512 224
     margin: 128 # 128 56
     efd_order: 16
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
+    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet"
 
     thresholds:
       tissue_roi_t: 0.5
@@ -51,7 +51,6 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      mil_mode: "logit" # "embedding" "logit"
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:

@@ -7,6 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: graph_classification
   - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/augmentations@data.dataset.augmentations: base  # polygon_augs base
   - /data/supervision@data.supervision.train_strategy: annotation # dummy
   - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
@@ -35,8 +36,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only"
-    random_rotate: true
+    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet"
 
   supervision:
     paths: ${dataset.paths.supervision}
@@ -54,8 +54,7 @@ model:
       num_heads: 4
       num_layers: 4
       drop_path_rate: 0.25
-      mil_mode: "logit" # "embedding" "logit"
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(MMCI): Crop-level Classification, Polygon embedding + logit pooling"
+  run_name: "Train(MMCI): Crop-level Classification, Polygon embedding"

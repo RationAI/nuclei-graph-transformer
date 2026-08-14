@@ -2,6 +2,7 @@ import heapq
 import math
 from abc import ABC, abstractmethod
 from random import choice, randint, randrange, uniform
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -9,6 +10,7 @@ from degraph import build_spatial_graph
 from numpy.typing import NDArray
 from pandas import DataFrame
 from torch.utils.data import Dataset
+from einops import rearrange
 
 from nuclei_graph.data.datasets.nuclei_features import NucleiFeatureExtractor
 from nuclei_graph.data.supervision import DatasetSupervision, NucleiSupervision
@@ -36,8 +38,8 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         alpha: float = 0.8,
         efd_order: int = 16,
         full_slide: bool = False,
-        random_rotate: bool = False,
         patch_size: int | None = None,
+        augmentations: Callable[..., dict[str, NDArray[np.float32]]] | None = None,
     ) -> None:
         self.metadata = metadata
         self.supervision = supervision
@@ -46,9 +48,9 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         self.alpha = alpha
         self.efd_order = efd_order
         self.full_slide = full_slide
-        self.random_rotate = random_rotate
         self.patch_size = patch_size
         self.embedding_mode = embedding_mode
+        self.augmentations = augmentations
 
         assert self.embedding_mode in EMBEDDING_MODES, (
             f"Invalid embedding_mode: {self.embedding_mode}"
@@ -123,30 +125,56 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         global_crop_indices = keep_indices[local_crop_indices]
         return np.array(global_crop_indices, dtype=np.int64)
 
-    def random_rotate_graph(
+    def process_geometry(
         self,
-        pos: NDArray[np.float32],
-        cos_angles: NDArray[np.float32] | None,
-        sin_angles: NDArray[np.float32] | None,
-    ) -> tuple[
-        NDArray[np.float32], NDArray[np.float32] | None, NDArray[np.float32] | None
-    ]:
-        theta = uniform(0, 2 * math.pi)
+        nuclei: pd.DataFrame,
+        crop_indices: NDArray[np.int64],
+        centroids: NDArray[np.float32],
+        slide: pd.Series,
+    ) -> tuple[NDArray[np.float32] | None, NDArray[np.float32], NDArray[np.float32]]:
+        """Extracts polygons, applies augmentations, and calculates localized node positions."""
+        crop_polygons = None
+        if self.augmentations is not None or self.embedding_mode in [
+            "efd",
+            "efd_pointnet",
+        ]:
+            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+            crop_polygons = rearrange(crop_polygons, "n (v c) -> n v c", c=2)
 
-        rotation_matrix = np.array(
-            [[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]],
-            dtype=np.float32,
+        if self.augmentations is not None:
+            mpps = np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)
+            crop_polygons = self.augmentations(polygons=crop_polygons)["polygons"]
+            crop_pos = crop_polygons.mean(axis=1) * mpps
+        else:
+            crop_pos = centroids[crop_indices]
+
+        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
+        return crop_polygons, crop_pos, crop_pos_centered
+
+    def generate_embeddings(
+        self,
+        polygons: NDArray | None,
+        centroids: NDArray[np.float32],
+        slide: pd.Series,
+    ) -> tuple[NDArray[np.float32] | None, NDArray[np.float32] | None]:
+        """Generates features or bounding boxes based on the selected embedding mode."""
+        geom_features, bboxes = None, None
+
+        if self.embedding_mode in ["efd", "efd_pointnet"]:
+            geom_features = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
+        elif self.embedding_mode == "bbox":
+            bboxes = self.get_nuclei_bboxes(
+                centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
+            )
+        elif self.embedding_mode == "pointnet":
+            geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
+
+        assert (
+            geom_features is not None
+            or bboxes is not None
+            or self.embedding_mode == "pointnet"
         )
-        rotated_pos = pos @ rotation_matrix.T
-        if cos_angles is None or sin_angles is None:
-            return rotated_pos, None, None
-
-        c2 = math.cos(2 * theta)
-        s2 = math.sin(2 * theta)
-
-        rotated_cos = (cos_angles * c2 - sin_angles * s2).astype(np.float32)
-        rotated_sin = (sin_angles * c2 + cos_angles * s2).astype(np.float32)
-        return rotated_pos, rotated_cos, rotated_sin
+        return geom_features, bboxes
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
         nuclei = pd.read_parquet(nuclei_path)

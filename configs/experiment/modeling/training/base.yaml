@@ -55,7 +55,6 @@ metadata:
     alpha: ${oc.select:data.dataset.alpha,null}
     k: ${oc.select:data.k,null}
     efd_order: ${oc.select:data.dataset.efd_order,null}
-    random_rotate: ${oc.select:data.dataset.random_rotate,null}
 
     # model
     lr: ${model.lr}

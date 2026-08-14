@@ -35,40 +35,14 @@ class PredictionDataset(BaseCropDataset):
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
 
         # Embeddings
-        crop_features, crop_bboxes = None, None
-        if self.embedding_mode == "efd":
-            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            crop_features = self.get_efd_features(
-                crop_polygons, slide.mpp_x, slide.mpp_y
-            )
-        elif self.embedding_mode == "spatial":
-            crop_features = self.get_spatial_features(centroids[crop_indices])
-        elif self.embedding_mode == "efd_spatial":
-            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            efd_feats = self.get_efd_features(crop_polygons, slide.mpp_x, slide.mpp_y)
-            spatial_feats = self.get_spatial_features(centroids[crop_indices])
-
-            efd_to_norm = efd_feats[..., :-2]
-            angles = efd_feats[..., -2:]
-
-            crop_features = np.concatenate(
-                [efd_to_norm, spatial_feats, angles], axis=-1
-            )
-        elif self.embedding_mode == "bbox":
-            raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
-            crop_bboxes = self.get_nuclei_bboxes(
-                raw_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
-            )
-
-        assert (
-            crop_features is not None
-            or crop_bboxes is not None
-            or self.embedding_mode == "pos_only"
+        crop_geom_features, crop_bboxes = self.generate_embeddings(
+            nuclei, crop_indices, centroids, slide
         )
+
         return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32)
-                if crop_features is not None
+                "features": torch.as_tensor(crop_geom_features, dtype=torch.float32)
+                if crop_geom_features is not None
                 else None,
                 "bboxes": crop_bboxes,
                 "labels": {"nuclei": None, "graph": None},

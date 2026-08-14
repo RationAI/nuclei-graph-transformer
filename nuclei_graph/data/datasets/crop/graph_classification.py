@@ -1,11 +1,12 @@
 from random import choice
-
+from collections.abc import Callable
 import numpy as np
 import torch
 from numpy.typing import NDArray
 from pandas import DataFrame
 from scipy.spatial import KDTree
 from torch import Tensor
+from einops import rearrange
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
 from nuclei_graph.data.supervision import DatasetSupervision
@@ -24,8 +25,8 @@ class GraphClassificationDataset(BaseCropDataset):
         alpha: float = 0.8,
         efd_order: int = 16,
         full_slide: bool = False,
-        random_rotate: bool = False,
         patch_size: int | None = None,
+        augmentations: Callable[..., dict[str, NDArray[np.float32]]] | None = None,
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -35,9 +36,9 @@ class GraphClassificationDataset(BaseCropDataset):
             alpha=alpha,
             efd_order=efd_order,
             full_slide=full_slide,
-            random_rotate=random_rotate,
             patch_size=patch_size,
             embedding_mode=embedding_mode,
+            augmentations=augmentations,
         )
         self.crop_pos_thr = crop_pos_thr
         self.pos_slide_indices = np.where(self.metadata["is_carcinoma"])[0].tolist()
@@ -116,52 +117,20 @@ class GraphClassificationDataset(BaseCropDataset):
             [float(slide.is_carcinoma)], dtype=torch.float32
         )
 
-        # Embeddings
-        crop_features, crop_bboxes = None, None
-
-        if self.embedding_mode == "efd":
-            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            crop_features = self.get_efd_features(
-                crop_polygons, slide.mpp_x, slide.mpp_y
-            )
-        elif self.embedding_mode == "spatial":
-            crop_features = self.get_spatial_features(centroids[crop_indices])
-        elif self.embedding_mode == "bbox":
-            raw_centroids = self.get_centroids(nuclei, 1.0, 1.0)[crop_indices]
-            crop_bboxes = self.get_nuclei_bboxes(
-                raw_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
-            )
-
-        # Positions
-        crop_pos = centroids[crop_indices]
-        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
-
-        # Augmentations
-        if self.random_rotate and not self.full_slide:
-            cos_angles, sin_angles = None, None
-            if self.embedding_mode == "efd":
-                assert crop_features is not None
-                cos_angles, sin_angles = crop_features[..., -2], crop_features[..., -1]
-
-            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
-                crop_pos_centered, cos_angles, sin_angles
-            )
-            crop_pos_centered = pos_rot
-
-            if self.embedding_mode == "efd":
-                assert crop_features is not None
-                crop_features[..., -2] = cos_rot
-                crop_features[..., -1] = sin_rot
-
-        assert (
-            crop_features is not None
-            or crop_bboxes is not None
-            or self.embedding_mode == "pos_only"
+        # Geometry & Augmentations
+        crop_polygons, crop_pos, crop_pos_centered = self.process_geometry(
+            nuclei, crop_indices, centroids, slide
         )
+
+        # Embeddings
+        crop_geom_features, crop_bboxes = self.generate_embeddings(
+            crop_polygons, crop_pos, slide
+        )
+
         return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32)
-                if crop_features is not None
+                "features": torch.as_tensor(crop_geom_features, dtype=torch.float32)
+                if crop_geom_features is not None
                 else None,
                 "bboxes": crop_bboxes,
                 "labels": {"nuclei": crop_nuclei_labels, "graph": crop_graph_label},

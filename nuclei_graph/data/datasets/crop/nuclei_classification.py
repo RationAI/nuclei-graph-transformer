@@ -3,6 +3,7 @@ import torch
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
 from nuclei_graph.nuclei_graph_typing import Sample
+from einops import rearrange
 
 
 class NucleiClassificationDataset(BaseCropDataset):
@@ -40,65 +41,20 @@ class NucleiClassificationDataset(BaseCropDataset):
         crop_indices_t = torch.from_numpy(crop_indices).long()
         crop_nuclei_labels = nuclei_sup.get_targets(len(nuclei))[crop_indices_t]
 
-        # Embeddings
-        crop_features, crop_bboxes = None, None
-
-        if self.embedding_mode in ["efd", "efd_pointnet"]:
-            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            crop_features = self.get_efd_features(
-                crop_polygons, slide.mpp_x, slide.mpp_y
-            )
-        elif self.embedding_mode == "spatial":
-            crop_features = self.get_spatial_features(centroids[crop_indices])
-        elif self.embedding_mode == "efd_spatial":
-            crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
-            efd_feats = self.get_efd_features(crop_polygons, slide.mpp_x, slide.mpp_y)
-            spatial_feats = self.get_spatial_features(centroids[crop_indices])
-
-            efd_to_norm = efd_feats[..., :-2]
-            angles = efd_feats[..., -2:]
-
-            crop_features = np.concatenate(
-                [efd_to_norm, spatial_feats, angles], axis=-1
-            )
-        elif self.embedding_mode == "bbox":
-            crop_bboxes = self.get_nuclei_bboxes(
-                centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
-            )
-        elif self.embedding_mode == "pointnet":
-            crop_features = np.zeros((len(crop_indices), 1), dtype=np.float32)
-
-        # Positions
-        crop_pos = centroids[crop_indices]
-        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
-
-        # Augmentations
-        if self.random_rotate and not self.full_slide:
-            cos_angles, sin_angles = None, None
-
-            if self.embedding_mode in ["efd", "efd_spatial", "efd_pointnet"]:
-                assert crop_features is not None
-                cos_angles, sin_angles = crop_features[..., -2], crop_features[..., -1]
-
-            pos_rot, cos_rot, sin_rot = self.random_rotate_graph(
-                crop_pos_centered, cos_angles, sin_angles
-            )
-            crop_pos_centered = pos_rot
-
-            if self.embedding_mode in ["efd", "efd_spatial", "efd_pointnet"]:
-                assert crop_features is not None
-                crop_features[..., -2] = cos_rot
-                crop_features[..., -1] = sin_rot
-
-        assert (
-            crop_features is not None
-            or crop_bboxes is not None
-            or self.embedding_mode in ["pos_only", "pointnet"]
+        # Geometry & Augmentations
+        crop_polygons, crop_pos, crop_pos_centered = self.process_geometry(
+            nuclei, crop_indices, centroids, slide
         )
+
+        # Embeddings
+        crop_geom_features, crop_bboxes = self.generate_embeddings(
+            crop_polygons, crop_pos, slide
+        )
+
         return Sample(
             {
-                "features": torch.as_tensor(crop_features, dtype=torch.float32)
-                if crop_features is not None
+                "features": torch.as_tensor(crop_geom_features, dtype=torch.float32)
+                if crop_geom_features is not None
                 else None,
                 "bboxes": crop_bboxes,
                 "labels": {"nuclei": crop_nuclei_labels, "graph": None},

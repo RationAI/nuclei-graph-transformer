@@ -11,20 +11,20 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/33ceba088acb4e2297fa3316f11e97c3/artifacts/checkpoints/epoch=193-step=8730/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/7a65174beb42445a93f175fb5b3b10a3/artifacts/checkpoints/epoch=253-step=11430/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: 12124d890ff740ffbb1de13c2f695871
+mlflow_parent_run_id: 7a65174beb42445a93f175fb5b3b10a3
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 16
+  k: 12
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "pos_only", "efd_spatial"
+    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
   supervision:
     paths: ${dataset.paths.supervision}
 
@@ -33,12 +33,6 @@ model:
     config:
       dim: 256
       hidden_dim: 1024
-
-      # node_features: 9 # override for "spatial" embeddings
-      # norm_dim: 9 # override for "spatial" embeddings
-      # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},10} # override for "efd_spatial" embeddings
-      # node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
-
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15

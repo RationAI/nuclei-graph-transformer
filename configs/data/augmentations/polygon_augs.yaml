@@ -1,0 +1,14 @@
+# @package _global_
+
+_target_: nuclei_graph.data.augmentations.Compose
+augmentations:
+  - _target_: nuclei_graph.data.augmentations.FieldRotation
+    max_angle: 3.14159265359 # np.pi
+  - _target_: nuclei_graph.data.augmentations.Flip
+  - _target_: nuclei_graph.data.augmentations.FieldScale
+    scale_range: [0.75, 1.25] 
+  - _target_: nuclei_graph.data.augmentations.PolygonScale
+    scale_range: [0.85, 1.15]
+  - _target_: nuclei_graph.data.augmentations.ShapeDistortion
+    noise_std: 0.05
+    smoothness: 2.0

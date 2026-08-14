@@ -5,6 +5,8 @@ from typing import TypeVar
 
 import numpy as np
 import pandas as pd
+import torch
+from einops import rearrange
 from numpy.typing import NDArray
 from pandas import DataFrame
 from rationai.mlkit.data.datasets import MetaTiledSlides
@@ -33,7 +35,10 @@ def get_slide_data(
     nuclei_path: str,
 ) -> tuple[np.ndarray, np.ndarray, KDTree, NDArray[np.str_]]:
     nuclei = pd.read_parquet(nuclei_path).sort_values("id").reset_index(drop=True)
+
     polygons = np.array(nuclei["polygon"].tolist(), dtype=np.float32)
+    polygons = rearrange(polygons, "n (v c) -> n v c", c=2)
+
     centroids = np.stack(nuclei["centroid"].tolist())
     kdtree = KDTree(centroids)
     return polygons, centroids, kdtree, nuclei["id"].to_numpy()
@@ -193,6 +198,47 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
             & (centroids[:, 1] >= props["y_min"] + margin_y)
             & (centroids[:, 1] < props["y_max"] - margin_y)
         )
+
+    def generate_embeddings(
+        self,
+        polygons: NDArray[np.float32] | None,
+        centroids: NDArray[np.float32],
+        props: dict[str, float | str],
+    ) -> tuple[NDArray[np.float32] | None, torch.Tensor | None]:
+        """Generates geometric features or bounding boxes."""
+        geom_features, bboxes = None, None
+
+        if len(centroids) == 0:
+            if self.embedding_mode in ["efd", "efd_pointnet"]:
+                geom_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
+            elif self.embedding_mode == "bbox":
+                assert self.patch_size is not None
+                bboxes = torch.zeros(
+                    (1, 3, self.patch_size, self.patch_size), dtype=torch.uint8
+                )
+            elif self.embedding_mode == "pointnet":
+                geom_features = np.zeros((1, 1), dtype=np.float32)
+        else:
+            if self.embedding_mode in ["efd", "efd_pointnet"]:
+                geom_features = self.get_efd_features(
+                    polygons, props["mpp_x"], props["mpp_y"]
+                )
+            elif self.embedding_mode == "bbox":
+                bboxes = self.get_nuclei_bboxes(
+                    centroids,
+                    props["slide_path"],
+                    props["mpp_x"],
+                    props["mpp_y"],
+                )
+            elif self.embedding_mode == "pointnet":
+                geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
+
+        assert (
+            geom_features is not None
+            or bboxes is not None
+            or self.embedding_mode == "pointnet"
+        )
+        return geom_features, bboxes
 
     @abstractmethod
     def __getitem__(self, idx: int) -> Sample:

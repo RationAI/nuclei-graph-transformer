@@ -11,5 +11,4 @@ config:
   num_layers: ???
   num_classes: ???
   drop_path_rate: ???
-  mil_mode: null
-  embedding_mode: efd # efd, bbox
+  embedding_mode: efd # efd, bbox, pointnet, efd_pointnet

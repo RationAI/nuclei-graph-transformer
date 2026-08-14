@@ -13,19 +13,17 @@ class PointNetLocalAggregation(nn.Module):
     def __init__(
         self,
         k: int = 5,
-        in_channels: int = 2,
+        in_channels: int = 3,
         hidden_dim: int = 16,
         out_dim: int = 32,
-        scale: float = 50.0,   # fixed physical scale for normalisation
     ) -> None:
         super().__init__()
         self.k = k
         self.out_dim = out_dim
-        self.scale = scale
 
         self.mlp = nn.Sequential(
             nn.Conv2d(in_channels, hidden_dim, kernel_size=1),
-            nn.GroupNorm(min(4, hidden_dim), hidden_dim),  # B=1 safe
+            nn.GroupNorm(min(4, hidden_dim), hidden_dim),
             nn.ReLU(inplace=True),
             nn.Conv2d(hidden_dim, out_dim, kernel_size=1),
             nn.GroupNorm(min(4, out_dim), out_dim),
@@ -42,24 +40,31 @@ class PointNetLocalAggregation(nn.Module):
         knn_indices_list = []
 
         for i in range(0, N, chunk_size):
-            pos_chunk = pos[:, i:i + chunk_size, :]
+            pos_chunk = pos[:, i : i + chunk_size, :]
             dists_chunk = torch.cdist(pos_chunk, pos)
             _, knn_idx = torch.topk(dists_chunk, k_eff + 1, dim=-1, largest=False)
             knn_indices_list.append(knn_idx[:, :, 1:])
 
-        knn_indices = torch.cat(knn_indices_list, dim=1)  # [B, N, k_eff]
+        knn_indices = torch.cat(knn_indices_list, dim=1)
 
         batch_idx = torch.arange(B, device=pos.device).view(B, 1, 1).expand(B, N, k_eff)
-        knn_pos = pos[batch_idx, knn_indices]   # [B, N, k_eff, 2]
-        rel_pos = knn_pos - pos.unsqueeze(2)    # [B, N, k_eff, 2]
+        knn_pos = pos[batch_idx, knn_indices]
+        rel_pos = knn_pos - pos.unsqueeze(2)
 
-        rel_pos_norm = rel_pos / self.scale
+        # Mean distance to k neighbours
+        dists = torch.norm(rel_pos, dim=-1, keepdim=True)
+        mean_dist = dists.mean(dim=2, keepdim=True)
+        rel_pos_norm = rel_pos / (mean_dist + 1e-6)
 
-        x = rel_pos_norm.permute(0, 3, 1, 2)   # [B, 2, N, k_eff]
-        x = self.mlp(x)                          # [B, out_dim, N, k_eff]
-        x = torch.max(x, dim=3)[0]              # [B, out_dim, N]
+        log_mean_dist = torch.log(mean_dist + 1e-6)
+        log_mean_dist_expanded = log_mean_dist.expand(B, N, k_eff, 1)
+        x_input = torch.cat([rel_pos_norm, log_mean_dist_expanded], dim=-1)
 
-        return x.permute(0, 2, 1)               # [B, N, out_dim]
+        x = x_input.permute(0, 3, 1, 2)
+        x = self.mlp(x)
+        x = torch.max(x, dim=3)[0]
+
+        return x.permute(0, 2, 1)
 
 
 class CNN(nn.Module):
