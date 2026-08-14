@@ -23,7 +23,7 @@ trainer:
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 16
-  k: 12
+  k: 8
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -35,7 +35,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet"
+    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
 
   supervision:
     paths: ${dataset.paths.supervision}
@@ -56,5 +56,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Polygons + RoPE + k-NN Attn"
+  run_name: "k=8, Pointnet (relative) + RoPE + k-NN Attn"
   description: ""
