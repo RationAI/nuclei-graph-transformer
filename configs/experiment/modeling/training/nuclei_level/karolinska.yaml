@@ -24,7 +24,7 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
 
   batch_size: 32
-  k: 16
+  k: 20
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -34,9 +34,9 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 8
+    efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet"
+    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet"
 
   supervision:
     paths: ${dataset.providers.karolinska.supervision}
@@ -57,5 +57,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Train(Karolinska): NL Classifier, Polygons + RoPE + k-NN Attn"
+  run_name: "Train(Karolinska), k=20: PointNet + RoPE + k-NN Attn"
   description: ""
