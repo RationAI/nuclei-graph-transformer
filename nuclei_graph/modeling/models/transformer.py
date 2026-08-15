@@ -148,16 +148,19 @@ class Transformer(nn.Module):
             )
 
         # Projections based on the selected embedding mode
-        if self.embedding_mode == "efd":
+        if self.embedding_mode in ["efd", "spatial", "efd_spatial"]:
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(config.node_features, config.dim)
+
         elif self.embedding_mode == "pointnet":
             self.input_proj = nn.Linear(self.pointnet_dim, config.dim)
+
         elif self.embedding_mode == "efd_pointnet":
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(
                 config.node_features + self.pointnet_dim, config.dim
             )
+            
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
 
@@ -180,16 +183,15 @@ class Transformer(nn.Module):
         return torch.cat([norm_full, not_to_norm], dim=-1)
 
     def embed_pointnet(self, pos: Tensor, seq_lens: Tensor) -> Tensor:
-        """Processes each graph/crop independently to prevent cross-graph k-NN bleeding."""
         seq_lens_list = seq_lens.tolist()
         pos_splits = torch.split(pos[: sum(seq_lens_list)], seq_lens_list)
 
         pointnet_outs = []
         for pos_g in pos_splits:
-            out_g = self.pointnet(pos_g.unsqueeze(0)).squeeze(0)  # [L, pointnet_dim]
+            out_g = self.pointnet(pos_g.unsqueeze(0)).squeeze(0)
             pointnet_outs.append(out_g)
 
-        out = torch.cat(pointnet_outs, dim=0)  # [real_seq_len, pointnet_dim]
+        out = torch.cat(pointnet_outs, dim=0)
 
         # Zero-pad if pos was padded beyond real_seq_len
         if out.shape[0] < pos.shape[0]:
@@ -214,6 +216,12 @@ class Transformer(nn.Module):
             outputs.append(self.patch_cnn(chunk))
         return torch.cat(outputs, dim=0)
 
+    def embed_spatial(self, x: Tensor, real_seq_len: int) -> Tensor:
+        """Embeds spatial statistics. All features are normalized."""
+        norm_full = torch.zeros_like(x)
+        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len])
+        return self.input_proj(norm_full)
+
     def prepare_features(
         self,
         x: Tensor,
@@ -222,19 +230,25 @@ class Transformer(nn.Module):
         real_seq_len: int,
         seq_lens: Tensor,
     ) -> Tensor:
-        if self.embedding_mode == "efd":
-            assert x is not None, "EFD features cannot be None in 'efd' mode."
-            efd_feats = self.embed_efd(x, real_seq_len)
-            return self.input_proj(efd_feats)
+        if self.embedding_mode in ["efd", "efd_spatial"]:
+            assert x is not None, f"Features cannot be None in '{self.embedding_mode}' mode."
+            feats = self.embed_efd(x, real_seq_len)
+            return self.input_proj(feats)
+            
         elif self.embedding_mode == "pointnet":
             pn_feats = self.embed_pointnet(pos, seq_lens)
             return self.input_proj(pn_feats)
+            
         elif self.embedding_mode == "efd_pointnet":
             assert x is not None, "EFD features cannot be None in 'efd_pointnet' mode."
             efd_feats = self.embed_efd(x, real_seq_len)
             pn_feats = self.embed_pointnet(pos, seq_lens)
             combined = torch.cat([efd_feats, pn_feats], dim=-1)
             return self.input_proj(combined)
+            
+        elif self.embedding_mode == "spatial":
+            assert x is not None, "Spatial features cannot be None in 'spatial' mode."
+            return self.embed_spatial(x, real_seq_len)
 
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
