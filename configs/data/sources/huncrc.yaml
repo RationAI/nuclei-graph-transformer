@@ -22,8 +22,6 @@ dataset:
 
     nuclei:
       raw: /mnt/projects/nuclei_foundation_model/cells/organ=colorectum/dataset=TCIA-Hungarian
-      # preprocessing/nuclei_standardization.py
-      standardized: ${project_path}/nuclei_segmentation/HunCRC
 
     patches: # patch dataset with patch-level annotations
       zoom_1:
