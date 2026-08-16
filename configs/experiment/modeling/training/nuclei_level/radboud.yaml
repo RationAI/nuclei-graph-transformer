@@ -24,7 +24,7 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
 
   batch_size: 32
-  k: 16
+  k: 20
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=16: Polygons + Spatial Stats (relative) + RoPE + k-NN Attn"
+  run_name: "Radboud, k=20: Polygons + Spatial Stats (relative) + RoPE + k-NN Attn"
   description: ""
