@@ -14,7 +14,7 @@ dataset:
       metadata: ${data_path}/Public/Public/prostate/PANDA/train.csv
 
       # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
-      slides_properties: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/slides.parquet
+      slides_properties: /mnt/projects/nuclei_foundation_model/slides.parquet
 
       # slides to exclude based on QC masks (see prostate cancer repository)
       exclude_qc:
