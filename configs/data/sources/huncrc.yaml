@@ -35,4 +35,4 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/huncrc/save_metadataset.py
-    exploration: ${mlflow_project_pc}/4f6415c9725441cf9ff8c6491674529b/artifacts/huncrc/slides_metadata.csv
+    exploration: ${mlflow_project_pc}/8a1a081452e04861aa865f5dfe9ba384/artifacts/huncrc/slides_metadata.csv

@@ -31,25 +31,28 @@ def get_wsi_metadata(slide_path: str) -> pd.Series:
     return pd.Series([extent_x, extent_y, mpp_x, mpp_y])
 
 
-def get_dataframes(
-    metadata_csv_path: Path,
-    slides_dir: Path,
-    patch_dirs_z1: list[str],
-    patch_dirs_z2: list[str],
-    properties_pq_path: Path,
-    exclude_slides: list[str],
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    df = pd.read_csv(metadata_csv_path).rename(columns={"slideID": "slide_id"})
-
-    if df["slide_id"].dtype != object:
-        df["slide_id"] = df["slide_id"].astype(str).str.zfill(3)
+def load_base_metadata(csv_path: Path, exclude_slides: list[str]) -> pd.DataFrame:
+    df = pd.read_csv(csv_path).rename(
+        columns={
+            "slideID": "slide_id",
+            "CATEGORY": "category",
+            "Polyp type": "polyp_type",
+            "Biopsy or polyp": "sample_origin",
+            "Haggit-level": "haggit_level",
+        }
+    )
+    # Format to 3-digit string to match .mrxs filenames
+    df["slide_id"] = df["slide_id"].astype(str).str.zfill(3)
 
     if exclude_slides:
         df = df[~df["slide_id"].isin(exclude_slides)]
+    return df
 
-    properties_df = pd.read_parquet(properties_pq_path)
-    properties_df["slide_id"] = [Path(p).stem for p in properties_df["path"]]
-    properties_df = properties_df.rename(
+
+def get_segmentation_props(df: pd.DataFrame, pq_path: Path) -> pd.DataFrame:
+    props_df = pd.read_parquet(pq_path)
+    props_df["slide_id"] = [Path(p).stem for p in props_df["path"]]
+    props_df = props_df.rename(
         columns={
             "id": "segmentation_id",
             "extent_x": "seg_extent_x",
@@ -58,9 +61,8 @@ def get_dataframes(
             "mpp_y": "seg_mpp_y",
         }
     )
-
-    df = df.merge(
-        properties_df[
+    return df.merge(
+        props_df[
             [
                 "slide_id",
                 "segmentation_id",
@@ -74,29 +76,38 @@ def get_dataframes(
         how="left",
     )
 
+
+def get_dataframes(
+    metadata_csv_path: Path,
+    slides_dir: Path,
+    patch_dirs_z1: list[str],
+    patch_dirs_z2: list[str],
+    properties_pq_path: Path,
+    exclude_slides: list[str],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    df = load_base_metadata(metadata_csv_path, exclude_slides)
+    df = get_segmentation_props(df, properties_pq_path)
+
+    # Extract WSI Metadata (Level 0)
     df["slide_path"] = df["slide_id"].apply(lambda sid: str(slides_dir / f"{sid}.mrxs"))
     df[["extent_x", "extent_y", "mpp_x", "mpp_y"]] = df["slide_path"].apply(
         get_wsi_metadata
     )
 
-    z1_ids = get_existing_annotation_ids(patch_dirs_z1)
-    z2_ids = get_existing_annotation_ids(patch_dirs_z2)
-    df["has_zoom_1_annotations"] = df["slide_id"].isin(z1_ids)
-    df["has_zoom_2_annotations"] = df["slide_id"].isin(z2_ids)
-
+    # Check Annotations & Nuclei Segmentations
+    df["has_zoom_1_annotations"] = df["slide_id"].isin(
+        get_existing_annotation_ids(patch_dirs_z1)
+    )
+    df["has_zoom_2_annotations"] = df["slide_id"].isin(
+        get_existing_annotation_ids(patch_dirs_z2)
+    )
     df["has_segmentation"] = df["segmentation_id"].notna()
 
-    df = df.rename(
-        columns={
-            "CATEGORY": "category",
-            "Polyp type": "polyp_type",
-            "Biopsy or polyp": "sample_origin",
-            "Haggit-level": "haggit_level",
-        }
-    )
-
+    # Aggregation Statistics
     summary_df = (
-        df.groupby(["haggit_level", "sample_origin", "polyp_type", "category"])
+        df.groupby(
+            ["haggit_level", "sample_origin", "polyp_type", "category"], dropna=False
+        )
         .agg(
             Total_Slides=("slide_id", "count"),
             Z1_Annotations=("has_zoom_1_annotations", "sum"),
@@ -122,7 +133,7 @@ def get_dataframes(
         "extent_y",
         "mpp_x",
         "mpp_y",
-        # Nuclei Segmentation Level Properties
+        # Nuclei Segmentation Properties
         "seg_extent_x",
         "seg_extent_y",
         "seg_mpp_x",
