@@ -164,7 +164,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         if self.embedding_mode in ["efd", "efd_pointnet"]:
             geom_features = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
         elif self.embedding_mode == "efd_spatial":
-            efd_features = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
+            efd_feats = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
             spatial_feats = self.get_spatial_features(centroids)
 
             efd_to_norm = efd_feats[..., :-2]
