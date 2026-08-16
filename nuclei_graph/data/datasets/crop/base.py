@@ -158,7 +158,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         centroids: NDArray[np.float32],
         slide: pd.Series,
     ) -> tuple[NDArray[np.float32] | None, NDArray[np.float32] | None]:
-        """Generates features or bounding boxes based on the selected embedding mode."""
+        """Generates geometric features or bounding boxes based on the selected embedding mode."""
         geom_features, bboxes = None, None
 
         if self.embedding_mode in ["efd", "efd_pointnet"]:
@@ -173,6 +173,8 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             geom_features = np.concatenate(
                 [efd_to_norm, spatial_feats, angles], axis=-1
             )
+        elif self.embedding_mode == "spatial":
+            geom_features = self.get_spatial_features(centroids)
         elif self.embedding_mode == "bbox":
             bboxes = self.get_nuclei_bboxes(
                 centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
