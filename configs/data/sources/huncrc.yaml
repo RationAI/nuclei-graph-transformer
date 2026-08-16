@@ -35,13 +35,4 @@ dataset:
 
   mlflow_uris:
     # preprocessing/exploration/huncrc/save_metadataset.py
-    exploration: ${mlflow_project_pc}
-
-    # preprocessing/data_split.py
-    split: ${mlflow_project_pc}
-
-    # preprocessing/metadata_mapping/huncrc.py
-    metadata:
-      train: ${mlflow_project_pc}
-      test: ${mlflow_project_pc}
-      predict: null
+    exploration: ${mlflow_project_pc}/4f6415c9725441cf9ff8c6491674529b/artifacts/huncrc/slides_metadata.csv
