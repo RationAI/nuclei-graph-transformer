@@ -39,9 +39,40 @@ panda/
 - `data_provider` (`str`): "radboud" or "karolinska".
 - `isup_grade` (`int`)
 - `gleason_score` (`str`)
-- `has_segmentation` (`bool`): True if the segmentation file exists.
+- `has_segmentation` (`bool`): True if the nuclei segmentation file exists.
 - `has_annotation` (`bool`): True if the annotation mask exists.
 - `extent_x` (`float`)
 - `extent_y` (`float`)
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
+
+### TCIA HunCRC Dataset
+
+**Location**: MLflow artifacts
+
+**Output layout**:  
+```text
+huncrc/
+  slides_metadata.csv (metadata for the slides)
+  summary.csv (aggregate statistics)
+```
+
+**CSV metadata row schema (one row = one slide)**:
+- `slide_id` (`str`): 3-digit string between 001 and 200 representing the anonymous patient ID.
+- `slide_path` (`str`)
+- `segmentation_id` (`str`): Identifier of the slide in the parquet dataset with segmented nuclei.
+- `has_segmentation` (`bool`): True if the nuclei segmentation file exists.
+- `has_zoom_1_annotations` (`bool`): True if zoom 1 patch annotations exist.
+- `has_zoom_2_annotations` (`bool`): True if zoom 2 patch annotations exist.
+- `category` (`str`): Global category annotation ("adenoma", "CRC", "non_neoplastic_lesion" or "negative").
+- `polyp_type` (`str`)
+- `sample_origin` (`str`): Whether the sample is a biopsy or a polyp.
+- `haggit_level` (`str`)
+- `extent_x` (`float`)
+- `extent_y` (`float`)
+- `mpp_x` (`float`)
+- `mpp_y` (`float`)
+- `seg_extent_x` (`float`)
+- `seg_extent_y` (`float`)
+- `seg_mpp_x` (`float`)
+- `seg_mpp_y` (`float`)
