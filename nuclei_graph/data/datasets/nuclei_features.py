@@ -52,7 +52,7 @@ class NucleiFeatureExtractor:
         n = len(pos)
         tree = KDTree(pos)
 
-        # 1. K-NN Distances
+        # K-NN Distances
         dists_all, indices = tree.query(pos, k=6)
         d1 = dists_all[:, 1:2]
         d3 = dists_all[:, 3:4]
@@ -65,7 +65,7 @@ class NucleiFeatureExtractor:
         std_dist = np.std(dists_all[:, 1:], axis=1, keepdims=True)
         cv_dist = std_dist / (mean_dist + 1e-6)  # Coefficient of Variation
 
-        # 2. Angular Dispersion
+        # Angular Dispersion
         nn_indices = np.asarray(indices)[:, 1:]
         diffs = pos[nn_indices] - pos[:, None, :]
         angles = np.arctan2(diffs[..., 1], diffs[..., 0])
@@ -73,7 +73,7 @@ class NucleiFeatureExtractor:
         mean_cos = np.mean(np.cos(angles), axis=1, keepdims=True)
         angular_dispersion = 1.0 - np.sqrt(mean_sin**2 + mean_cos**2)
 
-        # 3. Delaunay Degree
+        # Delaunay Degree
         tri = Delaunay(pos)
         indptr, _ = tri.vertex_neighbor_vertices
         degree = np.array([indptr[i + 1] - indptr[i] for i in range(n)])[..., None]
