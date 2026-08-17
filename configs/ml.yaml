@@ -5,9 +5,18 @@ defaults:
 seed: ${random_seed:}
 mode: ???
 checkpoint: null
+dataset: ???
 
 trainer: {}
 
-data: {}
+data:
+  batch_size: ???
+  num_workers: 10
+  eval_num_workers: 2
+  metadata: ???
+  dataset: ???
+  supervision:
+    paths: ???
+    eval_strategy: ???
 
 model: {}
