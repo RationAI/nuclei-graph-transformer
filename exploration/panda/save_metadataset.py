@@ -45,7 +45,7 @@ def validate_sample(
             if tissue_ratio < tissue_threshold:
                 log(f"SLIDE_EMPTY: {slide_id} (ratio={tissue_ratio:.4f})")
                 return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         log(f"SLIDE_ERROR: {slide_id} - {e!s}")
         return False
 
@@ -56,7 +56,7 @@ def validate_sample(
             if mask is None or mask.size == 0:
                 log(f"MASK_EMPTY: {slide_id}")
                 return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             log(f"MASK_CORRUPTED: {slide_id} - {e!s}")
             return False
 
