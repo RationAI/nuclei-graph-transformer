@@ -1,0 +1,44 @@
+# @package _global_
+
+defaults:
+  - /experiment/modeling/prediction/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: nuclei_mil
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets@data.dataset: nuclei_dataset
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/predictions@trainer.callbacks.predictions: mil # graph-level and nuclei-level preds
+  #- /callbacks@trainer.callbacks.nuclei_masks: nuclei_masks # nuclei-level preds
+  #- /callbacks/attention@trainer.callbacks.attn_masks: nuclei_masks
+  - _self_
+
+checkpoint: # TODO
+checkpoint_url: # TODO
+
+data:
+  batch_size: 1
+  metadata:
+    predict: ${dataset.providers.radboud.metadata.test}
+  dataset:
+    alpha: 0.8
+    k: 32
+    attn_block_size: 128
+    efd_order: 10
+    crop_size: 4096
+    symmetric_block_mask: false
+    mil: true
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.35
+
+metadata:
+  run_name: "📊 Predictions(Radboud): Crop-level Supervised Classifier"
+  description: "Predictions: [MLflow training run](${checkpoint_url})"

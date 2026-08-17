@@ -1,13 +1,31 @@
 defaults:
   - base
   - _self_
+  #- /experiment/modeling/training: crop_level/prostate_cancer_mmci_tl # crop_level nuclei_level / prostate_cancer_mmci_tl radboud
+  - /experiment/modeling/prediction: crop_level/prostate_cancer_mmci_tl
+  #- /experiment/modeling/validation: crop_level/prostate_cancer_mmci_tl
 
 seed: ${random_seed:}
 mode: ???
 checkpoint: null
+dataset: ???
 
-trainer: {}
+trainer:
+  enable_checkpointing: true
+  max_epochs: 300
+  log_every_n_steps: 5
 
-data: {}
+data:
+  batch_size: ???
+  num_workers: 10
+  eval_num_workers: 2
+  metadata: ???
+  dataset: ???
+  supervision:
+    paths: ???
+    eval_strategy: ???
 
-model: {}
+model:
+  lr: ???
+  warmup_epochs: ???
+  net: ???
