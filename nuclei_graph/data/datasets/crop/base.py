@@ -137,7 +137,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         if self.augmentations is not None or self.embedding_mode in [
             "efd",
             "efd_pointnet",
-            "efd_spatial"
+            "efd_spatial",
         ]:
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_polygons = rearrange(crop_polygons, "n (v c) -> n v c", c=2)

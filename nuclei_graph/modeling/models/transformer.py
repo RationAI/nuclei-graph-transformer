@@ -160,7 +160,7 @@ class Transformer(nn.Module):
             self.input_proj = nn.Linear(
                 config.node_features + self.pointnet_dim, config.dim
             )
-            
+
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
 
@@ -231,21 +231,23 @@ class Transformer(nn.Module):
         seq_lens: Tensor,
     ) -> Tensor:
         if self.embedding_mode in ["efd", "efd_spatial"]:
-            assert x is not None, f"Features cannot be None in '{self.embedding_mode}' mode."
+            assert x is not None, (
+                f"Features cannot be None in '{self.embedding_mode}' mode."
+            )
             feats = self.embed_efd(x, real_seq_len)
             return self.input_proj(feats)
-            
+
         elif self.embedding_mode == "pointnet":
             pn_feats = self.embed_pointnet(pos, seq_lens)
             return self.input_proj(pn_feats)
-            
+
         elif self.embedding_mode == "efd_pointnet":
             assert x is not None, "EFD features cannot be None in 'efd_pointnet' mode."
             efd_feats = self.embed_efd(x, real_seq_len)
             pn_feats = self.embed_pointnet(pos, seq_lens)
             combined = torch.cat([efd_feats, pn_feats], dim=-1)
             return self.input_proj(combined)
-            
+
         elif self.embedding_mode == "spatial":
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             return self.embed_spatial(x, real_seq_len)
