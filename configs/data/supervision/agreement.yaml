@@ -1,0 +1,7 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+mode: agreement
+annot_dir: ${data.supervision.paths.annotation}
+cam_dir: ${data.supervision.paths.cam.annot_restricted_thr}
