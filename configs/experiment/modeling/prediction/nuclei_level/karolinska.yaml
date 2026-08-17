@@ -11,9 +11,9 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/843f60f505c84174861d34e1948cece1/artifacts/checkpoints/epoch=152-step=16677/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/37/74259295b11e42e5aca94577cd901356/artifacts/checkpoints/epoch=271-step=33184/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: 843f60f505c84174861d34e1948cece1
+mlflow_parent_run_id: 74259295b11e42e5aca94577cd901356
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -23,7 +23,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
   supervision:
     paths: ${dataset.providers.karolinska.supervision}
 
@@ -42,4 +42,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "NL Test (Karolinska) Evaluation: Annotations"
+  run_name: "Karolinska: Test Predictions"

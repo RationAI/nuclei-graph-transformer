@@ -42,4 +42,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "NL Test (Radboud) Evaluation: Annotations"
+  run_name: "Radboud: Test Predictions"

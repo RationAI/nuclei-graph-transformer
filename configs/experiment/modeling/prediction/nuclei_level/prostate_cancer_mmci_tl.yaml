@@ -43,4 +43,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "NL Test (MMCI) Evaluation: Annotations"
+  run_name: "MMCI: Test Predictions"

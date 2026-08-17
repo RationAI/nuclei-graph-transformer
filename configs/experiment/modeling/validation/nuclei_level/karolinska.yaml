@@ -10,9 +10,9 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/e703d7e4a83045688190fe70aed7df46/artifacts/checkpoint/checkpoint.ckpt
-mlflow_run_id: e703d7e4a83045688190fe70aed7df46
-mlflow_parent_run_id: e703d7e4a83045688190fe70aed7df46
+checkpoint: mlflow-artifacts:/37/74259295b11e42e5aca94577cd901356/artifacts/checkpoints/epoch=271-step=33184/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: 74259295b11e42e5aca94577cd901356
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -21,13 +21,13 @@ data:
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
-  metadata: ${dataset.providers.radboud.metadata}
+  metadata: ${dataset.providers.karolinska.metadata}
   dataset:
-    efd_order: 16
+    efd_order: 8
     patch_size: 48
     embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
   supervision:
-    paths: ${dataset.providers.radboud.supervision}
+    paths: ${dataset.providers.karolinska.supervision}
 
 model:
   net:
@@ -44,4 +44,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud: Threshold Estimation"
+  run_name: "Karolinska: Threshold Estimation"
