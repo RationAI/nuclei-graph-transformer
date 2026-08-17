@@ -34,7 +34,7 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 16
+    efd_order: 8
     patch_size: 48
     embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
 
@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Karolinska, k=16, efd=16, augs: Polygons + RoPE + k-NN Attn"
+  run_name: "Karolinska, k=16, efd=8, augs: Polygons + RoPE + k-NN Attn"
   description: ""
