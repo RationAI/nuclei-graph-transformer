@@ -188,7 +188,7 @@ class SpatialPermutationImportanceCallback(Callback):
         plt.xticks(rotation=45, ha="right")
 
         # Annotate each bar with its numeric value
-        for bar, drop in zip(bars, drops):
+        for bar, drop in zip(bars, drops, strict=True):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.001,

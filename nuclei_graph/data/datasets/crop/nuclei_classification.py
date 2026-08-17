@@ -3,7 +3,6 @@ import torch
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
 from nuclei_graph.nuclei_graph_typing import Sample
-from einops import rearrange
 
 
 class NucleiClassificationDataset(BaseCropDataset):

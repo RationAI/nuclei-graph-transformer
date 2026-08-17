@@ -1,12 +1,12 @@
-from random import choice
 from collections.abc import Callable
+from random import choice
+
 import numpy as np
 import torch
 from numpy.typing import NDArray
 from pandas import DataFrame
 from scipy.spatial import KDTree
 from torch import Tensor
-from einops import rearrange
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
 from nuclei_graph.data.supervision import DatasetSupervision
