@@ -35,8 +35,11 @@ class PredictionDataset(BaseCropDataset):
         crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
 
         # Embeddings
-        crop_geom_features, crop_bboxes = self.generate_embeddings(
+        crop_polygons, crop_pos, crop_pos_centered = self.process_geometry(
             nuclei, crop_indices, centroids, slide
+        )
+        crop_geom_features, crop_bboxes = self.generate_embeddings(
+            crop_polygons, crop_pos, slide
         )
 
         return Sample(
