@@ -10,15 +10,15 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/e00aebb47e8c41c9bb91a82b057affce/artifacts/checkpoints/epoch=280-step=12645/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/40b88019f3f24e3b8fde819b5459033d/artifacts/checkpoints/epoch=273-step=12330/checkpoint.ckpt
 
-mlflow_run_id: 8cdaeaae09764549a8ed8dc23cadfe5c
-mlflow_parent_run_id: e00aebb47e8c41c9bb91a82b057affce
+mlflow_run_id: 1b869fe47cb9456a9da564338134cf07
+mlflow_parent_run_id: 40b88019f3f24e3b8fde819b5459033d
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 32
+  k: 8
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
