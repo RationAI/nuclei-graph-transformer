@@ -124,7 +124,7 @@ class CropDataModule(BaseDataModule):
             case "predict":
                 slides_df = self.load_df(slides_uri, cols=METADATA_COLS_EVAL)
                 self.predict_dataset = instantiate(
-                    self.dataset_cfg, metadata=slides_df, augmentations=None
+                    self.dataset_cfg, metadata=slides_df
                 )
 
     def train_dataloader(self) -> Iterable[Batch]:
