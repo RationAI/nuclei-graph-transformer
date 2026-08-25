@@ -30,11 +30,7 @@ class PredictionDataset(BaseCropDataset):
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
         crop_indices = np.arange(len(nuclei), dtype=int)  # full-slide
 
-        # Positions
-        crop_pos = centroids[crop_indices]
-        crop_pos_centered = (crop_pos - crop_pos.mean(axis=0)).astype(np.float32)
-
-        # Embeddings
+        # Extract Geometry (Polygons & Positions)
         crop_polygons, crop_pos, crop_pos_centered = self.process_geometry(
             nuclei, crop_indices, centroids, slide
         )
