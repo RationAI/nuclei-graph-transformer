@@ -5,13 +5,13 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-predictions_uri: mlflow-artifacts:/97/e946674d159348a3976fd07cafccaa1b/artifacts/predictions
+predictions_uri: mlflow-artifacts:/97/67764ed7774d4faea3d5504dfae2f318/artifacts/predictions
 supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: annot_label # annot_label pred_label
-threshold: 0.7830
+threshold: 0.4354
 
-mlflow_run_id: e946674d159348a3976fd07cafccaa1b
-mlflow_parent_run_id: 13c65e54f714447dbdd146b6606f0827
+mlflow_run_id: 67764ed7774d4faea3d5504dfae2f318
+mlflow_parent_run_id: 33ceba088acb4e2297fa3316f11e97c3
 
 metadata:
   run_name: "MMCI: NL Evaluation, Annotation-level" # "Annotation" "Virchow2 Heatmaps"
