@@ -60,5 +60,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=24, Spatial Stats + k-NN Attn"
+  run_name: "k=24, Spatial Stats + RoPE + Dense Attn"
   description: ""
