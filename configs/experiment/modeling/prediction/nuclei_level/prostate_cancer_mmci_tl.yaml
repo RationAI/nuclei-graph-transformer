@@ -10,11 +10,11 @@ defaults:
   - /callbacks/predictions@trainer.callbacks.predictions: nuclei
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
- 
-checkpoint: mlflow-artifacts:/97/af4f071fffc4425f9e53b59cef62b62b/artifacts/checkpoints/epoch=137-step=6210/checkpoint.ckpt
+
+checkpoint: mlflow-artifacts:/97/50318771c47f49da9fa6039b7091d344/artifacts/checkpoints/epoch=245-step=11070/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: af4f071fffc4425f9e53b59cef62b62b
+mlflow_parent_run_id: 50318771c47f49da9fa6039b7091d344
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -24,7 +24,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "efd_pointnet" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
   supervision:
     paths: ${dataset.paths.supervision}
 
@@ -43,4 +43,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "MMCI: Test Predictions"
+  run_name: "MMCI: NL Evaluation"
