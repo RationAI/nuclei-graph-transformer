@@ -10,14 +10,14 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/3392b78137ee4d11914ee76b886f67ff/artifacts/checkpoints/epoch=222-step=24307/checkpoint.ckpt
-mlflow_run_id: 1f3b5542c3f4496294f2bbcfb6081ae8
-mlflow_parent_run_id: 3392b78137ee4d11914ee76b886f67ff
+checkpoint: mlflow-artifacts:/37/74bb7b7f11334e88b3be7289128f8cc8/artifacts/checkpoints/epoch=246-step=26923/checkpoint.ckpt
+mlflow_run_id: 6e6f2756dd284ccb9a88864b30ad27fe
+mlflow_parent_run_id: 74bb7b7f11334e88b3be7289128f8cc8
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 8
+  k: 12
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
