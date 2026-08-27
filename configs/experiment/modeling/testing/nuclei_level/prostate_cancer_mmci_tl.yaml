@@ -7,18 +7,18 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks@trainer.callbacks.feature_importances: feature_importances
-  - /callbacks@trainer.callbacks.spatial_permutation_importance: spatial_permutation_importance
+  #- /callbacks@trainer.callbacks.position_importances: position_importance
+  - /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/6649c6aa4d314c4cb12a03ff6295a1b3/artifacts/checkpoints/epoch=274-step=6050/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/bfb5f7a1a4724bf983c6d39bcb84a616/artifacts/checkpoints/epoch=284-step=12825/checkpoint.ckpt
 
-mlflow_run_id: 0912754fc78e46ebae60ecc494e6dbd2
-mlflow_parent_run_id: 6649c6aa4d314c4cb12a03ff6295a1b3
+mlflow_run_id: 1be290dbc0104625b83765ed25ff3145
+mlflow_parent_run_id: bfb5f7a1a4724bf983c6d39bcb84a616
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 16
+  k: 24
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     efd_order: 16
@@ -42,4 +42,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "📊 Evaluation (MMCI)"
+  run_name: "MMCI: NL Testing"

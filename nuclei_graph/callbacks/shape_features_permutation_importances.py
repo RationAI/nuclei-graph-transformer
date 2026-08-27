@@ -42,16 +42,19 @@ class ShapePermutationImportanceCallback(Callback):
     ) -> dict[str, slice]:
         groups = {}
 
-        for start_order in range(0, efd_order, feature_group_size):
-            end_order = min(start_order + feature_group_size - 1, efd_order - 1)
+        for start_idx_order in range(0, efd_order, feature_group_size):
+            end_idx_order = min(start_idx_order + feature_group_size - 1, efd_order - 1)
 
-            start_idx = start_order * 4
-            end_idx = (end_order + 1) * 4
+            start_idx = start_idx_order * 4
+            end_idx = (end_idx_order + 1) * 4
 
-            if start_order == end_order:
-                label = f"EFD Order {start_order}"
+            display_start = start_idx_order + 1
+            display_end = end_idx_order + 1
+
+            if display_start == display_end:
+                label = f"EFD Order {display_start}"
             else:
-                label = f"EFD Orders {start_order}-{end_order}"
+                label = f"EFD Orders {display_start}-{display_end}"
 
             groups[label] = slice(start_idx, end_idx)
 
