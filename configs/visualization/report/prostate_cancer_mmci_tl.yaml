@@ -9,11 +9,11 @@ test_metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifac
 
 reporter:
   _target_: report.reporter.ReportAssembler
-  title: "MMCI TL Test — Tile Predictions: Nuclei, CNN and ViT Foundation Models Comparison"
+  title: "MMCI TL Test Nuclei-to-Tile Pooled Predictions" #"MMCI TL Test — Tile Predictions: Nuclei, CNN and ViT Foundation Models Comparison"
   metrics_run_ids:
-    - 1ededb49107e414f853f4f60b03f5496 # virchow2 stain
-    - 589d312de9fd4e20a21b5c8b70a193a4 # vgg-stain
-    - 46c118d5c0314944a1809fbdc5a4cba3 # polygon + spatial embedding
+    # - 1ededb49107e414f853f4f60b03f5496 # virchow2 stain
+    # - 589d312de9fd4e20a21b5c8b70a193a4 # vgg-stain
+    - 9c943983f09f43a48fef6fe3e739f283 # polygons
   metrics_target_metrics:
     - accuracy
     - precision
@@ -45,13 +45,13 @@ reporter:
     layer_name: Prostate WSI
 
   evaluation_runs:
-    1ededb49107e414f853f4f60b03f5496:
-      artifact_file: nested_metrics.json
-      slide_item_key: key
-    589d312de9fd4e20a21b5c8b70a193a4:
-      artifact_file: nested_metrics.json
-      slide_item_key: key
-    46c118d5c0314944a1809fbdc5a4cba3:
+    # 1ededb49107e414f853f4f60b03f5496:
+    #   artifact_file: nested_metrics.json
+    #   slide_item_key: key
+    # 589d312de9fd4e20a21b5c8b70a193a4:
+    #   artifact_file: nested_metrics.json
+    #   slide_item_key: key
+    9c943983f09f43a48fef6fe3e739f283:
       artifact_file: "slide_tile_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
       slide_item_key: "slide_id"
 
@@ -100,37 +100,37 @@ reporter:
     #     opacity: 0.80
     #     color: "#FFA500" # orange
 
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: heatmaps
-      run_id: 1ededb49107e414f853f4f60b03f5496
-      layer_name: "Virchow2 Stain"
-      shader_conf:
-        visible: False
-        type: heatmap
-        params:
-          threshold: 80
-        color: "#FFA500"
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: heatmaps
+    #   run_id: 1ededb49107e414f853f4f60b03f5496
+    #   layer_name: "Virchow2 Stain"
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     params:
+    #       threshold: 80
+    #     color: "#FFA500"
 
-    - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: heatmaps
-      run_id: 589d312de9fd4e20a21b5c8b70a193a4
-      layer_name: "VGG-16 Stain"
-      shader_conf:
-        visible: False
-        type: heatmap
-        params:
-          threshold: 96
-        color: "#00FF00"
+    # - _target_: report.masks.RunIDMlflowMaskRetriever
+    #   dir_name: heatmaps
+    #   run_id: 589d312de9fd4e20a21b5c8b70a193a4
+    #   layer_name: "VGG-16 Stain"
+    #   shader_conf:
+    #     visible: False
+    #     type: heatmap
+    #     params:
+    #       threshold: 96
+    #     color: "#00FF00"
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: tile_heatmaps
-      run_id: 46c118d5c0314944a1809fbdc5a4cba3
-      layer_name: "Polygons + Spatial Embedding"
+      run_id: 9c943983f09f43a48fef6fe3e739f283
+      layer_name: "Spatial Stats Embedding"
       shader_conf:
-        visible: False
+        visible: True
         type: heatmap
         params:
-          threshold: 49
+          threshold: 35
         color: "#0000FF" # blue 00FF00
 
 metadata:
