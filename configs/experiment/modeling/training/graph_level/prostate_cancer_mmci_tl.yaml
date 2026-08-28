@@ -23,7 +23,7 @@ trainer:
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 32
-  k: 32
+  k: 20
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -61,4 +61,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "SL training, k=32: Polygons + Spatial Stats (relative) + RoPE + k-NN Attn"
+  run_name: "SL training, k=20: Polygons + Spatial Stats (relative) + RoPE + k-NN Attn"
