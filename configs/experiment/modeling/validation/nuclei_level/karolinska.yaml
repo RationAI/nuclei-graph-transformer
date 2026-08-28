@@ -11,9 +11,8 @@ defaults:
   - _self_
 
 checkpoint: mlflow-artifacts:/37/3d15caeacc1740549c7d0b4356d026b9/artifacts/checkpoints/epoch=272-step=33306/checkpoint.ckpt
-mlflow_run_id: null
+mlflow_run_id: c9b0e83d3f154cb3aad3a5c5cda52ee9
 mlflow_parent_run_id: checkpoint: mlflow-artifacts:/37/3d15caeacc1740549c7d0b4356d026b9/artifacts/checkpoints/epoch=272-step=33306/checkpoint.ckpt
-
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
