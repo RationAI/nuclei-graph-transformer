@@ -93,6 +93,7 @@ class CropDataModule(BaseDataModule):
                         self.dataset_cfg,
                         metadata=train_df,
                         supervision=train_sup,
+                        full_slide=True,
                     )
 
                 validation_sup = self.prepare_supervision(
