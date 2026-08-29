@@ -60,5 +60,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=16: CNN bboxes 48x48 + k-NN Attn "
+  run_name: "k=16: CNN bboxes 48x48 + k-NN Attn"
   description: ""
