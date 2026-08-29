@@ -90,7 +90,10 @@ class CropDataModule(BaseDataModule):
                             train_df, min_pos_count, train_sup.pos_count_map
                         )
                     self.train_dataset = instantiate(
-                        self.dataset_cfg, metadata=train_df, supervision=train_sup
+                        self.dataset_cfg,
+                        metadata=train_df,
+                        supervision=train_sup,
+                        full_slide=True,
                     )
 
                 validation_sup = self.prepare_supervision(
