@@ -14,10 +14,11 @@ from nuclei_graph.nuclei_graph_typing import Batch
 
 
 class ShapePermutationImportanceCallback(Callback):
-    """Computes permutation feature importance on the test set.
+    """Computes permutation feature importance on the validation set.
 
-    At the end of the test epoch, each feature group is shuffled, the AUROC is recomputed,
-    and the drop relative to the baseline AUROC is used as the feature importance score.
+    At the end of the validation epoch, each feature group is shuffled, the AUROC is
+    recomputed, and the drop relative to the baseline AUROC is used as the feature
+    importance score.
 
     Args:
         efd_order: Number of EFD orders in the feature vector.
@@ -63,7 +64,7 @@ class ShapePermutationImportanceCallback(Callback):
 
         return groups
 
-    def on_test_batch_end(
+    def on_validation_batch_end(
         self,
         trainer: Trainer,
         pl_module: LightningModule,
@@ -78,7 +79,7 @@ class ShapePermutationImportanceCallback(Callback):
         self.cached_batches.append(batch)
 
     @torch.no_grad()
-    def on_test_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+    def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if trainer.sanity_checking or not self.cached_batches:
             return
         device = pl_module.device

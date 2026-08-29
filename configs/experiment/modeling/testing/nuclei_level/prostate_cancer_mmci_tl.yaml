@@ -8,7 +8,6 @@ defaults:
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
   #- /callbacks@trainer.callbacks.position_importances: position_importance
-  - /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
 checkpoint: mlflow-artifacts:/97/bfb5f7a1a4724bf983c6d39bcb84a616/artifacts/checkpoints/epoch=284-step=12825/checkpoint.ckpt

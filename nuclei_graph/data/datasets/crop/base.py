@@ -153,11 +153,18 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
 
     def generate_embeddings(
         self,
-        polygons: NDArray | None,
+        polygons: NDArray[np.float32] | None,
         centroids: NDArray[np.float32],
         slide: pd.Series,
+        true_centroids: NDArray[np.float32],
     ) -> tuple[NDArray[np.float32] | None, NDArray[np.float32] | None]:
-        """Generates geometric features or bounding boxes based on the selected embedding mode."""
+        """Generates geometric features or bounding boxes based on the selected embedding mode.
+
+        `centroids` may reflect augmented (e.g. rotated/jittered) geometry and drives the
+        `efd`/`spatial` feature branches. `true_centroids` are the real slide positions
+        and must be used for `bbox` extraction, since the WSI pixels themselves
+        are never transformed by the geometric augmentations.
+        """
         geom_features, bboxes = None, None
 
         if self.embedding_mode in ["efd", "efd_pointnet"]:
@@ -176,7 +183,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             geom_features = self.get_spatial_features(centroids)
         elif self.embedding_mode == "bbox":
             bboxes = self.get_nuclei_bboxes(
-                centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
+                true_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
             )
         elif self.embedding_mode == "pointnet":
             geom_features = np.zeros((len(centroids), 1), dtype=np.float32)

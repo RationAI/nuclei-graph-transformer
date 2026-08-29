@@ -35,7 +35,7 @@ class PredictionDataset(BaseCropDataset):
             nuclei, crop_indices, centroids, slide
         )
         crop_geom_features, crop_bboxes = self.generate_embeddings(
-            crop_polygons, crop_pos, slide
+            crop_polygons, crop_pos, slide, centroids[crop_indices]
         )
 
         return Sample(

@@ -8,6 +8,7 @@ defaults:
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/supervision@data.supervision.eval_strategy: agreement
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
+  - /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
 checkpoint: mlflow-artifacts:/97/eb427c39f4264162ad137fc2b8f776a4/artifacts/checkpoints/epoch=249-step=11250/checkpoint.ckpt
