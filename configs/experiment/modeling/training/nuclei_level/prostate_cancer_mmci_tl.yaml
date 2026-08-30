@@ -35,7 +35,7 @@ data:
     alpha: 0.8
     efd_order: 8
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "blank" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial", "blank"
 
   supervision:
     paths: ${dataset.paths.supervision}
@@ -60,5 +60,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=24: CNN bboxes 48x48 + RoPE + k-NN Attn"
+  run_name: "k=24: Blank Token + RoPE + k-NN Attn"
   description: ""

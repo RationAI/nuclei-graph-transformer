@@ -181,6 +181,8 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             )
         elif self.embedding_mode == "spatial":
             geom_features = self.get_spatial_features(centroids)
+        elif self.embedding_mode == "blank":
+            geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
         elif self.embedding_mode == "bbox":
             bboxes = self.get_nuclei_bboxes(
                 true_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y

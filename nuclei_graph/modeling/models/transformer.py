@@ -6,6 +6,7 @@ from torch.utils.checkpoint import checkpoint
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
+from nuclei_graph.modeling.layers.attention_v_rope import RotarySparseAttentionVRope
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
@@ -100,9 +101,13 @@ class CNN(nn.Module):
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
-        self.self_attn = RotarySparseAttention(
-            dim=config.dim, num_heads=config.num_heads
+        attn_cls = (
+            RotarySparseAttentionVRope
+            if config.embedding_mode == "blank"
+            else RotarySparseAttention
         )
+        self.self_attn = attn_cls(dim=config.dim, num_heads=config.num_heads)
+
         self.ffn = GeGLU(dim=config.dim, hidden_dim=config.hidden_dim)
 
         self.pre_attn_norm = nn.RMSNorm(config.dim)
@@ -160,7 +165,9 @@ class Transformer(nn.Module):
             self.input_proj = nn.Linear(
                 config.node_features + self.pointnet_dim, config.dim
             )
-
+        elif self.embedding_mode == "blank":
+            self.blank_token = nn.Parameter(torch.empty(config.dim))
+            nn.init.normal_(self.blank_token, std=0.02)
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
 
@@ -251,6 +258,11 @@ class Transformer(nn.Module):
         elif self.embedding_mode == "spatial":
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             return self.embed_spatial(x, real_seq_len)
+        elif self.embedding_mode == "blank":
+            total_len = pos.shape[0]
+            feats = self.blank_token.new_zeros(total_len, self.blank_token.shape[0])
+            feats[:real_seq_len] = self.blank_token
+            return feats
 
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
         return self.embed_patches(bboxes)
