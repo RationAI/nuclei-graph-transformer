@@ -15,12 +15,21 @@ flex_attention = torch.compile(flex_attention, dynamic=True)
 
 
 class RotarySparseAttention(nn.Module):
-    def __init__(self, dim: int, num_heads: int) -> None:
+    def __init__(self, dim: int, num_heads: int, rotate_v: bool = False) -> None:
+        """Initialize the attention module.
+
+        Args:
+            dim: Model dimension.
+            num_heads: Number of attention heads.
+            rotate_v: Also apply RoPE to V, not just Q/K. Used for the
+                blank-token position/attention-only ablation.
+        """
         super().__init__()
 
         assert dim % num_heads == 0
         self.head_dim = dim // num_heads
         self.num_heads = num_heads
+        self.rotate_v = rotate_v
 
         # QKV projection
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
@@ -35,6 +44,8 @@ class RotarySparseAttention(nn.Module):
 
         q = self.rope(q, pos)
         k = self.rope(k, pos)
+        if self.rotate_v:
+            v = self.rope(v, pos)
 
         x_out = flex_attention(q, k, v, block_mask=block_mask)
 

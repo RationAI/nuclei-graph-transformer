@@ -6,7 +6,6 @@ from torch.utils.checkpoint import checkpoint
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
-from nuclei_graph.modeling.layers.attention_v_rope import RotarySparseAttentionVRope
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
@@ -101,12 +100,11 @@ class CNN(nn.Module):
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
-        attn_cls = (
-            RotarySparseAttentionVRope
-            if config.embedding_mode == "blank"
-            else RotarySparseAttention
+        self.self_attn = RotarySparseAttention(
+            dim=config.dim,
+            num_heads=config.num_heads,
+            rotate_v=config.embedding_mode == "blank",
         )
-        self.self_attn = attn_cls(dim=config.dim, num_heads=config.num_heads)
 
         self.ffn = GeGLU(dim=config.dim, hidden_dim=config.hidden_dim)
 

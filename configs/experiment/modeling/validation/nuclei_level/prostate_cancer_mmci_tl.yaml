@@ -19,7 +19,7 @@ mlflow_parent_run_id: 7b1166c44b974dd0bdceb3828e23a399
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 24
+  k: 16
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
