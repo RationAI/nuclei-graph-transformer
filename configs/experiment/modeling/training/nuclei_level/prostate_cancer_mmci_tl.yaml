@@ -33,9 +33,9 @@ data:
     crop_size_min: 512
     crop_size_max: 8192
     alpha: 0.8
-    efd_order: 8
+    efd_order: 16
     patch_size: 48
-    embedding_mode: "blank" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial", "blank"
+    embedding_mode: "pointnet" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial", "blank"
 
   supervision:
     paths: ${dataset.paths.supervision}
@@ -60,5 +60,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=20: Blank Token + RoPE + k-NN Attn"
+  run_name: "k=20: PointNet + RoPE + k-NN Attn"
   description: ""
