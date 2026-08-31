@@ -7,41 +7,40 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: prediction
   - /data/supervision@data.supervision.eval_strategy: annotation # annotation prediction
-  - /callbacks/predictions@trainer.callbacks.predictions: crop # graph-level and nuclei-level preds
+  - /callbacks/predictions@trainer.callbacks.predictions: crop
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - /callbacks/masks@trainer.callbacks.attn_masks: attention
   - _self_
 
-checkpoint: mlflow-artifacts:/97/b554746935e74b9fa04f6830ffb69ced/artifacts/checkpoints/epoch=73-step=1554/checkpoint.ckpt
-
+checkpoint: mlflow-artifacts:/97/da7bcdbdd708430a94747ab48774a005/artifacts/checkpoints/epoch=127-step=5632/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: null
+mlflow_parent_run_id: da7bcdbdd708430a94747ab48774a005
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 16
+  k: 20
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "efd_spatial"
   supervision:
     paths: ${dataset.paths.supervision}
 
 model:
   net:
     config:
-      dim: 256
-      hidden_dim: 1024
+      dim: 128
+      hidden_dim: 512
       # node_features: 5 # override for "spatial" embeddings
       # norm_dim: 5 # override for "spatial" embeddings
-      # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},6} # override for "efd_spatial" embeddings
-      # node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
-      num_heads: 8
-      num_layers: 8
-      drop_path_rate: 0.30
+      norm_dim: ${add:${mul:4,${data.dataset.efd_order}},6} # override for "efd_spatial" embeddings
+      node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
+      num_heads: 4
+      num_layers: 4
+      drop_path_rate: 0.25
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "📊 Evaluation (MMCI)"
+  run_name: "MMCI: SL Evaluation"

@@ -27,6 +27,7 @@ data:
     efd_order: 16
     patch_size: 48
     embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    full_slide: true
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 

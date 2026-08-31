@@ -26,7 +26,8 @@ __all__ = [
     "NucleiCurvesCallback",
     "NucleiPredictionCallback",
     "NucleiPredictionMasksCallback",
-    "PermutationImportanceCallback",
+    "PositionImportanceCallback",
+    "ShapePermutationImportanceCallback",
     "SpatialPermutationImportanceCallback",
     "TilePredictionCallback",
 ]

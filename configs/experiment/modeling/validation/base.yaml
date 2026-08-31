@@ -26,7 +26,7 @@ model:
   net:
     config:
       efd_order: ${data.dataset.efd_order}
-      embedding_mode: ??? # "efd", "bbox", "pointnet", "efd_pointnet"
+      embedding_mode: ??? # "efd", "bbox", "pointnet", "efd_pointnet" "spatial", "efd_spatial" "blank"
       node_features: ${add:${mul:4,${data.dataset.efd_order}},3} # efd_order * 4 + scale + sin/cos angles
       norm_dim: ${add:${mul:4,${data.dataset.efd_order}},1} # efd_order * 4 + scale
       num_classes: 1
