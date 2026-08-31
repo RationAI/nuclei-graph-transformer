@@ -125,15 +125,15 @@ class GraphCollator:
             targets["nuclei"] = self._pad(torch.cat(all_labels_nuclei), target_seq_len)
             targets["graph"] = torch.cat(all_labels_graph) if all_labels_graph else None
 
-        # block_mask = create_ragged_block_quantized_knn_mask(
-        #     all_knns, self.block_size, total_seq_len=target_seq_len
-        # )
-        block_mask = create_dense_document_mask(
-            [len(pos) for pos in all_pos],
-            128,
-            device=all_pos[0].device,
-            total_seq_len=target_seq_len,
+        block_mask = create_ragged_block_quantized_knn_mask(
+            all_knns, self.block_size, total_seq_len=target_seq_len
         )
+        # block_mask = create_dense_document_mask(
+        #     [len(pos) for pos in all_pos],
+        #     128,
+        #     device=all_pos[0].device,
+        #     total_seq_len=target_seq_len,
+        # )
 
         return Batch(
             {
