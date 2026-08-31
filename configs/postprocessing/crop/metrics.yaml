@@ -4,7 +4,8 @@ metadata_uri: ???
 predictions_uri: ???
 supervision_dir: ???
 label_column: ???
-threshold: ???
+nuclei_threshold: null
+graph_threshold: null
 
 mlflow_artifact_path: slide_nuclei_metrics.json
 mlflow_run_id: null
@@ -13,4 +14,5 @@ mlflow_parent_run_id: null
 metadata:
   run_name: NL Test (MMCI) Evaluation
   hyperparams:
-    threshold: ${threshold}
+    nuclei_threshold: ${nuclei_threshold}
+    graph_threshold: ${graph_threshold}

@@ -90,15 +90,23 @@ def log_per_slide_nuclei_metrics(
     client: MlflowClient,
     run_id: str | None,
 ) -> None:
-    """Calculates and logs nuclei-level metrics grouped by individual slides."""
+    """Calculates and logs nuclei-level metrics grouped by individual slides.
+
+    Skipped if no `nuclei_threshold` is configured (e.g. a crop-level model
+    for which only a graph-level threshold has been calibrated).
+    """
+    nuclei_threshold = config.get("nuclei_threshold")
+    if nuclei_threshold is None:
+        return
+
     slide_metrics = MetricCollection(
         {
-            "accuracy": BinaryAccuracy(config.threshold),
-            "precision": BinaryPrecision(config.threshold),
-            "recall": BinaryRecall(config.threshold),
-            "specificity": BinarySpecificity(config.threshold),
+            "accuracy": BinaryAccuracy(nuclei_threshold),
+            "precision": BinaryPrecision(nuclei_threshold),
+            "recall": BinaryRecall(nuclei_threshold),
+            "specificity": BinarySpecificity(nuclei_threshold),
             "negative_predictive_value": BinaryNegativePredictiveValue(
-                config.threshold
+                nuclei_threshold
             ),
         }
     )
@@ -161,17 +169,30 @@ def log_global_nuclei_metrics(
     client: MlflowClient,
     run_id: str | None,
 ) -> None:
-    """Calculates and logs global nuclei-level metrics and their bootstrapped CIs."""
+    """Calculates and logs global nuclei-level metrics and their bootstrapped CIs.
+
+    AUPRC/AUROC don't need a threshold and are always logged; the thresholded
+    metrics (precision/recall/accuracy/specificity) are only included if
+    `nuclei_threshold` is configured.
+    """
+    nuclei_threshold = config.get("nuclei_threshold")
+
+    metrics_dict: dict = {
+        "AUPRC": BinaryAveragePrecision(),
+        "AUROC": BinaryAUROC(),
+    }
+    if nuclei_threshold is not None:
+        metrics_dict.update(
+            {
+                "precision": BinaryPrecision(nuclei_threshold),
+                "recall": BinaryRecall(nuclei_threshold),
+                "accuracy": BinaryAccuracy(nuclei_threshold),
+                "specificity": BinarySpecificity(nuclei_threshold),
+            }
+        )
+
     global_nuclei_metrics = MetricCollection(
-        {
-            "AUPRC": BinaryAveragePrecision(),
-            "AUROC": BinaryAUROC(),
-            "precision": BinaryPrecision(config.threshold),
-            "recall": BinaryRecall(config.threshold),
-            "accuracy": BinaryAccuracy(config.threshold),
-            "specificity": BinarySpecificity(config.threshold),
-        },
-        prefix="test_thresholded/nuclei_",
+        metrics_dict, prefix="test_thresholded/nuclei_"
     )
 
     preds_t = torch.tensor(merged_df["nuclei_prediction"].values)
@@ -179,12 +200,12 @@ def log_global_nuclei_metrics(
     computed = global_nuclei_metrics(preds_t, targets_t)
 
     # Calculate Bootstrapped Confidence Intervals
-    cis = compute_bootstrapped_cis(
-        merged_df=merged_df,
-        label_col=config.label_column,
-        pred_col="nuclei_prediction",
-        n_iterations=2000,
-    )
+    # cis = compute_bootstrapped_cis(
+    #     merged_df=merged_df,
+    #     label_col=config.label_column,
+    #     pred_col="nuclei_prediction",
+    #     n_iterations=2000,
+    # )
 
     if run_id is not None:
         # Log standard metrics
@@ -192,8 +213,8 @@ def log_global_nuclei_metrics(
             client.log_metric(run_id, k, float(v))
 
         # Log confidence intervals
-        for k, v in cis.items():
-            client.log_metric(run_id, f"test_thresholded/nuclei_{k}", float(v))
+        # for k, v in cis.items():
+        #     client.log_metric(run_id, f"test_thresholded/nuclei_{k}", float(v))
 
 
 def log_slide_level_graph_metrics(
@@ -203,42 +224,58 @@ def log_slide_level_graph_metrics(
     run_id: str | None,
     tmp_path: Path,
 ) -> None:
-    """Calculates slide-level predictions, logs misclassifications, and plots the confusion matrix."""
+    """Calculates slide-level predictions, logs misclassifications, and plots the confusion matrix.
+
+    Skipped entirely if the predictions have no `graph_prediction` column
+    (nuclei-level models). AUPRC/AUROC don't need a threshold and are always
+    logged when the column is present; the thresholded metrics (misclassification
+    CSV, precision/recall/accuracy/specificity, confusion matrix) are only
+    computed if `graph_threshold` is configured.
+    """
     if "graph_prediction" not in merged_df.columns:
         return
 
+    graph_threshold = config.get("graph_threshold")
     graph_df = merged_df.drop_duplicates(subset=["slide_id"]).copy()
-    graph_df["predicted_class"] = (
-        graph_df["graph_prediction"] >= config.threshold
-    ).astype(bool)
 
-    misclassif_df = graph_df[graph_df["predicted_class"] != graph_df["is_carcinoma"]]
-    csv_path = tmp_path / "graph_misclassifications.csv"
-    misclassif_df[
-        [
-            "slide_id",
-            "graph_prediction",
-            "predicted_class",
-            "is_carcinoma",
-            "slide_path",
+    if graph_threshold is not None:
+        graph_df["predicted_class"] = (
+            graph_df["graph_prediction"] >= graph_threshold
+        ).astype(bool)
+
+        misclassif_df = graph_df[
+            graph_df["predicted_class"] != graph_df["is_carcinoma"]
         ]
-    ].to_csv(csv_path, index=False)
+        csv_path = tmp_path / "graph_misclassifications.csv"
+        misclassif_df[
+            [
+                "slide_id",
+                "graph_prediction",
+                "predicted_class",
+                "is_carcinoma",
+                "slide_path",
+            ]
+        ].to_csv(csv_path, index=False)
 
-    if run_id is not None:
-        client.log_artifact(run_id, str(csv_path))
+        if run_id is not None:
+            client.log_artifact(run_id, str(csv_path))
 
-    graph_metrics = MetricCollection(
-        {
-            "AUPRC": BinaryAveragePrecision(),
-            "AUROC": BinaryAUROC(),
-            "precision": BinaryPrecision(config.threshold),
-            "recall": BinaryRecall(config.threshold),
-            "accuracy": BinaryAccuracy(config.threshold),
-            "specificity": BinarySpecificity(config.threshold),
-            "confusion_matrix": BinaryConfusionMatrix(config.threshold),
-        },
-        prefix="test_thresholded/graph_",
-    )
+    metrics_dict: dict = {
+        "AUPRC": BinaryAveragePrecision(),
+        "AUROC": BinaryAUROC(),
+    }
+    if graph_threshold is not None:
+        metrics_dict.update(
+            {
+                "precision": BinaryPrecision(graph_threshold),
+                "recall": BinaryRecall(graph_threshold),
+                "accuracy": BinaryAccuracy(graph_threshold),
+                "specificity": BinarySpecificity(graph_threshold),
+                "confusion_matrix": BinaryConfusionMatrix(graph_threshold),
+            }
+        )
+
+    graph_metrics = MetricCollection(metrics_dict, prefix="test_thresholded/graph_")
 
     preds_t = torch.tensor(graph_df["graph_prediction"].values)
     targets_t = torch.tensor(graph_df["is_carcinoma"].values).long()
