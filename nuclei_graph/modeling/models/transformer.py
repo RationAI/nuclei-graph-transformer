@@ -22,11 +22,11 @@ class PointNetLocalAggregation(nn.Module):
         self.out_dim = out_dim
 
         self.mlp = nn.Sequential(
-            nn.Conv2d(in_channels, hidden_dim, kernel_size=1),
-            nn.GroupNorm(min(4, hidden_dim), hidden_dim),
+            nn.Linear(in_channels, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(inplace=True),
-            nn.Conv2d(hidden_dim, out_dim, kernel_size=1),
-            nn.GroupNorm(min(4, out_dim), out_dim),
+            nn.Linear(hidden_dim, out_dim),
+            nn.LayerNorm(out_dim),
             nn.ReLU(inplace=True),
         )
 
@@ -60,11 +60,10 @@ class PointNetLocalAggregation(nn.Module):
         log_mean_dist_expanded = log_mean_dist.expand(B, N, k_eff, 1)
         x_input = torch.cat([rel_pos_norm, log_mean_dist_expanded], dim=-1)
 
-        x = x_input.permute(0, 3, 1, 2)
-        x = self.mlp(x)
-        x = torch.max(x, dim=3)[0]
+        x = self.mlp(x_input)
+        x = torch.max(x, dim=2)[0]
 
-        return x.permute(0, 2, 1)
+        return x
 
 
 class CNN(nn.Module):
