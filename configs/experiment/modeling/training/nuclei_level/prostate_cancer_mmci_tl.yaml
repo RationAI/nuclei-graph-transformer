@@ -16,7 +16,7 @@ monitor: validation/loss
 checkpoint_mode: min
 
 trainer:
-  max_epochs: 500
+  max_epochs: 300
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
