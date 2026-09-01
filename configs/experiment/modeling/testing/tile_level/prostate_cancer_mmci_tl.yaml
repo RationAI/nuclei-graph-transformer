@@ -26,7 +26,7 @@ data:
     tile_size: 512
     margin: 128
     efd_order: 16
-    embedding_mode: "bbox" # "efd", "bbox", "pointnet", "efd_pointnet"
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "efd_spatial", "blank"
     carcinoma_filter: false
 
     thresholds:

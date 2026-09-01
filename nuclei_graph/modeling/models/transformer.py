@@ -9,63 +9,6 @@ from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
-class PointNetLocalAggregation(nn.Module):
-    def __init__(
-        self,
-        k: int = 5,
-        in_channels: int = 3,
-        hidden_dim: int = 16,
-        out_dim: int = 32,
-    ) -> None:
-        super().__init__()
-        self.k = k
-        self.out_dim = out_dim
-
-        self.mlp = nn.Sequential(
-            nn.Linear(in_channels, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_dim, out_dim),
-            nn.LayerNorm(out_dim),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, pos: Tensor) -> Tensor:
-        B, N, _ = pos.shape
-        if N <= 1:
-            return torch.zeros(B, N, self.out_dim, device=pos.device, dtype=pos.dtype)
-
-        k_eff = min(self.k, N - 1)
-        chunk_size = 2048
-        knn_indices_list = []
-
-        for i in range(0, N, chunk_size):
-            pos_chunk = pos[:, i : i + chunk_size, :]
-            dists_chunk = torch.cdist(pos_chunk, pos)
-            _, knn_idx = torch.topk(dists_chunk, k_eff + 1, dim=-1, largest=False)
-            knn_indices_list.append(knn_idx[:, :, 1:])
-
-        knn_indices = torch.cat(knn_indices_list, dim=1)
-
-        batch_idx = torch.arange(B, device=pos.device).view(B, 1, 1).expand(B, N, k_eff)
-        knn_pos = pos[batch_idx, knn_indices]
-        rel_pos = knn_pos - pos.unsqueeze(2)
-
-        # Mean distance to k neighbours
-        dists = torch.norm(rel_pos, dim=-1, keepdim=True)
-        mean_dist = dists.mean(dim=2, keepdim=True)
-        rel_pos_norm = rel_pos / (mean_dist + 1e-6)
-
-        log_mean_dist = torch.log(mean_dist + 1e-6)
-        log_mean_dist_expanded = log_mean_dist.expand(B, N, k_eff, 1)
-        x_input = torch.cat([rel_pos_norm, log_mean_dist_expanded], dim=-1)
-
-        x = self.mlp(x_input)
-        x = torch.max(x, dim=2)[0]
-
-        return x
-
-
 class CNN(nn.Module):
     def __init__(self, out_dim: int) -> None:
         super().__init__()
@@ -141,27 +84,10 @@ class Transformer(nn.Module):
             Layer(config, drop_path_rate=dpr[i]) for i in range(config.num_layers)
         )
 
-        # PointNet Local Aggregation module
-        self.pointnet_k = config.get("k_neighbors", 5)
-        self.pointnet_dim = config.get("pointnet_dim", 32)
-        if self.embedding_mode in ["pointnet", "efd_pointnet"]:
-            self.pointnet = PointNetLocalAggregation(
-                k=self.pointnet_k, out_dim=self.pointnet_dim
-            )
-
         # Projections based on the selected embedding mode
         if self.embedding_mode in ["efd", "spatial", "efd_spatial"]:
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(config.node_features, config.dim)
-
-        elif self.embedding_mode == "pointnet":
-            self.input_proj = nn.Linear(self.pointnet_dim, config.dim)
-
-        elif self.embedding_mode == "efd_pointnet":
-            self.batch_norm = nn.BatchNorm1d(config.norm_dim)
-            self.input_proj = nn.Linear(
-                config.node_features + self.pointnet_dim, config.dim
-            )
         elif self.embedding_mode == "blank":
             self.blank_token = nn.Parameter(torch.empty(config.dim))
             nn.init.normal_(self.blank_token, std=0.02)
@@ -185,29 +111,6 @@ class Transformer(nn.Module):
         norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len, :norm_dim])
 
         return torch.cat([norm_full, not_to_norm], dim=-1)
-
-    def embed_pointnet(self, pos: Tensor, seq_lens: Tensor) -> Tensor:
-        seq_lens_list = seq_lens.tolist()
-        pos_splits = torch.split(pos[: sum(seq_lens_list)], seq_lens_list)
-
-        pointnet_outs = []
-        for pos_g in pos_splits:
-            out_g = self.pointnet(pos_g.unsqueeze(0)).squeeze(0)
-            pointnet_outs.append(out_g)
-
-        out = torch.cat(pointnet_outs, dim=0)
-
-        # Zero-pad if pos was padded beyond real_seq_len
-        if out.shape[0] < pos.shape[0]:
-            pad = torch.zeros(
-                pos.shape[0] - out.shape[0],
-                self.pointnet_dim,
-                device=pos.device,
-                dtype=pos.dtype,
-            )
-            out = torch.cat([out, pad], dim=0)
-
-        return out
 
     def embed_patches(self, bboxes: Tensor, chunk_size: int = 1024) -> Tensor:
         """Embeds nuclei image patches via CNN."""
@@ -240,18 +143,6 @@ class Transformer(nn.Module):
             )
             feats = self.embed_efd(x, real_seq_len)
             return self.input_proj(feats)
-
-        elif self.embedding_mode == "pointnet":
-            pn_feats = self.embed_pointnet(pos, seq_lens)
-            return self.input_proj(pn_feats)
-
-        elif self.embedding_mode == "efd_pointnet":
-            assert x is not None, "EFD features cannot be None in 'efd_pointnet' mode."
-            efd_feats = self.embed_efd(x, real_seq_len)
-            pn_feats = self.embed_pointnet(pos, seq_lens)
-            combined = torch.cat([efd_feats, pn_feats], dim=-1)
-            return self.input_proj(combined)
-
         elif self.embedding_mode == "spatial":
             assert x is not None, "Spatial features cannot be None in 'spatial' mode."
             return self.embed_spatial(x, real_seq_len)

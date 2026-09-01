@@ -36,7 +36,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd_spatial" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "efd_spatial" # "efd", "bbox", "blank", "spatial", "efd_spatial"
 
   supervision:
     paths: ${dataset.paths.supervision}

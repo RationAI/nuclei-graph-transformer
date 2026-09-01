@@ -135,7 +135,6 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         crop_polygons = None
         if self.augmentations is not None or self.embedding_mode in [
             "efd",
-            "efd_pointnet",
             "efd_spatial",
         ]:
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
@@ -167,7 +166,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         """
         geom_features, bboxes = None, None
 
-        if self.embedding_mode in ["efd", "efd_pointnet"]:
+        if self.embedding_mode == "efd":
             geom_features = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
         elif self.embedding_mode == "efd_spatial":
             efd_feats = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
@@ -187,14 +186,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             bboxes = self.get_nuclei_bboxes(
                 true_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
             )
-        elif self.embedding_mode == "pointnet":
-            geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
-
-        assert (
-            geom_features is not None
-            or bboxes is not None
-            or self.embedding_mode == "pointnet"
-        )
+        assert geom_features is not None or bboxes is not None
         return geom_features, bboxes
 
     def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:

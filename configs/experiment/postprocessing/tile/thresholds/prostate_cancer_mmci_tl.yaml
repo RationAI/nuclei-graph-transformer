@@ -20,7 +20,7 @@ data:
     tile_size: 224 # 512 224
     margin: 56 # 128 56
     efd_order: 16
-    embedding_mode: "efd_spatial" # "efd", "bbox", "pointnet", "efd_pointnet", "spatial", "efd_spatial"
+    embedding_mode: "efd_spatial" # "efd", "bbox", "blank", "spatial", "efd_spatial"
 
     thresholds:
       tissue_roi_t: 0.5

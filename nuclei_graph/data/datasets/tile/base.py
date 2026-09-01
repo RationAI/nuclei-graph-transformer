@@ -209,20 +209,40 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
         geom_features, bboxes = None, None
 
         if len(centroids) == 0:
-            if self.embedding_mode in ["efd", "efd_pointnet"]:
+            if self.embedding_mode == "efd":
                 geom_features = np.zeros((1, self.efd_order * 4 + 3), dtype=np.float32)
+            elif self.embedding_mode == "efd_spatial":
+                geom_features = np.zeros((1, self.efd_order * 4 + 8), dtype=np.float32)
+            elif self.embedding_mode == "spatial":
+                geom_features = np.zeros((1, 5), dtype=np.float32)
+            elif self.embedding_mode == "blank":
+                geom_features = np.zeros((1, 1), dtype=np.float32)
             elif self.embedding_mode == "bbox":
                 assert self.patch_size is not None
                 bboxes = torch.zeros(
                     (1, 3, self.patch_size, self.patch_size), dtype=torch.uint8
                 )
-            elif self.embedding_mode == "pointnet":
-                geom_features = np.zeros((1, 1), dtype=np.float32)
         else:
-            if self.embedding_mode in ["efd", "efd_pointnet"]:
+            if self.embedding_mode == "efd":
                 geom_features = self.get_efd_features(
                     polygons, props["mpp_x"], props["mpp_y"]
                 )
+            elif self.embedding_mode == "efd_spatial":
+                efd_feats = self.get_efd_features(
+                    polygons, props["mpp_x"], props["mpp_y"]
+                )
+                spatial_feats = self.get_spatial_features(centroids)
+
+                efd_to_norm = efd_feats[..., :-2]
+                angles = efd_feats[..., -2:]
+
+                geom_features = np.concatenate(
+                    [efd_to_norm, spatial_feats, angles], axis=-1
+                )
+            elif self.embedding_mode == "spatial":
+                geom_features = self.get_spatial_features(centroids)
+            elif self.embedding_mode == "blank":
+                geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
             elif self.embedding_mode == "bbox":
                 bboxes = self.get_nuclei_bboxes(
                     centroids,
@@ -230,14 +250,7 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
                     props["mpp_x"],
                     props["mpp_y"],
                 )
-            elif self.embedding_mode == "pointnet":
-                geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
-
-        assert (
-            geom_features is not None
-            or bboxes is not None
-            or self.embedding_mode == "pointnet"
-        )
+        assert geom_features is not None or bboxes is not None
         return geom_features, bboxes
 
     @abstractmethod

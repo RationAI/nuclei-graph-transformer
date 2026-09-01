@@ -42,6 +42,20 @@ def plot_curve(
     return fig
 
 
+MAX_CURVE_POINTS = 2000
+
+
+def _downsample_curve(*arrays: np.ndarray) -> list[np.ndarray]:
+    """Downsamples curve arrays (via uniform index subsampling) for fast, light plotting."""
+    n = len(arrays[0])
+    if n <= MAX_CURVE_POINTS:
+        return list(arrays)
+    idx = np.unique(
+        np.linspace(0, n - 1, MAX_CURVE_POINTS, dtype=np.int64, endpoint=True)
+    )
+    return [a[idx] for a in arrays]
+
+
 def perform_roc(
     y_true: np.ndarray, y_pred: np.ndarray, title: str
 ) -> tuple[matplotlib.figure.Figure, float, float]:
@@ -62,9 +76,10 @@ def perform_roc(
     j_idx = np.argmax(j_scores)
     j_threshold = thresholds[j_idx]
 
+    fpr_plot, tpr_plot = _downsample_curve(fpr, tpr)
     fig = plot_curve(
-        fpr,
-        tpr,
+        fpr_plot,
+        tpr_plot,
         f"AUC = {roc_auc:.3f}",
         [(fpr[tpr_idx], tpr[tpr_idx]), (fpr[j_idx], tpr[j_idx])],
         [tpr_label, f"J Thresh = {j_threshold:.3f}"],
@@ -89,9 +104,10 @@ def perform_pr(
     best_idx = np.argmax(f1)
     best_threshold = thresholds[best_idx]
 
+    recall_plot, precision_plot = _downsample_curve(recall, precision)
     fig = plot_curve(
-        recall,
-        precision,
+        recall_plot,
+        precision_plot,
         None,
         [(recall[best_idx], precision[best_idx])],
         [f"F1 Thresh = {best_threshold:.3f}"],
@@ -143,8 +159,8 @@ class BaseCurvesCallback(Callback):
                 roc_path = tmp_path / f"{level_name}_roc.png"
                 pr_path = tmp_path / f"{level_name}_precision_recall.png"
 
-                fig_roc.savefig(roc_path, dpi=1200)
-                fig_pr.savefig(pr_path, dpi=1200)
+                fig_roc.savefig(roc_path, dpi=200)
+                fig_pr.savefig(pr_path, dpi=200)
 
                 client.log_artifact(mlflow_run_id, str(roc_path), "curves")
                 client.log_artifact(mlflow_run_id, str(pr_path), "curves")

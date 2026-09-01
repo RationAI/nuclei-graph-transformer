@@ -7,8 +7,8 @@ defaults:
 
 metadata_uri: ${dataset.providers.radboud.metadata.test}
 nuclei_predictions_uri: mlflow-artifacts:/97/7b860f365eca4a96bd4edc0c058f6188/artifacts/predictions
-pooling_mode: 
-pooling_k: 
+pooling_mode:
+pooling_k:
 
 data:
   dataset:
@@ -16,7 +16,7 @@ data:
     tile_size: 224 # 512 224
     margin: 56 # 128 56
     efd_order: 16
-    embedding_mode: "efd" # "efd", "bbox", "pointnet", "efd_pointnet"
+    embedding_mode: "efd" # "efd", "bbox", "blank", "spatial", "efd_spatial"
 
     thresholds:
       tissue_roi_t: 0.5

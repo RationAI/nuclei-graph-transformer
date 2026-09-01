@@ -9,8 +9,6 @@ from torch.nn.attention.flex_attention import BlockMask
 EMBEDDING_MODES = (
     "efd",
     "bbox",
-    "pointnet",
-    "efd_pointnet",
     "spatial",
     "efd_spatial",
     "blank",
