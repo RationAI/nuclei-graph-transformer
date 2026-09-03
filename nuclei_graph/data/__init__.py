@@ -2,6 +2,7 @@ from nuclei_graph.data.block_mask import (
     block_spatial_sort,
     create_dense_document_mask,
     create_ragged_block_quantized_knn_mask,
+    pack_and_shift_knn_indices,
 )
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
@@ -19,4 +20,5 @@ __all__ = [
     "elliptic_fourier_descriptors",
     "normalize_efd_for_rotation",
     "normalize_efd_for_scale",
+    "pack_and_shift_knn_indices",
 ]

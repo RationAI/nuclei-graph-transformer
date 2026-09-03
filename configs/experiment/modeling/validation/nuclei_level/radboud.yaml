@@ -41,6 +41,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
+      attention_variant: standard # standard, vrope, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:

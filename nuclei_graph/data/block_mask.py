@@ -15,7 +15,12 @@ class _MaskMod:
         return _MaskMod(self.doc_ids.to(device))
 
     def __call__(self, b: Tensor, h: Tensor, q: Tensor, kv: Tensor) -> Tensor:
-        # If the tokens don't belong to the same document, zero out the attention.
+        # NOTE: this restricts attention to same-document pairs only. It does
+        # NOT independently verify that (q, kv) is a genuine k-NN edge — that
+        # restriction happens at the block-selection level (adj_matrix, built
+        # from real k-NN pairs). Within any block pair that IS selected
+        # (because *some* token pair in it is a true k-NN edge), every token
+        # pair sharing a document attends densely.
         return (self.doc_ids[q] >= 0) & (self.doc_ids[q] == self.doc_ids[kv])
 
 
@@ -29,6 +34,39 @@ class BlockMask(torch.nn.attention.flex_attention.BlockMask):
         return BlockMask(*mapped_attributes)
 
 
+def pack_and_shift_knn_indices(
+    neighbor_indices_list: list[Tensor],
+    total_seq_len: int,
+) -> Tensor:
+    """Packs per-sample local k-NN indices into global indices aligned with the concatenated, padded batch sequence (matching pos/features layout).
+
+    -1 marks invalid neighbors — both within-sample padding for undersized
+    graphs and batch-level bucket padding beyond the real sequence.
+    """
+    device = neighbor_indices_list[0].device
+    packed_list = []
+    current_offset = 0
+
+    for neighbors in neighbor_indices_list:
+        n_i = neighbors.shape[0]
+        offset_neighbors = torch.where(
+            neighbors >= 0, neighbors + current_offset, neighbors
+        )
+        packed_list.append(offset_neighbors)
+        current_offset += n_i
+
+    packed = torch.cat(packed_list, dim=0)  # (N_real, K)
+    n_real, k = packed.shape
+
+    if total_seq_len > n_real:
+        pad = torch.full(
+            (total_seq_len - n_real, k), -1, dtype=packed.dtype, device=device
+        )
+        packed = torch.cat([packed, pad], dim=0)
+
+    return packed
+
+
 def create_ragged_block_quantized_knn_mask(
     neighbor_indices_list: list[Tensor],
     block_size: int,
@@ -37,34 +75,25 @@ def create_ragged_block_quantized_knn_mask(
     """Creates a BlockMask for tightly packed sequences, optionally padded."""
     device = neighbor_indices_list[0].device
 
-    # === 1. Tightly Pack & Shift KNN Indices ===
-    packed_neighbors_list = []
-    doc_ids_list = []
-    current_offset = 0
+    N_real = sum(neighbors.shape[0] for neighbors in neighbor_indices_list)
+    K = neighbor_indices_list[0].shape[1]
 
-    for doc_id, neighbors in enumerate(neighbor_indices_list):
-        N_i = neighbors.shape[0]
-
-        offset_neighbors = torch.where(
-            neighbors >= 0, neighbors + current_offset, neighbors
-        )
-        packed_neighbors_list.append(offset_neighbors)
-
-        doc_ids_list.append(
-            torch.full((N_i,), doc_id, dtype=torch.int32, device=device)
-        )
-        current_offset += N_i
-
-    packed_neighbors = torch.cat(packed_neighbors_list, dim=0)  # (N_total, K)
-    doc_ids = torch.cat(doc_ids_list, dim=0)  # (N_total,)
-
-    N_real, K = packed_neighbors.shape
     if total_seq_len is None:
         total_seq_len = N_real
     if total_seq_len < N_real:
         raise ValueError(
             f"total_seq_len ({total_seq_len}) must be >= packed length ({N_real})"
         )
+
+    # === 1. Tightly Pack & Shift KNN Indices ===
+    packed_neighbors = pack_and_shift_knn_indices(neighbor_indices_list, total_seq_len)
+
+    doc_ids_list = [
+        torch.full((neighbors.shape[0],), doc_id, dtype=torch.int32, device=device)
+        for doc_id, neighbors in enumerate(neighbor_indices_list)
+    ]
+    doc_ids = torch.cat(doc_ids_list, dim=0)  # (N_real,)
+
     if total_seq_len > N_real:
         pad_doc_ids = torch.full(
             (total_seq_len - N_real,), -1, dtype=torch.int32, device=device
@@ -74,9 +103,11 @@ def create_ragged_block_quantized_knn_mask(
     num_blocks = math.ceil(total_seq_len / block_size)
 
     # === 2. Build Global Adjacency Matrix (2D) ===
-    # Map token-level connections to block-level connections
-    q_idx = torch.arange(N_real, device=device)
-    q_block_ids = (q_idx // block_size).unsqueeze(1).expand(N_real, K)
+    # Map token-level connections to block-level connections. Padding rows
+    # (>= N_real) are all -1 in packed_neighbors, so valid_conn filters them
+    # out below — including them here vs. stopping at N_real is equivalent.
+    q_idx = torch.arange(total_seq_len, device=device)
+    q_block_ids = (q_idx // block_size).unsqueeze(1).expand(total_seq_len, K)
     kv_block_ids = packed_neighbors // block_size
 
     valid_conn = packed_neighbors >= 0
@@ -269,6 +300,8 @@ def block_spatial_sort(
     points: np.ndarray, block_size: int, global_offset: int = 0
 ) -> np.ndarray:
     n = len(points)
+    if n <= 1:
+        return np.arange(n)
     out = np.arange(n)
     stack = [(0, n, 0)]
 

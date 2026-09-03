@@ -20,6 +20,7 @@ class Config(PretrainedConfig):
         num_layers: int,
         num_classes: int,
         drop_path_rate: float,
+        attention_variant: str = "standard",
         **kwargs: Any,
     ) -> None:
         self.ffn = ffn
@@ -33,4 +34,5 @@ class Config(PretrainedConfig):
         self.num_layers = num_layers
         self.num_classes = num_classes
         self.drop_path_rate = drop_path_rate
+        self.attention_variant = attention_variant
         super().__init__(**kwargs)

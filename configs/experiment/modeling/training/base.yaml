@@ -61,7 +61,6 @@ metadata:
     warmup_epochs: ${model.warmup_epochs}
     dim: ${model.net.config.dim}
     hidden_dim: ${model.net.config.hidden_dim}
-    k_neighbors: ${oc.select:model.net.config.k_neighbors, null}
     num_heads: ${model.net.config.num_heads}
     num_layers: ${model.net.config.num_layers}
     drop_path_rate: ${model.net.config.drop_path_rate}

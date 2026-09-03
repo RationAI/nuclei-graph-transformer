@@ -16,14 +16,14 @@ monitor: validation/loss
 checkpoint_mode: min
 
 trainer:
-  max_epochs: 1000
+  max_epochs: 1500
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 16
-  k: 40
+  k: 8
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -57,8 +57,9 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
+      attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "k=40: Blank Token + RoPE + k-NN Attn"
+  run_name: "k=8: Blank Token + RoPE + k-NN Attn"
   description: ""

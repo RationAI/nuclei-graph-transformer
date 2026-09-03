@@ -10,6 +10,7 @@ from nuclei_graph.data.block_mask import (
     block_spatial_sort,
     create_dense_document_mask,
     create_ragged_block_quantized_knn_mask,
+    pack_and_shift_knn_indices,
 )
 from nuclei_graph.nuclei_graph_typing import Batch, BatchMetadata, Sample, Targets
 
@@ -135,9 +136,12 @@ class GraphCollator:
         #     total_seq_len=target_seq_len,
         # )
 
+        global_neighbor_idx = pack_and_shift_knn_indices(all_knns, target_seq_len)
+
         return Batch(
             {
                 "all_knns": all_knns,
+                "global_neighbor_idx": global_neighbor_idx,  # (target_seq_len, k), -1 = invalid
                 "block_size": self.block_size,
                 "block_mask": block_mask,
                 "pos": self._pad(torch.cat(all_pos), target_seq_len),

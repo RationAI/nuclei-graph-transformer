@@ -94,6 +94,7 @@ class BatchMetadata(TypedDict):
 
 class Batch(TypedDict):
     all_knns: list[Tensor]
+    global_neighbor_idx: Tensor
     block_size: int
     block_mask: BlockMask
     pos: Tensor

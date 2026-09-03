@@ -45,6 +45,7 @@ class NucleiModelMetaArch(LightningModule):
             pos=inputs["pos"],
             block_mask=inputs["block_mask"],
             seq_lens=inputs["seq_lens"],
+            neighbor_idx=inputs["global_neighbor_idx"],
             bboxes=inputs.get("bboxes"),
         )
 

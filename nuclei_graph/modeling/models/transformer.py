@@ -6,6 +6,7 @@ from torch.utils.checkpoint import checkpoint
 
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
+from nuclei_graph.modeling.layers.attention import RelativePositionValueAttention
 from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
 
 
@@ -42,26 +43,47 @@ class CNN(nn.Module):
 class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
-        self.self_attn = RotarySparseAttention(
-            dim=config.dim,
-            num_heads=config.num_heads,
-            rotate_v=config.embedding_mode == "blank",
-        )
+        attention_variant = config.get("attention_variant", "standard")
 
+        if attention_variant == "standard":
+            self.self_attn = RotarySparseAttention(
+                dim=config.dim, num_heads=config.num_heads
+            )
+        elif attention_variant == "vrope":
+            self.self_attn = RotarySparseAttention(
+                dim=config.dim, num_heads=config.num_heads, rotate_v=True
+            )
+        elif attention_variant == "rel_value":
+            self.self_attn = RelativePositionValueAttention(
+                dim=config.dim, num_heads=config.num_heads
+            )
+        else:
+            raise ValueError(f"Unknown attention_variant: {attention_variant}")
+
+        self.attention_variant = attention_variant
         self.ffn = GeGLU(dim=config.dim, hidden_dim=config.hidden_dim)
-
         self.pre_attn_norm = nn.RMSNorm(config.dim)
         self.pre_ffn_norm = nn.RMSNorm(config.dim)
-
         self.drop_path = (
             DropPath(drop_prob=drop_path_rate)
             if drop_path_rate > 0.0
             else nn.Identity()
         )
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+    def forward(
+        self,
+        x: Tensor,
+        pos: Tensor,
+        block_mask: BlockMask,
+        neighbor_idx: Tensor | None,
+        neighbor_mask: Tensor | None,
+    ) -> Tensor:
         y = self.pre_attn_norm(x)
-        x = x + self.drop_path(self.self_attn(y, pos, block_mask))
+        if self.attention_variant == "rel_value":
+            attn_out = self.self_attn(y, pos, neighbor_idx, neighbor_mask)
+        else:
+            attn_out = self.self_attn(y, pos, block_mask)
+        x = x + self.drop_path(attn_out)
 
         y = self.pre_ffn_norm(x)
         x = x + self.drop_path(self.ffn(y))
@@ -178,16 +200,27 @@ class Transformer(nn.Module):
         pos: Tensor,
         block_mask: BlockMask,
         seq_lens: Tensor,
+        neighbor_idx: Tensor | None = None,
         bboxes: Tensor | None = None,
     ) -> Outputs:
         real_seq_len = int(seq_lens.sum().item())
-
         x = self.prepare_features(x, pos, bboxes, real_seq_len, seq_lens)
+
         x = x.unsqueeze(0)
         pos = pos.unsqueeze(0)
 
+        neighbor_mask = neighbor_idx >= 0 if neighbor_idx is not None else None
+
         for layer in self.layers:
-            x = checkpoint(layer, x, pos, block_mask, use_reentrant=False)
+            x = checkpoint(
+                layer,
+                x,
+                pos,
+                block_mask,
+                neighbor_idx,
+                neighbor_mask,
+                use_reentrant=False,
+            )
         x = self.final_norm(x)
         x = x.squeeze(0)
 
