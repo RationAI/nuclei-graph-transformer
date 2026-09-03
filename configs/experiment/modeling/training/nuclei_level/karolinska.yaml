@@ -7,7 +7,7 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: nuclei_classification
   - /data/samplers@data.sampler: weighted_random_sampler
-  - /data/augmentations@data.dataset.augmentations: base # spatial polygon_spatial base
+  - /data/augmentations@data.dataset.augmentations: spatial # spatial polygon_spatial base
   - /data/supervision@data.supervision.train_strategy: annotation
   - /data/supervision@data.supervision.eval_strategy: annotation
   - _self_
@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Karolinska, k=32: Blank Token + RoPE + k-NN Attn"
+  run_name: "Karolinska, k=32, spatial augs: Blank Token + RoPE + k-NN Attn"
   description: ""
