@@ -5,14 +5,14 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.providers.karolinska.metadata.test}
-predictions_uri: mlflow-artifacts:/37/99ceb6a78a6047e3a64c0c49a82bcf96/artifacts/predictions
+predictions_uri: mlflow-artifacts:/37/19ad462acbee4122bdf53ac18ba09757/artifacts/predictions
 supervision_dir: ${dataset.providers.karolinska.supervision.annotation}
 label_column: annot_label
 graph_threshold: null
-nuclei_threshold: 0.4053
+nuclei_threshold: 0.4685
 
-mlflow_run_id: 99ceb6a78a6047e3a64c0c49a82bcf96
-mlflow_parent_run_id: 0ef3b54920e3428a9933dae1e0eeeac9
+mlflow_run_id: 19ad462acbee4122bdf53ac18ba09757
+mlflow_parent_run_id: 4ebf6a0615934694b2753c726f4316c7
 
 metadata:
   run_name: "NL Test (Karolinska) Evaluation: Annotation"
