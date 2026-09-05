@@ -11,19 +11,19 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/20bc7792b5db4316a622185cd59bca6b/artifacts/checkpoints/epoch=865-step=38970/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/b8d65215a09c48978237e203fd8fdd41/artifacts/checkpoints/epoch=209-step=9450/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: 20bc7792b5db4316a622185cd59bca6b
+mlflow_parent_run_id: b8d65215a09c48978237e203fd8fdd41
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 40
+  k: 12
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "blank" # "efd", "bbox", "spatial", "efd_spatial"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "efd_spatial"
   supervision:
     paths: ${dataset.paths.supervision}
 
@@ -39,7 +39,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      attention_variant: vrope # standard, vrope, rel_value
+      attention_variant: rel_value # standard, vrope, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
