@@ -1,0 +1,12 @@
+# @package _global_
+
+dataset:
+  name: iCAIRD Cervix
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+  
+  paths:
+    wsi_data:
+      slides_isyntax: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides
+      slides_tif: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides_tif
