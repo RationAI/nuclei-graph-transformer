@@ -20,14 +20,13 @@ dependencies = [
     "transformers>=4.35,<5",
     "einops>=0.8.1",
     "torchvision>=0.24.0",
+    "pyisyntax>=0.1.6",
 ]
 
 [tool.uv.sources]
 rationai-mlkit = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/mlkit.git" }
 rationai-masks = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/masks.git" }
-rationai-kube-jobs = { git = "ssh://git@gitlab.ics.muni.cz/rationai/infrastructure/kube-jobs" }
 
 [dependency-groups]
 dev = ["mypy", "ruff"]
-job = ["rationai-kube-jobs"]
 tests = ["pytest", "pytest-cov"]

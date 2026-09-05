@@ -1,0 +1,10 @@
+# @package _global_
+
+slides_dir: ${dataset.paths.wsi_data.slides_isyntax}
+output_dir: ${dataset.paths.wsi_data.slides}
+mask_tile_width: 512
+mask_tile_height: 512
+max_concurrent: 4
+
+metadata:
+  run_name: "iSyntax to .TIF conversion: ${dataset.name}"
