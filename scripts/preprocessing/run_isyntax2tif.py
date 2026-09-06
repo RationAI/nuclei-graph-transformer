@@ -6,7 +6,7 @@ submit_job(
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=4,
-    memory="200Gi",
+    memory="160Gi",
     public=True,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",

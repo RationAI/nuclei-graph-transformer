@@ -18,7 +18,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 MPP_TOLERANCE = 1e-3
 
 
-@ray.remote(num_cpus=1, memory=(32 * 1024**3))
+@ray.remote(num_cpus=1, memory=(50 * 1024**3))
 def convert_slide(
     slide_path: Path,
     output_dir: Path,
@@ -33,26 +33,21 @@ def convert_slide(
         mpp_x, mpp_y = isx.mpp_x, isx.mpp_y
 
         rgba = isx.read_region(0, 0, width, height, level=0)
-        rgb = rgba[:, :, :3]
+        vips_img = pyvips.Image.new_from_array(rgba)
 
         write_big_tiff(
-            image=pyvips.Image.new_from_array(rgb),
+            image=vips_img.extract_band(0, n=3),
             path=str(output_path),
             mpp_x=mpp_x,
             mpp_y=mpp_y,
             tile_width=tile_width,
             tile_height=tile_height,
         )
-
     with OpenSlide(output_path) as slide:
         out_mpp_x, out_mpp_y =  slide.slide_resolution(level=0)
 
-    assert abs(out_mpp_x - mpp_x) < MPP_TOLERANCE, (
-        f"{slide_path.stem}: mpp-x mismatch, source={mpp_x} output={out_mpp_x}"
-    )
-    assert abs(out_mpp_y - mpp_y) < MPP_TOLERANCE, (
-        f"{slide_path.stem}: mpp-y mismatch, source={mpp_y} output={out_mpp_y}"
-    )
+    assert abs(out_mpp_x - mpp_x) < MPP_TOLERANCE
+    assert abs(out_mpp_y - mpp_y) < MPP_TOLERANCE
 
 
 @with_cli_args(["+preprocessing=isyntax2tif"])
