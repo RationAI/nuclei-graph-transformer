@@ -4,7 +4,7 @@ slides_dir: ${dataset.paths.wsi_data.slides_isyntax}
 output_dir: ${dataset.paths.wsi_data.slides}
 mask_tile_width: 512
 mask_tile_height: 512
-max_concurrent: 3
+max_concurrent: 2
 
 metadata:
   run_name: "iSyntax to .TIF conversion: ${dataset.name}"

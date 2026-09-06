@@ -18,7 +18,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 MPP_TOLERANCE = 1e-3
 
 
-@ray.remote(num_cpus=1, memory=(50 * 1024**3))
+@ray.remote(num_cpus=1, memory=(80 * 1024**3))
 def convert_slide(
     slide_path: Path,
     output_dir: Path,
