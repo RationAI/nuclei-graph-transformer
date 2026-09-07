@@ -303,7 +303,7 @@ def build_table_data(
             continue
         try:
             m = fetcher.fetch(run_id)
-        except Exception as e:  # noqa: BLE001 — surface, don't crash the whole batch
+        except Exception as e:
             print(f"[table {idx}] WARNING: failed to fetch run {run_id}: {e}", file=sys.stderr)
             m = {}
         fetched_rows.append(m)

@@ -1,0 +1,5 @@
+# @package _global_
+
+input_path: results_mmci.md
+mlflow_artifact_path: results
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
