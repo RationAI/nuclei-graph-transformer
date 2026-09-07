@@ -3,3 +3,6 @@
 input_uris: ???
 metrics: ???
 mlflow_artifact_path: forest_plots
+
+metadata:
+  run_name: Forest Plot

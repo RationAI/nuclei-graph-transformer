@@ -1,8 +1,33 @@
 # @package _global_
 
-input_uris: 
- - 
-metrics:
- - AUPRC
- - AUROC
-mlflow_artifact_path: forest_plots
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+mlflow_artifact_path: forest plots
+
+metrics: 
+  - AUROC
+  - AUPRC
+
+inputs:
+  - label: "Shape"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`Attention Pattern` == 'k-NN, k=24'"
+    
+  - label: "Texture"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`Attention Pattern` == 'k-NN, k=16'"
+
+  - label: "Blank Token"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/07_embedding_nb_a_103.csv
+    query: "`Attention Pattern` == 'k-NN, k=12'"
+
+  - label: "Spatial Stats"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape + Relative Positions"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/11_embedding_nb_a_51_nb_a_106.csv
+    query: "`Attention Pattern` == 'k-NN, k=40'"
+
+  - label: "Shape + Spatial Stats"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/13_embedding_nb_a_51_nb_a_89_via_concatenation.csv
+    query: "`Attention Pattern` == 'k-NN, k=32'"
