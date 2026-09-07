@@ -1,0 +1,11 @@
+# @package _global_
+
+input_uris: 
+ - mlflow-artifacts:/37/a38b307b09984eb49e7789d8c2a2ab94/artifacts/plots/01_embedding_nb_a_51.csv
+ - mlflow-artifacts:/37/a38b307b09984eb49e7789d8c2a2ab94/artifacts/plots/03_embedding_nb_a_52.csv
+ - mlflow-artifacts:/37/a38b307b09984eb49e7789d8c2a2ab94/artifacts/plots/04_embedding_nb_a_103.csv
+ - mlflow-artifacts:/37/a38b307b09984eb49e7789d8c2a2ab94/artifacts/plots/06_embedding_nb_a_89.csv
+metrics:
+ - AUPRC
+ - AUROC
+mlflow_artifact_path: forest_plots

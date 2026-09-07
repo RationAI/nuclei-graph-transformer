@@ -1,0 +1,5 @@
+# @package _global_
+
+input_uris: ???
+metrics: ???
+mlflow_artifact_path: forest_plots

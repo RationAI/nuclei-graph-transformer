@@ -71,17 +71,28 @@ def extract_tables(md_text: str) -> list[tuple[str, str, list[str]]]:
     """Find every (heading_context, header_line, [data_lines]) markdown table."""
     lines = md_text.splitlines()
     tables: list[tuple[str, str, list[str]]] = []
-    
+
     active_headings: dict[int, str] = {}
-    
+
     i, n = 0, len(lines)
     while i < n:
         line = lines[i].strip()
-        
+
         if line.startswith("#"):
             level = len(line) - len(line.lstrip("#"))
             raw_text = line.lstrip("#").strip()
             text = clean_cell(raw_text)
+
+            # Clear any deeper sub-headings left over from a previous
+            # section before recording the new one. Without this, a stale
+            # deep heading (e.g. an earlier "#### k Sweep") silently
+            # persists in active_headings and gets attached to unrelated
+            # later tables that never actually sat under it — this was the
+            # cause of tables being mislabeled with "k Sweep" in their name
+            # when they were not sweep tables at all.
+            for key in list(active_headings.keys()):
+                if key > level:
+                    del active_headings[key]
             active_headings[level] = text
 
         if line.startswith("|") and i + 1 < n:
@@ -93,7 +104,7 @@ def extract_tables(md_text: str) -> list[tuple[str, str, list[str]]]:
                 while j < n and lines[j].strip().startswith("|"):
                     data_rows.append(lines[j])
                     j += 1
-                
+
                 sorted_levels = sorted(active_headings.keys())
                 if not sorted_levels:
                     combined_heading = "untitled"
@@ -103,16 +114,16 @@ def extract_tables(md_text: str) -> list[tuple[str, str, list[str]]]:
                         relevant_levels = sorted_levels[-2:]
                     else:
                         relevant_levels = [sorted_levels[-1]]
-                        
+
                     combined_heading = " - ".join(
                         active_headings[lvl] for lvl in relevant_levels
                     )
-                    
+
                 tables.append((combined_heading, header, data_rows))
                 i = j
                 continue
         i += 1
-        
+
     return tables
 
 
@@ -208,6 +219,7 @@ class MlflowMetricFetcher:
                     break
         return out
 
+
 # --------------------------------------------------------------------------
 # 4. Table -> tidy DataFrame, sourcing metric values from MLflow
 # --------------------------------------------------------------------------
@@ -293,7 +305,6 @@ def build_table_data(
         print(f"[table {idx}] no Evaluation column found — skipping", file=sys.stderr)
         return TableData(idx, heading, title, out.iloc[0:0], label_cols, [])
 
-
     metrics_present: set[str] = set()
     fetched_rows: list[dict[str, float]] = []
     for raw_cell in raw_df[eval_col]:
@@ -303,7 +314,7 @@ def build_table_data(
             continue
         try:
             m = fetcher.fetch(run_id)
-        except Exception as e:  # noqa: BLE001 — surface, don't crash the whole batch
+        except Exception as e:
             print(f"[table {idx}] WARNING: failed to fetch run {run_id}: {e}", file=sys.stderr)
             m = {}
         fetched_rows.append(m)
@@ -323,6 +334,7 @@ def build_table_data(
 
     sweep_col = detect_sweep_column(label_cols)
     return TableData(idx, heading, title, out, label_cols, metrics_present_list, sweep_col)
+
 
 def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
     raw_tables = extract_tables(md_text)
@@ -368,15 +380,16 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
             safe_heading = slugify(t.heading)
             filename = f"{t.index:02d}_{safe_heading}.csv"
-            
+
             csv_path = output_dir_path / filename
             t.df.to_csv(csv_path, index=False)
             print(f"[table {t.index}] wrote {csv_path}")
 
         logger.log_artifacts(
-            local_dir=str(output_dir_path), 
+            local_dir=str(output_dir_path),
             artifact_path=config.get("mlflow_artifact_path", "tables")
         )
+
 
 if __name__ == "__main__":
     main()
