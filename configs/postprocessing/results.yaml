@@ -6,4 +6,4 @@ mlflow_artifact_path: ???
 mlflow_tracking_uri: ???
 
 metadata:
-  run_name: Result Plots
+  run_name: Results
