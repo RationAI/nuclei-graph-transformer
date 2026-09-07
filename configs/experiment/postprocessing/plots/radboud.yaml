@@ -1,0 +1,7 @@
+# @package _global_
+
+input_path: results_radboud.md
+mlflow_artifact_path: plots
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+

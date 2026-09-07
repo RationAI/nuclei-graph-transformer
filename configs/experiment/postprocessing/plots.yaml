@@ -1,5 +1,0 @@
-# @package _global_
-
-input_path: results.md
-mlflow_artifact_path: plots
-

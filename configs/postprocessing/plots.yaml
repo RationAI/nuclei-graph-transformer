@@ -3,6 +3,7 @@
 input_path: ???
 cache_file: .mlflow_metrics_cache.json
 mlflow_artifact_path: ???
+mlflow_tracking_uri: ???
 
 metadata:
   run_name: Result Plots

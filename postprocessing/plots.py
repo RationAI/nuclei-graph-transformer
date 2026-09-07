@@ -22,6 +22,7 @@ Confirmed real MLflow key convention (from actual logged runs):
 import json
 import re
 import sys
+from tempfile import TemporaryDirectory
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -66,13 +67,23 @@ _CI_KEY_CANDIDATES: dict[str, list[str]] = {
 _SEP_RE = re.compile(r"^\|?[\s\-:|]+\|?$")
 
 
-def extract_tables(md_text: str) -> list[tuple[str, list[str]]]:
-    """Find every (header_line, [data_lines]) markdown table in the text."""
+def extract_tables(md_text: str) -> list[tuple[str, str, list[str]]]:
+    """Find every (heading_context, header_line, [data_lines]) markdown table."""
     lines = md_text.splitlines()
-    tables: list[tuple[str, list[str]]] = []
+    tables: list[tuple[str, str, list[str]]] = []
+    
+    active_headings: dict[int, str] = {}
+    
     i, n = 0, len(lines)
     while i < n:
         line = lines[i].strip()
+        
+        if line.startswith("#"):
+            level = len(line) - len(line.lstrip("#"))
+            raw_text = line.lstrip("#").strip()
+            text = clean_cell(raw_text)
+            active_headings[level] = text
+
         if line.startswith("|") and i + 1 < n:
             sep = lines[i + 1].strip()
             if _SEP_RE.match(sep) and "-" in sep:
@@ -82,10 +93,26 @@ def extract_tables(md_text: str) -> list[tuple[str, list[str]]]:
                 while j < n and lines[j].strip().startswith("|"):
                     data_rows.append(lines[j])
                     j += 1
-                tables.append((header, data_rows))
+                
+                sorted_levels = sorted(active_headings.keys())
+                if not sorted_levels:
+                    combined_heading = "untitled"
+                else:
+                    deepest_text = active_headings[sorted_levels[-1]].lower()
+                    if "k" in deepest_text and "sweep" in deepest_text and len(sorted_levels) >= 2:
+                        relevant_levels = sorted_levels[-2:]
+                    else:
+                        relevant_levels = [sorted_levels[-1]]
+                        
+                    combined_heading = " - ".join(
+                        active_headings[lvl] for lvl in relevant_levels
+                    )
+                    
+                tables.append((combined_heading, header, data_rows))
                 i = j
                 continue
         i += 1
+        
     return tables
 
 
@@ -194,6 +221,7 @@ class TableData:
     """One parsed+fetched markdown table."""
 
     index: int
+    heading: str
     title: str
     df: pd.DataFrame
     label_cols: list[str]
@@ -245,7 +273,7 @@ def detect_sweep_column(label_cols: list[str]) -> str | None:
 
 
 def build_table_data(
-    idx: int, header: str, data_lines: list[str], fetcher: MlflowMetricFetcher
+    idx: int, heading: str, header: str, data_lines: list[str], fetcher: MlflowMetricFetcher
 ) -> TableData | None:
     raw_df = table_to_raw_df(header, data_lines)
     if raw_df is None:
@@ -259,19 +287,12 @@ def build_table_data(
     for lc in label_cols:
         out[lc] = raw_df[lc].map(clean_cell)
 
-    if label_cols:
-        out["config"] = out[label_cols].agg(lambda r: " | ".join(v for v in r if v), axis=1)
-    else:
-        out["config"] = [f"row {i}" for i in range(len(out))]
-    out["config"] = out["config"].where(
-        out["config"].str.len() > 0, other=[f"row {i}" for i in range(len(out))]
-    )
-
-    title = f"Table {idx} ({', '.join(label_cols) or 'rows'})"
+    title = f"Table {idx} [{heading}] ({', '.join(label_cols) or 'rows'})"
 
     if eval_col is None:
         print(f"[table {idx}] no Evaluation column found — skipping", file=sys.stderr)
-        return TableData(idx, title, out.iloc[0:0], label_cols, [])
+        return TableData(idx, heading, title, out.iloc[0:0], label_cols, [])
+
 
     metrics_present: set[str] = set()
     fetched_rows: list[dict[str, float]] = []
@@ -301,21 +322,18 @@ def build_table_data(
         out = out[out[metrics_present_list].notna().any(axis=1)].reset_index(drop=True)
 
     sweep_col = detect_sweep_column(label_cols)
-    return TableData(idx, title, out, label_cols, metrics_present_list, sweep_col)
-
+    return TableData(idx, heading, title, out, label_cols, metrics_present_list, sweep_col)
 
 def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
-    """Parses every markdown table in md_text, fetches metrics from MLflow
-    for each row, and returns a TableData per table."""
     raw_tables = extract_tables(md_text)
     if not raw_tables:
         print("No markdown tables found.", file=sys.stderr)
         return []
 
     results = []
-    for idx, (header, data_lines) in enumerate(raw_tables, start=1):
+    for idx, (heading, header, data_lines) in enumerate(raw_tables, start=1):
         print(f"[table {idx}] fetching metrics from MLflow...")
-        td = build_table_data(idx, header, data_lines, fetcher)
+        td = build_table_data(idx, heading, header, data_lines, fetcher)
         if td is None:
             continue
         print(f"[table {idx}] {len(td.df)} rows, columns: {td.label_cols} | metrics: {td.metrics_present}")
@@ -323,7 +341,14 @@ def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
     return results
 
 
-@with_cli_args(["+postprocessing=md_results_plot"])
+def slugify(text: str) -> str:
+    """Converts a heading like '"k" Sweep' into a safe filename like 'k_sweep'."""
+    text = text.lower()
+    text = re.sub(r'[^a-z0-9]+', '_', text)
+    return text.strip('_') or "table"
+
+
+@with_cli_args(["+postprocessing=plots"])
 @hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
@@ -336,15 +361,22 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     tables = load_tables(text, fetcher)
 
     with TemporaryDirectory() as output_dir:
+        output_dir_path = Path(output_dir)
         for t in tables:
             if t.df.empty:
                 continue
-            csv_path = output_dir / f"table_{t.index}.csv"
+
+            safe_heading = slugify(t.heading)
+            filename = f"{t.index:02d}_{safe_heading}.csv"
+            
+            csv_path = output_dir_path / filename
             t.df.to_csv(csv_path, index=False)
             print(f"[table {t.index}] wrote {csv_path}")
 
-        logger.log_artifacts(local_dir=str(output_dir), artifact_path=config.mlflow_artifact_path)
-
+        logger.log_artifacts(
+            local_dir=str(output_dir_path), 
+            artifact_path=config.get("mlflow_artifact_path", "tables")
+        )
 
 if __name__ == "__main__":
     main()
