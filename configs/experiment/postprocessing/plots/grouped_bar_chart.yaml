@@ -1,0 +1,27 @@
+# @package _global_
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+
+metrics: 
+  - Accuracy
+  - Precision
+  - Recall
+  - Specificity
+
+inputs:
+
+  - label: "Shape (Bag of Cells)"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`PE` == 'None' and `Attention Pattern` == 'dense'"
+
+  - label: "Shape (Structured)"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`Attention Pattern` == 'k-NN, k=24'"
+    
+  - label: "Texture (Bag of Cells)"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`PE` == 'None' and `Attention Pattern` == 'dense'"
+
+  - label: "Texture (Structured)"
+    uri: mlflow-artifacts:/97/d0b09a6f20af4efd819941fac71c12ab/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`Attention Pattern` == 'k-NN, k=16'"

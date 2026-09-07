@@ -1,0 +1,10 @@
+# @package _global_
+
+mlflow_tracking_uri: ???
+mlflow_artifact_path: grouped bar charts
+
+inputs: ???
+metrics: ???
+
+metadata:
+  run_name: Grouped Bar Chart
