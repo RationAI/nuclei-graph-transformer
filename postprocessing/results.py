@@ -348,7 +348,7 @@ def slugify(text: str) -> str:
     return text.strip('_') or "table"
 
 
-@with_cli_args(["+postprocessing=plots"])
+@with_cli_args(["+postprocessing=results"])
 @hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
