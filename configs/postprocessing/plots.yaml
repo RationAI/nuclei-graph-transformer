@@ -1,0 +1,8 @@
+# @package _global_
+
+input_path: ???
+cache_file: .mlflow_metrics_cache.json
+mlflow_artifact_path: ???
+
+metadata:
+  run_name: Result Plots
