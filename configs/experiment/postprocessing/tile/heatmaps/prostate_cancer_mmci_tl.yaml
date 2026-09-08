@@ -6,7 +6,7 @@ defaults:
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
 slides_uri: ${dataset.mlflow_uris.tiles.224.test[0]}/slides.parquet # ${dataset.mlflow_uris.tiles.512.test[0]}/slides.parquet ${dataset.mlflow_uris.tiles.224.test[0]}/slides.parquet
-tile_predictions_uri: mlflow-artifacts:/97/e495fe0137d2459c8fd59c674b8e3cb0/artifacts/tile_predictions
+tile_predictions_uri: mlflow-artifacts:/97/a84387c0175b4a3a8d09867b8adda4c9/artifacts/tile_predictions
 
-mlflow_run_id: e495fe0137d2459c8fd59c674b8e3cb0
-mlflow_parent_run_id: d8375c44a0a14533b03a3be72d49ddad
+mlflow_run_id: a84387c0175b4a3a8d09867b8adda4c9
+mlflow_parent_run_id: 5a0dd9f5b867446ebb465529e2fbc835
