@@ -6,9 +6,9 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-nuclei_predictions_uri: mlflow-artifacts:/97/8b1a14c68b4943f79cba5271f1ca3f1b/artifacts/predictions
-pooling_mode: max
-pooling_k: null
+nuclei_predictions_uri: mlflow-artifacts:/97/15afaa140abe4ca3868d43b81d574dbd/artifacts/predictions
+pooling_mode: top_k
+pooling_k: 4
 
 data:
   dataset:
@@ -16,7 +16,7 @@ data:
     tile_size: 224 # 512 224
     margin: 56 # 128 56
     efd_order: 16
-    embedding_mode: "efd_spatial" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+    embedding_mode: "blank" # "efd", "bbox", "spatial", "efd_spatial", "blank"
 
     thresholds:
       tissue_roi_t: 0.5
@@ -27,5 +27,5 @@ data:
       folding_t: 0.25
       carcinoma_roi_t: 0.5
 
-mlflow_run_id: e495fe0137d2459c8fd59c674b8e3cb0
-mlflow_parent_run_id: d8375c44a0a14533b03a3be72d49ddad
+mlflow_run_id: a84387c0175b4a3a8d09867b8adda4c9
+mlflow_parent_run_id: 5a0dd9f5b867446ebb465529e2fbc835

@@ -12,14 +12,14 @@ defaults:
   - /callbacks/masks@trainer.callbacks.attn_masks: attention
   - _self_
 
-checkpoint: # TODO
+checkpoint: mlflow-artifacts:/97/72fd0c95dbcd42b7a98f74d540af2559/artifacts/checkpoints/epoch=90-step=4004/checkpoint.ckpt
 
 mlflow_run_id: null
-mlflow_parent_run_id: null
+mlflow_parent_run_id: 72fd0c95dbcd42b7a98f74d540af2559
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 16
+  k: 40
   metadata:
     predict: ${dataset.providers.radboud.metadata.test}
   dataset:
