@@ -1,0 +1,56 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+metrics: 
+  - AUPRC
+  - AUROC
+
+inputs:
+  - label: "Shape"
+    condition: "Structured"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "Bag of Cells"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv
+    query: '`PE`.isna() and `Attention Pattern` == "dense"'
+
+  - label: "Texture"
+    condition: "Structured"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=16'"
+
+  - label: "Texture"
+    condition: "Bag of Cells"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/05_embedding_nb_a_52.csv
+    query: '`PE`.isna() and `Attention Pattern` == "dense"'
+
+  - label: "Shape"
+    condition: "Structured"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "Bag of Cells"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'dense'"
+
+  - label: "Texture"
+    condition: "Structured"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/03_embedding_nb_a_52.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=16'"
+
+  - label: "Texture"    
+    condition: "Bag of Cells"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/03_embedding_nb_a_52.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'dense'"

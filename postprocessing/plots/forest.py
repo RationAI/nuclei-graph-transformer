@@ -19,7 +19,7 @@ from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
-# Display Configuration: Maximum resolution, suppress memory warnings
+
 matplotlib.rcParams.update({
     'figure.max_open_warning': 0,
     'figure.dpi': 300,
@@ -72,8 +72,22 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
         print("No valid metrics found to plot.", file=sys.stderr)
         return
 
-    # Ensure consistent ordering
-    df = df.sort_values(by=["Modality", "Condition"], ascending=[False, False])
+    modality_order = [
+        "Blank Token", 
+        "Spatial Stats", 
+        "Shape", 
+        "Shape + Spatial Stats", 
+        "Shape + Relative Positions",
+        "Texture"
+    ]
+    condition_order = ["Bag of Cells", "Structured", "Default"]
+    
+    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Condition"] = pd.Categorical(df["Condition"], categories=condition_order, ordered=True)
+    
+    df = df.dropna(subset=["Modality"])
+    df = df.sort_values(by=["Modality", "Condition"], ascending=[True, True])
+    
     unique_models = df["Display_Name"].unique()
     y_pos = np.arange(len(unique_models))
     
@@ -87,7 +101,6 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
         sharey=True
     )
     
-    # Ensure axes is always a 2D array for consistent indexing
     if n_rows == 1 and n_cols == 1:
         axes = np.array([[axes]])
     elif n_rows == 1:
@@ -99,7 +112,6 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
 
     for row_idx, metric in enumerate(present_metrics):
         
-        # Dynamically assign colors based on the current metric row
         if metric.upper() == "AUROC":
             cond_colors = {'Bag of Cells': '#7f7f7f', 'Structured': '#1f77b4'}  # Blue for AUROC
         elif metric.upper() == "AUPRC":
@@ -111,13 +123,12 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset].set_index("Display_Name")
             
-            # Align data to the unified y-axis structure
             vals, lo, hi, point_colors = [], [], [], []
             for model in unique_models:
                 if model in subset.index:
                     row_data = subset.loc[model]
                     if isinstance(row_data, pd.DataFrame):
-                        row_data = row_data.iloc[0] # Fallback if duplicates exist
+                        row_data = row_data.iloc[0]
                     vals.append(row_data[metric])
                     lo.append(row_data.get(f"{metric}_lo", row_data[metric]))
                     hi.append(row_data.get(f"{metric}_hi", row_data[metric]))
@@ -135,7 +146,6 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
             xerr_lo = np.where(np.isnan(lo), 0, vals - lo)
             xerr_hi = np.where(np.isnan(hi), 0, hi - vals)
             
-            # Plot points
             for j in range(len(vals)):
                 if not np.isnan(vals[j]):
                     ax.errorbar(
@@ -178,6 +188,8 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
 
     axes[0, 0].set_yticks(y_pos)
     axes[0, 0].set_yticklabels(unique_models, fontsize=11)
+    
+    axes[0, 0].invert_yaxis()
     
     fig.suptitle("Performance by Modality", fontsize=16, fontweight='bold', y=1.02)
     fig.tight_layout()

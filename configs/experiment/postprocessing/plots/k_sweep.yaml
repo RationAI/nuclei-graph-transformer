@@ -1,0 +1,116 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+metrics:
+  - "AUROC"
+  - "AUPRC"
+
+modality_order:
+  - "Shape"
+  - "Texture"
+
+inputs:
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 8
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('8', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 12
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('12', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 16
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('16', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 20
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('20', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 24
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('24', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 32
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('32', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: 40
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/04_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('40', regex=False)"
+
+  - label: "Shape"
+    dataset: "MMCI"
+    k: "dense"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+##### Radboud
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 8
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('8', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 12
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('12', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 16
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('16', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 20
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('20', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 24
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('24', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 32
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('32', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: 40
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/02_embedding_nb_a_51_k_sweep.csv
+    query: "`k`.str.contains('40', regex=False)"
+
+  - label: "Shape"
+    dataset: "Radboud"
+    k: "dense"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+
+
+
+metadata:
+  run_name: k-sweep plot — Q4 (receptive-field scale vs. global attention)

@@ -1,0 +1,41 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+metrics: 
+  - "AUROC"
+  - "AUPRC"
+
+inputs:
+  # ==========================================
+  # MMCI DATASET
+  # ==========================================
+  
+  - label: "Blank Token"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/07_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'k-NN, k=12'"
+
+
+  - label: "Spatial Stats"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+
+  # ==========================================
+  # RADBOUD DATASET
+  # ==========================================
+  
+  - label: "Blank Token"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/04_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'k-NN, k=32'"
+
+  - label: "Spatial Stats"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=20'"
+
+metadata:
+  run_name: "Grouped Bar Chart - Learned vs Engineered Space"

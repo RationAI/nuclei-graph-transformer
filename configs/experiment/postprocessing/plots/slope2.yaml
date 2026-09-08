@@ -1,0 +1,71 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+metrics:
+  - "AUROC"
+  - "AUPRC"
+
+modality_order:
+  - "Shape"
+  - "Texture"
+
+inputs:
+  # ==========================================
+  # MMCI DATASET
+  # ==========================================
+  
+  - label: "Shape"
+    condition: "Local Neighborhood"
+    dataset: "MMCI"
+    uri: "mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv"
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "Explicit Position"
+    dataset: "MMCI"
+    uri: "mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+  - label: "Texture"
+    condition: "Local Neighborhood"
+    dataset: "MMCI"
+    uri: "mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=16'"
+
+  - label: "Texture"
+    condition: "Explicit Position"
+    dataset: "MMCI"
+    uri: "mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/05_embedding_nb_a_52.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+  # ==========================================
+  # RADBOUD DATASET
+  # ==========================================
+  
+  - label: "Shape"
+    condition: "Local Neighborhood"
+    dataset: "Radboud"
+    uri: "mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "Explicit Position"
+    dataset: "Radboud"
+    uri: "mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+  - label: "Texture"
+    condition: "Local Neighborhood"
+    dataset: "Radboud"
+    uri: "mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/03_embedding_nb_a_52.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=16'"
+
+  - label: "Texture"
+    condition: "Explicit Position"
+    dataset: "Radboud"
+    uri: "mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/03_embedding_nb_a_52.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+metadata:
+  run_name: "Head-to-Head Slope Plot"

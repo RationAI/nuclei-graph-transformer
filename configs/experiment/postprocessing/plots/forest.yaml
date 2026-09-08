@@ -53,7 +53,7 @@ inputs:
   - label: "Texture"    
     condition: null
     dataset: "Radboud"
-    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/03_embedding_nb_a_52.csv
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/03_embedding_nb_a_52.csv
     query: "`Attention Pattern` == 'k-NN, k=16'"
 
   - label: "Blank Token"

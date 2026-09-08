@@ -1,8 +1,7 @@
-"""Generates a Faceted Grouped Bar Chart with CI error bars from MLflow.
+"""Generates side-by-side Grouped Bar Charts per Dataset from MLflow.
 
-Groups metrics into a grid (Rows = Metrics, Cols = Datasets).
-The X-axis represents modalities (e.g., Shape, Texture), with paired bars 
-showing the conditions (e.g., Bag of Cells vs Structured).
+Each subplot represents a Dataset, with X-axis showing Modality and Condition groups,
+and bars grouped side-by-side for all selected metrics with non-overlapping horizontal labels.
 """
 
 import sys
@@ -22,7 +21,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 matplotlib.rcParams.update({
     'figure.max_open_warning': 0,
     'figure.dpi': 300,
-    'savefig.dpi': 600,
+    'savefig.dpi': 1200,
     'savefig.bbox': 'tight'
 })
 
@@ -41,124 +40,188 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             if query:
                 df = df.query(query)
             if df.empty:
+                print(f"  -> WARNING: [{label}/{dataset}] query '{query}' matched no rows "
+                      f"in {uri} — this bar will be missing from the chart", file=sys.stderr)
                 continue
+            if len(df) > 1:
+                print(f"  -> WARNING: [{label}/{dataset}] query '{query}' matched {len(df)} rows "
+                      f"in {uri}, expected exactly 1 — taking the first", file=sys.stderr)
             record = df.iloc[0].to_dict()
             record["Modality"] = label
-            record["Condition"] = condition
+            
+            if str(condition).lower() in ["none", "", "default"]:
+                record["Condition"] = "Default"
+            else:
+                record["Condition"] = condition
+                
             record["Dataset"] = dataset
             records.append(record)
         except Exception as e:
             print(f"  -> ERROR fetching {uri}: {e}", file=sys.stderr)
     return pd.DataFrame(records)
 
-def create_faceted_bar_chart(df: pd.DataFrame, metrics: list[str], output_path: Path):
+def create_dataset_grouped_bar_chart(
+    df: pd.DataFrame, 
+    metrics: list[str], 
+    modality_order: list[str], 
+    condition_order: list[str], 
+    output_path: Path
+):
     present_metrics = [m for m in metrics if m in df.columns]
     datasets = df["Dataset"].unique()
-    modalities = df["Modality"].unique()
-    conditions = df["Condition"].unique()
     
     if not present_metrics or df.empty:
         print("No valid metrics found.", file=sys.stderr)
         return
 
-    n_rows = len(present_metrics)
-    n_cols = len(datasets)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.0 * n_cols, 4.5 * n_rows), sharex=True)
+    if not modality_order:
+        modality_order = sorted(df["Modality"].unique())
+    if not condition_order:
+        condition_order = sorted(df["Condition"].unique())
     
-    if n_rows == 1 and n_cols == 1: axes = np.array([[axes]])
-    elif n_rows == 1: axes = axes[np.newaxis, :]
-    elif n_cols == 1: axes = axes[:, np.newaxis]
+    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Condition"] = pd.Categorical(df["Condition"], categories=condition_order, ordered=True)
+    
+    df = df.dropna(subset=["Modality", "Condition"])
+    df = df.sort_values(by=["Modality", "Condition"])
+    
+    modalities = [m for m in modality_order if m in df["Modality"].values]
+    conditions = [c for c in condition_order if c in df["Condition"].values]
+    
+    x_labels = []
+    x_keys = []
+    for mod in modalities:
+        for cond in conditions:
+            sub = df[(df["Modality"] == mod) & (df["Condition"] == cond)]
+            if not sub.empty:
+                cond_str = f"\n({cond})" if cond != "Default" else ""
+                x_labels.append(f"{mod}{cond_str}")
+                x_keys.append((mod, cond))
 
-    x_indices = np.arange(len(modalities))
-    bar_width = 0.35
-    colors = {'Bag of Cells': '#a0a0a0', 'Structured': '#3D6B8C'}
-    fallback_colors = ['#1f77b4', '#ff7f0e']
+    if not x_keys:
+        print("No valid groups to plot after applying modality/condition filters.", file=sys.stderr)
+        return
 
-    for row_idx, metric in enumerate(present_metrics):
-        for col_idx, dataset in enumerate(datasets):
-            ax = axes[row_idx, col_idx]
-            subset = df[df["Dataset"] == dataset]
+    n_metrics = len(present_metrics)
+    bar_width = 0.02
+    group_width = n_metrics * bar_width + 0.01
+    x_indices = np.arange(len(x_keys)) * group_width
+    
+    metric_colors = {
+        "AUROC": '#1f77b4',
+        "AUPRC": '#ff7f0e',
+        "Accuracy": '#2ca02c',
+        "Precision": '#d62728',
+        "Recall": '#9467bd',
+        "Specificity": '#8c564b',
+    }
+    
+    n_cols = len(datasets)
+    panel_width = 0.75 * len(x_keys) * n_metrics + 0.6
+    fig, axes = plt.subplots(1, n_cols, figsize=(panel_width * n_cols, 7.5), sharey=True, squeeze=False)
+
+    handles, labels = [], []
+
+    for col_idx, dataset in enumerate(datasets):
+        ax = axes[0, col_idx]
+        subset = df[df["Dataset"] == dataset]
+        
+        for m_idx, metric in enumerate(present_metrics):
+            vals, lo, hi = [], [], []
+            for mod, cond in x_keys:
+                row = subset[(subset["Modality"] == mod) & (subset["Condition"] == cond)]
+                if not row.empty:
+                    row_data = row.iloc[0]
+                    vals.append(row_data[metric])
+                    lo.append(row_data.get(f"{metric}_lo", row_data[metric]))
+                    hi.append(row_data.get(f"{metric}_hi", row_data[metric]))
+                else:
+                    vals.append(np.nan)
+                    lo.append(np.nan)
+                    hi.append(np.nan)
             
-            for cond_idx, condition in enumerate(conditions):
-                cond_data = subset[subset["Condition"] == condition].set_index("Modality")
-                
-                vals, lo, hi = [], [], []
-                for mod in modalities:
-                    if mod in cond_data.index:
-                        row_data = cond_data.loc[mod]
-                        if isinstance(row_data, pd.DataFrame): row_data = row_data.iloc[0]
-                        vals.append(row_data[metric])
-                        lo.append(row_data.get(f"{metric}_lo", row_data[metric]))
-                        hi.append(row_data.get(f"{metric}_hi", row_data[metric]))
-                    else:
-                        vals.append(np.nan)
-                        lo.append(np.nan)
-                        hi.append(np.nan)
-                
-                vals = np.array(vals, dtype=float)
-                lo = np.array(lo, dtype=float)
-                hi = np.array(hi, dtype=float)
-                
-                xerr_lo = np.where(np.isnan(lo), 0, vals - lo)
-                xerr_hi = np.where(np.isnan(hi), 0, hi - vals)
-                
-                offset = (cond_idx - len(conditions) / 2 + 0.5) * bar_width
-                color = colors.get(condition, fallback_colors[cond_idx % len(fallback_colors)])
-                
-                rects = ax.bar(
-                    x_indices + offset, vals, bar_width, 
-                    label=condition if row_idx == 0 and col_idx == 0 else "", 
-                    color=color, edgecolor='white', linewidth=1,
-                    yerr=[xerr_lo, xerr_hi], capsize=4, error_kw={'elinewidth': 1.5, 'alpha': 0.7}
-                )
-                
-                # Annotate top of bars
-                for j, rect in enumerate(rects):
-                    height = vals[j]
-                    if not np.isnan(height):
-                        ax.annotate(
-                            f'{height:.3f}',
-                            xy=(rect.get_x() + rect.get_width() / 2, hi[j] if not np.isnan(hi[j]) else height),
-                            xytext=(0, 5), textcoords="offset points",
-                            ha='center', va='bottom', rotation=90, fontsize=9, fontfamily='monospace'
-                        )
-
-            ax.set_ylabel(metric, fontsize=12, fontweight='bold')
-            ax.set_ylim(0.5, 1.15) # Scaled so bars don't start at 0, revealing the gap size
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            ax.set_axisbelow(True)
-            ax.spines[["top", "right"]].set_visible(False)
+            vals = np.array(vals, dtype=float)
+            lo = np.array(lo, dtype=float)
+            hi = np.array(hi, dtype=float)
             
-            if row_idx == 0:
-                ax.set_title(f"Dataset: {dataset}", fontsize=14, fontweight='bold', pad=15)
-            if row_idx == n_rows - 1:
-                ax.set_xticks(x_indices)
-                ax.set_xticklabels(modalities, fontsize=12, fontweight='bold')
+            xerr_lo = np.where(np.isnan(lo), 0, vals - lo)
+            xerr_hi = np.where(np.isnan(hi), 0, hi - vals)
+            
+            offset = (m_idx - n_metrics / 2 + 0.5) * bar_width
+            color = metric_colors.get(metric, '#333333')
+            
+            bar_label = metric if col_idx == 0 else ""
+            
+            rects = ax.bar(
+                x_indices + offset, vals, bar_width, 
+                label=bar_label, 
+                color=color, edgecolor='white', linewidth=0.8,
+                yerr=[xerr_lo, xerr_hi], capsize=2.5, error_kw={'elinewidth': 1.0, 'alpha': 0.6}
+            )
+            
+            if col_idx == 0 and len(rects) > 0:
+                handles.append(rects[0])
+                labels.append(metric)
+            
+            for j, rect in enumerate(rects):
+                height = vals[j]
+                if not np.isnan(height):
+                    text_y_offset = 4 + (m_idx % 2) * 12
+                    ax.annotate(
+                        f'{height:.3f}',
+                        xy=(rect.get_x() + rect.get_width() / 2, hi[j] if not np.isnan(hi[j]) else height),
+                        xytext=(0, text_y_offset), textcoords="offset points",
+                        ha='center', va='bottom', fontsize=8, fontfamily='monospace', rotation=0
+                    )
 
-    fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=len(conditions), fontsize=12)
-    fig.tight_layout()
+        ax.set_title(f"Dataset: {dataset}", fontsize=15, fontweight='bold', pad=15)
+        ax.set_ylabel("Metric Score", fontsize=12, fontweight='bold')
+        ax.set_ylim(0.5, 1.25)
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        ax.set_axisbelow(True)
+        ax.spines[["top", "right"]].set_visible(False)
+        
+        ax.set_xticks(x_indices)
+        ax.set_xticklabels(x_labels, fontsize=10, fontweight='bold', rotation=30, ha='right')
+
+    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.01), ncol=len(labels), fontsize=11)
+    fig.tight_layout(rect=[0, 0.08, 1, 1])
+    
     plt.savefig(output_path)
     plt.close(fig)
-    print(f"Saved Faceted Bar Chart to {output_path}")
+    print(f"Saved Dataset-Grouped Bar Chart to {output_path}")
 
-@with_cli_args(["+postprocessing=plots/bars"])
+@with_cli_args(["+postprocessing=plots/grouped_bar_chart"])
 @hydra.main(config_path="../../configs", config_name="postprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     if config.get("mlflow_tracking_uri"):
         import mlflow
         mlflow.set_tracking_uri(config.mlflow_tracking_uri)
+        
     inputs = OmegaConf.to_object(config.get("inputs", []))
     metrics = OmegaConf.to_object(config.get("metrics", ["AUROC", "AUPRC"]))
+    
+    modality_order_cfg = config.get("modality_order", [])
+    modality_order = OmegaConf.to_object(modality_order_cfg) if OmegaConf.is_config(modality_order_cfg) else modality_order_cfg
+    
+    condition_order_cfg = config.get("condition_order", [])
+    condition_order = OmegaConf.to_object(condition_order_cfg) if OmegaConf.is_config(condition_order_cfg) else condition_order_cfg
+    
     if not inputs:
         raise ValueError("No inputs provided.")
+        
     df = load_plot_data(inputs)
     if df.empty:
         return
+        
     with TemporaryDirectory() as output_dir:
-        out_path = Path(output_dir) / "bars_faceted_q2.png"
-        create_faceted_bar_chart(df, metrics, out_path)
-        logger.log_artifacts(local_dir=str(output_dir), artifact_path=config.get("mlflow_artifact_path", "plots"))
+        out_path = Path(output_dir) / "bars_dataset_grouped.png"
+        create_dataset_grouped_bar_chart(df, metrics, modality_order, condition_order, out_path)
+        logger.log_artifacts(
+            local_dir=str(output_dir), 
+            artifact_path=config.get("mlflow_artifact_path", "plots")
+        )
 
 if __name__ == "__main__":
     main()

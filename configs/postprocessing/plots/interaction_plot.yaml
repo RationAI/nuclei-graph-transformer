@@ -1,0 +1,8 @@
+# @package _global_
+
+input_uris: ???
+metrics: ???
+mlflow_artifact_path: interaction plot
+
+metadata:
+  run_name: Ineraction Plot

@@ -1,0 +1,101 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+mlflow_artifact_path: interaction_plot
+
+metrics:
+  - "AUROC"
+  - "AUPRC"
+
+modality_order:
+  - "Blank Token"
+  - "Spatial Stats"
+
+inputs:
+  # ==========================================
+  # MMCI DATASET
+  # ==========================================
+
+  # --- Blank Token ---
+  - label: "Blank Token"
+    condition: "rope_knn"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/07_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'k-NN, k=12'"
+
+  - label: "Blank Token"
+    condition: "rope_dense"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/07_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'Dense'"
+
+  # --- Spatial Stats ---
+  - label: "Spatial Stats"
+    condition: "rope_knn"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Spatial Stats"
+    condition: "rope_dense"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+  - label: "Spatial Stats"
+    condition: "none_knn"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Spatial Stats"
+    condition: "none_dense"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'dense'"
+
+
+  # ==========================================
+  # RADBOUD DATASET
+  # ==========================================
+
+  # --- Blank Token ---
+  - label: "Blank Token"
+    condition: "rope_knn"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/04_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'k-NN, k=32'"
+
+  - label: "Blank Token"
+    condition: "rope_dense"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/04_embedding_nb_a_103.csv
+    query: "`PE` == '\"V\" rotation RoPE' and `Attention Pattern` == 'dense'"
+
+  # --- Spatial Stats ---
+  - label: "Spatial Stats"
+    condition: "rope_knn"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=20'"
+
+  - label: "Spatial Stats"
+    condition: "rope_dense"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'dense'"
+
+  - label: "Spatial Stats"
+    condition: "none_knn"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'k-NN, k=20'"
+
+  - label: "Spatial Stats"
+    condition: "none_dense"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
+    query: "`PE`.isna() and `Attention Pattern` == 'dense'"
+
+metadata:
+  run_name: Interaction plot — Q3 (locality x RoPE)

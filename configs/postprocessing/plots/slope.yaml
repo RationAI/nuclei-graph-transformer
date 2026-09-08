@@ -1,0 +1,10 @@
+# @package _global_
+
+mlflow_tracking_uri: ???
+mlflow_artifact_path: slope plot
+
+inputs: ???
+metrics: ???
+
+metadata:
+  run_name: Slope plot

@@ -143,6 +143,7 @@ def _split_row(line: str) -> list[str]:
 _BOLD_RE = re.compile(r"\*\*(.*?)\*\*")
 _BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
 _LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+_TAG_RE = re.compile(r"<[^>]+>")
 
 
 def clean_cell(cell: str) -> str:
@@ -150,6 +151,7 @@ def clean_cell(cell: str) -> str:
     cell = _BOLD_RE.sub(r"\1", cell)
     cell = _BR_RE.sub(" ", cell)
     cell = _LINK_RE.sub(r"\1", cell)  # keep link text, drop the URL
+    cell = _TAG_RE.sub("", cell)  # drop leftover HTML, e.g. <span style=...> highlight wrappers
     return cell.strip()
 
 

@@ -1,0 +1,61 @@
+# @package _global_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+mlflow_artifact_path: routing_vs_content
+
+metrics: 
+  - Recall
+  - Precision
+  - Accuracy
+  - Specificity
+
+condition_order:
+  - "EFD"
+  - "EFD and Spatial Statistics"
+  - "EFD with Relative Position Vector"
+
+inputs:
+  # ==========================================
+  # MMCI DATASET
+  # ==========================================
+  - label: "Shape"
+    condition: "EFD"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "EFD with Relative Position Vector"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/11_embedding_nb_a_51_nb_a_106.csv
+    query: "`Attention Pattern` == 'k-NN, k=40'"
+
+  - label: "Shape"
+    condition: "EFD and Spatial Statistics"
+    dataset: "MMCI"
+    uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/13_embedding_nb_a_51_nb_a_89_via_concatenation.csv
+    query: "`Attention Pattern` == 'k-NN, k=32'"
+
+  # ==========================================
+  # RADBOUD DATASET
+  # ==========================================
+  - label: "Shape"
+    condition: "EFD"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/01_embedding_nb_a_51.csv
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
+
+  - label: "Shape"
+    condition: "EFD with Relative Position Vector"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/08_embedding_nb_a_51_relative_position_value_attention.csv
+    query: "`Attention Pattern` == 'k-NN, k=40'"
+
+  - label: "Shape"
+    condition: "EFD and Spatial Statistics"
+    dataset: "Radboud"
+    uri: mlflow-artifacts:/37/7025373539ad40beaa283a80f63e1d2c/artifacts/results/10_embedding_nb_a_51_nb_a_89_via_concatenation.csv
+    query: "`Attention Pattern` == 'k-NN, k=32'"
+
+metadata:
+  run_name: "Grouped Bar Chart - Spatial Routing vs Content"
