@@ -11,14 +11,14 @@ defaults:
   #- /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/0255975a6b34457d838b97b8a06bfa55/artifacts/checkpoints/epoch=283-step=12780/checkpoint.ckpt
-mlflow_run_id: 25883cb10c384bf8a8e8c6b9601c3eff
-mlflow_parent_run_id: 0255975a6b34457d838b97b8a06bfa55
+checkpoint: mlflow-artifacts:/37/545b4ae6840c49d48e8182d917cad3cd/artifacts/checkpoints/epoch=269-step=58860/checkpoint.ckpt
+mlflow_run_id: afd50a91829645b1889fde38e4b7a884
+mlflow_parent_run_id: 545b4ae6840c49d48e8182d917cad3cd
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 40
+  k: 8
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
