@@ -187,6 +187,18 @@ def create_faceted_dumbbell_plot(
             if row_idx == 0:
                 ax.set_title(f"Dataset: {dataset}", fontsize=15, color=NAVY, fontweight="bold", pad=15)
 
+        # Lock every dataset panel for this metric onto the same x-range —
+        # each panel autoscaled independently above, so without this the
+        # same gap between Bag of Cells and Structured could look bigger or
+        # smaller purely because of a differently-scaled panel next to it.
+        row_axes = axes[row_idx, :]
+        shared_xlim = (
+            min(ax.get_xlim()[0] for ax in row_axes),
+            max(ax.get_xlim()[1] for ax in row_axes),
+        )
+        for ax in row_axes:
+            ax.set_xlim(shared_xlim)
+
     axes[0, 0].invert_yaxis()
 
     handles = [

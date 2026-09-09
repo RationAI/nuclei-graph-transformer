@@ -207,6 +207,7 @@ def create_faceted_slope_chart(
         axes = axes[:, np.newaxis]
 
     for row_idx, metric in enumerate(present_metrics):
+        row_data_axes = []
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
@@ -286,6 +287,7 @@ def create_faceted_slope_chart(
 
             if not plotted:
                 continue
+            row_data_axes.append(ax)
 
             # Leave headroom above/below the data for labels to be nudged
             # into, then lock in the axes' pixel geometry so point-sized
@@ -328,6 +330,18 @@ def create_faceted_slope_chart(
                                    textcoords="offset points", ha="right", va="center",
                                    fontsize=9, fontweight="bold", color=p["color"], zorder=4)
                 txt.set_path_effects(_LABEL_HALO)
+
+        # Lock every dataset panel for this metric onto the same y-range —
+        # each panel autoscaled independently above, so without this the
+        # same effect size could look bigger or smaller purely because of a
+        # differently-scaled panel next to it.
+        if row_data_axes:
+            shared_ylim = (
+                min(ax.get_ylim()[0] for ax in row_data_axes),
+                max(ax.get_ylim()[1] for ax in row_data_axes),
+            )
+            for ax in axes[row_idx, :]:
+                ax.set_ylim(shared_ylim)
 
     # Reserve top space for title + caption as figure-fraction slots sized
     # from the actual figure height (not a fixed fraction) — a one-row

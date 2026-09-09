@@ -176,6 +176,7 @@ def create_k_sweep_chart(
     dense_seen = False
 
     for row_idx, metric in enumerate(present_metrics):
+        row_data_axes = []
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx][col_idx]
             subset_ds = df[df["Dataset"] == dataset]
@@ -244,6 +245,7 @@ def create_k_sweep_chart(
                 if row_idx == 0:
                     ax.set_title(dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15)
                 continue
+            row_data_axes.append(ax)
 
             ax.set_xlabel("k (nearest neighbors)", fontsize=10.5, fontweight="bold")
             ax.set_ylabel(f"{dataset}\n{metric} (95% CI)", fontsize=10.5, fontweight="bold")
@@ -258,6 +260,18 @@ def create_k_sweep_chart(
 
             if row_idx == 0:
                 ax.set_title(dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15)
+
+        # Lock every dataset panel for this metric onto the same y-range —
+        # each panel autoscaled independently above, so without this a
+        # modality's sweep could look identically shaped in two datasets
+        # while actually sitting at very different absolute performance.
+        if row_data_axes:
+            shared_ylim = (
+                min(ax.get_ylim()[0] for ax in row_data_axes),
+                max(ax.get_ylim()[1] for ax in row_data_axes),
+            )
+            for ax in row_data_axes:
+                ax.set_ylim(shared_ylim)
 
     handles = [
         Line2D([0], [0], color=color, linewidth=2.2, marker="o", markersize=6,

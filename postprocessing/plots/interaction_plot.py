@@ -196,6 +196,7 @@ def create_interaction_plot(
         axes = axes[:, np.newaxis]
 
     for row_idx, metric in enumerate(present_metrics):
+        row_data_axes = []
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
@@ -258,6 +259,7 @@ def create_interaction_plot(
 
             if not plotted:
                 continue
+            row_data_axes.append(ax)
 
             ax.margins(y=0.25)
             fig.canvas.draw()
@@ -296,6 +298,18 @@ def create_interaction_plot(
                                    textcoords="offset points", ha="right", va="center",
                                    fontsize=9, fontweight="bold", color=p["color"], zorder=4)
                 txt.set_path_effects(_LABEL_HALO)
+
+        # Lock every dataset panel for this metric onto the same y-range —
+        # each panel autoscaled independently above, so without this a
+        # modality that looks flat in one dataset could sit on a wildly
+        # different scale than the same modality one panel over.
+        if row_data_axes:
+            shared_ylim = (
+                min(ax.get_ylim()[0] for ax in row_data_axes),
+                max(ax.get_ylim()[1] for ax in row_data_axes),
+            )
+            for ax in axes[row_idx, :]:
+                ax.set_ylim(shared_ylim)
 
     handles = [
         Line2D([0], [0], color="#555555", linewidth=2.3, linestyle="-", marker="o",

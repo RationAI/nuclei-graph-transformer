@@ -111,7 +111,7 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
     fallback_colors = ['#1f77b4', '#2ca02c', '#d62728', '#9467bd']
 
     for row_idx, metric in enumerate(present_metrics):
-        
+
         if metric.upper() == "AUROC":
             cond_colors = {'Bag of Cells': '#7f7f7f', 'Structured': '#1f77b4'}  # Blue for AUROC
         elif metric.upper() == "AUPRC":
@@ -119,10 +119,14 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
         else:
             cond_colors = {'Bag of Cells': '#7f7f7f', 'Structured': '#2ca02c'}  # Green fallback
 
-        for col_idx, dataset in enumerate(datasets):
-            ax = axes[row_idx, col_idx]
+        # First pass: gather every dataset's values for this metric so the
+        # x-axis range can be computed once across the whole row, instead of
+        # per panel — otherwise panels in the same row would silently
+        # rescale to their own data and no longer be comparable by eye.
+        panel_data = {}
+        for dataset in datasets:
             subset = df[df["Dataset"] == dataset].set_index("Display_Name")
-            
+
             vals, lo, hi, point_colors = [], [], [], []
             for model in unique_models:
                 if model in subset.index:
@@ -139,13 +143,27 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
                     hi.append(np.nan)
                     point_colors.append('#000000')
 
-            vals = np.array(vals, dtype=float)
-            lo = np.array(lo, dtype=float)
-            hi = np.array(hi, dtype=float)
-            
+            panel_data[dataset] = (
+                np.array(vals, dtype=float),
+                np.array(lo, dtype=float),
+                np.array(hi, dtype=float),
+                point_colors,
+            )
+
+        all_lo = np.concatenate([lo for _, lo, _, _ in panel_data.values()])
+        all_hi = np.concatenate([hi for _, _, hi, _ in panel_data.values()])
+        min_x = np.nanmin(all_lo) if not np.isnan(all_lo).all() else 0
+        max_x = np.nanmax(all_hi) if not np.isnan(all_hi).all() else 1
+        pad = (max_x - min_x) * 0.15 if max_x > min_x else 0.05
+        row_xlim = (min_x - pad, max_x + pad)
+
+        for col_idx, dataset in enumerate(datasets):
+            ax = axes[row_idx, col_idx]
+            vals, lo, hi, point_colors = panel_data[dataset]
+
             xerr_lo = np.where(np.isnan(lo), 0, vals - lo)
             xerr_hi = np.where(np.isnan(hi), 0, hi - vals)
-            
+
             for j in range(len(vals)):
                 if not np.isnan(vals[j]):
                     ax.errorbar(
@@ -177,12 +195,9 @@ def create_faceted_forest_plot(df: pd.DataFrame, metrics: list[str], output_path
             ax.grid(axis='x', linestyle='--', alpha=0.7)
             ax.set_axisbelow(True)
             ax.spines[["top", "right"]].set_visible(False)
-            
-            min_x = np.nanmin(lo) if not np.isnan(lo).all() else 0
-            max_x = np.nanmax(hi) if not np.isnan(hi).all() else 1
-            pad = (max_x - min_x) * 0.15 if max_x > min_x else 0.05
-            ax.set_xlim(min_x - pad, max_x + pad)
-            
+
+            ax.set_xlim(row_xlim)
+
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=4))
             ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.2f'))
 
