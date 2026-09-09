@@ -1,0 +1,30 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+max_concurrent: 1
+metadata_uris:
+  - ${dataset.providers.radboud.metadata.test}
+mlflow_artifact_path: prediction_diff_masks
+
+predictions_uri_a: mlflow-artifacts:/37/e2a24fb86854407f96d5cf6295259fa0/artifacts/predictions
+predictions_uri_b: mlflow-artifacts:/37/0946c406d23249ccaf5baab638cddab0/artifacts/predictions
+checkpoint_url_a: mlflow-artifacts:/37/a07f92db18494dd1a58c54f5736098b9/artifacts/checkpoints/epoch=296-step=32373/checkpoint.ckpt
+checkpoint_url_b: mlflow-artifacts:/37/843f60f505c84174861d34e1948cece1/artifacts/checkpoints/epoch=152-step=16677/checkpoint.ckpt
+pred_thr_a: 0.3557
+pred_thr_b: 0.5068 
+
+metadata:
+  run_name: "Nuclei Masks — Prediction Diff, Positions VS Texture: ${dataset.name}"
+  description: "Visualization of nuclei where model A ([MLflow training
+    run](${checkpoint_url_a})) and model B ([MLflow training
+    run](${checkpoint_url_b})) disagree."
+  hyperparams:
+    pred_thr_a: ${pred_thr_a}
+    pred_thr_b: ${pred_thr_b}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}

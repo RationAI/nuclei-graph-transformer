@@ -1,0 +1,16 @@
+defaults:
+  - base
+  - _self_
+
+dataset: ???
+
+mask_tile_width: ???
+mask_tile_height: ???
+
+predictions_uri_a: ???
+predictions_uri_b: ???
+pred_thr_a: ??? # threshold for determining positive nuclei in model A
+pred_thr_b: ??? # threshold for determining positive nuclei in model B
+
+max_concurrent: 1
+mlflow_artifact_path: prediction_diff_masks
