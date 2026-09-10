@@ -1,8 +1,5 @@
 """Generates a Faceted Dumbbell (Connected Dot) Plot from MLflow CSV artifacts.
 
-Built for Q2: "How much predictive signal exists purely in a spatial-agnostic
-'bag of cells' compared to their structured arrangement?"
-
 Groups metrics into a grid (Rows = Metrics, Cols = Datasets). The Y-axis
 represents modalities; a horizontal line connects the Bag-of-Cells and
 Structured points for each modality, highlighting the performance gap.
@@ -37,7 +34,7 @@ GRID = "#E5E1D8"
 BAG_COLOR = "#C25936"  
 STRUCT_COLORS = {"AUROC": NAVY, "AUPRC": SHAPE_BLUE}
 
-_VALID_CONDITIONS = {"bag of cells", "structured"}
+_VALID_CONDITIONS = {"spatially-agnostic", "spatially-aware"}
 
 
 def load_plot_data(inputs_config) -> pd.DataFrame:
@@ -69,7 +66,7 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
 
             record = df.iloc[0].to_dict()
             record["Modality"] = label
-            record["Condition"] = "Bag of Cells" if condition.lower() == "bag of cells" else "Structured"
+            record["Condition"] = "Spatially-Agnostic" if condition.lower() == "spatially-agnostic" else "Spatially-Aware"
             record["Dataset"] = dataset
             records.append(record)
         except Exception as e:
@@ -125,8 +122,8 @@ def create_faceted_dumbbell_plot(
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
 
-            bag_data = subset[subset["Condition"] == "Bag of Cells"].set_index("Modality")
-            struct_data = subset[subset["Condition"] == "Structured"].set_index("Modality")
+            bag_data = subset[subset["Condition"] == "Spatially-Agnostic"].set_index("Modality")
+            struct_data = subset[subset["Condition"] == "Spatially-Aware"].set_index("Modality")
 
             for j, mod in enumerate(modalities):
                 bag_row = bag_data.loc[[mod]].iloc[0] if mod in bag_data.index else None
@@ -159,7 +156,6 @@ def create_faceted_dumbbell_plot(
                                 textcoords="offset points", ha="center", va="bottom", 
                                 fontsize=9, fontfamily="monospace", color=BAG_COLOR, fontweight="bold")
 
-                # Structured: Error bar with caps, point, and floating text
                 if not np.isnan(val_struct):
                     err_lo = max(0, val_struct - lo_struct)
                     err_hi = max(0, hi_struct - val_struct)
@@ -187,10 +183,6 @@ def create_faceted_dumbbell_plot(
             if row_idx == 0:
                 ax.set_title(f"Dataset: {dataset}", fontsize=15, color=NAVY, fontweight="bold", pad=15)
 
-        # Lock every dataset panel for this metric onto the same x-range —
-        # each panel autoscaled independently above, so without this the
-        # same gap between Bag of Cells and Structured could look bigger or
-        # smaller purely because of a differently-scaled panel next to it.
         row_axes = axes[row_idx, :]
         shared_xlim = (
             min(ax.get_xlim()[0] for ax in row_axes),
@@ -203,14 +195,11 @@ def create_faceted_dumbbell_plot(
 
     handles = [
         Line2D([0], [0], marker="o", color="w", markerfacecolor=BAG_COLOR,
-               markeredgecolor="white", markersize=12, label="Bag of Cells"),
+               markeredgecolor="white", markersize=12, label="Spatially-Agnostic"),
         Line2D([0], [0], marker="o", color="w", markerfacecolor=NAVY,
-               markeredgecolor="white", markersize=12, label="Structured"),
+               markeredgecolor="white", markersize=12, label="Spatially-Aware"),
     ]
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.05), ncol=2, fontsize=12)
-    fig.suptitle("Bag of Cells and Structured Arrangement Comparison", fontsize=17, color=NAVY,
-                 fontweight="bold", y=1.15)
-    
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)

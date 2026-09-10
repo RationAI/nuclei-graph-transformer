@@ -102,6 +102,28 @@ def create_dataset_grouped_bar_chart(
         print("No valid groups to plot after applying modality/condition filters.", file=sys.stderr)
         return
 
+    # Shared y-range for the whole figure (all dataset panels), sized from
+    # the actual plotted values instead of a fixed guess — otherwise bars
+    # sit in the bottom half of the axes whenever the real data doesn't
+    # reach the hardcoded ceiling.
+    lo_series, hi_series = [], []
+    for metric in present_metrics:
+        vals = df[metric].astype(float)
+        lo = df[f"{metric}_lo"].astype(float) if f"{metric}_lo" in df.columns else vals
+        hi = df[f"{metric}_hi"].astype(float) if f"{metric}_hi" in df.columns else vals
+        lo_series.append(lo.fillna(vals))
+        hi_series.append(hi.fillna(vals))
+    data_min = min(s.min() for s in lo_series)
+    data_max = max(s.max() for s in hi_series)
+    data_range = data_max - data_min if data_max > data_min else 0.1
+    y_floor = max(0.0, data_min - data_range * 0.08)
+    # Headroom on top for the per-bar value labels (annotated above the bar,
+    # staggered further for alternating bars). Sized off data_max directly
+    # rather than the full min-max range — when one metric sits much lower
+    # than another (e.g. AUPRC vs. AUROC in the same panel), a range-based
+    # pad would inflate the ceiling far past the actual highest bar.
+    y_ceiling = data_max + max(data_range * 0.08, 0.04)
+
     n_metrics = len(present_metrics)
     bar_width = 0.02
     group_width = n_metrics * bar_width + 0.01
@@ -116,14 +138,25 @@ def create_dataset_grouped_bar_chart(
         "Specificity": '#8c564b',
     }
     
-    n_cols = len(datasets)
+    n_datasets = len(datasets)
     panel_width = 0.75 * len(x_keys) * n_metrics + 0.6
-    fig, axes = plt.subplots(1, n_cols, figsize=(panel_width * n_cols, 7.5), sharey=True, squeeze=False)
+
+    # Many x-axis groups make side-by-side panels too narrow to read (labels
+    # collide), so stack the datasets into rows instead once there's more
+    # than a handful of groups; otherwise keep them side by side.
+    stacked = len(x_keys) > 3
+    if stacked:
+        n_rows, n_cols = n_datasets, 1
+        figsize = (panel_width, 7.5 * n_datasets)
+    else:
+        n_rows, n_cols = 1, n_datasets
+        figsize = (panel_width * n_datasets, 7.5)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, sharey=True, sharex=stacked, squeeze=False)
 
     handles, labels = [], []
 
-    for col_idx, dataset in enumerate(datasets):
-        ax = axes[0, col_idx]
+    for panel_idx, dataset in enumerate(datasets):
+        ax = axes[panel_idx, 0] if stacked else axes[0, panel_idx]
         subset = df[df["Dataset"] == dataset]
         
         for m_idx, metric in enumerate(present_metrics):
@@ -150,16 +183,16 @@ def create_dataset_grouped_bar_chart(
             offset = (m_idx - n_metrics / 2 + 0.5) * bar_width
             color = metric_colors.get(metric, '#333333')
             
-            bar_label = metric if col_idx == 0 else ""
-            
+            bar_label = metric if panel_idx == 0 else ""
+
             rects = ax.bar(
-                x_indices + offset, vals, bar_width, 
-                label=bar_label, 
+                x_indices + offset, vals, bar_width,
+                label=bar_label,
                 color=color, edgecolor='white', linewidth=0.8,
                 yerr=[xerr_lo, xerr_hi], capsize=2.5, error_kw={'elinewidth': 1.0, 'alpha': 0.6}
             )
-            
-            if col_idx == 0 and len(rects) > 0:
+
+            if panel_idx == 0 and len(rects) > 0:
                 handles.append(rects[0])
                 labels.append(metric)
             
@@ -176,7 +209,7 @@ def create_dataset_grouped_bar_chart(
 
         ax.set_title(f"Dataset: {dataset}", fontsize=15, fontweight='bold', pad=15)
         ax.set_ylabel("Metric Score", fontsize=12, fontweight='bold')
-        ax.set_ylim(0.5, 1.25)
+        ax.set_ylim(y_floor, y_ceiling)
         ax.grid(axis='y', linestyle='--', alpha=0.7)
         ax.set_axisbelow(True)
         ax.spines[["top", "right"]].set_visible(False)

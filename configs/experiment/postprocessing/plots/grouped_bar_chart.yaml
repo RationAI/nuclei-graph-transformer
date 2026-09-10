@@ -13,7 +13,7 @@ inputs:
     condition: null
     dataset: "MMCI"
     uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/03_embedding_nb_a_51.csv
-    query: "`Attention Pattern` == 'k-NN, k=24'"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
 
   - label: "Texture"
     condition: null
@@ -31,7 +31,7 @@ inputs:
     condition: null
     dataset: "MMCI"
     uri: mlflow-artifacts:/37/1e6c8487f3b04dd49be15b6daa2df955/artifacts/results/09_embedding_nb_a_89.csv
-    query: "`Attention Pattern` == 'k-NN, k=24'"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
 
   - label: "Shape + Relative Positions"
     condition: null
@@ -50,13 +50,13 @@ inputs:
     condition: null
     dataset: "Radboud"
     uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/01_embedding_nb_a_51.csv
-    query: "`Attention Pattern` == 'k-NN, k=24'"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=24'"
     
-  - label: "Texture"    
+  - label: "Texture"
     condition: null
     dataset: "Radboud"
     uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/03_embedding_nb_a_52.csv
-    query: "`Attention Pattern` == 'k-NN, k=16'"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=16'"
 
   - label: "Blank Token"
     condition: null
@@ -68,7 +68,7 @@ inputs:
     condition: null
     dataset: "Radboud"
     uri: mlflow-artifacts:/37/6fb0da4a94b840e7bcacddee95cd5370/artifacts/results/06_embedding_nb_a_89.csv
-    query: "`Attention Pattern` == 'k-NN, k=20'"
+    query: "`PE` == 'standard RoPE' and `Attention Pattern` == 'k-NN, k=20'"
 
   - label: "Shape + Relative Positions"
     condition: null

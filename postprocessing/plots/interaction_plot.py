@@ -197,6 +197,7 @@ def create_interaction_plot(
 
     for row_idx, metric in enumerate(present_metrics):
         row_data_axes = []
+        panel_plotted = {}
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
@@ -260,14 +261,38 @@ def create_interaction_plot(
             if not plotted:
                 continue
             row_data_axes.append(ax)
+            panel_plotted[dataset] = plotted
 
             ax.margins(y=0.25)
-            fig.canvas.draw()
+
+        # Lock every dataset panel for this metric onto the same y-range —
+        # each panel autoscaled independently above, so without this a
+        # modality that looks flat in one dataset could sit on a wildly
+        # different scale than the same modality one panel over. This has
+        # to happen *before* the label-decluttering pass below: decluttering
+        # spaces labels apart in data units based on each panel's current
+        # view, so if the view were widened afterward, labels that were
+        # correctly separated for the narrow (pre-share) range would end up
+        # visually packed closer together once the axis stretches.
+        if row_data_axes:
+            shared_ylim = (
+                min(ax.get_ylim()[0] for ax in row_data_axes),
+                max(ax.get_ylim()[1] for ax in row_data_axes),
+            )
+            for ax in axes[row_idx, :]:
+                ax.set_ylim(shared_ylim)
+        fig.canvas.draw()
+
+        for col_idx, dataset in enumerate(datasets):
+            if dataset not in panel_plotted:
+                continue
+            ax = axes[row_idx, col_idx]
+            plotted = panel_plotted[dataset]
+
             gap_value = _points_to_data_y(ax, 12.0)
             gap_name = _points_to_data_y(ax, 14.0)
 
             # Pass 2a: Value labels at each endpoint
-            n_cols_x = len(x_pos)
             for col_i, xi in enumerate(x_pos):
                 entries = []
                 for p in plotted:
@@ -299,18 +324,6 @@ def create_interaction_plot(
                                    fontsize=9, fontweight="bold", color=p["color"], zorder=4)
                 txt.set_path_effects(_LABEL_HALO)
 
-        # Lock every dataset panel for this metric onto the same y-range —
-        # each panel autoscaled independently above, so without this a
-        # modality that looks flat in one dataset could sit on a wildly
-        # different scale than the same modality one panel over.
-        if row_data_axes:
-            shared_ylim = (
-                min(ax.get_ylim()[0] for ax in row_data_axes),
-                max(ax.get_ylim()[1] for ax in row_data_axes),
-            )
-            for ax in axes[row_idx, :]:
-                ax.set_ylim(shared_ylim)
-
     handles = [
         Line2D([0], [0], color="#555555", linewidth=2.3, linestyle="-", marker="o",
                markersize=8, markerfacecolor="#555555", markeredgecolor="white",
@@ -322,7 +335,7 @@ def create_interaction_plot(
     fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.04),
                ncol=2, fontsize=11, frameon=False)
     fig.suptitle(
-        "Locality vs. RoPE Effect",
+        "Locality vs. Precise Positions",
         fontsize=14, color=NAVY, fontweight="bold", y=1.09,
     )
     fig.tight_layout()

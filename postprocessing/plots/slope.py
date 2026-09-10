@@ -208,6 +208,7 @@ def create_faceted_slope_chart(
 
     for row_idx, metric in enumerate(present_metrics):
         row_data_axes = []
+        panel_plotted = {}
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
@@ -288,12 +289,38 @@ def create_faceted_slope_chart(
             if not plotted:
                 continue
             row_data_axes.append(ax)
+            panel_plotted[dataset] = plotted
 
-            # Leave headroom above/below the data for labels to be nudged
-            # into, then lock in the axes' pixel geometry so point-sized
-            # gaps below can be converted to this facet's data units.
+            # Leave headroom above/below the data for labels to be nudged into.
             ax.margins(y=0.22)
-            fig.canvas.draw()
+
+        # Lock every dataset panel for this metric onto the same y-range —
+        # each panel autoscaled independently above, so without this the
+        # same effect size could look bigger or smaller purely because of a
+        # differently-scaled panel next to it. This has to happen *before*
+        # the label-decluttering pass below: decluttering spaces labels
+        # apart in data units based on each panel's current view, so if the
+        # view were widened afterward, labels that were correctly separated
+        # for the narrow (pre-share) range would end up visually packed
+        # closer together once the axis stretches.
+        if row_data_axes:
+            shared_ylim = (
+                min(ax.get_ylim()[0] for ax in row_data_axes),
+                max(ax.get_ylim()[1] for ax in row_data_axes),
+            )
+            for ax in axes[row_idx, :]:
+                ax.set_ylim(shared_ylim)
+        fig.canvas.draw()
+
+        for col_idx, dataset in enumerate(datasets):
+            if dataset not in panel_plotted:
+                continue
+            ax = axes[row_idx, col_idx]
+            plotted = panel_plotted[dataset]
+
+            # Lock in the axes' pixel geometry (now that the shared y-range
+            # is final) so point-sized gaps below can be converted to this
+            # facet's data units.
             gap_value = _points_to_data_y(ax, 13.0)
             gap_name = _points_to_data_y(ax, 15.0)
 
@@ -330,18 +357,6 @@ def create_faceted_slope_chart(
                                    textcoords="offset points", ha="right", va="center",
                                    fontsize=9, fontweight="bold", color=p["color"], zorder=4)
                 txt.set_path_effects(_LABEL_HALO)
-
-        # Lock every dataset panel for this metric onto the same y-range —
-        # each panel autoscaled independently above, so without this the
-        # same effect size could look bigger or smaller purely because of a
-        # differently-scaled panel next to it.
-        if row_data_axes:
-            shared_ylim = (
-                min(ax.get_ylim()[0] for ax in row_data_axes),
-                max(ax.get_ylim()[1] for ax in row_data_axes),
-            )
-            for ax in axes[row_idx, :]:
-                ax.set_ylim(shared_ylim)
 
     # Reserve top space for title + caption as figure-fraction slots sized
     # from the actual figure height (not a fixed fraction) — a one-row
