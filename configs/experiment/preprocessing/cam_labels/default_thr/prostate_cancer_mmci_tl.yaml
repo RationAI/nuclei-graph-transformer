@@ -7,6 +7,8 @@ defaults:
 overlap_threshold: 0.5
 positive_threshold: 0.6 # determined by pathologist
 negative_threshold: 0.4 # determined by pathologist
+threshold_type: default_thr
 
 metadata:
-  description: "CAM-based nuclei labeling with default thresholds (no assumptions for thresholding)."
+  description: "CAM-based nuclei labeling with default thresholds (no assumptions
+    for thresholding)."

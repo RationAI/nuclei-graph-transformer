@@ -1,32 +1,10 @@
-"""Script for creating a visualization of the nuclei segmentation results and their labels.
+"""Creates visualizations of nuclei segmentation results and optional labels.
 
-Assumes the following structure of input data:
-1. Segmented nuclei (`preprocessing/nuclei_segmentation.py`):
-<NUCLEI_PATH>/
-    <DATASET_NAME>/
-        slide_id=<SLIDE_NAME>/
-            *.parquet (columns "id" (str), "polygon" (np.ndarray[float]) and "centroid" (np.ndarray[float]))
-
-2. (Optional) Model Predictions (`nuclei_graph/callbacks/prediction_labels.py`):
-<PREDICTIONS_URI>/
-    <SLIDE_NAME>.parquet (columns "id" (str), "prediction" (int))
-
-3. (Optional) Heatmap labels (`preprocessing/unipolar_heatmap_labels.py`) for positive slides:
-<HEATMAP_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), and <LABEL_COLUMN> (int))
-
-4. (Optional) CAM labels (`preprocessing/cam_labels.py`):
-<CAM_LABELS_URI>/
-    <SLIDE_NAME>.parquet (columns "slide_id" (str), "id" (str), "cam_label" (int), and "cam_score" (float))
-
-Visualization Modes:
-1) Outline: Only outline the segmented nuclei polygons.
-2) Predictions: Creates nuclei masks according to model predictions — nuclei predicted as positive are filled;
-    `predictions_uri` and `pred_thr` must be provided.
-3) Heatmap-based Labeling: Creates nuclei masks for positive slides according to heatmap labels — nuclei
-    inside heatmaps are filled; `heatmap_labels_uri` must be provided.
-4) CAM-based Pseudo Labeling: Creates nuclei masks for positive slides according to CAM pseudo-labels — nuclei
-    inside specified high-confidence CAM regions (positive or negative) are filled; `cam_labels_uri` must be provided.
+Supports multiple visualization modes including:
+- raw nuclei outlines
+- model prediction overlays
+- heatmap-based labels
+- CAM-based pseudo-labels
 """
 
 from pathlib import Path
@@ -69,7 +47,7 @@ def set_filling_and_get_outline_color(
                 return nuclei, outline_color
             predictions_df = pd.read_parquet(predictions_path)
             nuclei = nuclei.merge(predictions_df, on="id", how="inner")
-            nuclei.loc[nuclei["prediction"] >= pred_thr, "fill_color"] = 255
+            nuclei.loc[nuclei["nuclei_prediction"] >= pred_thr, "fill_color"] = 255
 
         # --- Modes used for a visual check of the preprocessing steps ---
         case 3:  # Heatmap-based Labeling
@@ -141,10 +119,6 @@ def process_slide(
     )
 
 
-def get_local_path(uri: str | None) -> Path | None:
-    return Path(download_artifacts(uri)) if uri is not None else None
-
-
 def uris2df(uris: list[str]) -> pd.DataFrame:
     """Loads and merges multiple metadata Parquet files into a single DataFrame."""
     batches = [pd.read_parquet(download_artifacts(uri)) for uri in uris]
@@ -158,9 +132,15 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
-        "heatmap_labels_dir": get_local_path(config.heatmap_labels_uri),
-        "cam_labels_dir": get_local_path(config.cam_labels_uri),
-        "predictions_dir": get_local_path(config.predictions_uri),
+        "heatmap_labels_dir": Path(config.heatmap_labels_dir)
+        if config.heatmap_labels_dir is not None
+        else None,
+        "cam_labels_dir": Path(config.cam_labels_dir)
+        if config.cam_labels_dir is not None
+        else None,
+        "predictions_dir": Path(download_artifacts(config.predictions_uri))
+        if config.predictions_uri is not None
+        else None,
     }
 
     with TemporaryDirectory() as output_dir:
