@@ -24,7 +24,7 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
 
   batch_size: 16
-  k: 36
+  k: 40
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -36,7 +36,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "blank" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+    embedding_mode: "bbox" # "efd", "bbox", "spatial", "efd_spatial", "blank"
 
   supervision:
     paths: ${dataset.providers.radboud.supervision}
@@ -58,9 +58,9 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      attention_variant: vrope # vrope, standard, rel_value
+      attention_variant: standard # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=36: Blank Token + RoPE + k-NN Attn"
+  run_name: "Radboud, k=40: CNN bbox 48x48 + RoPE + k-NN Attn"
   description: ""
