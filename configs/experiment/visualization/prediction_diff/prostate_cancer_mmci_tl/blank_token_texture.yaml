@@ -1,0 +1,30 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+max_concurrent: 1
+metadata_uris:
+  - ${dataset.mlflow_uris.metadata.test}
+mlflow_artifact_path: prediction_diff_masks
+
+predictions_uri_a: mlflow-artifacts:/97/15afaa140abe4ca3868d43b81d574dbd/artifacts/predictions
+predictions_uri_b: mlflow-artifacts:/97/8365dc2b0ba14b1f8cc0811eb5059ceb/artifacts/predictions
+checkpoint_url_a: mlflow-artifacts:/97/5a0dd9f5b867446ebb465529e2fbc835/artifacts/checkpoints/epoch=1495-step=67320/checkpoint.ckpt
+checkpoint_url_b: mlflow-artifacts:/97/165e61bac286468cb78f737649e39588/artifacts/checkpoints/epoch=237-step=21420/checkpoint.ckpt
+pred_thr_a: 0.4784
+pred_thr_b: 0.4724
+
+metadata:
+  run_name: "Nuclei Masks — Prediction Diff, Positions VS Texture: ${dataset.name}"
+  description: "Visualization of nuclei where model A ([MLflow training
+    run](${checkpoint_url_a})) and model B ([MLflow training
+    run](${checkpoint_url_b})) disagree."
+  hyperparams:
+    pred_thr_a: ${pred_thr_a}
+    pred_thr_b: ${pred_thr_b}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
