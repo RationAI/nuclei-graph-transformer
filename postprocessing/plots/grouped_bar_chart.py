@@ -155,7 +155,6 @@ def create_dataset_grouped_bar_chart(
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, sharey=True, sharex=stacked, squeeze=False)
 
     handles, labels = [], []
-    all_lo, all_hi = [], []
 
     for panel_idx, dataset in enumerate(datasets):
         ax = axes[panel_idx, 0] if stacked else axes[0, panel_idx]
@@ -182,9 +181,6 @@ def create_dataset_grouped_bar_chart(
             xerr_lo = np.where(np.isnan(lo), 0, vals - lo)
             xerr_hi = np.where(np.isnan(hi), 0, hi - vals)
 
-            all_lo.extend(lo[~np.isnan(lo)])
-            all_hi.extend(hi[~np.isnan(hi)])
-            
             offset = (m_idx - n_metrics / 2 + 0.5) * bar_width
             color = metric_colors.get(metric, '#333333')
             
@@ -214,21 +210,13 @@ def create_dataset_grouped_bar_chart(
 
         ax.set_title(f"Dataset: {dataset}", fontsize=15, fontweight='bold', pad=15)
         ax.set_ylabel("Metric Score", fontsize=12, fontweight='bold')
-<<<<<<< HEAD
         ax.set_ylim(y_floor, y_ceiling)
-=======
->>>>>>> a55a5e4e (fix: y lim in plots)
         ax.grid(axis='y', linestyle='--', alpha=0.7)
         ax.set_axisbelow(True)
         ax.spines[["top", "right"]].set_visible(False)
 
         ax.set_xticks(x_indices)
         ax.set_xticklabels(x_labels, fontsize=10, fontweight='bold', rotation=30, ha='right')
-
-    if all_hi:
-        data_min, data_max = min(all_lo), max(all_hi)
-        margin = 0.08 * (data_max - data_min) if data_max > data_min else 0.05
-        axes[0, 0].set_ylim(data_min - margin, data_max + margin)
 
     fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.01), ncol=len(labels), fontsize=11)
     fig.tight_layout(rect=[0, 0.08, 1, 1])
