@@ -39,6 +39,7 @@ from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
+
 matplotlib.rcParams.update({
     'figure.max_open_warning': 0,
     'figure.dpi': 300,
@@ -103,7 +104,7 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             record["Condition"] = condition
             record["Dataset"] = dataset
             records.append(record)
-        except Exception as e:  # noqa: BLE001 — surface, don't crash the whole batch
+        except Exception as e:
             print(f"  -> ERROR fetching {uri}: {e}", file=sys.stderr)
 
     return pd.DataFrame(records)
@@ -120,7 +121,8 @@ def _get_point_and_ci(row: pd.Series, metric: str) -> tuple[float, float, float]
 
 def _pava_nondecreasing(values: list[float]) -> list[float]:
     """Least-squares projection of `values` onto the nearest non-decreasing
-    sequence (pool-adjacent-violators). Used by `_declutter` below."""
+    sequence (pool-adjacent-violators). Used by `_declutter` below.
+    """
     stack: list[list[float]] = []  # each entry: [weighted_mean, weight]
     for v in values:
         block = [v, 1.0]
@@ -160,7 +162,8 @@ def _declutter(values: np.ndarray, min_gap: float) -> np.ndarray:
 def _points_to_data_y(ax, points: float) -> float:
     """Converts a length in points (font sizes, offsets) to the equivalent
     span of data units along `ax`'s y-axis, so label spacing can be specified
-    in physical size regardless of each facet's own y-range/scale."""
+    in physical size regardless of each facet's own y-range/scale.
+    """
     ylim = ax.get_ylim()
     y_range = ylim[1] - ylim[0]
     try:
@@ -168,7 +171,7 @@ def _points_to_data_y(ax, points: float) -> float:
         bbox = ax.get_window_extent(renderer=renderer)
         px_per_point = ax.figure.dpi / 72.0
         return points * px_per_point * y_range / bbox.height
-    except Exception:  # noqa: BLE001 — fall back to a rough estimate
+    except Exception:
         return points / 72.0 / 4.2 * y_range
 
 
@@ -208,7 +211,11 @@ def create_faceted_slope_chart(
 
     for row_idx, metric in enumerate(present_metrics):
         row_data_axes = []
+<<<<<<< HEAD
         panel_plotted = {}
+=======
+        row_plotted = {}
+>>>>>>> a55a5e4e (fix: y lim in plots)
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
@@ -289,6 +296,7 @@ def create_faceted_slope_chart(
             if not plotted:
                 continue
             row_data_axes.append(ax)
+<<<<<<< HEAD
             panel_plotted[dataset] = plotted
 
             # Leave headroom above/below the data for labels to be nudged into.
@@ -321,6 +329,34 @@ def create_faceted_slope_chart(
             # Lock in the axes' pixel geometry (now that the shared y-range
             # is final) so point-sized gaps below can be converted to this
             # facet's data units.
+=======
+            row_plotted[col_idx] = plotted
+
+        if not row_data_axes:
+            continue
+
+        # Lock every dataset panel for this metric onto one shared y-range,
+        # sized off the row's true combined data extent (dataLim, before any
+        # margin) rather than the union of each panel's own independently
+        # margined range — unioning already-margined ranges compounds into
+        # far more headroom than any single panel needs whenever panels in a
+        # row have differently-scaled data. A single 22% margin sized off
+        # the combined extent gives exactly the row's label headroom, once.
+        raw_min = min(ax.dataLim.y0 for ax in row_data_axes)
+        raw_max = max(ax.dataLim.y1 for ax in row_data_axes)
+        margin = 0.22 * (raw_max - raw_min) if raw_max > raw_min else 0.05
+        shared_ylim = (raw_min - margin, raw_max + margin)
+        for ax in axes[row_idx, :]:
+            ax.set_ylim(shared_ylim)
+        fig.canvas.draw()
+
+        # Pass 2: now that every panel in the row sits on the same, final
+        # y-range, place value/name labels — decluttered vertically so
+        # close-together modalities' numbers never sit on top of each other
+        # — using gaps sized in real point units off that final range.
+        for col_idx, plotted in row_plotted.items():
+            ax = axes[row_idx, col_idx]
+>>>>>>> a55a5e4e (fix: y lim in plots)
             gap_value = _points_to_data_y(ax, 13.0)
             gap_name = _points_to_data_y(ax, 15.0)
 

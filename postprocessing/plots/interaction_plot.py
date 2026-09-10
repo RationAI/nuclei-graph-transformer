@@ -197,7 +197,11 @@ def create_interaction_plot(
 
     for row_idx, metric in enumerate(present_metrics):
         row_data_axes = []
+<<<<<<< HEAD
         panel_plotted = {}
+=======
+        row_plotted = {}
+>>>>>>> a55a5e4e (fix: y lim in plots)
         for col_idx, dataset in enumerate(datasets):
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
