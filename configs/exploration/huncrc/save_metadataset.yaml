@@ -1,0 +1,11 @@
+# @package _global_
+
+metadata_csv: ${dataset.paths.wsi_data.metadata}
+slides_dir: ${dataset.paths.wsi_data.slides}
+patch_dirs_z1: ${dataset.paths.patches.zoom_1}
+patch_dirs_z2: ${dataset.paths.patches.zoom_2}
+exclude_slides: ${dataset.paths.wsi_data.exclude_slides_qc}
+slides_properties_parquet: ${dataset.paths.wsi_data.slides_properties}
+
+metadata:
+  run_name: "Exploration: ${dataset.name}"

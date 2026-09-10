@@ -1,0 +1,36 @@
+# @package _global_
+
+dataset:
+  name: HunCRC
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+
+  paths:
+    wsi_data:
+      slides: ${data_path}/Public/Public/colorectum/TCIA_HunCRC/PKG - Hungarian-Colorectal-Screening_v2
+
+      # reference global ground truth information
+      metadata: ${data_path}/Public/Public/colorectum/TCIA_HunCRC/slide_level_annotations.csv
+
+      # dataframe with slide-level properties (mpps and extents) and ids of nuclei segmentation files
+      slides_properties: /mnt/projects/nuclei_foundation_model/slides.parquet
+      seg_densites: /mnt/projects/nuclei_foundation_model/train_cropped_dedup.parquet
+
+      # slides to exclude based on QC 
+      exclude_slides_qc: []  # TODO
+
+    nuclei:
+      raw: /mnt/projects/nuclei_foundation_model/cells/organ=colorectum/dataset=TCIA-Hungarian
+
+    patches: # patch dataset with patch-level annotations
+      zoom_1:
+        - "/mnt/data/Public/Public/colorectum/TCIA_HunCRC/PKG - Hungarian-Colorectal-Screening_ML-dataset/ML_dataset/zoom_1_partA"
+        - "/mnt/data/Public/Public/colorectum/TCIA_HunCRC/PKG - Hungarian-Colorectal-Screening_ML-dataset/ML_dataset/zoom_1_partB"
+        - "/mnt/data/Public/Public/colorectum/TCIA_HunCRC/PKG - Hungarian-Colorectal-Screening_ML-dataset/ML_dataset/zoom_1_partC"
+      zoom_2:
+        - "/mnt/data/Public/Public/colorectum/TCIA_HunCRC/PKG - Hungarian-Colorectal-Screening_ML-dataset/ML_dataset/zoom_2"
+
+  mlflow_uris:
+    # preprocessing/exploration/huncrc/save_metadataset.py
+    exploration: ${mlflow_project_pc}/8a1a081452e04861aa865f5dfe9ba384/artifacts/huncrc/slides_metadata.csv

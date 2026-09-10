@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import ray
 import tifffile
+from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
@@ -44,7 +45,7 @@ def validate_sample(
             if tissue_ratio < tissue_threshold:
                 log(f"SLIDE_EMPTY: {slide_id} (ratio={tissue_ratio:.4f})")
                 return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         log(f"SLIDE_ERROR: {slide_id} - {e!s}")
         return False
 
@@ -55,7 +56,7 @@ def validate_sample(
             if mask is None or mask.size == 0:
                 log(f"MASK_EMPTY: {slide_id}")
                 return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             log(f"MASK_CORRUPTED: {slide_id} - {e!s}")
             return False
 
@@ -138,17 +139,21 @@ def get_dataframes(
     return df[final_cols], summary_df
 
 
+def uris2df(uris: list[str]) -> pd.DataFrame:
+    """Loads and merges multiple metadata .CSV files into a single DataFrame."""
+    batches = [pd.read_csv(download_artifacts(uri)) for uri in uris]
+    return pd.concat(batches, ignore_index=True)
+
+
 @with_cli_args(["+exploration=panda/save_metadataset"])
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     ray.init(num_cpus=config.max_concurrent)
 
-    exclude_slides = (
-        pd.read_csv(Path(config.exclude_slides))["slide_stem"].tolist()
-        if config.exclude_slides
-        else []
-    )
+    exclude_slides = []
+    if config.exclude_slides:
+        exclude_slides = uris2df(config.exclude_slides)["slide_stem"].tolist()
 
     with TemporaryDirectory() as output_dir:
         df, summary_df = get_dataframes(
