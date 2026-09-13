@@ -5,13 +5,13 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-predictions_uri: mlflow-artifacts:/97/4fd023c0dfae4906ad9854cb100d3a87/artifacts/predictions
+predictions_uri: mlflow-artifacts:/97/dd979c75605d4cb090d23541224803e6/artifacts/predictions
 supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: annot_label # annot_label pred_label
 graph_threshold: null
-nuclei_threshold: 0.0023
+nuclei_threshold: 0.3950
 
-mlflow_run_id: 4fd023c0dfae4906ad9854cb100d3a87
+mlflow_run_id: dd979c75605d4cb090d23541224803e6
 mlflow_parent_run_id: 4f13ebda3e1745888c7b33a9f46c9fc1
 
 metadata:
