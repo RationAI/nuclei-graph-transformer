@@ -1,0 +1,20 @@
+defaults:
+  - base
+  - _self_
+
+dataset: ???
+
+# for `slide_path` (used to match diff/normalization masks by filename)
+metadata_uris: ???
+
+# mlflow artifact uri (dir) with per-slide prediction-diff masks, as produced
+# by `visualization/prediction_diff_mask.py`
+diff_masks_uri: ???
+
+# mlflow artifact uri with per-slide tumor masks used to normalize the
+# disagreement area
+normalization_masks_uri: ???
+
+top_n: 10 # number of highest/lowest normalized-disagreement slides to report
+max_concurrent: 4
+mlflow_artifact_path: prediction_diff_stats

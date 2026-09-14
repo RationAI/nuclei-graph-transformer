@@ -8,5 +8,10 @@ dataset:
   
   paths:
     wsi_data:
-      slides_isyntax: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides
-      slides_tif: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides_tif
+      slides_isyntax: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides_isyntax
+      slides_tif: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/slides
+
+      # dataset-provided index of slide/annotation pairs, categories, and the train/valid split
+      index_csv: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/index.csv
+
+    annotations: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/cervical/annotations

@@ -1,0 +1,15 @@
+# @package _global_
+
+dataset:
+  name: BEETLE
+
+  paths:
+    wsi_data:
+      root: /mnt/projects/nuclei_based_wsi_analysis/BEETLE
+
+      # dataset-provided index of slides, annotations, and splits
+      overview_csv: ${dataset.paths.wsi_data.root}/data_overview.csv
+
+  mlflow_uris:
+    # exploration/beetle/save_metadataset.py
+    exploration: null # populate after running the exploration job

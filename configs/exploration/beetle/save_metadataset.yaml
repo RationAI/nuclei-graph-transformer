@@ -1,0 +1,7 @@
+# @package _global_
+
+overview_csv: ${dataset.paths.wsi_data.overview_csv}
+root: ${dataset.paths.wsi_data.root}
+
+metadata:
+  run_name: "Exploration: ${dataset.name}"

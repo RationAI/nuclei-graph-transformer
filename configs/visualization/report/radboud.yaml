@@ -7,14 +7,19 @@ mlflow:
 metadata_uri: mlflow-artifacts:/37/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda
 
 reporter:
-  title: PANDA Radboud Train — Segmentation Polygons
+  title: "PANDA Radboud Test — Nuclei model: Differences Between Modalities"
   metrics_run_ids: 
-    # - 843348978ac5456bba850b8e73108742
+    - ca383cf16b414711b10b8ace1980e066 # polygons
+    - 0946c406d23249ccaf5baab638cddab0 # texture
+    - e2a24fb86854407f96d5cf6295259fa0 # blank token
   metrics_target_metrics:
-    # - AUROC
-    # - precision
-    # - recall
-  # metrics_target_step: test_thresholded
+    - nuclei_accuracy
+    - nuclei_precision
+    - nuclei_recall
+    - nuclei_specificity
+    - nuclei_AUROC
+    - nuclei_AUPRC
+  metrics_target_step: test_thresholded
   template_asset_path: report_template.html
 
   save:
@@ -26,53 +31,97 @@ reporter:
       run_name: Report
       description: ""
 
-  evaluation_runs:
-    # 843348978ac5456bba850b8e73108742:
-    #   artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
-    #   slide_item_key: "slide_id"
+  evaluation_runs: 
+    ca383cf16b414711b10b8ace1980e066:
+      artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
+      slide_item_key: "slide_id"
+    0946c406d23249ccaf5baab638cddab0:
+      artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
+      slide_item_key: "slide_id"
+    e2a24fb86854407f96d5cf6295259fa0:
+      artifact_file: "slide_nuclei_metrics.json" #"slide_tile_metrics.json" "slide_nuclei_metrics.json"
+      slide_item_key: "slide_id"
 
   background:
     _target_: report.masks.ParquetSlideDatasetMLFlowMaskRetriever
     artifact_uris:
       - ${metadata_uri}
-    metadata_filename: slides_mapping_train.parquet # slides_mapping_train.parquet slides_mapping_test.parquet
+    metadata_filename: slides_mapping_test.parquet # slides_mapping_train.parquet slides_mapping_test.parquet
     item_path_col: slide_path
     item_name_col: slide_id
     ground_truth_col: is_carcinoma
     layer_name: Prostate WSI
 
   mask_retrievers:
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: carcinoma_mask
-    #   run_id: cd504aaafb8c408184584d808a99cf15
-    #   layer_name: Annotation
-    #   shader_conf:
-    #     visible: True
-    #     opacity: 0.5
-    #     type: edge
-    #     color: "#FF0000"
-
-    # - _target_: report.masks.RunIDMlflowMaskRetriever
-    #   dir_name: nuclei_masks
-    #   run_id: 843348978ac5456bba850b8e73108742
-    #   layer_name: "Polygon Embedding"
-    #   shader_conf:
-    #     visible: True
-    #     type: heatmap
-    #     params:
-    #       threshold:
-    #     color: "#00FF00"
-  
     - _target_: report.masks.RunIDMlflowMaskRetriever
-      dir_name: nuclei_masks
-      run_id: 69cab74c593d46249fdb8688f9f476ee
-      layer_name: "Segmentation Polygon"
+      dir_name: carcinoma_mask
+      run_id: cd504aaafb8c408184584d808a99cf15
+      layer_name: Annotation
       shader_conf:
         visible: True
+        opacity: 0.5
+        type: edge
+        color: "#FF0000"
+  
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_masks
+      run_id: ca383cf16b414711b10b8ace1980e066
+      layer_name: "Shape"
+      shader_conf:
+        visible: False
         type: heatmap
         params:
-          threshold:
-        color: "#00FF00"
+          threshold: 44
+        color: "#0000FF" # blue
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_masks
+      run_id: 0946c406d23249ccaf5baab638cddab0
+      layer_name: "Texture"
+      shader_conf:
+        visible: False
+        type: heatmap
+        params:
+          threshold: 51
+        color: "#FFA500" # orange
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_masks
+      run_id: e2a24fb86854407f96d5cf6295259fa0
+      layer_name: "Blank Token"
+      shader_conf:
+        visible: False
+        type: heatmap
+        params:
+          threshold: 36
+        color: "#000000" # black
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_diff_masks
+      run_id: bf29bb938c7c47aeabfc4d21037af4c5
+      layer_name: "Diff (Blank Token, Shape)"
+      shader_conf:
+        visible: False
+        type: heatmap
+        color: "#00FF00"  # green
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_diff_masks
+      run_id: 5861d9f9ae7c4bccb682a02395d74f4c
+      layer_name: "Diff (Blank Token, Texture)"
+      shader_conf:
+        visible: False
+        type: heatmap
+        color: "#00FF00"  # green
+
+    - _target_: report.masks.RunIDMlflowMaskRetriever
+      dir_name: prediction_diff_masks
+      run_id: 63efb2335075416aaa4e59ae501bc756
+      layer_name: "Diff (Shape, Texture)"
+      shader_conf:
+        visible: False
+        type: heatmap
+        color: "#00FF00"  # green
 
 
 metadata:

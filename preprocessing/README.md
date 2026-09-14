@@ -33,6 +33,15 @@
 3. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
+<a id="icaird-cervix-workflow"></a>
+### iCAIRD Cervix
+
+1. **iSyntax to .TIF Conversion** (`isyntax2tif.py`)  
+   Converts iSyntax slides to pyramidal OpenSlide-compatible TIFF.
+
+2. **Annotation Masks** (`icaird_cervix_annotation_masks.py`, [output structure](#icaird-annotation-masks-output))  
+   Generates per-slide masks from QuPath GeoJSON annotations, encoding the most severe classification (low grade / high grade / malignant) covering each pixel.
+
 ## Output Structure Overview
 
 <a id="nuclei-segmentation-output"></a>
@@ -81,6 +90,28 @@ cam_masks/
 missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 ```
 <p align="right"><a href="#mmci-workflow">↑ back</a></p>
+
+---
+
+<a id="icaird-annotation-masks-output"></a>
+### Annotation Masks: `icaird_cervix_annotation_masks.py`
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+annotation_masks/
+  <SLIDE_NAME>.tiff (single-channel mask, one file per slide with lesion annotations)
+```
+
+**Mask pixel values**:
+- `0`: background / unannotated
+- `1`: low grade (CIN1, HPV)
+- `2`: high grade (CIN2, CIN3)
+- `3`: malignant (squamous carcinoma, adenocarcinoma, ...)
+
+Slides in the "normal_inflammation" category (see the dataset's `index.csv`) have no lesion annotations and are skipped.
+<p align="right"><a href="#icaird-cervix-workflow">↑ back</a></p>
 
 ---
 

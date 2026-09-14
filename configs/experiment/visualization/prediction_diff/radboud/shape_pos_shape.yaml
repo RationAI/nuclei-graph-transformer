@@ -11,15 +11,15 @@ metadata_uris:
   - ${dataset.providers.radboud.metadata.test}
 mlflow_artifact_path: prediction_diff_masks
 
-predictions_uri_a: mlflow-artifacts:/37/e2a24fb86854407f96d5cf6295259fa0/artifacts/predictions
-predictions_uri_b: mlflow-artifacts:/37/0946c406d23249ccaf5baab638cddab0/artifacts/predictions
-checkpoint_url_a: mlflow-artifacts:/37/a07f92db18494dd1a58c54f5736098b9/artifacts/checkpoints/epoch=296-step=32373/checkpoint.ckpt
-checkpoint_url_b: mlflow-artifacts:/37/843f60f505c84174861d34e1948cece1/artifacts/checkpoints/epoch=152-step=16677/checkpoint.ckpt
-pred_thr_a: 0.3557
-pred_thr_b: 0.5068
+predictions_uri_a: mlflow-artifacts:/37/b3fc5aeedd8046f39c370fb76eab0631/artifacts/predictions
+predictions_uri_b: mlflow-artifacts:/37/ca383cf16b414711b10b8ace1980e066/artifacts/predictions
+checkpoint_url_a: mlflow-artifacts:/37/cdb3ba736846434aa75eb6396b7af9db/artifacts/checkpoints/epoch=226-step=49486/checkpoint.ckpt
+checkpoint_url_b: mlflow-artifacts:/37/c5fe3bbb1c4e4f18916a87ae72df180f/artifacts/checkpoints/epoch=264-step=28885/checkpoint.ckpt
+pred_thr_a: 0.4033
+pred_thr_b: 0.4358
 
 metadata:
-  run_name: "Nuclei Masks — Prediction Diff, Positions VS Texture: ${dataset.name}"
+  run_name: "Nuclei Masks — Prediction Diff, Shape and Relative Positions VS Shape: ${dataset.name}"
   description: "Visualization of nuclei where model A ([MLflow training
     run](${checkpoint_url_a})) and model B ([MLflow training
     run](${checkpoint_url_b})) disagree."

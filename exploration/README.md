@@ -45,3 +45,29 @@ panda/
 - `extent_y` (`float`)
 - `mpp_x` (`float`)
 - `mpp_y` (`float`)
+
+### BEETLE Dataset
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+beetle/
+  errors.log (slides listed in data_overview.csv but missing on disk)
+  slides_metadata.csv (metadata for the valid slides)
+  summary.csv (aggregate statistics)
+```
+
+**CSV metadata row schema (one row = one slide)**:
+- `slide_id` (`str`): matches the `name` column of the dataset's `data_overview.csv`.
+- `slide_path` (`str`)
+- `mask_path` (`str`): empty if no annotation mask exists (e.g. held-out evaluation slides).
+- `has_annotation` (`bool`): True if the annotation mask exists.
+- `has_annotation_xml` (`bool`): True if the XML annotation exists.
+- `has_annotation_json` (`bool`): True if the JSON annotation exists.
+- `patient_id` (`str`)
+- `source` (`str`): originating institution/collection (e.g. "rumc", "tcga", "nki").
+- `specimen_type` (`str`): "resection" or "biopsy".
+- `scanner` (`str`)
+- `split` (`str`): "development" or "evaluation".
+- `validation_fold` (`str`): cross-validation fold within the development split; `None` for evaluation slides.

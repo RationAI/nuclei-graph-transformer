@@ -1,0 +1,19 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uris:
+  - ${dataset.providers.radboud.metadata.test}
+
+diff_masks_uri: mlflow-artifacts:/37/5861d9f9ae7c4bccb682a02395d74f4c/artifacts/prediction_diff_masks
+normalization_masks_uri: ${dataset.paths.masks.carcinoma}
+
+top_n: 10
+mlflow_artifact_path: prediction_diff_stats
+
+metadata:
+  run_name: "Nuclei Masks — Prediction Diff Stats, Positions VS Texture: ${dataset.name}"
+  description: "Normalized disagreement statistics between model A (Positions)
+    and model B (Texture) prediction-diff masks."
