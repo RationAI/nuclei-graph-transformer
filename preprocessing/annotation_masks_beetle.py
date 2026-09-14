@@ -78,7 +78,7 @@ def iter_polygons(geometry: BaseGeometry) -> list[Polygon]:
     return []
 
 
-@ray.remote(num_cpus=1, memory=(3 * 1024**3))
+@ray.remote(num_cpus=1, memory=(40 * 1024**3))
 def process_slide(
     slide_xml_paths: tuple[Path, Path],
     classes: list[str],
