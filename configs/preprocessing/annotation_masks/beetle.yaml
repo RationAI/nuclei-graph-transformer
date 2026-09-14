@@ -1,0 +1,33 @@
+# @package _global_
+
+defaults:
+  - /data/sources/beetle
+  - _self_
+
+xmls_dir: ${dataset.paths.annotations.xml}
+wsis_dir: ${dataset.paths.wsi_data.slides}
+output_dir: ${project_path}/BEETLE/annotations/masks_generated
+
+classes:
+  - invasive epithelium
+  - non-invasive epithelium
+  - necrosis
+  - other
+
+level: 2
+max_concurrent: 6
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+mlflow_artifact_path: annotation_masks
+
+metadata:
+  run_name: "🖍️ Annotation Masks: BEETLE"
+  description: |
+    Per-class annotation masks for the BEETLE dataset, generated from the ASAP XML
+    annotations at `annotations/xmls`. A separate binary mask (255 = annotated region,
+    0 = background) is written for each of the annotation classes: ${classes}.
+  hyperparams:
+    level: ${level}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
+    classes: ${classes}

@@ -90,8 +90,8 @@ def process_slide(
     )
 
 
-@with_cli_args(["+preprocessing=annotation_masks"])
-@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
+@with_cli_args(["+preprocessing/annotation_masks=prostate_cancer_mmci_tl"])
+@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_df = pd.read_csv(download_artifacts(config.train_metadata_uri))

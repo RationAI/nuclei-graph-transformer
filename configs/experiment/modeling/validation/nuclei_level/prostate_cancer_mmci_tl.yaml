@@ -11,14 +11,14 @@ defaults:
   #- /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/5a23479e580c44e8a08b0ec396e029b2/artifacts/checkpoints/epoch=217-step=9810/checkpoint.ckpt
-mlflow_run_id: null
-mlflow_parent_run_id: 5a23479e580c44e8a08b0ec396e029b2
+checkpoint: mlflow-artifacts:/97/aa175cd3a1104eb79200b9b5b887e80e/artifacts/checkpoints/epoch=213-step=9630/checkpoint.ckpt
+mlflow_run_id: 95b80bb4deb04b47b43d6266d78e3c8a
+mlflow_parent_run_id: aa175cd3a1104eb79200b9b5b887e80e
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 8
+  k: 28
   split_stratify_col: "is_carcinoma"
   split_group_col: "patient_id"
   split_size: 0.1
@@ -26,7 +26,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+    embedding_mode: "spatial" # "efd", "bbox", "spatial", "efd_spatial", "blank"
   supervision:
     paths: ${dataset.paths.supervision}
 
@@ -35,8 +35,8 @@ model:
     config:
       dim: 256
       hidden_dim: 1024
-      # node_features: 5 # override for "spatial" embeddings
-      # norm_dim: 5 # override for "spatial" embeddings
+      node_features: 5 # override for "spatial" embeddings
+      norm_dim: 5 # override for "spatial" embeddings
       # norm_dim: ${add:${mul:4,${data.dataset.efd_order}},6} # override for "efd_spatial" embeddings
       # node_features: ${add:${model.net.config.norm_dim},2} # override for "efd_spatial" embeddings
       num_heads: 8
