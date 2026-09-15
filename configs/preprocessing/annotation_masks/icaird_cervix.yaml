@@ -1,5 +1,9 @@
 # @package _global_
 
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
 index_csv: ${dataset.paths.wsi_data.index_csv}
 slides_dir: ${dataset.paths.wsi_data.slides_tif}
 annots_dir: ${dataset.paths.annotations}

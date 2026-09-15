@@ -2,7 +2,7 @@
 
 _target_: nuclei_graph.callbacks.masks.NucleiPredictionMasksCallback
 
-level: 2
+level: 0
 mask_tile_width: 512
 mask_tile_height: 512
 

@@ -1,0 +1,19 @@
+defaults:
+  - base
+  - _self_
+
+dataset: ???
+
+mask_tile_width: ???
+mask_tile_height: ???
+
+# for `slide_path`/`slide_nuclei_path`
+metadata_uris: ???
+
+# mlflow artifact uri (dir) with per-slide, per-nucleus prediction parquet
+# files, as saved by `nuclei_graph.callbacks.predictions.NucleiPredictionCallback`
+# during `mode=predict` (artifact path "predictions")
+predictions_uri: ???
+
+max_concurrent: 1
+mlflow_artifact_path: prediction_masks

@@ -88,8 +88,8 @@ def process_slide(
     )
 
 
-@with_cli_args(["+preprocessing=icaird_cervix_annotation_masks"])
-@hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
+@with_cli_args(["+preprocessing/annotation_masks=icaird_cervix"])
+@hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     index_df = pd.read_csv(config.index_csv)

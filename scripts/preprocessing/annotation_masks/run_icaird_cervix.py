@@ -2,7 +2,7 @@ from kube_jobs import storage, submit_job
 
 
 submit_job(
-    job_name="nuclei-graph-icaird-cervical-dataset-annotation-masks",
+    job_name="nuclei-graph-annotation-masks-icaird-cervix",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=6,
@@ -12,7 +12,7 @@ submit_job(
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m preprocessing.icaird_cervix_annotation_masks +data=sources/icaird_cervix",
+        "uv run -m preprocessing.annotation_masks.icaird_cervix",
     ],
     storage=[storage.public.DATA, storage.public.PROJECTS],
 )

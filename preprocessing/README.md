@@ -6,7 +6,7 @@
 1. **Nuclei Segmentation** (`nuclei_segmentation.py`, [output structure](#nuclei-segmentation-output))  
    Segments nuclei in whole-slide images and stores the outputs as partitioned Parquet tables.
 
-2. **Annotation Masks** (`annotation_masks.py`, [output structure](#annotation-masks-output))  
+2. **Annotation Masks** (`annotation_masks/prostate_cancer_mmci_tl.py`, [output structure](#annotation-masks-output))  
    Generates binary masks for annotated carcinoma regions using XML annotation files by expert pathologists. 
 
 3. **CAM Masks Preparation** (`merge_cam_masks.py`, [output structure](#cam-masks-output))   
@@ -39,7 +39,7 @@
 1. **iSyntax to .TIF Conversion** (`isyntax2tif.py`)  
    Converts iSyntax slides to pyramidal OpenSlide-compatible TIFF.
 
-2. **Annotation Masks** (`icaird_cervix_annotation_masks.py`, [output structure](#icaird-annotation-masks-output))  
+2. **Annotation Masks** (`annotation_masks/icaird_cervix.py`, [output structure](#icaird-annotation-masks-output))  
    Generates per-slide masks from QuPath GeoJSON annotations, encoding the most severe classification (low grade / high grade / malignant) covering each pixel.
 
 ## Output Structure Overview
@@ -64,7 +64,7 @@
 ---
 
 <a id="annotation-masks-output"></a>
-### Annotation Masks: `annotation_masks.py`
+### Annotation Masks: `annotation_masks/prostate_cancer_mmci_tl.py`
 
 **Location**: MLflow artifacts
 
@@ -94,7 +94,7 @@ missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 ---
 
 <a id="icaird-annotation-masks-output"></a>
-### Annotation Masks: `icaird_cervix_annotation_masks.py`
+### Annotation Masks: `annotation_masks/icaird_cervix.py`
 
 **Location**: MLflow artifacts
 

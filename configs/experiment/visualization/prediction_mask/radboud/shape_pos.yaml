@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+max_concurrent: 1
+metadata_uris:
+  - ${dataset.providers.radboud.metadata.test}
+mlflow_artifact_path: prediction_masks
+
+predictions_uri: mlflow-artifacts:/37/b3fc5aeedd8046f39c370fb76eab0631/artifacts/predictions
+checkpoint_url: mlflow-artifacts:/37/cdb3ba736846434aa75eb6396b7af9db/artifacts/checkpoints/epoch=226-step=49486/checkpoint.ckpt
+
+metadata:
+  run_name: "Nuclei Masks — Prediction (full resolution), Shape and Relative Positions: ${dataset.name}"
+  description: "Full-resolution heatmap of per-nucleus predictions from the
+    Shape and Relative Positions model ([MLflow training
+    run](${checkpoint_url})), rasterized from already-saved predictions
+    rather than re-running inference."
+  hyperparams:
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
