@@ -17,7 +17,7 @@ mlflow_parent_run_id: 5680c8f71bbc4304864cb884fccd18f1
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 28
+  k: 36
   metadata:
     predict: ${dataset.mlflow_uris.metadata.test}
   dataset:
