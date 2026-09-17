@@ -16,5 +16,6 @@ diff_masks_uri: ???
 normalization_masks_uri: ???
 
 top_n: 10 # number of highest/lowest normalized-disagreement slides to report
+min_normalization_area_um2: 2000 # slides with a smaller normalization area are excluded
 max_concurrent: 4
 mlflow_artifact_path: prediction_diff_stats

@@ -65,18 +65,18 @@ reporter:
   
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: ca383cf16b414711b10b8ace1980e066
+      run_id: d4309223f5764b278806e6247741554b
       layer_name: "Shape"
       shader_conf:
         visible: False
         type: heatmap
         params:
           threshold: 44
-        color: "#0000FF" # blue
+        color: "#00FF00" # green
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: 0946c406d23249ccaf5baab638cddab0
+      run_id: ae0765df52c04b78ba2426efd4a6b7a1
       layer_name: "Texture"
       shader_conf:
         visible: False
@@ -87,7 +87,7 @@ reporter:
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_masks
-      run_id: e2a24fb86854407f96d5cf6295259fa0
+      run_id: 55f4321a3625447989c342dd451594d0
       layer_name: "Blank Token"
       shader_conf:
         visible: False
@@ -99,29 +99,29 @@ reporter:
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_diff_masks
       run_id: bf29bb938c7c47aeabfc4d21037af4c5
-      layer_name: "Diff (Blank Token, Shape)"
+      layer_name: "Diff(Blank Token, Shape)"
       shader_conf:
         visible: False
         type: heatmap
-        color: "#00FF00"  # green
+        color: "#0000FF"  # blue
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_diff_masks
       run_id: 5861d9f9ae7c4bccb682a02395d74f4c
-      layer_name: "Diff (Blank Token, Texture)"
+      layer_name: "Diff(Blank Token, Texture)"
       shader_conf:
         visible: False
         type: heatmap
-        color: "#00FF00"  # green
+        color: "#0000FF"  # blue
 
     - _target_: report.masks.RunIDMlflowMaskRetriever
       dir_name: prediction_diff_masks
       run_id: 63efb2335075416aaa4e59ae501bc756
-      layer_name: "Diff (Shape, Texture)"
+      layer_name: "Diff(Shape, Texture)"
       shader_conf:
         visible: False
         type: heatmap
-        color: "#00FF00"  # green
+        color: "#0000FF"  # blue
 
 
 metadata:

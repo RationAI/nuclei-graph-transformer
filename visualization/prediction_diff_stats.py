@@ -50,6 +50,7 @@ def compute_slide_stats(
     item: dict[str, Any],
     diff_masks_dir: Path,
     normalization_masks_dir: Path,
+    min_normalization_area_um2: float,
 ) -> dict[str, Any] | None:
     slide_path = Path(item["slide_path"])
     mask_name = slide_path.with_suffix(".tiff").name
@@ -60,7 +61,7 @@ def compute_slide_stats(
         return None
 
     normalization_area_um2 = mask_foreground_area_um2(normalization_mask_path)
-    if normalization_area_um2 == 0:
+    if normalization_area_um2 < min_normalization_area_um2:
         return None
 
     disagreement_area_um2 = mask_foreground_area_um2(diff_mask_path)
@@ -87,7 +88,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     items = metadata.to_dict("records")
     pending = [
-        compute_slide_stats.remote(item, diff_masks_dir, normalization_masks_dir)
+        compute_slide_stats.remote(
+            item, diff_masks_dir, normalization_masks_dir, config.min_normalization_area_um2
+        )
         for item in items
     ]
     results = [result for result in ray.get(pending) if result is not None]
