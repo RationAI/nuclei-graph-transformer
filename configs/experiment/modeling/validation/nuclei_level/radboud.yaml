@@ -10,7 +10,7 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-heckpoint: mlflow-artifacts:/37/388e750b86b2465eb3d37c0011c456eb/artifacts/checkpoints/epoch=275-step=60168/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/37/388e750b86b2465eb3d37c0011c456eb/artifacts/checkpoints/epoch=275-step=60168/checkpoint.ckpt
 mlflow_run_id: 405b4a4662214839887a24d7a1aebc2b
 mlflow_parent_run_id: 388e750b86b2465eb3d37c0011c456eb
 
