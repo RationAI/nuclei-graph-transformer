@@ -12,7 +12,7 @@ submit_job(
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m preprocessing.isyntax2tif +data=sources/icaird_cervix",
+        "uv run -m preprocessing.isyntax2tif +experiment=preprocessing/isyntax2tif/icaird_cervix +data=sources/icaird_cervix",
     ],
     storage=[storage.public.DATA, storage.public.PROJECTS],
 )
