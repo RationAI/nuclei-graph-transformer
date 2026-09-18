@@ -6,13 +6,13 @@ submit_job(
     username=...,
     image="cerit.io/rationai/base:2.0.6",
     cpu=4,
-    memory="200Gi",
+    memory="164Gi",
     public=True,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m preprocessing.isyntax2tif +data=sources/icaird_cervix",
+        "uv run -m preprocessing.isyntax2tif +experiment=preprocessing/isyntax2tif/icaird_cervix +data=sources/icaird_cervix",
     ],
     storage=[storage.public.DATA, storage.public.PROJECTS],
 )
