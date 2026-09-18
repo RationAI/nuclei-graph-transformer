@@ -14,6 +14,7 @@ Visualization Modes:
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from typing import Any
 
 import hydra
 import pandas as pd
@@ -23,6 +24,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import process_items, write_big_tiff
+from rationai.mlkit import autolog
 from rationai.mlkit import autolog
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
@@ -83,6 +85,7 @@ def set_filling_and_get_outline_color(
 @ray.remote(memory=90 * 1024**3)
 def process_slide(
     item: dict[str, Any],
+    item: dict[str, Any],
     visualization_mode: int,
     mask_tile_width: int,
     mask_tile_height: int,
@@ -92,15 +95,19 @@ def process_slide(
     pred_thr: float | None,
 ) -> None:
     nuclei = pd.read_parquet(item["slide_nuclei_path"])
+    nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
         nuclei,
         visualization_mode,
+        Path(item["slide_path"]),
         Path(item["slide_path"]),
         **label_dirs,
         label_column=label_column,
         pred_thr=pred_thr,
     )
 
+    with OpenSlide(item["slide_path"]) as slide:
+        level = 0  # rasterize at the highest resolution level
     with OpenSlide(item["slide_path"]) as slide:
         level = 0  # rasterize at the highest resolution level
         mask_mpp_x, mask_mpp_y = slide.slide_resolution(level)
@@ -118,6 +125,7 @@ def process_slide(
 
     write_big_tiff(
         image=pyvips.Image.new_from_array(mask),
+        path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         mpp_x=mask_mpp_x,
         mpp_y=mask_mpp_y,
@@ -137,6 +145,7 @@ def uris2df(uris: list[str]) -> pd.DataFrame:
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     assert config.visualization_mode in {1, 2, 3, 4}
     metadata = uris2df(config.metadata_uris)
+    metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
         "heatmap_labels_dir": Path(config.heatmap_labels_dir)
@@ -152,6 +161,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     with TemporaryDirectory() as output_dir:
         process_items(
+            items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
             items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
             process_item=process_slide,
             fn_kwargs={
