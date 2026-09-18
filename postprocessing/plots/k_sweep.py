@@ -45,12 +45,14 @@ from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
-matplotlib.rcParams.update({
-    'figure.max_open_warning': 0,
-    'figure.dpi': 300,
-    'savefig.dpi': 600,
-    'savefig.bbox': 'tight',
-})
+matplotlib.rcParams.update(
+    {
+        "figure.max_open_warning": 0,
+        "figure.dpi": 300,
+        "savefig.dpi": 600,
+        "savefig.bbox": "tight",
+    }
+)
 
 NAVY = "#28374A"
 SHAPE_BLUE = "#3D6B8C"
@@ -97,10 +99,13 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
                 )
 
         if query and "rope" not in str(query).lower():
-            print(f"  -> WARNING: [{label}/{dataset}] query {query!r} doesn't mention "
-                  f"RoPE — Q4 requires PE fixed at standard RoPE for every point, "
-                  f"including the Dense reference, or scale and position encoding "
-                  f"become confounded again.", file=sys.stderr)
+            print(
+                f"  -> WARNING: [{label}/{dataset}] query {query!r} doesn't mention "
+                f"RoPE — Q4 requires PE fixed at standard RoPE for every point, "
+                f"including the Dense reference, or scale and position encoding "
+                f"become confounded again.",
+                file=sys.stderr,
+            )
 
         try:
             local_path = download_artifacts(uri)
@@ -108,11 +113,17 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             if query:
                 df = df.query(query)
             if df.empty:
-                print(f"  -> WARNING: query '{query}' matched no rows in {uri}", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched no rows in {uri}",
+                    file=sys.stderr,
+                )
                 continue
             if len(df) > 1:
-                print(f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
-                      f"expected exactly 1 — taking the first", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
+                    f"expected exactly 1 — taking the first",
+                    file=sys.stderr,
+                )
 
             record = df.iloc[0].to_dict()
             record["Modality"] = label
@@ -144,7 +155,9 @@ def create_k_sweep_chart(
         return
 
     datasets = sorted(df["Dataset"].unique())
-    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Modality"] = pd.Categorical(
+        df["Modality"], categories=modality_order, ordered=True
+    )
     df = df.dropna(subset=["Modality"])
 
     modalities = [m for m in modality_order if m in df["Modality"].values]
@@ -170,7 +183,9 @@ def create_k_sweep_chart(
     else:
         shared_xlim = None
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.0 * n_cols, 4.5 * n_rows), squeeze=False)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(6.0 * n_cols, 4.5 * n_rows), squeeze=False
+    )
 
     modality_handles: dict[str, Line2D] = {}
     dense_seen = False
@@ -202,10 +217,22 @@ def create_k_sweep_chart(
                         his.append(hi)
                     vals, los, his = np.array(vals), np.array(los), np.array(his)
 
-                    ax.fill_between(k_vals, los, his, color=color, alpha=0.15, zorder=1, linewidth=0)
-                    line, = ax.plot(k_vals, vals, color=color, linewidth=2.2, marker="o", markersize=6,
-                                     markerfacecolor=color, markeredgecolor="white", markeredgewidth=1.0,
-                                     zorder=3, label=modality)
+                    ax.fill_between(
+                        k_vals, los, his, color=color, alpha=0.15, zorder=1, linewidth=0
+                    )
+                    (line,) = ax.plot(
+                        k_vals,
+                        vals,
+                        color=color,
+                        linewidth=2.2,
+                        marker="o",
+                        markersize=6,
+                        markerfacecolor=color,
+                        markeredgecolor="white",
+                        markeredgewidth=1.0,
+                        zorder=3,
+                        label=modality,
+                    )
                     modality_handles.setdefault(modality, line)
 
                     # Peak k: marked with a vertical dashed guide, a larger
@@ -214,41 +241,91 @@ def create_k_sweep_chart(
                     # per modality so overlaid peaks don't collide.
                     peak_i = int(np.argmax(vals))
                     peak_k, peak_val = k_vals[peak_i], vals[peak_i]
-                    ax.axvline(peak_k, color=color, linestyle=":", linewidth=1.3, alpha=0.6, zorder=1.5)
-                    ax.scatter([peak_k], [peak_val], s=110, color=color, zorder=4,
-                               edgecolor="white", linewidth=1.3, marker="*")
-                    txt = ax.annotate(f"k*={peak_k:g}", xy=(peak_k, peak_val),
-                                       xytext=(0, 12 + m_idx * 14),
-                                       textcoords="offset points", ha="center", va="bottom",
-                                       fontsize=8.5, fontweight="bold", color=color, zorder=5)
+                    ax.axvline(
+                        peak_k,
+                        color=color,
+                        linestyle=":",
+                        linewidth=1.3,
+                        alpha=0.6,
+                        zorder=1.5,
+                    )
+                    ax.scatter(
+                        [peak_k],
+                        [peak_val],
+                        s=110,
+                        color=color,
+                        zorder=4,
+                        edgecolor="white",
+                        linewidth=1.3,
+                        marker="*",
+                    )
+                    txt = ax.annotate(
+                        f"k*={peak_k:g}",
+                        xy=(peak_k, peak_val),
+                        xytext=(0, 12 + m_idx * 14),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=8.5,
+                        fontweight="bold",
+                        color=color,
+                        zorder=5,
+                    )
                     txt.set_path_effects(_LABEL_HALO)
 
                 if not dense.empty:
-                    val_dense, lo_dense, hi_dense = _get_point_and_ci(dense.iloc[0], metric)
+                    val_dense, lo_dense, hi_dense = _get_point_and_ci(
+                        dense.iloc[0], metric
+                    )
                     ax.axhspan(lo_dense, hi_dense, color=color, alpha=0.10, zorder=0.5)
-                    ax.axhline(val_dense, color=color, linestyle="--", linewidth=1.8,
-                               zorder=1.2)
+                    ax.axhline(
+                        val_dense,
+                        color=color,
+                        linestyle="--",
+                        linewidth=1.8,
+                        zorder=1.2,
+                    )
                     dense_seen = True
-                    txt = ax.annotate(f"{modality} Dense: {val_dense:.3f}", xy=(1.0, val_dense),
-                                       xycoords=("axes fraction", "data"),
-                                       xytext=(-6, 6 + m_idx * 12),
-                                       textcoords="offset points", ha="right", va="bottom",
-                                       fontsize=8.5, fontweight="bold", color=color, zorder=5)
+                    txt = ax.annotate(
+                        f"{modality} Dense: {val_dense:.3f}",
+                        xy=(1.0, val_dense),
+                        xycoords=("axes fraction", "data"),
+                        xytext=(-6, 6 + m_idx * 12),
+                        textcoords="offset points",
+                        ha="right",
+                        va="bottom",
+                        fontsize=8.5,
+                        fontweight="bold",
+                        color=color,
+                        zorder=5,
+                    )
                     txt.set_path_effects(_LABEL_HALO)
 
             if not plotted_any:
-                ax.text(0.5, 0.5, "No data", transform=ax.transAxes,
-                        ha="center", va="center", fontsize=10, color="#999999")
+                ax.text(
+                    0.5,
+                    0.5,
+                    "No data",
+                    transform=ax.transAxes,
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    color="#999999",
+                )
                 ax.set_xticks([])
                 ax.set_yticks([])
                 ax.spines[:].set_visible(False)
                 if row_idx == 0:
-                    ax.set_title(dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15)
+                    ax.set_title(
+                        dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15
+                    )
                 continue
             row_data_axes.append(ax)
 
             ax.set_xlabel("k (nearest neighbors)", fontsize=10.5, fontweight="bold")
-            ax.set_ylabel(f"{dataset}\n{metric} (95% CI)", fontsize=10.5, fontweight="bold")
+            ax.set_ylabel(
+                f"{dataset}\n{metric} (95% CI)", fontsize=10.5, fontweight="bold"
+            )
             ax.grid(axis="y", color=GRID, linewidth=0.8, linestyle="--", alpha=0.8)
             ax.set_axisbelow(True)
             ax.spines[["top", "right"]].set_visible(False)
@@ -259,7 +336,9 @@ def create_k_sweep_chart(
                 ax.set_xticks(sorted(all_k.unique()))
 
             if row_idx == 0:
-                ax.set_title(dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15)
+                ax.set_title(
+                    dataset, fontsize=14, color=NAVY, fontweight="bold", pad=15
+                )
 
         # Lock every dataset panel for this metric onto the same y-range —
         # each panel autoscaled independently above, so without this a
@@ -274,29 +353,65 @@ def create_k_sweep_chart(
                 ax.set_ylim(shared_ylim)
 
     handles = [
-        Line2D([0], [0], color=color, linewidth=2.2, marker="o", markersize=6,
-               markerfacecolor=color, markeredgecolor="white", label=f"{modality} (k-NN sweep)")
+        Line2D(
+            [0],
+            [0],
+            color=color,
+            linewidth=2.2,
+            marker="o",
+            markersize=6,
+            markerfacecolor=color,
+            markeredgecolor="white",
+            label=f"{modality} (k-NN sweep)",
+        )
         for modality, line in modality_handles.items()
         for color in [line.get_color()]
     ]
     if dense_seen:
         handles.append(
-            Line2D([0], [0], color="#666666", linewidth=1.8, linestyle="--",
-                   label="Dense / global attention (modality color)")
+            Line2D(
+                [0],
+                [0],
+                color="#666666",
+                linewidth=1.8,
+                linestyle="--",
+                label="Dense / global attention (modality color)",
+            )
         )
     handles.append(
-        Line2D([0], [0], color="#666666", linewidth=1.3, linestyle=":", marker="*",
-               markersize=10, markerfacecolor="#666666", label="Peak k")
+        Line2D(
+            [0],
+            [0],
+            color="#666666",
+            linewidth=1.3,
+            linestyle=":",
+            marker="*",
+            markersize=10,
+            markerfacecolor="#666666",
+            label="Peak k",
+        )
     )
     # Reserve the top of the figure for title + legend + caption, laid out
     # in fixed figure-fraction slots (not y>1 offsets), so tight_layout's
     # axes region and the header content never fight over the same space.
     fig.tight_layout(rect=[0, 0, 1, 0.87])
-    fig.suptitle("k-NN vs. Global Attention: Spatial Statistics",
-                 fontsize=16, color=NAVY, fontweight="bold", y=0.985)
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 0.945),
-               ncol=len(handles), fontsize=9.5, frameon=False, columnspacing=1.3, handletextpad=0.6)
-
+    fig.suptitle(
+        "k-NN vs. Global Attention: Spatial Statistics",
+        fontsize=16,
+        color=NAVY,
+        fontweight="bold",
+        y=0.985,
+    )
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.945),
+        ncol=len(handles),
+        fontsize=9.5,
+        frameon=False,
+        columnspacing=1.3,
+        handletextpad=0.6,
+    )
 
     fig.savefig(output_path)
     plt.close(fig)
@@ -304,11 +419,14 @@ def create_k_sweep_chart(
 
 
 @with_cli_args(["+postprocessing=plots/k_sweep"])
-@hydra.main(config_path="../../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     if config.get("mlflow_tracking_uri"):
         import mlflow
+
         mlflow.set_tracking_uri(config.mlflow_tracking_uri)
 
     inputs = OmegaConf.to_object(config.get("inputs", []))
@@ -318,7 +436,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         modality_order = OmegaConf.to_object(modality_order)
 
     if not inputs:
-        raise ValueError("No inputs provided. Please define 'inputs' in your Hydra config.")
+        raise ValueError(
+            "No inputs provided. Please define 'inputs' in your Hydra config."
+        )
 
     df = load_plot_data(inputs)
     if df.empty:

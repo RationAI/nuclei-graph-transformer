@@ -1,7 +1,4 @@
-"""This script generates a CSV metadataset file for the BEETLE dataset.
-
-This serves as a snapshot of the current data version used in this project further on.
-"""
+"""This script generates a CSV metadataset file for the BEETLE dataset."""
 
 import csv
 from pathlib import Path
@@ -31,9 +28,13 @@ def parse_slide_info(
         log(f"SLIDE_MISSING: {row['name']} ({slide_path})")
         return None
 
-    mask_path = root / row["annotation_mask_path"] if row["annotation_mask_path"] else None
+    mask_path = (
+        root / row["annotation_mask_path"] if row["annotation_mask_path"] else None
+    )
     xml_path = root / row["annotation_xml_path"] if row["annotation_xml_path"] else None
-    json_path = root / row["annotation_json_path"] if row["annotation_json_path"] else None
+    json_path = (
+        root / row["annotation_json_path"] if row["annotation_json_path"] else None
+    )
 
     return {
         "slide_id": row["name"],

@@ -32,7 +32,10 @@ from mlflow.artifacts import download_artifacts
 from scipy.spatial import cKDTree
 
 
-K_VALUES = [512, 8192]  # crop_size_min / crop_size_max, see nuclei_level training configs
+K_VALUES = [
+    512,
+    8192,
+]  # crop_size_min / crop_size_max, see nuclei_level training configs
 
 # preprocessing/metadata_mapping/{prostate_cancer_mmci_tl,panda}.py -- train split mappings
 DATASET_METADATA_URIS = {
@@ -74,7 +77,9 @@ def knn_radii(
     radii: dict[int, np.ndarray] = {}
     for k in k_values:
         k_eff = min(k, n - 1)  # can't have more neighbors than other nuclei exist
-        dists, _ = tree.query(query_points, k=k_eff + 1)  # +1: self (distance 0) is included
+        dists, _ = tree.query(
+            query_points, k=k_eff + 1
+        )  # +1: self (distance 0) is included
         radii[k] = dists[:, -1]
     return radii
 
@@ -89,7 +94,8 @@ def process_dataset(
 ) -> None:
     print(f"\n=== {name} ===")
     slides_df = pd.read_parquet(
-        download_artifacts(uri), columns=["slide_id", "slide_nuclei_path", "mpp_x", "mpp_y"]
+        download_artifacts(uri),
+        columns=["slide_id", "slide_nuclei_path", "mpp_x", "mpp_y"],
     )
 
     if max_slides is not None and len(slides_df) > max_slides:

@@ -12,8 +12,8 @@ Each modality is plotted as up to TWO lines, both spanning k-NN -> Dense:
 Both lines share the modality's color and differ only in line style (solid
 = RoPE, dashed = None) and marker shape (circle = RoPE, square = None).
 
-A line is plotted as long as both of its conditions (k-NN and Dense) are 
-available. If a modality has data for one line but is missing data for the 
+A line is plotted as long as both of its conditions (k-NN and Dense) are
+available. If a modality has data for one line but is missing data for the
 other, the available line will still be drawn.
 Groups metrics into a grid (Rows = Metrics, Cols = Datasets).
 """
@@ -36,12 +36,14 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 matplotlib.use("Agg")
 
-matplotlib.rcParams.update({
-    'figure.max_open_warning': 0,
-    'figure.dpi': 300,
-    'savefig.dpi': 600,
-    'savefig.bbox': 'tight',
-})
+matplotlib.rcParams.update(
+    {
+        "figure.max_open_warning": 0,
+        "figure.dpi": 300,
+        "savefig.dpi": 600,
+        "savefig.bbox": "tight",
+    }
+)
 
 NAVY = "#28374A"
 SHAPE_BLUE = "#3D6B8C"
@@ -58,7 +60,10 @@ _LINES = {
     "RoPE": ("rope_knn", "rope_dense"),
     "None": ("none_knn", "none_dense"),
 }
-_LINE_STYLE = {"RoPE": {"linestyle": "-", "marker": "o"}, "None": {"linestyle": "--", "marker": "s"}}
+_LINE_STYLE = {
+    "RoPE": {"linestyle": "-", "marker": "o"},
+    "None": {"linestyle": "--", "marker": "s"},
+}
 
 
 def load_plot_data(inputs_config) -> pd.DataFrame:
@@ -86,11 +91,17 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             if query:
                 df = df.query(query)
             if df.empty:
-                print(f"  -> WARNING: query '{query}' matched no rows in {uri}", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched no rows in {uri}",
+                    file=sys.stderr,
+                )
                 continue
             if len(df) > 1:
-                print(f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
-                      f"expected exactly 1 — taking the first", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
+                    f"expected exactly 1 — taking the first",
+                    file=sys.stderr,
+                )
 
             record = df.iloc[0].to_dict()
             record["Modality"] = label
@@ -173,20 +184,27 @@ def create_interaction_plot(
         return
 
     datasets = sorted(df["Dataset"].unique())
-    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Modality"] = pd.Categorical(
+        df["Modality"], categories=modality_order, ordered=True
+    )
     df = df.dropna(subset=["Modality"])
 
     modalities = [m for m in modality_order if m in df["Modality"].values]
     if not modalities:
         print("No modalities matched modality_order.", file=sys.stderr)
         return
-    modality_colors = {mod: MODALITY_PALETTE[i % len(MODALITY_PALETTE)] for i, mod in enumerate(modalities)}
+    modality_colors = {
+        mod: MODALITY_PALETTE[i % len(MODALITY_PALETTE)]
+        for i, mod in enumerate(modalities)
+    }
 
     x_pos = np.array([0.0, 1.0])
 
     n_rows = len(present_metrics)
     n_cols = len(datasets)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(6.0 * n_cols, 5.0 * n_rows), sharex=True)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(6.0 * n_cols, 5.0 * n_rows), sharex=True
+    )
 
     if n_rows == 1 and n_cols == 1:
         axes = np.array([[axes]])
@@ -225,26 +243,49 @@ def create_interaction_plot(
                     if c0 in vals and c1 in vals:
                         y = [vals[c0], vals[c1]]
                         style = _LINE_STYLE[line_name]
-                        ax.plot(x_pos, y, color=color, linewidth=2.3,
-                                marker=style["marker"], markersize=8, linestyle=style["linestyle"],
-                                markerfacecolor=color, markeredgecolor="white", markeredgewidth=1.0,
-                                zorder=2)
+                        ax.plot(
+                            x_pos,
+                            y,
+                            color=color,
+                            linewidth=2.3,
+                            marker=style["marker"],
+                            markersize=8,
+                            linestyle=style["linestyle"],
+                            markerfacecolor=color,
+                            markeredgecolor="white",
+                            markeredgewidth=1.0,
+                            zorder=2,
+                        )
                         for xi, cond in zip(x_pos, (c0, c1)):
                             err_lo = max(0, vals[cond] - los[cond])
                             err_hi = max(0, his[cond] - vals[cond])
-                            ax.errorbar(xi, vals[cond], yerr=[[err_lo], [err_hi]], fmt="none",
-                                        ecolor=color, alpha=0.4, capsize=4, capthick=1.3,
-                                        linewidth=1.3, zorder=1.5)
+                            ax.errorbar(
+                                xi,
+                                vals[cond],
+                                yerr=[[err_lo], [err_hi]],
+                                fmt="none",
+                                ecolor=color,
+                                alpha=0.4,
+                                capsize=4,
+                                capthick=1.3,
+                                linewidth=1.3,
+                                zorder=1.5,
+                            )
                         line_data[line_name] = {"y": y}
                     else:
                         missing_points = [c for c in (c0, c1) if c not in vals]
-                        print(f"  -> INFO: [{dataset}/{metric}] {mod} missing {missing_points} "
-                              f"— skipping {line_name} line.", file=sys.stderr)
+                        print(
+                            f"  -> INFO: [{dataset}/{metric}] {mod} missing {missing_points} "
+                            f"— skipping {line_name} line.",
+                            file=sys.stderr,
+                        )
 
                 if not line_data:
                     continue  # Skip modality only if neither line could be drawn
 
-                plotted.append({"mod": mod, "color": color, "lines": line_data, "vals": vals})
+                plotted.append(
+                    {"mod": mod, "color": color, "lines": line_data, "vals": vals}
+                )
 
             ax.set_xticks(x_pos)
             ax.set_xticklabels(_X_LABELS, fontsize=11, fontweight="bold")
@@ -256,7 +297,13 @@ def create_interaction_plot(
             ax.spines[["top", "right"]].set_visible(False)
 
             if row_idx == 0:
-                ax.set_title(f"Dataset: {dataset}", fontsize=14, color=NAVY, fontweight="bold", pad=15)
+                ax.set_title(
+                    f"Dataset: {dataset}",
+                    fontsize=14,
+                    color=NAVY,
+                    fontweight="bold",
+                    pad=15,
+                )
 
             if not plotted:
                 continue
@@ -305,38 +352,93 @@ def create_interaction_plot(
                 dx, ha = (10, "left") if col_i == 0 else (-10, "right")
                 for (color, raw_y), label_y in zip(entries, label_ys):
                     if abs(label_y - raw_y) > gap_value * 0.25:
-                        ax.plot([xi, xi], [raw_y, label_y], color=color, alpha=0.3,
-                                linewidth=0.7, zorder=1.8, solid_capstyle="round")
-                    txt = ax.annotate(f"{raw_y:.3f}", xy=(xi, label_y), xytext=(dx, 0),
-                                       textcoords="offset points", ha=ha, va="center",
-                                       fontsize=7.5, fontfamily="monospace", fontweight="bold",
-                                       color=color, zorder=4)
+                        ax.plot(
+                            [xi, xi],
+                            [raw_y, label_y],
+                            color=color,
+                            alpha=0.3,
+                            linewidth=0.7,
+                            zorder=1.8,
+                            solid_capstyle="round",
+                        )
+                    txt = ax.annotate(
+                        f"{raw_y:.3f}",
+                        xy=(xi, label_y),
+                        xytext=(dx, 0),
+                        textcoords="offset points",
+                        ha=ha,
+                        va="center",
+                        fontsize=7.5,
+                        fontfamily="monospace",
+                        fontweight="bold",
+                        color=color,
+                        zorder=4,
+                    )
                     txt.set_path_effects(_LABEL_HALO)
 
             # Pass 2b: Modality name labels at left midpoint
-            raw_name_ys = np.array([
-                sum(p["lines"][ln]["y"][0] for ln in p["lines"]) / len(p["lines"]) for p in plotted
-            ])
+            raw_name_ys = np.array(
+                [
+                    sum(p["lines"][ln]["y"][0] for ln in p["lines"]) / len(p["lines"])
+                    for p in plotted
+                ]
+            )
             name_ys = _declutter(raw_name_ys, gap_name)
             for p, name_y in zip(plotted, name_ys):
-                txt = ax.annotate(p["mod"], xy=(x_pos[0], name_y), xytext=(-32, 0),
-                                   textcoords="offset points", ha="right", va="center",
-                                   fontsize=9, fontweight="bold", color=p["color"], zorder=4)
+                txt = ax.annotate(
+                    p["mod"],
+                    xy=(x_pos[0], name_y),
+                    xytext=(-32, 0),
+                    textcoords="offset points",
+                    ha="right",
+                    va="center",
+                    fontsize=9,
+                    fontweight="bold",
+                    color=p["color"],
+                    zorder=4,
+                )
                 txt.set_path_effects(_LABEL_HALO)
 
     handles = [
-        Line2D([0], [0], color="#555555", linewidth=2.3, linestyle="-", marker="o",
-               markersize=8, markerfacecolor="#555555", markeredgecolor="white",
-               label="RoPE present"),
-        Line2D([0], [0], color="#555555", linewidth=2.3, linestyle="--", marker="s",
-               markersize=8, markerfacecolor="#555555", markeredgecolor="white",
-               label="RoPE absent"),
+        Line2D(
+            [0],
+            [0],
+            color="#555555",
+            linewidth=2.3,
+            linestyle="-",
+            marker="o",
+            markersize=8,
+            markerfacecolor="#555555",
+            markeredgecolor="white",
+            label="RoPE present",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color="#555555",
+            linewidth=2.3,
+            linestyle="--",
+            marker="s",
+            markersize=8,
+            markerfacecolor="#555555",
+            markeredgecolor="white",
+            label="RoPE absent",
+        ),
     ]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.04),
-               ncol=2, fontsize=11, frameon=False)
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.04),
+        ncol=2,
+        fontsize=11,
+        frameon=False,
+    )
     fig.suptitle(
         "Locality vs. Precise Positions",
-        fontsize=14, color=NAVY, fontweight="bold", y=1.09,
+        fontsize=14,
+        color=NAVY,
+        fontweight="bold",
+        y=1.09,
     )
     fig.tight_layout()
     fig.savefig(output_path)
@@ -345,11 +447,14 @@ def create_interaction_plot(
 
 
 @with_cli_args(["+postprocessing=plots/interaction_plot"])
-@hydra.main(config_path="../../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     if config.get("mlflow_tracking_uri"):
         import mlflow
+
         mlflow.set_tracking_uri(config.mlflow_tracking_uri)
 
     inputs = OmegaConf.to_object(config.get("inputs", []))
@@ -359,7 +464,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         modality_order = OmegaConf.to_object(modality_order)
 
     if not inputs:
-        raise ValueError("No inputs provided. Please define 'inputs' in your Hydra config.")
+        raise ValueError(
+            "No inputs provided. Please define 'inputs' in your Hydra config."
+        )
 
     df = load_plot_data(inputs)
     if df.empty:

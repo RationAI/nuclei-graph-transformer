@@ -79,7 +79,9 @@ class ShapePermutationImportanceCallback(Callback):
         self.cached_batches.append(batch)
 
     @torch.no_grad()
-    def on_validation_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+    def on_validation_epoch_end(
+        self, trainer: Trainer, pl_module: LightningModule
+    ) -> None:
         if trainer.sanity_checking or not self.cached_batches:
             return
         device = pl_module.device

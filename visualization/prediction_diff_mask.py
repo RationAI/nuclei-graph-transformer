@@ -39,7 +39,7 @@ def mark_disagreement(
     predictions_path_a = predictions_dir_a / f"{slide_path.stem}.parquet"
     predictions_path_b = predictions_dir_b / f"{slide_path.stem}.parquet"
     if not predictions_path_a.exists() or not predictions_path_b.exists():
-        return None 
+        return None
 
     preds_a = pd.read_parquet(predictions_path_a)[["id", "nuclei_prediction"]].rename(
         columns={"nuclei_prediction": "pred_a"}

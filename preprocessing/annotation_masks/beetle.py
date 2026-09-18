@@ -90,7 +90,9 @@ def process_slide(
     try:
         slide_path = find_wsi_path(wsis_dir, xml_path.stem)
         if slide_path is None:
-            raise FileNotFoundError(f"No matching WSI found for {xml_path.stem} in {wsis_dir}")
+            raise FileNotFoundError(
+                f"No matching WSI found for {xml_path.stem} in {wsis_dir}"
+            )
 
         with OpenSlide(slide_path) as slide:
             mpp_x, mpp_y = slide.slide_resolution(level)
@@ -172,7 +174,11 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         failed_slides = {p.stem: p.read_text() for p in Path(failed_dir).glob("*.txt")}
 
     if failed_slides:
-        py_logger.warning("%d slide(s) failed to process: %s", len(failed_slides), sorted(failed_slides))
+        py_logger.warning(
+            "%d slide(s) failed to process: %s",
+            len(failed_slides),
+            sorted(failed_slides),
+        )
 
     logger.log_artifacts(
         local_dir=str(output_dir),

@@ -110,7 +110,11 @@ def extract_tables(md_text: str) -> list[tuple[str, str, list[str]]]:
                     combined_heading = "untitled"
                 else:
                     deepest_text = active_headings[sorted_levels[-1]].lower()
-                    if "k" in deepest_text and "sweep" in deepest_text and len(sorted_levels) >= 2:
+                    if (
+                        "k" in deepest_text
+                        and "sweep" in deepest_text
+                        and len(sorted_levels) >= 2
+                    ):
                         relevant_levels = sorted_levels[-2:]
                     else:
                         relevant_levels = [sorted_levels[-1]]
@@ -151,7 +155,9 @@ def clean_cell(cell: str) -> str:
     cell = _BOLD_RE.sub(r"\1", cell)
     cell = _BR_RE.sub(" ", cell)
     cell = _LINK_RE.sub(r"\1", cell)  # keep link text, drop the URL
-    cell = _TAG_RE.sub("", cell)  # drop leftover HTML, e.g. <span style=...> highlight wrappers
+    cell = _TAG_RE.sub(
+        "", cell
+    )  # drop leftover HTML, e.g. <span style=...> highlight wrappers
     return cell.strip()
 
 
@@ -176,7 +182,9 @@ def extract_run_id(raw_cell: str) -> str | None:
 
 
 class MlflowMetricFetcher:
-    def __init__(self, tracking_uri: str | None, cache_path: Path, use_cache: bool = True):
+    def __init__(
+        self, tracking_uri: str | None, cache_path: Path, use_cache: bool = True
+    ):
         import mlflow
 
         self.mlflow = mlflow
@@ -273,7 +281,17 @@ def classify_label_columns(cols: list[str], eval_col: str | None) -> list[str]:
             continue
         if c == eval_col:
             continue
-        if any(k in cl for k in ("auprc", "auroc", "accuracy", "precision", "recall", "specificity")):
+        if any(
+            k in cl
+            for k in (
+                "auprc",
+                "auroc",
+                "accuracy",
+                "precision",
+                "recall",
+                "specificity",
+            )
+        ):
             continue
         label_cols.append(c)
     return label_cols
@@ -287,7 +305,11 @@ def detect_sweep_column(label_cols: list[str]) -> str | None:
 
 
 def build_table_data(
-    idx: int, heading: str, header: str, data_lines: list[str], fetcher: MlflowMetricFetcher
+    idx: int,
+    heading: str,
+    header: str,
+    data_lines: list[str],
+    fetcher: MlflowMetricFetcher,
 ) -> TableData | None:
     raw_df = table_to_raw_df(header, data_lines)
     if raw_df is None:
@@ -317,7 +339,10 @@ def build_table_data(
         try:
             m = fetcher.fetch(run_id)
         except Exception as e:
-            print(f"[table {idx}] WARNING: failed to fetch run {run_id}: {e}", file=sys.stderr)
+            print(
+                f"[table {idx}] WARNING: failed to fetch run {run_id}: {e}",
+                file=sys.stderr,
+            )
             m = {}
         fetched_rows.append(m)
         metrics_present.update(k for k in m if not k.endswith(("_lo", "_hi")))
@@ -335,7 +360,9 @@ def build_table_data(
         out = out[out[metrics_present_list].notna().any(axis=1)].reset_index(drop=True)
 
     sweep_col = detect_sweep_column(label_cols)
-    return TableData(idx, heading, title, out, label_cols, metrics_present_list, sweep_col)
+    return TableData(
+        idx, heading, title, out, label_cols, metrics_present_list, sweep_col
+    )
 
 
 def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
@@ -350,7 +377,9 @@ def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
         td = build_table_data(idx, heading, header, data_lines, fetcher)
         if td is None:
             continue
-        print(f"[table {idx}] {len(td.df)} rows, columns: {td.label_cols} | metrics: {td.metrics_present}")
+        print(
+            f"[table {idx}] {len(td.df)} rows, columns: {td.label_cols} | metrics: {td.metrics_present}"
+        )
         results.append(td)
     return results
 
@@ -358,8 +387,8 @@ def load_tables(md_text: str, fetcher: MlflowMetricFetcher) -> list[TableData]:
 def slugify(text: str) -> str:
     """Converts a heading like '"k" Sweep' into a safe filename like 'k_sweep'."""
     text = text.lower()
-    text = re.sub(r'[^a-z0-9]+', '_', text)
-    return text.strip('_') or "table"
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    return text.strip("_") or "table"
 
 
 @with_cli_args(["+postprocessing=results"])
@@ -389,7 +418,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
         logger.log_artifacts(
             local_dir=str(output_dir_path),
-            artifact_path=config.get("mlflow_artifact_path", "tables")
+            artifact_path=config.get("mlflow_artifact_path", "tables"),
         )
 
 

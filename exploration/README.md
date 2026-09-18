@@ -71,3 +71,23 @@ beetle/
 - `scanner` (`str`)
 - `split` (`str`): "development" or "evaluation".
 - `validation_fold` (`str`): cross-validation fold within the development split; `None` for evaluation slides.
+
+### iCAIRD Cervix Dataset
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+icaird_cervix/
+  errors.log (slides listed in index.csv but missing on disk)
+  slides_metadata.csv (metadata for the valid slides)
+  summary.csv (aggregate statistics)
+```
+
+**CSV metadata row schema (one row = one slide)**:
+- `slide_id` (`str`): matches the `slide` column of the dataset's `index.csv`.
+- `slide_path` (`str`)
+- `category` (`str`): e.g. "normal_inflammation", "low_grade", "high_grade", "malignant".
+- `subcategory` (`str`): dataset-provided subcategory of `category`.
+- `split` (`str`): the dataset-provided train/valid split.
+- `has_annotation` (`bool`): True if the slide's GeoJSON annotation file exists.

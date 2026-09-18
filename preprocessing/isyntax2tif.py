@@ -1,4 +1,4 @@
-"""Batch-convert iSyntax slides from the iCAIRD cervical dataset to pyramidal OpenSlide-compatible TIFF."""
+"""This script converts iSyntax slides from the iCAIRD cervical dataset to pyramidal OpenSlide-compatible TIFF."""
 
 from pathlib import Path
 
@@ -45,14 +45,10 @@ def convert_slide(
         )
 
     with OpenSlide(output_path) as slide:
-        out_mpp_x, out_mpp_y =  slide.slide_resolution(level=0)
+        out_mpp_x, out_mpp_y = slide.slide_resolution(level=0)
 
-    assert abs(out_mpp_x - mpp_x) < MPP_TOLERANCE, (
-        f"{slide_path.stem}: mpp-x mismatch, source={mpp_x} output={out_mpp_x}"
-    )
-    assert abs(out_mpp_y - mpp_y) < MPP_TOLERANCE, (
-        f"{slide_path.stem}: mpp-y mismatch, source={mpp_y} output={out_mpp_y}"
-    )
+    assert abs(out_mpp_x - mpp_x) < MPP_TOLERANCE
+    assert abs(out_mpp_y - mpp_y) < MPP_TOLERANCE
 
 
 @with_cli_args(["+preprocessing=isyntax2tif"])

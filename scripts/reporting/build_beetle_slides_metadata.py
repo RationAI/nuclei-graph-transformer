@@ -26,7 +26,9 @@ DEFAULT_WSIS_DIR = Path(
 DEFAULT_MASKS_DIR = Path(
     "/mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/masks_rescaled"
 )
-DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "data" / "beetle" / "slides_metadata.csv"
+DEFAULT_OUTPUT = (
+    Path(__file__).resolve().parents[2] / "data" / "beetle" / "slides_metadata.csv"
+)
 
 WSI_EXTENSIONS = {".tif", ".tiff", ".svs"}
 MASK_EXTENSIONS = {".tif", ".tiff"}
@@ -76,7 +78,9 @@ def main() -> None:
     write_metadata(rows, args.output)
 
     n_with_mask = sum(1 for row in rows if row["mask_path"])
-    print(f"Wrote {len(rows)} slides ({n_with_mask} with annotation masks) to {args.output}")
+    print(
+        f"Wrote {len(rows)} slides ({n_with_mask} with annotation masks) to {args.output}"
+    )
 
 
 if __name__ == "__main__":

@@ -79,7 +79,9 @@ def uris2df(uris: list[str]) -> pd.DataFrame:
     return pd.concat(batches, ignore_index=True).drop_duplicates(subset=["slide_path"])
 
 
-@hydra.main(config_path="../configs", config_name="prediction_diff_stats", version_base=None)
+@hydra.main(
+    config_path="../configs", config_name="prediction_diff_stats", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     metadata = uris2df(config.metadata_uris)
@@ -89,7 +91,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     items = metadata.to_dict("records")
     pending = [
         compute_slide_stats.remote(
-            item, diff_masks_dir, normalization_masks_dir, config.min_normalization_area_um2
+            item,
+            diff_masks_dir,
+            normalization_masks_dir,
+            config.min_normalization_area_um2,
         )
         for item in items
     ]

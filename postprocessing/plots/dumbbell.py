@@ -20,18 +20,20 @@ from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
-matplotlib.rcParams.update({
-    'figure.max_open_warning': 0,
-    'figure.dpi': 300,
-    'savefig.dpi': 600,
-    'savefig.bbox': 'tight',
-})
+matplotlib.rcParams.update(
+    {
+        "figure.max_open_warning": 0,
+        "figure.dpi": 300,
+        "savefig.dpi": 600,
+        "savefig.bbox": "tight",
+    }
+)
 
 # Project-standard palette
 NAVY = "#28374A"
 SHAPE_BLUE = "#3D6B8C"
 GRID = "#E5E1D8"
-BAG_COLOR = "#C25936"  
+BAG_COLOR = "#C25936"
 STRUCT_COLORS = {"AUROC": NAVY, "AUPRC": SHAPE_BLUE}
 
 _VALID_CONDITIONS = {"spatially-agnostic", "spatially-aware"}
@@ -58,15 +60,25 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             if query:
                 df = df.query(query)
             if df.empty:
-                print(f"  -> WARNING: query '{query}' matched no rows in {uri}", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched no rows in {uri}",
+                    file=sys.stderr,
+                )
                 continue
             if len(df) > 1:
-                print(f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
-                      f"expected exactly 1 — taking the first", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
+                    f"expected exactly 1 — taking the first",
+                    file=sys.stderr,
+                )
 
             record = df.iloc[0].to_dict()
             record["Modality"] = label
-            record["Condition"] = "Spatially-Agnostic" if condition.lower() == "spatially-agnostic" else "Spatially-Aware"
+            record["Condition"] = (
+                "Spatially-Agnostic"
+                if condition.lower() == "spatially-agnostic"
+                else "Spatially-Aware"
+            )
             record["Dataset"] = dataset
             records.append(record)
         except Exception as e:
@@ -93,7 +105,9 @@ def create_faceted_dumbbell_plot(
         return
 
     datasets = sorted(df["Dataset"].unique())
-    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Modality"] = pd.Categorical(
+        df["Modality"], categories=modality_order, ordered=True
+    )
     df = df.dropna(subset=["Modality"])
 
     modalities = [m for m in modality_order if m in df["Modality"].values]
@@ -104,9 +118,11 @@ def create_faceted_dumbbell_plot(
 
     n_rows = len(present_metrics)
     n_cols = len(datasets)
-    
+
     # Reduced figure height (2.5 per row) to compress the space between modalities
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(7.5 * n_cols, 2.5 * n_rows), sharey=True)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(7.5 * n_cols, 2.5 * n_rows), sharey=True
+    )
 
     if n_rows == 1 and n_cols == 1:
         axes = np.array([[axes]])
@@ -122,56 +138,118 @@ def create_faceted_dumbbell_plot(
             ax = axes[row_idx, col_idx]
             subset = df[df["Dataset"] == dataset]
 
-            bag_data = subset[subset["Condition"] == "Spatially-Agnostic"].set_index("Modality")
-            struct_data = subset[subset["Condition"] == "Spatially-Aware"].set_index("Modality")
+            bag_data = subset[subset["Condition"] == "Spatially-Agnostic"].set_index(
+                "Modality"
+            )
+            struct_data = subset[subset["Condition"] == "Spatially-Aware"].set_index(
+                "Modality"
+            )
 
             for j, mod in enumerate(modalities):
                 bag_row = bag_data.loc[[mod]].iloc[0] if mod in bag_data.index else None
-                struct_row = struct_data.loc[[mod]].iloc[0] if mod in struct_data.index else None
+                struct_row = (
+                    struct_data.loc[[mod]].iloc[0] if mod in struct_data.index else None
+                )
 
                 val_bag = val_struct = np.nan
                 if bag_row is not None:
                     val_bag, lo_bag, hi_bag = _get_point_and_ci(bag_row, metric)
                 if struct_row is not None:
-                    val_struct, lo_struct, hi_struct = _get_point_and_ci(struct_row, metric)
+                    val_struct, lo_struct, hi_struct = _get_point_and_ci(
+                        struct_row, metric
+                    )
 
                 # Connecting line — pushed to back, slightly thinner
                 if not np.isnan(val_bag) and not np.isnan(val_struct):
                     ax.hlines(
-                        y=y_pos[j], xmin=min(val_bag, val_struct), xmax=max(val_bag, val_struct),
-                        color="#B0B0B0", linewidth=2.5, zorder=1,
+                        y=y_pos[j],
+                        xmin=min(val_bag, val_struct),
+                        xmax=max(val_bag, val_struct),
+                        color="#B0B0B0",
+                        linewidth=2.5,
+                        zorder=1,
                     )
 
                 # Bag of Cells: Error bar with caps, point, and floating text
                 if not np.isnan(val_bag):
                     err_lo = max(0, val_bag - lo_bag)
                     err_hi = max(0, hi_bag - val_bag)
-                    ax.errorbar(val_bag, y_pos[j], xerr=[[err_lo], [err_hi]], 
-                                fmt='none', ecolor=BAG_COLOR, capsize=6, capthick=2, linewidth=2, zorder=1.5)
-                    
-                    ax.scatter(val_bag, y_pos[j], color=BAG_COLOR, s=120, zorder=2,
-                               edgecolor="white", linewidth=1.0)
-                    
-                    ax.annotate(f"{val_bag:.3f}", xy=(val_bag, y_pos[j]), xytext=(0, 12),
-                                textcoords="offset points", ha="center", va="bottom", 
-                                fontsize=9, fontfamily="monospace", color=BAG_COLOR, fontweight="bold")
+                    ax.errorbar(
+                        val_bag,
+                        y_pos[j],
+                        xerr=[[err_lo], [err_hi]],
+                        fmt="none",
+                        ecolor=BAG_COLOR,
+                        capsize=6,
+                        capthick=2,
+                        linewidth=2,
+                        zorder=1.5,
+                    )
+
+                    ax.scatter(
+                        val_bag,
+                        y_pos[j],
+                        color=BAG_COLOR,
+                        s=120,
+                        zorder=2,
+                        edgecolor="white",
+                        linewidth=1.0,
+                    )
+
+                    ax.annotate(
+                        f"{val_bag:.3f}",
+                        xy=(val_bag, y_pos[j]),
+                        xytext=(0, 12),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=9,
+                        fontfamily="monospace",
+                        color=BAG_COLOR,
+                        fontweight="bold",
+                    )
 
                 if not np.isnan(val_struct):
                     err_lo = max(0, val_struct - lo_struct)
                     err_hi = max(0, hi_struct - val_struct)
-                    ax.errorbar(val_struct, y_pos[j], xerr=[[err_lo], [err_hi]], 
-                                fmt='none', ecolor=struct_color, capsize=6, capthick=2, linewidth=2, zorder=1.5)
-                    
-                    ax.scatter(val_struct, y_pos[j], color=struct_color, s=120, zorder=2,
-                               edgecolor="white", linewidth=1.0)
-                    
-                    ax.annotate(f"{val_struct:.3f}", xy=(val_struct, y_pos[j]), xytext=(0, 12),
-                                textcoords="offset points", ha="center", va="bottom", 
-                                fontsize=9, fontfamily="monospace", color=struct_color, fontweight="bold")
+                    ax.errorbar(
+                        val_struct,
+                        y_pos[j],
+                        xerr=[[err_lo], [err_hi]],
+                        fmt="none",
+                        ecolor=struct_color,
+                        capsize=6,
+                        capthick=2,
+                        linewidth=2,
+                        zorder=1.5,
+                    )
+
+                    ax.scatter(
+                        val_struct,
+                        y_pos[j],
+                        color=struct_color,
+                        s=120,
+                        zorder=2,
+                        edgecolor="white",
+                        linewidth=1.0,
+                    )
+
+                    ax.annotate(
+                        f"{val_struct:.3f}",
+                        xy=(val_struct, y_pos[j]),
+                        xytext=(0, 12),
+                        textcoords="offset points",
+                        ha="center",
+                        va="bottom",
+                        fontsize=9,
+                        fontfamily="monospace",
+                        color=struct_color,
+                        fontweight="bold",
+                    )
 
             ax.set_yticks(y_pos)
             ax.set_yticklabels(modalities, fontsize=12)
-            
+
             # Tighter vertical margins
             ax.margins(y=0.15)
 
@@ -181,7 +259,13 @@ def create_faceted_dumbbell_plot(
             ax.spines[["top", "right"]].set_visible(False)
 
             if row_idx == 0:
-                ax.set_title(f"Dataset: {dataset}", fontsize=15, color=NAVY, fontweight="bold", pad=15)
+                ax.set_title(
+                    f"Dataset: {dataset}",
+                    fontsize=15,
+                    color=NAVY,
+                    fontweight="bold",
+                    pad=15,
+                )
 
         row_axes = axes[row_idx, :]
         shared_xlim = (
@@ -194,12 +278,34 @@ def create_faceted_dumbbell_plot(
     axes[0, 0].invert_yaxis()
 
     handles = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor=BAG_COLOR,
-               markeredgecolor="white", markersize=12, label="Spatially-Agnostic"),
-        Line2D([0], [0], marker="o", color="w", markerfacecolor=NAVY,
-               markeredgecolor="white", markersize=12, label="Spatially-Aware"),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=BAG_COLOR,
+            markeredgecolor="white",
+            markersize=12,
+            label="Spatially-Agnostic",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor=NAVY,
+            markeredgecolor="white",
+            markersize=12,
+            label="Spatially-Aware",
+        ),
     ]
-    fig.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.05), ncol=2, fontsize=12)
+    fig.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.05),
+        ncol=2,
+        fontsize=12,
+    )
     fig.tight_layout()
     fig.savefig(output_path)
     plt.close(fig)
@@ -207,11 +313,14 @@ def create_faceted_dumbbell_plot(
 
 
 @with_cli_args(["+postprocessing=plots/dumbbell"])
-@hydra.main(config_path="../../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     if config.get("mlflow_tracking_uri"):
         import mlflow
+
         mlflow.set_tracking_uri(config.mlflow_tracking_uri)
 
     inputs = OmegaConf.to_object(config.get("inputs", []))
@@ -221,7 +330,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         modality_order = OmegaConf.to_object(modality_order)
 
     if not inputs:
-        raise ValueError("No inputs provided. Please define 'inputs' in your Hydra config.")
+        raise ValueError(
+            "No inputs provided. Please define 'inputs' in your Hydra config."
+        )
 
     df = load_plot_data(inputs)
     if df.empty:

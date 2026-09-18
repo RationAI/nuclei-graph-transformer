@@ -40,12 +40,14 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
-matplotlib.rcParams.update({
-    'figure.max_open_warning': 0,
-    'figure.dpi': 300,
-    'savefig.dpi': 600,
-    'savefig.bbox': 'tight',
-})
+matplotlib.rcParams.update(
+    {
+        "figure.max_open_warning": 0,
+        "figure.dpi": 300,
+        "savefig.dpi": 600,
+        "savefig.bbox": "tight",
+    }
+)
 
 NAVY = "#28374A"
 SHAPE_BLUE = "#3D6B8C"
@@ -93,11 +95,17 @@ def load_plot_data(inputs_config) -> pd.DataFrame:
             if query:
                 df = df.query(query)
             if df.empty:
-                print(f"  -> WARNING: query '{query}' matched no rows in {uri}", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched no rows in {uri}",
+                    file=sys.stderr,
+                )
                 continue
             if len(df) > 1:
-                print(f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
-                      f"expected exactly 1 — taking the first", file=sys.stderr)
+                print(
+                    f"  -> WARNING: query '{query}' matched {len(df)} rows in {uri}, "
+                    f"expected exactly 1 — taking the first",
+                    file=sys.stderr,
+                )
 
             record = df.iloc[0].to_dict()
             record["Modality"] = label
@@ -187,20 +195,27 @@ def create_faceted_slope_chart(
         return
 
     datasets = sorted(df["Dataset"].unique())
-    df["Modality"] = pd.Categorical(df["Modality"], categories=modality_order, ordered=True)
+    df["Modality"] = pd.Categorical(
+        df["Modality"], categories=modality_order, ordered=True
+    )
     df = df.dropna(subset=["Modality"])
 
     modalities = [m for m in modality_order if m in df["Modality"].values]
     if not modalities:
         print("No modalities matched modality_order.", file=sys.stderr)
         return
-    modality_colors = {mod: MODALITY_PALETTE[i % len(MODALITY_PALETTE)] for i, mod in enumerate(modalities)}
+    modality_colors = {
+        mod: MODALITY_PALETTE[i % len(MODALITY_PALETTE)]
+        for i, mod in enumerate(modalities)
+    }
 
     x_pos = np.array([0.0, 1.0, 2.0, 3.0])
 
     n_rows = len(present_metrics)
     n_cols = len(datasets)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(9.0 * n_cols, 5.0 * n_rows), sharex=True)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(9.0 * n_cols, 5.0 * n_rows), sharex=True
+    )
 
     if n_rows == 1 and n_cols == 1:
         axes = np.array([[axes]])
@@ -238,15 +253,19 @@ def create_faceted_slope_chart(
                         missing.append(cond)
 
                 if missing:
-                    print(f"  -> WARNING: [{dataset}/{metric}] {mod} missing condition(s) "
-                          f"{missing} — skipping this modality's line entirely, not just "
-                          f"the missing segment, so a partial path is never silently drawn",
-                          file=sys.stderr)
+                    print(
+                        f"  -> WARNING: [{dataset}/{metric}] {mod} missing condition(s) "
+                        f"{missing} — skipping this modality's line entirely, not just "
+                        f"the missing segment, so a partial path is never silently drawn",
+                        file=sys.stderr,
+                    )
                     continue
 
                 vals, los, his = {}, {}, {}
                 for cond in _CONDITION_KEYS:
-                    vals[cond], los[cond], his[cond] = _get_point_and_ci(rows[cond], metric)
+                    vals[cond], los[cond], his[cond] = _get_point_and_ci(
+                        rows[cond], metric
+                    )
 
                 y = [vals[c] for c in _CONDITION_KEYS]
                 color = modality_colors[mod]
@@ -257,25 +276,51 @@ def create_faceted_slope_chart(
                 # instead of looking like an equally clean comparison.
                 for i in range(len(x_pos) - 1):
                     confounded = (i, i + 1) == _CONFOUNDED_SEGMENT
-                    ax.plot(x_pos[i:i + 2], y[i:i + 2], color=color,
-                            linewidth=2.5, linestyle="--" if confounded else "-",
-                            alpha=0.5 if confounded else 1.0, zorder=2)
-                ax.plot(x_pos, y, color=color, linewidth=0,
-                        marker="o", markersize=9, markerfacecolor=color,
-                        markeredgecolor="white", markeredgewidth=1.0, zorder=3)
+                    ax.plot(
+                        x_pos[i : i + 2],
+                        y[i : i + 2],
+                        color=color,
+                        linewidth=2.5,
+                        linestyle="--" if confounded else "-",
+                        alpha=0.5 if confounded else 1.0,
+                        zorder=2,
+                    )
+                ax.plot(
+                    x_pos,
+                    y,
+                    color=color,
+                    linewidth=0,
+                    marker="o",
+                    markersize=9,
+                    markerfacecolor=color,
+                    markeredgecolor="white",
+                    markeredgewidth=1.0,
+                    zorder=3,
+                )
 
                 for xi, cond in zip(x_pos, _CONDITION_KEYS):
                     err_lo = max(0, vals[cond] - los[cond])
                     err_hi = max(0, his[cond] - vals[cond])
-                    ax.errorbar(xi, vals[cond], yerr=[[err_lo], [err_hi]], fmt="none",
-                                ecolor=color, alpha=0.5, capsize=5, capthick=1.5,
-                                linewidth=1.5, zorder=1.5)
+                    ax.errorbar(
+                        xi,
+                        vals[cond],
+                        yerr=[[err_lo], [err_hi]],
+                        fmt="none",
+                        ecolor=color,
+                        alpha=0.5,
+                        capsize=5,
+                        capthick=1.5,
+                        linewidth=1.5,
+                        zorder=1.5,
+                    )
 
-                plotted.append({
-                    "mod": mod,
-                    "color": color,
-                    "y": y,
-                })
+                plotted.append(
+                    {
+                        "mod": mod,
+                        "color": color,
+                        "y": y,
+                    }
+                )
 
             ax.set_xticks(x_pos)
             ax.set_xticklabels(_X_LABELS, fontsize=11, fontweight="bold")
@@ -287,7 +332,13 @@ def create_faceted_slope_chart(
             ax.spines[["top", "right"]].set_visible(False)
 
             if row_idx == 0:
-                ax.set_title(f"Dataset: {dataset}", fontsize=14, color=NAVY, fontweight="bold", pad=15)
+                ax.set_title(
+                    f"Dataset: {dataset}",
+                    fontsize=14,
+                    color=NAVY,
+                    fontweight="bold",
+                    pad=15,
+                )
 
             if not plotted:
                 continue
@@ -333,16 +384,32 @@ def create_faceted_slope_chart(
                 label_ys = _declutter(raw_ys, gap_value)
                 for p, raw_y, label_y in zip(plotted, raw_ys, label_ys):
                     if abs(label_y - raw_y) > gap_value * 0.25:
-                        ax.plot([xi, xi], [raw_y, label_y], color=p["color"], alpha=0.35,
-                                linewidth=0.7, zorder=1.8, solid_capstyle="round")
+                        ax.plot(
+                            [xi, xi],
+                            [raw_y, label_y],
+                            color=p["color"],
+                            alpha=0.35,
+                            linewidth=0.7,
+                            zorder=1.8,
+                            solid_capstyle="round",
+                        )
                     if col_i == 0:
                         dx, ha = 11, "left"
                     else:
                         dx, ha = -11, "right"
-                    txt = ax.annotate(f"{raw_y:.3f}", xy=(xi, label_y), xytext=(dx, 0),
-                                       textcoords="offset points", ha=ha, va="center",
-                                       fontsize=8, fontfamily="monospace", fontweight="bold",
-                                       color=p["color"], zorder=4)
+                    txt = ax.annotate(
+                        f"{raw_y:.3f}",
+                        xy=(xi, label_y),
+                        xytext=(dx, 0),
+                        textcoords="offset points",
+                        ha=ha,
+                        va="center",
+                        fontsize=8,
+                        fontfamily="monospace",
+                        fontweight="bold",
+                        color=p["color"],
+                        zorder=4,
+                    )
                     txt.set_path_effects(_LABEL_HALO)
 
             # Pass 2b: modality name labels further to the left of column 0,
@@ -350,9 +417,18 @@ def create_faceted_slope_chart(
             raw_name_ys = np.array([p["y"][0] for p in plotted])
             name_ys = _declutter(raw_name_ys, gap_name)
             for p, name_y in zip(plotted, name_ys):
-                txt = ax.annotate(p["mod"], xy=(x_pos[0], name_y), xytext=(-30, 0),
-                                   textcoords="offset points", ha="right", va="center",
-                                   fontsize=9, fontweight="bold", color=p["color"], zorder=4)
+                txt = ax.annotate(
+                    p["mod"],
+                    xy=(x_pos[0], name_y),
+                    xytext=(-30, 0),
+                    textcoords="offset points",
+                    ha="right",
+                    va="center",
+                    fontsize=9,
+                    fontweight="bold",
+                    color=p["color"],
+                    zorder=4,
+                )
                 txt.set_path_effects(_LABEL_HALO)
 
     # Reserve top space for title + caption as figure-fraction slots sized
@@ -367,23 +443,36 @@ def create_faceted_slope_chart(
     caption_y = 1 - (0.18 + 0.40 + 0.18) / fig_height_in
     fig.suptitle(
         "Locality vs. RoPE Effect",
-        fontsize=16, color=NAVY, fontweight="bold", y=title_y,
+        fontsize=16,
+        color=NAVY,
+        fontweight="bold",
+        y=title_y,
     )
-    fig.text(0.5, caption_y,
-              "Dashed segment (None + k-NN → RoPE + Dense) changes both "
-              "Attention Pattern and PE at once — not a single-variable effect.",
-              ha="center", va="center", fontsize=9.5, color="#666666", fontstyle="italic")
+    fig.text(
+        0.5,
+        caption_y,
+        "Dashed segment (None + k-NN → RoPE + Dense) changes both "
+        "Attention Pattern and PE at once — not a single-variable effect.",
+        ha="center",
+        va="center",
+        fontsize=9.5,
+        color="#666666",
+        fontstyle="italic",
+    )
     fig.savefig(output_path)
     plt.close(fig)
     print(f"Saved faceted slope chart to {output_path}")
 
 
 @with_cli_args(["+postprocessing=plots/slope"])
-@hydra.main(config_path="../../configs", config_name="postprocessing", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="postprocessing", version_base=None
+)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     if config.get("mlflow_tracking_uri"):
         import mlflow
+
         mlflow.set_tracking_uri(config.mlflow_tracking_uri)
 
     inputs = OmegaConf.to_object(config.get("inputs", []))
@@ -393,7 +482,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         modality_order = OmegaConf.to_object(modality_order)
 
     if not inputs:
-        raise ValueError("No inputs provided. Please define 'inputs' in your Hydra config.")
+        raise ValueError(
+            "No inputs provided. Please define 'inputs' in your Hydra config."
+        )
 
     df = load_plot_data(inputs)
     if df.empty:
