@@ -4,8 +4,7 @@ defaults:
   - /data/sources/icaird_cervix
   - _self_
 
-metadata_csv: ${dataset.paths.wsi_data.metadata_csv}
-slides_dir: ${dataset.paths.wsi_data.slides}
+metadata_uri: ${dataset.mlflow_uris.exploration}
 annots_dir: ${dataset.paths.annotations}
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}

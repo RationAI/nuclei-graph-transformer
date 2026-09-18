@@ -15,3 +15,7 @@ dataset:
       metadata_csv: ${data_path}/Public/Public/cervix/iCAIRD/index.csv
 
     annotations: ${data_path}/Public/Public/cervix/iCAIRD/annotations
+
+  mlflow_uris:
+    # preprocessing/exploration/icaird_cervix/save_metadataset.py
+    exploration: ${mlflow_project_pc}/93f193ea5d9a4e3fb5e94c8b5df4bbd0/artifacts/icaird_cervix/slides_metadata.csv
