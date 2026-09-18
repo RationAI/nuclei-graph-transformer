@@ -79,7 +79,7 @@ beetle/
 **Output layout**:
 ```text
 icaird_cervix/
-  errors.log (slides listed in index.csv but missing on disk)
+  errors.log (slides listed in index.csv but missing on disk, or unreadable by OpenSlide)
   slides_metadata.csv (metadata for the valid slides)
   summary.csv (aggregate statistics)
 ```

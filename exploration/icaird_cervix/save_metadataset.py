@@ -8,9 +8,30 @@ import hydra
 import mlflow
 import mlflow.data.pandas_dataset
 import pandas as pd
+import ray
 from omegaconf import DictConfig
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+from ratiopath.openslide import OpenSlide
+from tqdm import tqdm
+
+
+@ray.remote(num_cpus=1)
+def check_slide_opens(slide_path: Path, log_file: Path) -> bool:
+    """Checks that OpenSlide can open the slide and read its level dimensions."""
+
+    def log(msg: str) -> None:
+        with log_file.open("a") as f:
+            f.write(msg + "\n")
+            f.flush()
+
+    try:
+        with OpenSlide(str(slide_path)) as slide:
+            _ = slide.level_dimensions
+    except Exception as e:
+        log(f"SLIDE_UNREADABLE: {slide_path.stem} - {e!s}")
+        return False
+    return True
 
 
 def parse_slide_info(
@@ -45,7 +66,11 @@ def parse_slide_info(
 
 
 def get_dataframes(
-    metadata_csv: Path, slides_dir: Path, annots_dir: Path, log_file: Path
+    metadata_csv: Path,
+    slides_dir: Path,
+    annots_dir: Path,
+    max_concurrent: int,
+    log_file: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     with metadata_csv.open(newline="") as f:
         records = [
@@ -53,6 +78,21 @@ def get_dataframes(
             for row in csv.DictReader(f)
         ]
     df = pd.DataFrame([r for r in records if r is not None])
+
+    futures = {
+        check_slide_opens.remote(Path(slide_path), log_file): slide_id
+        for slide_id, slide_path in zip(df["slide_id"], df["slide_path"], strict=True)
+    }
+    openable = {}
+    with tqdm(total=len(futures), desc="Checking slides open with OpenSlide") as pbar:
+        while futures:
+            done, _ = ray.wait(list(futures.keys()), num_returns=min(max_concurrent, len(futures)))
+            for ref in done:
+                slide_id = futures.pop(ref)
+                openable[slide_id] = ray.get(ref)
+            pbar.update(len(done))
+
+    df = df[df["slide_id"].map(openable)].reset_index(drop=True)
 
     summary_df = (
         df.groupby(["category", "split"])
@@ -66,11 +106,14 @@ def get_dataframes(
 @hydra.main(config_path="../../configs", config_name="exploration", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
+    ray.init(num_cpus=config.max_concurrent)
+
     with TemporaryDirectory() as output_dir:
         df, summary_df = get_dataframes(
             metadata_csv=Path(config.metadata_csv),
             slides_dir=Path(config.slides_dir),
             annots_dir=Path(config.annots_dir),
+            max_concurrent=config.max_concurrent,
             log_file=Path(output_dir) / "errors.log",
         )
 
@@ -80,6 +123,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         logger.log_artifacts(local_dir=output_dir, artifact_path="icaird_cervix")
         slide_dataset = mlflow.data.pandas_dataset.from_pandas(df, name="icaird_cervix")
         mlflow.log_input(slide_dataset, context="slides_metadata")
+
+    ray.shutdown()
 
 
 if __name__ == "__main__":
