@@ -1,0 +1,3 @@
+# @package _global_
+
+output_dir: ${project_path}/nuclei_based_wsi_analysis/iCAIRD/cervical/slides

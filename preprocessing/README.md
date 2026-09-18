@@ -2,13 +2,17 @@
 
 <a id="mmci-workflow"></a>
 ### MMCI Tile Level Annotations Data
+<a id="mmci-workflow"></a>
+### MMCI Tile Level Annotations Data
 
+1. **Nuclei Segmentation** (`nuclei_segmentation.py`, [output structure](#nuclei-segmentation-output))  
 1. **Nuclei Segmentation** (`nuclei_segmentation.py`, [output structure](#nuclei-segmentation-output))  
    Segments nuclei in whole-slide images and stores the outputs as partitioned Parquet tables.
 
 2. **Annotation Masks** (`annotation_masks/prostate_cancer_mmci_tl.py`, [output structure](#annotation-masks-output))  
    Generates binary masks for annotated carcinoma regions using XML annotation files by expert pathologists. 
 
+3. **CAM Masks Preparation** (`merge_cam_masks.py`, [output structure](#cam-masks-output))   
 3. **CAM Masks Preparation** (`merge_cam_masks.py`, [output structure](#cam-masks-output))   
    Aggregates generated CAM masks from multiple MLflow runs into a single location for convenience.
 
@@ -29,7 +33,25 @@
 
 2. **Train-Test Split** (`data_split.py`, [output structure](#data-split-output))  
    Performs train-test split stratified by gleason scores.
+4. **Map Slides to Nuclei** (`metadata_mapping/prostate_cancer_mmci_tl.py`, [output structure](#metadata-mapping-mmci-output))   
+   Creates a mapping of slides' metadata necessary for downstream modeling.
 
+5. **Unipolar Heatmap-based Nuclei Labeling** (`unipolar_heatmap_labels.py`, [output structure](#unipolar-labels-output))  
+   Assigns labels to segmented nuclei by checking polygon overlap with the provided (thresholded) unipolar heatmap.
+
+6. **CAM-based Nuclei Labeling** (`cam_labels.py`, [output structure](#cam-labels-output))  
+   Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus.
+
+<a id="panda-workflow"></a>
+### PANDA Challenge Dataset
+
+1. **Nuclei Data Standardization** (`nuclei_standardization.py`, [output structure](#nuclei-standardization-output))  
+   Standardizes nuclei segmentation files provided by a different project to match the expected structure.
+
+2. **Train-Test Split** (`data_split.py`, [output structure](#data-split-output))  
+   Performs train-test split stratified by gleason scores.
+
+3. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
 3. **Map Slides to Nuclei** (`metadata_mapping/panda.py`, [output structure](#metadata-mapping-panda-output))  
    Creates a mapping of slides' metadata necessary for downstream modeling.
 
