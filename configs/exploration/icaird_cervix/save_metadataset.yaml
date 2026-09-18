@@ -1,0 +1,9 @@
+# @package _global_
+
+metadata_csv: ${dataset.paths.wsi_data.metadata_csv}
+slides_dir: ${dataset.paths.wsi_data.slides}
+annots_dir: ${dataset.paths.annotations}
+max_concurrent: 16
+
+metadata:
+  run_name: "Exploration: ${dataset.name}"
