@@ -1,0 +1,29 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+annots_dir: ${dataset.paths.annotations}
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+level: 2
+max_concurrent: 6
+
+metadata:
+  run_name: "🖍️ Specialized Annotation Masks: ${dataset.name}"
+  description: |
+    Specialized binary annotation masks for the [${dataset.name}](https://www.icaird.com/),
+    each logged to its own subfolder:
+      - `carcinoma`: regions classified as "malignant" or "high grade", merged into a
+        single class. Written for every annotated slide (all-zero when neither class
+        is present).
+      - `normal_inflammation`: isolated "normal"/"normal/inflammation" regions
+        annotated within otherwise abnormal slides. Written only for slides whose
+        overall category is NOT "normal_inflammation" and that contain at least one
+        such region.
+  hyperparams:
+    level: ${level}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}

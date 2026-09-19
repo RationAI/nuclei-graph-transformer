@@ -21,6 +21,15 @@
 6. **CAM-based Nuclei Labeling** (`cam_labels.py`, [output structure](#cam-labels-output))  
    Computes CAM pseudo labels by thresholding positive/negative regions and storing the average CAM intensity for each nucleus.
 
+<a id="icaird-cervix-workflow"></a>
+### iCAIRD Cervix Dataset
+
+1. **Per-Class Annotation Masks** (`annotation_masks/icaird_cervix_per_class.py`, [output structure](#icaird-per-class-output))  
+   Generates a separate binary mask per annotation class (`low_grade`, `high_grade`, `malignant`, `normal_inflammation`) for every annotated slide.
+
+2. **Specialized Annotation Masks** (`annotation_masks/icaird_cervix_specialized_masks.py`, [output structure](#icaird-specialized-output))  
+   Generates a merged `carcinoma` mask (`malignant` + `high_grade`) for every annotated slide, and a `normal_inflammation` mask restricted to slides whose overall category isn't already `normal_inflammation` but that contain an isolated normal/inflammation region.
+
 <a id="panda-workflow"></a>
 ### PANDA Challenge Dataset
 
@@ -148,6 +157,44 @@ missing_cam_masks.csv (slide paths of positive slides without a CAM mask)
 - `cam_score` (`float`): Mean CAM intensity sampled over nucleus polygon vertices and centroid.
 
 <p align="right"><a href="#mmci-workflow">↑ back</a></p>
+
+---
+
+<a id="icaird-per-class-output"></a>
+### Per-Class Annotation Masks: `annotation_masks/icaird_cervix_per_class.py`
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+low_grade/
+  <SLIDE_NAME>.tiff (binary mask; CIN1, HPV)
+high_grade/
+  <SLIDE_NAME>.tiff (binary mask; CIN2, CIN3)
+malignant/
+  <SLIDE_NAME>.tiff (binary mask; squamous carcinoma, adenocarcinoma, CGIN, other)
+normal_inflammation/
+  <SLIDE_NAME>.tiff (binary mask; rare isolated "normal"/"normal/inflammation" regions)
+```
+A mask is written for every class on every annotated slide (all-zero when the class is absent).
+<p align="right"><a href="#icaird-cervix-workflow">↑ back</a></p>
+
+---
+
+<a id="icaird-specialized-output"></a>
+### Specialized Annotation Masks: `annotation_masks/icaird_cervix_specialized_masks.py`
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+carcinoma/
+  <SLIDE_NAME>.tiff (binary mask; "malignant" + "high grade" merged, written for every annotated slide)
+normal_inflammation/
+  <SLIDE_NAME>.tiff (binary mask; written only for slides whose overall category is NOT
+                      "normal_inflammation" and that contain an isolated normal/inflammation region)
+```
+<p align="right"><a href="#icaird-cervix-workflow">↑ back</a></p>
 
 ---
 
