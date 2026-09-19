@@ -31,6 +31,7 @@ dependencies = [
     "opencv-python-headless>=5.0.0.93",
     "mlflow==2.22.0",
     "pyisyntax>=0.1.6",
+    "report-fast[all]",
 ]
 
 [tool.uv.sources]
@@ -38,6 +39,7 @@ degraph = { git = "https://github.com/RationAI/nuclei-foundation-model.git", bra
 rationai-mlkit = { git = "https://github.com/RationAI/mlkit.git", rev = "549f5be72a162e7debf3a911ea4649f50080b1d0" }
 rationai-masks = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/masks.git" }
 rationai-tiling = { git = "https://gitlab.ics.muni.cz/rationai/digital-pathology/libraries/tiling.git" }
+report-fast = { git = "https://github.com/RationAI/reporting.git" }
 
 [dependency-groups]
 dev = ["mypy", "ruff"]
