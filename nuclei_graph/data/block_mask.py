@@ -26,12 +26,30 @@ class _MaskMod:
 
 class BlockMask(torch.nn.attention.flex_attention.BlockMask):
     def to(self, device: torch.device | str) -> "BlockMask":
-        mapped_attributes = tree_map_only(
-            (torch.Tensor, _MaskMod),
+        # Mirrors `torch.nn.attention.flex_attention.BlockMask.to`, which reconstructs
+        # via keyword args from `_TENSOR_ATTRS` rather than positional unpacking -- the
+        # order of `as_tuple()` has never matched `__init__`'s parameter order, and
+        # newer torch versions keep adding/reordering fields there, so positional
+        # reconstruction silently breaks across torch versions. The one addition here:
+        # upstream's `to()` leaves `mask_mod` untouched, but our `_MaskMod` wraps a
+        # tensor (`doc_ids`) that also needs to move to the target device.
+        mapped_tensors = tree_map_only(
+            torch.Tensor,
             lambda x: x.to(device),
-            self.as_tuple(flatten=False),
+            tuple(getattr(self, attr) for attr in self._TENSOR_ATTRS),
         )
-        return BlockMask(*mapped_attributes)
+        mask_mod = (
+            self.mask_mod.to(device)
+            if isinstance(self.mask_mod, _MaskMod)
+            else self.mask_mod
+        )
+        return BlockMask(
+            seq_lengths=self.seq_lengths,
+            **dict(zip(self._TENSOR_ATTRS, mapped_tensors, strict=True)),
+            BLOCK_SIZE=self.BLOCK_SIZE,
+            mask_mod=mask_mod,
+            dq_kv_order_spt=self.dq_kv_order_spt,
+        )
 
 
 def pack_and_shift_knn_indices(
