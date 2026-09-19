@@ -26,13 +26,6 @@ class _MaskMod:
 
 class BlockMask(torch.nn.attention.flex_attention.BlockMask):
     def to(self, device: torch.device | str) -> "BlockMask":
-        # Mirrors `torch.nn.attention.flex_attention.BlockMask.to`, which reconstructs
-        # via keyword args from `_TENSOR_ATTRS` rather than positional unpacking -- the
-        # order of `as_tuple()` has never matched `__init__`'s parameter order, and
-        # newer torch versions keep adding/reordering fields there, so positional
-        # reconstruction silently breaks across torch versions. The one addition here:
-        # upstream's `to()` leaves `mask_mod` untouched, but our `_MaskMod` wraps a
-        # tensor (`doc_ids`) that also needs to move to the target device.
         mapped_tensors = tree_map_only(
             torch.Tensor,
             lambda x: x.to(device),
