@@ -1,0 +1,23 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+annots_dir: ${dataset.paths.annotations}
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+level: 2
+max_concurrent: 6
+
+metadata:
+  run_name: "🖍️ Per-Class Annotation Masks: ${dataset.name}"
+  description: |
+    Per-class binary annotation masks for the [${dataset.name}](https://www.icaird.com/).
+    A separate binary mask is written for each annotation class, each logged to its own 
+    subfolder. Slides that fail to process are listed in `failed_slides.csv`.
+  hyperparams:
+    level: ${level}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
