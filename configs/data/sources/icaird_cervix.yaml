@@ -31,5 +31,5 @@ dataset:
 
         # preprocessing/annotation_masks/icaird_cervix_carcinoma.py
         merged:
-          carcinoma: ${mlflow_project_pc}/32ff3c8dcd964bee8b2d34fd3e248c88/artifacts/carcinoma
+          carcinoma: ${mlflow_project_pc}/7b33b3027aa142719eb792890ff95d82/artifacts/carcinoma
 
