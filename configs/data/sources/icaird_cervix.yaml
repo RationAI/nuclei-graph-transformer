@@ -19,3 +19,17 @@ dataset:
   mlflow_uris:
     # preprocessing/exploration/icaird_cervix/save_metadataset.py
     exploration: ${mlflow_project_pc}/93f193ea5d9a4e3fb5e94c8b5df4bbd0/artifacts/icaird_cervix/slides_metadata.csv
+
+    masks:
+      annotation:
+        # preprocessing/annotation_masks/icaird_cervix_per_class.py
+        per_class:
+          high_grade: ${mlflow_project_pc}/93f7b7810011443eba78350bd1eb19a0/artifacts/high_grade
+          malignant: ${mlflow_project_pc}/93f7b7810011443eba78350bd1eb19a0/artifacts/malignant
+          low_grade: ${mlflow_project_pc}/93f7b7810011443eba78350bd1eb19a0/artifacts/low_grade
+          normal_inflammation: ${mlflow_project_pc}/93f7b7810011443eba78350bd1eb19a0/artifacts/normal_inflammation
+
+        # preprocessing/annotation_masks/icaird_cervix_carcinoma.py
+        merged:
+          carcinoma: ${mlflow_project_pc}/32ff3c8dcd964bee8b2d34fd3e248c88/artifacts/carcinoma
+

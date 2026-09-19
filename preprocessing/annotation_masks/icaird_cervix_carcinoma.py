@@ -86,7 +86,7 @@ def process_slide(
     )
 
 
-@with_cli_args(["+preprocessing/annotation_masks=icaird_cervix_specialized_masks"])
+@with_cli_args(["+preprocessing/annotation_masks=icaird_cervix_carcinoma"])
 @hydra.main(config_path="../../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
