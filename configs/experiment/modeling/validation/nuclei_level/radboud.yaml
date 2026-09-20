@@ -10,14 +10,14 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/011c04503af24fa597891e016e45d6c2/artifacts/checkpoints/epoch=191-step=41856/checkpoint.ckpt
-mlflow_run_id: fabec80f7be94fcfaaa0ff618854f7e5
-mlflow_parent_run_id: 011c04503af24fa597891e016e45d6c2
+checkpoint: mlflow-artifacts:/37/cb32740eaaba4d0eb90c08393d2e0533/artifacts/checkpoints/epoch=267-step=58424/checkpoint.ckpt
+mlflow_run_id: dceadb18c9e247aebaad2e323ad465b6
+mlflow_parent_run_id: cb32740eaaba4d0eb90c08393d2e0533
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 44
+  k: 28
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -25,7 +25,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+    embedding_mode: "blank" # "efd", "bbox", "spatial", "efd_spatial", "blank"
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 
@@ -41,7 +41,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      attention_variant: standard # standard, vrope, rel_value
+      attention_variant: vrope # standard, vrope, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
