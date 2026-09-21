@@ -75,9 +75,7 @@ def process_slide(
                 ]
                 canvas.polygon(xy=interior_coords, fill=0)
 
-        output_path = Path(
-            output_dir, class_name, slide_path.with_suffix(".tiff").name
-        )
+        output_path = Path(output_dir, class_name, slide_path.with_suffix(".tiff").name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         write_big_tiff(

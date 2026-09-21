@@ -86,7 +86,9 @@ def get_dataframes(
     openable = {}
     with tqdm(total=len(futures), desc="Checking slides open with OpenSlide") as pbar:
         while futures:
-            done, _ = ray.wait(list(futures.keys()), num_returns=min(max_concurrent, len(futures)))
+            done, _ = ray.wait(
+                list(futures.keys()), num_returns=min(max_concurrent, len(futures))
+            )
             for ref in done:
                 slide_id = futures.pop(ref)
                 openable[slide_id] = ray.get(ref)
