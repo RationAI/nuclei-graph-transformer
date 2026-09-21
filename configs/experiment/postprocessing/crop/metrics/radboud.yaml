@@ -5,14 +5,14 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.providers.radboud.metadata.test}
-predictions_uri: mlflow-artifacts:/37/ae48e468efd5497aba3fbe8bab407f33/artifacts/predictions
+predictions_uri: mlflow-artifacts:/37/dceadb18c9e247aebaad2e323ad465b6/artifacts/predictions
 supervision_dir: ${dataset.providers.radboud.supervision.annotation}
 label_column: annot_label
 graph_threshold: null
-nuclei_threshold: 0.3601
+nuclei_threshold: 0.3799
 
-mlflow_run_id: ae48e468efd5497aba3fbe8bab407f33
-mlflow_parent_run_id: 4012c54031f44251b59ebcaeb7860fd7
+mlflow_run_id: dceadb18c9e247aebaad2e323ad465b6
+mlflow_parent_run_id: cb32740eaaba4d0eb90c08393d2e0533
 
 metadata:
   run_name: "NL Test (Radboud) Evaluation: Annotation"
