@@ -1,4 +1,7 @@
-"""Script to generate tissue masks for whole slide images (WSIs)."""
+"""Script to generate tissue masks for whole slide images (WSIs).
+
+Source: Carcinoma Binary CLassification Methods repository.
+"""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
