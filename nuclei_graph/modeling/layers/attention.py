@@ -35,15 +35,15 @@ class RotarySparseAttention(nn.Module):
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
 
-        self.rope = RoPE(self.head_dim)
+        #self.rope = RoPE(self.head_dim)
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
         q, k, v = rearrange(
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
 
-        q = self.rope(q, pos)
-        k = self.rope(k, pos)
+        #q = self.rope(q, pos)
+        #k = self.rope(k, pos)
         if self.rotate_v:
             v = self.rope(v, pos)
 
@@ -72,7 +72,7 @@ class RelativePositionValueAttention(nn.Module):
 
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
-        self.rope = RoPE(self.head_dim)
+        #self.rope = RoPE(self.head_dim)
 
         self.pos_mlp = nn.Sequential(
             nn.Linear(2, mlp_hidden),
@@ -94,8 +94,8 @@ class RelativePositionValueAttention(nn.Module):
         q, k, v = rearrange(
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
-        q = self.rope(q, pos)
-        k = self.rope(k, pos)
+        #q = self.rope(q, pos)
+        #k = self.rope(k, pos)
 
         safe_idx = neighbor_idx.clamp(min=0)
         k_neighbors = k[:, :, safe_idx, :]
