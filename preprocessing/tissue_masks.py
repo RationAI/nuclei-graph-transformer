@@ -28,6 +28,8 @@ def process_slide(
     mask_tile_width: int,
     mask_tile_height: int,
 ) -> None:
+    pyvips.concurrency_set(1)
+
     with OpenSlide(slide_path) as slide:
         mpp_x, mpp_y = slide_resolution(slide, level=level)
 
