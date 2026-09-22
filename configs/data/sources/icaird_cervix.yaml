@@ -2,10 +2,11 @@
 
 dataset:
   name: iCAIRD Cervix
+  mpp: 0.25
 
   mask_tile_width: 512
   mask_tile_height: 512
-  
+
   paths:
     wsi_data:
       slides_isyntax: ${project_path}/nuclei_based_wsi_analysis/iCAIRD/cervical/slides_isyntax
@@ -15,6 +16,9 @@ dataset:
       metadata_csv: ${data_path}/Public/Public/cervix/iCAIRD/index.csv
 
     annotations: ${data_path}/Public/Public/cervix/iCAIRD/annotations
+
+    # preprocessing/nuclei_segmentation.py
+    nuclei_seg: ${project_path}/nuclei_segmentation/iCAIRD
 
   mlflow_uris:
     # preprocessing/exploration/icaird_cervix/save_metadataset.py
@@ -32,4 +36,6 @@ dataset:
         # preprocessing/annotation_masks/icaird_cervix_carcinoma.py
         merged:
           carcinoma: ${mlflow_project_pc}/7b33b3027aa142719eb792890ff95d82/artifacts/carcinoma
+
+      tissue: mlflow-artifacts:/37/456af5dc52ad425983b167c2a9a6b97f/artifacts/tissue_masks
 

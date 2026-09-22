@@ -13,7 +13,7 @@ submit_job(
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
         "uv sync --frozen",
-        "uv run -m preprocessing.nuclei_segmentation +data=sources/...",
+        "uv run -m preprocessing.nuclei_segmentation +data=sources/... +experiment=preprocessing/nuclei_segmentation/...",
     ],
     storage=[storage.secure.DATA, storage.secure.PROJECTS],
 )

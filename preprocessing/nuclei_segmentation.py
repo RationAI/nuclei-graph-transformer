@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from math import ceil, floor
 from pathlib import Path
 from typing import Any, TypedDict
+from .parse import urlparse
 
 import hydra
 import numpy as np
@@ -265,21 +266,15 @@ def run_segmentation(
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))
 
-    train_slides = pd.read_csv(download_artifacts(config.train_metadata_uri))
-    run_segmentation(
-        slide_paths=train_slides["slide_path"].tolist(),
-        output_dir=Path(config.output_path, "tile_level_annotations"),
-        tissue_masks_dir=tissue_masks_dir,
-        config=config,
-    )
-
-    test_slides = pd.read_csv(download_artifacts(config.test_metadata_uri))
-    run_segmentation(
-        slide_paths=test_slides["slide_path"].tolist(),
-        output_dir=Path(config.output_path, "tile_level_annotations_test"),
-        tissue_masks_dir=tissue_masks_dir,
-        config=config,
-    )
+    for metadata_uri in config.metadata_uris:
+        slides = pd.read_csv(download_artifacts(metadata_uri))
+        batch_name = Path(urlparse(metadata_uri).path).parent.name
+        run_segmentation(
+            slide_paths=slides["slide_path"].tolist(),
+            output_dir=Path(config.output_path, batch_name),
+            tissue_masks_dir=tissue_masks_dir,
+            config=config,
+        )
 
 
 if __name__ == "__main__":
