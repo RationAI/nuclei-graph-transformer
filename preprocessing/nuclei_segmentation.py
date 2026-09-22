@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from math import ceil, floor
 from pathlib import Path
 from typing import Any, TypedDict
-from .parse import urlparse
+from urllib.parse import urlparse
 
 import hydra
 import numpy as np
