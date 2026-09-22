@@ -157,7 +157,7 @@ def drop_duplicates(
     centroids = centroids[keep] + offset
 
     for i, (polygon, centroid) in enumerate(zip(polygons, centroids, strict=True)):
-        nucleus_key = f"{tile_record['slide_id']}{tile_record['tile_x']}{tile_record['tile_y']}{i}"
+        nucleus_key = f"{tile_record['slide_id']}_{tile_record['tile_x']}_{tile_record['tile_y']}_{i}"
 
         yield {
             "id": hashlib.sha256(nucleus_key.encode()).hexdigest(),
@@ -167,14 +167,32 @@ def drop_duplicates(
         }
 
 
-def filter_tissue_tiles(tile_record: TileRecord, tissue_masks_dir: Path) -> bool:
+class TissueTileFilter:
     """Returns True if a tile should be kept based on a binary tissue mask.
 
-    If coverage > 0.0, keep the tile; otherwise drop it.
+    A slide's tiles arrive from `tiling()` (and stay grouped through repartition)
+    in one contiguous run, so caching only the most recently opened mask avoids
+    reopening the same WSI file for every one of a slide's tiles while still
+    releasing the previous handle when a new slide starts.
     """
-    tissue_mask_path = tissue_masks_dir / f"{Path(tile_record['slide_id']).stem}.tiff"
 
-    with OpenSlide(tissue_mask_path) as mask_slide:
+    def __init__(self, tissue_masks_dir: Path) -> None:
+        self.tissue_masks_dir = tissue_masks_dir
+        self._slide_id: str | None = None
+        self._mask_slide: OpenSlide | None = None
+
+    def _mask_slide_for(self, slide_id: str) -> OpenSlide:
+        if slide_id != self._slide_id:
+            if self._mask_slide is not None:
+                self._mask_slide.close()
+            self._mask_slide = OpenSlide(self.tissue_masks_dir / f"{slide_id}.tiff")
+            self._slide_id = slide_id
+        return self._mask_slide
+
+    def __call__(self, tile_record: TileRecord) -> bool:
+        """If coverage > 0.0, keep the tile; otherwise drop it."""
+        mask_slide = self._mask_slide_for(Path(tile_record["slide_id"]).stem)
+
         level = mask_slide.closest_level(
             (tile_record["mpp_x"] + tile_record["mpp_y"]) / 2
         )
@@ -190,12 +208,7 @@ def filter_tissue_tiles(tile_record: TileRecord, tissue_masks_dir: Path) -> bool
         mask_tile = mask_slide.read_region_relative((x, y), level, (width, height))
         # read_region returns RGBA; for binary masks all channels are identical — take the first one
         mask_tile_array = np.array(mask_tile)[..., 0]
-        tissue_ratio = np.count_nonzero(mask_tile_array) / mask_tile_array.size
-
-        if tissue_ratio > 0.0:
-            return True
-
-    return False
+        return bool(np.count_nonzero(mask_tile_array))
 
 
 def run_segmentation(
@@ -222,9 +235,11 @@ def run_segmentation(
     )
     tissue_tiles = (
         tiles.filter(
-            filter_tissue_tiles,
-            fn_kwargs={"tissue_masks_dir": tissue_masks_dir},
-            memory=3 * 1024**3,
+            TissueTileFilter,
+            fn_constructor_kwargs={"tissue_masks_dir": tissue_masks_dir},
+            num_cpus=0.5,
+            memory=1 * 1024**3,
+            concurrency=(2, 16),
         )
         .repartition(target_num_rows_per_block=config.batch_size * 16)
         .with_column(
