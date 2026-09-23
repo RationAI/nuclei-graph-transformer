@@ -14,5 +14,5 @@ mlflow_parent_run_id: null
 metadata:
   run_name: NL Test (MMCI) Evaluation
   hyperparams:
-    nuclei_threshold: ${nuclei_threshold}
+    #nuclei_threshold: ${nuclei_threshold}
     graph_threshold: ${graph_threshold}
