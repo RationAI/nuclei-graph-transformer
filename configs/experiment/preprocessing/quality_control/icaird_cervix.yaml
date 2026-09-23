@@ -1,0 +1,3 @@
+# @package _global_
+
+output_path: ${project_path}/qc_masks/iCAIRD
