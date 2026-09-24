@@ -1,0 +1,21 @@
+# @package _global_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+
+output_path: ${project_path}/qc_staging
+request_timeout: 18000
+max_concurrent: 5
+
+qc_parameters:
+  mask_level: 3
+  sample_level: 1
+  check_residual: True
+  check_folding: True
+  check_focus: True
+  wb_correction: True
+
+base_url: http://rayservice-qc-update-trial-serve-svc.rationai-jobs-ns.svc.cluster.local:8000/
+
+metadata:
+  run_name: "QC Masks: ${dataset.name}"
+  hyperparams: ${qc_parameters}
