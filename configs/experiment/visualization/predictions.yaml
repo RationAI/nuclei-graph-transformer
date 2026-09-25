@@ -7,6 +7,7 @@ visualization_mode: 2
 
 metadata:
   run_name: "Nuclei Masks — Model Predictions: ${dataset.name}"
-  description: "Visualization of model predictions as raster masks. [MLflow training run](${checkpoint_url})"
+  description: "Visualization of model predictions as raster masks. [MLflow
+    training run](${checkpoint_url})"
   hyperparams:
     pred_thr: pred_thr

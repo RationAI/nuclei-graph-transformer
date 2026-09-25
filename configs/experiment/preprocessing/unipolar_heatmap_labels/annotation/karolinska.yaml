@@ -1,0 +1,17 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+heatmap_uri: ${dataset.providers.karolinska.masks.carcinoma}
+metadata_uris:
+  - ${dataset.providers.karolinska.metadata.test}
+exclude_slides_uris: null
+overlap_threshold: 1.0
+positive_threshold: 0.0 # annotation masks are binary
+label_column: annot_label
+output_path: ${dataset.providers.karolinska.supervision.annotation}
+
+metadata:
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}/Karolinska"
