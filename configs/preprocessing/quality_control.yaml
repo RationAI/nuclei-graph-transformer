@@ -2,6 +2,7 @@
 
 metadata_uri: ${dataset.mlflow_uris.exploration}
 output_path: ???
+artifact_path: null # subdirectory inside the run's artifacts; null logs to the artifact root
 
 request_timeout: 18000
 max_concurrent: 5

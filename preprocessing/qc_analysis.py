@@ -58,6 +58,7 @@ async def qc_main(
     max_concurrent: int,
     qc_parameters: QCParameters,
     base_url: str,
+    artifact_path: str | None = None,
 ) -> None:
     async with rationai.AsyncClient(qc_base_url=base_url) as client:  # type: ignore[attr-defined]
         async for result in tqdm(
@@ -87,7 +88,7 @@ async def qc_main(
             for f in csvs:
                 f.unlink()
 
-        logger.log_artifacts(local_dir=str(output_path))
+        logger.log_artifacts(local_dir=str(output_path), artifact_path=artifact_path)
 
 
 @with_cli_args(["+preprocessing=quality_control"])
@@ -111,6 +112,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             max_concurrent=config.max_concurrent,
             qc_parameters=config.qc_parameters,
             base_url=config.base_url,
+            artifact_path=config.get("artifact_path"),
         )
     )
 
