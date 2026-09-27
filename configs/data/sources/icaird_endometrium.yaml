@@ -1,0 +1,14 @@
+# @package _global_
+
+dataset:
+  name: iCAIRD Endometrium
+
+  mask_tile_width: 512
+  mask_tile_height: 512
+
+  paths:
+    wsi_data:
+      slides_isyntax: ${project_path}/iCAIRD/endometrium
+      slides: ${project_path}/iCAIRD/endometrium/tiff
+
+    annotations: ${project_path}/iCAIRD/endometrium

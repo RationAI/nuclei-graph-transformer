@@ -1,0 +1,3 @@
+# @package _global_
+
+output_dir: ${dataset.paths.wsi_data.slides}
