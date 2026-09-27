@@ -10,9 +10,9 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/37/b006a74da3e64629bf9886a5f791c173/artifacts/checkpoints/epoch=187-step=40984/checkpoint.ckpt
-mlflow_run_id: 2685ebcb6738434888fb23c38517a4d9
-mlflow_parent_run_id: b006a74da3e64629bf9886a5f791c173
+checkpoint: mmlflow-artifacts:/37/5ca746c139904ce580a829b1aa2e20e2/artifacts/checkpoints/epoch=159-step=34880/checkpoint.ckpt
+mlflow_run_id: 3269180884ad4b0285dfb76793bf791f
+mlflow_parent_run_id: 5ca746c139904ce580a829b1aa2e20e2
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -41,7 +41,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      attention_variant: rel_value # standard, vrope, rel_value
+      attention_variant: standard # standard, vrope, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
