@@ -9,6 +9,6 @@ dataset:
   paths:
     wsi_data:
       slides_isyntax: ${project_path}/iCAIRD/endometrium
-      slides: ${project_path}/iCAIRD/endometrium/tiff
+      slides: ${project_path}/iCAIRD/endometrium_tiff
 
     annotations: ${project_path}/iCAIRD/endometrium
