@@ -7,7 +7,7 @@ from torch.utils.checkpoint import checkpoint
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.modeling.layers.attention import RelativePositionValueAttention
-from nuclei_graph.nuclei_graph_typing import EMBEDDING_MODES, Outputs
+from nuclei_graph.nuclei_graph_typing import CONTEXT_MODES, EMBEDDING_MODES, Outputs
 
 
 class CNN(nn.Module):
@@ -44,14 +44,27 @@ class Layer(nn.Module):
     def __init__(self, config: Config, drop_path_rate: float = 0.0) -> None:
         super().__init__()
         attention_variant = config.get("attention_variant", "standard")
+        context = config.get("context", "knn")
+        use_rope = config.get("use_rope", True)
+        assert context in CONTEXT_MODES, f"Invalid context: {context}"
+        assert context != "none" or attention_variant == "standard", (
+            f"context='none' requires attention_variant='standard', got '{attention_variant}'"
+        )
 
         if attention_variant == "standard":
             self.self_attn = RotarySparseAttention(
-                dim=config.dim, num_heads=config.num_heads
+                dim=config.dim,
+                num_heads=config.num_heads,
+                context=context,
+                use_rope=use_rope,
             )
         elif attention_variant == "vrope":
             self.self_attn = RotarySparseAttention(
-                dim=config.dim, num_heads=config.num_heads, rotate_v=True
+                dim=config.dim,
+                num_heads=config.num_heads,
+                rotate_v=True,
+                context=context,
+                use_rope=use_rope,
             )
         elif attention_variant == "rel_value":
             self.self_attn = RelativePositionValueAttention(
@@ -74,7 +87,7 @@ class Layer(nn.Module):
         self,
         x: Tensor,
         pos: Tensor,
-        block_mask: BlockMask,
+        block_mask: BlockMask | None,
         neighbor_idx: Tensor | None,
         neighbor_mask: Tensor | None,
     ) -> Tensor:
@@ -198,7 +211,7 @@ class Transformer(nn.Module):
         self,
         x: Tensor,
         pos: Tensor,
-        block_mask: BlockMask,
+        block_mask: BlockMask | None,
         seq_lens: Tensor,
         neighbor_idx: Tensor | None = None,
         bboxes: Tensor | None = None,

@@ -137,7 +137,10 @@ class CropDataModule(BaseDataModule):
             sampler=sampler,
             shuffle=sampler is None,
             collate_fn=GraphCollator(
-                block_size=self.block_size, k=self.k, predict=False
+                block_size=self.block_size,
+                k=self.k,
+                predict=False,
+                context=self.context,
             ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
@@ -153,7 +156,10 @@ class CropDataModule(BaseDataModule):
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=GraphCollator(
-                block_size=self.block_size, k=self.k, predict=False
+                block_size=self.block_size,
+                k=self.k,
+                predict=False,
+                context=self.context,
             ),
         )
 
@@ -165,7 +171,10 @@ class CropDataModule(BaseDataModule):
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=GraphCollator(
-                block_size=self.block_size, k=self.k, predict=False
+                block_size=self.block_size,
+                k=self.k,
+                predict=False,
+                context=self.context,
             ),
         )
 
@@ -177,6 +186,9 @@ class CropDataModule(BaseDataModule):
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
             collate_fn=GraphCollator(
-                block_size=self.block_size, k=self.k, predict=True
+                block_size=self.block_size,
+                k=self.k,
+                predict=True,
+                context=self.context,
             ),
         )

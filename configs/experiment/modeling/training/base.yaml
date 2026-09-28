@@ -16,6 +16,7 @@ trainer:
 
 data:
   block_size: 128
+  context: knn # none, dense, knn
   split_size: ???
   split_stratify_col: ???
   split_group_col: ???
@@ -65,3 +66,5 @@ metadata:
     num_layers: ${model.net.config.num_layers}
     drop_path_rate: ${model.net.config.drop_path_rate}
     embedding_mode: ${model.net.config.embedding_mode}
+    context: ${oc.select:model.net.config.context,knn}
+    use_rope: ${oc.select:model.net.config.use_rope,true}

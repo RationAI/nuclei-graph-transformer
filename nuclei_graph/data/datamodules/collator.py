@@ -7,21 +7,36 @@ from sklearn.neighbors import NearestNeighbors
 from torch import Tensor
 
 from nuclei_graph.data.block_mask import (
+    BlockMask,
     block_spatial_sort,
     create_dense_document_mask,
     create_ragged_block_quantized_knn_mask,
     pack_and_shift_knn_indices,
 )
-from nuclei_graph.nuclei_graph_typing import Batch, BatchMetadata, Sample, Targets
+from nuclei_graph.nuclei_graph_typing import (
+    CONTEXT_MODES,
+    Batch,
+    BatchMetadata,
+    Sample,
+    Targets,
+)
 
 
 class GraphCollator:
     BUCKETS: Final[tuple[int, ...]] = (4096, 8192, 16384, 32768, 49152)
 
-    def __init__(self, block_size: int = 128, k: int = 16, predict: bool = True):
+    def __init__(
+        self,
+        block_size: int = 128,
+        k: int = 16,
+        predict: bool = True,
+        context: str = "knn",
+    ):
+        assert context in CONTEXT_MODES, f"Invalid context: {context}"
         self.block_size = block_size
         self.k = k
         self.predict = predict
+        self.context = context
 
     def _pick_bucket(self, seq_len: int) -> int:
         for b in self.BUCKETS:
@@ -126,15 +141,18 @@ class GraphCollator:
             targets["nuclei"] = self._pad(torch.cat(all_labels_nuclei), target_seq_len)
             targets["graph"] = torch.cat(all_labels_graph) if all_labels_graph else None
 
-        block_mask = create_ragged_block_quantized_knn_mask(
-            all_knns, self.block_size, total_seq_len=target_seq_len
-        )
-        # block_mask = create_dense_document_mask(
-        #     [len(pos) for pos in all_pos],
-        #     128,
-        #     device=all_pos[0].device,
-        #     total_seq_len=target_seq_len,
-        # )
+        block_mask: BlockMask | None = None
+        if self.context == "knn":
+            block_mask = create_ragged_block_quantized_knn_mask(
+                all_knns, self.block_size, total_seq_len=target_seq_len
+            )
+        elif self.context == "dense":
+            block_mask = create_dense_document_mask(
+                [len(pos) for pos in all_pos],
+                self.block_size,
+                device=all_pos[0].device,
+                total_seq_len=target_seq_len,
+            )
 
         global_neighbor_idx = pack_and_shift_knn_indices(all_knns, target_seq_len)
 

@@ -38,8 +38,10 @@ class BaseDataModule(LightningDataModule):
         split_group_col: str | None = None,
         split_size: float | None = None,
         sampler: DictConfig | None = None,
+        context: str = "knn",
     ) -> None:
         super().__init__()
+        self.context = context
         self.batch_size = batch_size
         self.block_size = block_size
         self.k = k

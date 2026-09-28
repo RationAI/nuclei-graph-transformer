@@ -12,3 +12,5 @@ config:
   num_classes: ???
   drop_path_rate: ???
   embedding_mode: efd # efd, bbox, spatial, efd_spatial, blank
+  context: ${oc.select:data.context,knn} # none, dense, knn (must match the collator's mask)
+  use_rope: true

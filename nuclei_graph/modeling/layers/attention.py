@@ -1,6 +1,7 @@
 """Source: Nuclei Foundational Model repository."""
 
 import torch
+import torch.nn.functional as F
 from einops import rearrange, repeat
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import (
@@ -15,7 +16,14 @@ flex_attention = torch.compile(flex_attention, dynamic=True)
 
 
 class RotarySparseAttention(nn.Module):
-    def __init__(self, dim: int, num_heads: int, rotate_v: bool = False) -> None:
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int,
+        rotate_v: bool = False,
+        context: str = "knn",
+        use_rope: bool = True,
+    ) -> None:
         """Initialize the attention module.
 
         Args:
@@ -23,6 +31,10 @@ class RotarySparseAttention(nn.Module):
             num_heads: Number of attention heads.
             rotate_v: Also apply RoPE to V, not just Q/K. Used for the
                 blank-token position/attention-only ablation.
+            context: "knn" or "dense" attend via the block mask; "none" makes
+                each nucleus attend only to itself (softmax over a single key
+                is 1, so the output reduces to W_o W_v x — a per-nucleus MLP).
+            use_rope: Apply RoPE to Q/K (and V if `rotate_v`).
         """
         super().__init__()
 
@@ -30,22 +42,29 @@ class RotarySparseAttention(nn.Module):
         self.head_dim = dim // num_heads
         self.num_heads = num_heads
         self.rotate_v = rotate_v
+        self.context = context
 
         # QKV projection
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
 
-        self.rope = RoPE(self.head_dim)
+        self.rope = RoPE(self.head_dim) if use_rope else None
 
-    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask) -> Tensor:
+    def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask | None) -> Tensor:
+        if self.context == "none":
+            # Self-only attention: no interaction between nuclei, RoPE cancels (q, k share a position)
+            w_v = self.qkv.weight[2 * x.shape[-1] :]
+            return self.wo(F.linear(x, w_v))
+
         q, k, v = rearrange(
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
 
-        q = self.rope(q, pos)
-        k = self.rope(k, pos)
-        if self.rotate_v:
-            v = self.rope(v, pos)
+        if self.rope is not None:
+            q = self.rope(q, pos)
+            k = self.rope(k, pos)
+            if self.rotate_v:
+                v = self.rope(v, pos)
 
         x_out = flex_attention(q, k, v, block_mask=block_mask)
 

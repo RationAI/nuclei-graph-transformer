@@ -13,6 +13,7 @@ EMBEDDING_MODES = (
     "efd_spatial",
     "blank",
 )
+CONTEXT_MODES = ("none", "dense", "knn")  # which nuclei each nucleus attends to
 POOLING_MODES = ("max", "mean", "top_k")  # nuclei-to-tile pooling
 
 MAX_CROP_PATCH_SIDE = 8192
@@ -96,7 +97,7 @@ class Batch(TypedDict):
     all_knns: list[Tensor]
     global_neighbor_idx: Tensor
     block_size: int
-    block_mask: BlockMask
+    block_mask: BlockMask | None
     pos: Tensor
     features: Tensor | None
     sup_mask: Tensor
