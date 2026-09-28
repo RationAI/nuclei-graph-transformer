@@ -38,7 +38,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # shape only
+    embedding_mode: "bbox" # shape only
 
   supervision:
     paths: ${dataset.paths.supervision}
@@ -62,4 +62,4 @@ model:
       use_rope: false
 
 metadata:
-  run_name: "Polygons (No Context — per-nucleus MLP)"
+  run_name: "CNN BBoxes 48x48x (No Context — per-nucleus MLP)"
