@@ -62,5 +62,4 @@ model:
       use_rope: false
 
 metadata:
-  run_name: "Polygons + No Context (per-nucleus MLP)"
-  description: "Feature-only baseline: EFD shape embedding, self-only attention, no RoPE."
+  run_name: "Polygons (No Context — per-nucleus MLP)"
