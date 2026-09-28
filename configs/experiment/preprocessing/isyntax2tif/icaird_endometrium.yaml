@@ -1,3 +1,4 @@
 # @package _global_
 
+slides_dir: /mnt/projects/nuclei_based_wsi_analysis/iCAIRD/endometrium_batch_a
 output_dir: ${dataset.paths.wsi_data.slides}

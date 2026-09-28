@@ -3,17 +3,16 @@
 from pathlib import Path
 
 import hydra
-from ratiopath.openslide import OpenSlide
-import pandas as pd
 import pyvips
 import ray
 from isyntax import ISyntax
-from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from rationai.masks import write_big_tiff
 from rationai.masks.processing import process_items
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+from ratiopath.openslide import OpenSlide
+
 
 MPP_TOLERANCE = 1e-3
 
@@ -25,6 +24,8 @@ def convert_slide(
     tile_width: int,
     tile_height: int,
 ) -> None:
+    pyvips.concurrency_set(1)
+
     output_path = output_dir / f"{slide_path.stem}.tiff"
     if output_path.exists():
         try:
