@@ -38,7 +38,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd" (shape) or "bbox" (texture)
+    embedding_mode: "bbox" # "efd" (shape) or "bbox" (texture)
 
   supervision:
     paths: ${dataset.providers.radboud.supervision}
@@ -62,5 +62,5 @@ model:
       use_rope: false
 
 metadata:
-  run_name: "Radboud: Polygons + No Context (per-nucleus MLP)"
-  description: "Feature-only baseline: EFD shape embedding, self-only attention, no RoPE."
+  run_name: "Radboud: CNN Bboxes 48x48 + No Context (per-nucleus MLP)"
+
