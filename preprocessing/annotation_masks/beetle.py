@@ -10,15 +10,15 @@ class, for each slide.
 """
 
 import io
-import logging
 import re
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from typing import TypedDict
 
 import hydra
 import pandas as pd
 import pyvips
 import ray
+from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import write_big_tiff
@@ -31,9 +31,6 @@ from shapely import MultiPolygon, make_valid
 from shapely.geometry import Polygon
 from shapely.geometry.base import BaseGeometry
 
-py_logger = logging.getLogger(__name__)
-
-WSI_EXTENSIONS = {".tif", ".tiff", ".svs"}
 
 # A handful of BEETLE XMLs contain coordinates exported with a comma as the decimal separator
 DECIMAL_COMMA_COORD = re.compile(r'([XY])="(\d+),(\d+)"')
@@ -43,12 +40,10 @@ def slugify_class(group: str) -> str:
     return group.replace(" ", "_")
 
 
-def find_wsi_path(wsis_dir: Path, stem: str) -> Path | None:
-    for ext in WSI_EXTENSIONS:
-        candidate = wsis_dir / f"{stem}{ext}"
-        if candidate.exists():
-            return candidate
-    return None
+class SlideRecord(TypedDict):
+    slide_id: str
+    slide_path: str
+    mask_path: str
 
 
 def load_asap_parser(xml_path: Path) -> ASAPParser:
@@ -72,19 +67,14 @@ def iter_polygons(geometry: BaseGeometry) -> list[Polygon]:
     return []
 
 
-def get_annotation_size(reference_masks_dir: Path, stem: str) -> tuple[int, int]:
+def get_annotation_size(reference_mask_path: Path) -> tuple[int, int]:
     """Returns the pixel size of the frame the XML coordinates are expressed in.
 
     The annotations were drawn on ~0.5 mpp images, so for TCGA slides whose WSI is
     ~0.25 mpp (or finer) the coordinates are in a 2x (or 4x) downsampled frame
     relative to the WSI's level 0. The reference masks share the annotation frame.
     """
-    reference_path = reference_masks_dir / f"{stem}.tif"
-    if not reference_path.exists():
-        raise FileNotFoundError(
-            f"No reference mask found for {stem} in {reference_masks_dir}"
-        )
-    with OpenSlide(reference_path) as reference:
+    with OpenSlide(reference_mask_path) as reference:
         return reference.level_dimensions[0]
 
 
@@ -94,71 +84,59 @@ def output_path_for(output_dir: str, group: str, slide_path: Path) -> Path:
 
 @ray.remote(num_cpus=1, memory=(6 * 1024**3))
 def process_slide(
-    xml_path: Path,
-    wsis_dir: Path,
-    reference_masks_dir: Path,
+    slide_record: SlideRecord,
+    xmls_dir: Path,
     classes: list[str],
     level: int,
     output_dir: str,
-    failed_dir: str,
     mask_tile_width: int,
     mask_tile_height: int,
 ) -> None:
-    try:
-        slide_path = find_wsi_path(wsis_dir, xml_path.stem)
-        if slide_path is None:
-            raise FileNotFoundError(
-                f"No matching WSI found for {xml_path.stem} in {wsis_dir}"
-            )
+    slide_path = Path(slide_record["slide_path"])
+    xml_path = xmls_dir / f"{slide_record['slide_id']}.xml"
 
-        with OpenSlide(slide_path) as slide:
-            mpp_x, mpp_y = slide.slide_resolution(level)
-            mask_size = slide.level_dimensions[level]
+    with OpenSlide(slide_path) as slide:
+        mpp_x, mpp_y = slide.slide_resolution(level)
+        mask_size = slide.level_dimensions[level]
 
-        # XML coordinates -> mask pixels; NOT relative to the WSI's level 0 (see above)
-        annotation_size = get_annotation_size(reference_masks_dir, xml_path.stem)
-        scale_x = mask_size[0] / annotation_size[0]
-        scale_y = mask_size[1] / annotation_size[1]
+    annotation_size = get_annotation_size(Path(slide_record["mask_path"]))
+    scale_x = mask_size[0] / annotation_size[0]
+    scale_y = mask_size[1] / annotation_size[1]
 
-        parser = load_asap_parser(xml_path)
-        for group in classes:
-            geometry = get_class_geometry(parser, group)
-            polygons = iter_polygons(geometry)
+    parser = load_asap_parser(xml_path)
+    for group in classes:
+        geometry = get_class_geometry(parser, group)
+        polygons = iter_polygons(geometry)
 
-            mask = Image.new("L", size=mask_size)
-            canvas = ImageDraw.Draw(mask)
+        mask = Image.new("L", size=mask_size)
+        canvas = ImageDraw.Draw(mask)
 
-            for polygon in polygons:
-                if polygon.is_empty:
-                    continue
+        for polygon in polygons:
+            if polygon.is_empty:
+                continue
 
-                exterior_coords = [
-                    (x * scale_x, y * scale_y) for x, y in polygon.exterior.coords
+            exterior_coords = [
+                (x * scale_x, y * scale_y) for x, y in polygon.exterior.coords
+            ]
+            canvas.polygon(xy=exterior_coords, fill=255)
+
+            for interior in polygon.interiors:  # draw holes
+                interior_coords = [
+                    (x * scale_x, y * scale_y) for x, y in interior.coords
                 ]
-                canvas.polygon(xy=exterior_coords, fill=255)
+                canvas.polygon(xy=interior_coords, fill=0)
 
-                for interior in polygon.interiors:  # draw holes
-                    interior_coords = [
-                        (x * scale_x, y * scale_y) for x, y in interior.coords
-                    ]
-                    canvas.polygon(xy=interior_coords, fill=0)
+        output_path = output_path_for(output_dir, group, slide_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            output_path = output_path_for(output_dir, group, slide_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            write_big_tiff(
-                image=pyvips.Image.new_from_array(mask),
-                path=output_path,
-                mpp_x=mpp_x,
-                mpp_y=mpp_y,
-                tile_width=mask_tile_width,
-                tile_height=mask_tile_height,
-            )
-    except Exception as e:
-        failed_path = Path(failed_dir, f"{xml_path.stem}.txt")
-        failed_path.parent.mkdir(parents=True, exist_ok=True)
-        failed_path.write_text(str(e))
-        py_logger.warning("Failed to process slide %s", xml_path.stem, exc_info=True)
+        write_big_tiff(
+            image=pyvips.Image.new_from_array(mask),
+            path=output_path,
+            mpp_x=mpp_x,
+            mpp_y=mpp_y,
+            tile_width=mask_tile_width,
+            tile_height=mask_tile_height,
+        )
 
 
 @with_cli_args(["+preprocessing/annotation_masks=beetle"])
@@ -166,50 +144,37 @@ def process_slide(
 @autolog
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     xmls_dir = Path(config.xmls_dir)
-    wsis_dir = Path(config.wsis_dir)
-    reference_masks_dir = Path(config.reference_masks_dir)
     classes = list(config.classes)
 
     output_dir = Path(config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    slides = sorted(xmls_dir.glob("*.xml"))
+    metadata = pd.read_csv(
+        download_artifacts(config.metadata_uri), keep_default_na=False
+    )
+    annotated = metadata[metadata["has_annotation_xml"]]
+    slides: list[SlideRecord] = annotated[
+        ["slide_id", "slide_path", "mask_path"]
+    ].to_dict("records")  # type: ignore[assignment]
 
-    with TemporaryDirectory() as failed_dir:
-        process_items(
-            slides,
-            process_item=process_slide,
-            fn_kwargs={
-                "wsis_dir": wsis_dir,
-                "reference_masks_dir": reference_masks_dir,
-                "classes": classes,
-                "level": config.level,
-                "output_dir": str(output_dir),
-                "failed_dir": failed_dir,
-                "mask_tile_width": config.mask_tile_width,
-                "mask_tile_height": config.mask_tile_height,
-            },
-            max_concurrent=config.max_concurrent,
-        )
-        failed_slides = {p.stem: p.read_text() for p in Path(failed_dir).glob("*.txt")}
-
-    if failed_slides:
-        py_logger.warning(
-            "%d slide(s) failed to process: %s",
-            len(failed_slides),
-            sorted(failed_slides),
-        )
+    process_items(
+        slides,
+        process_item=process_slide,
+        fn_kwargs={
+            "xmls_dir": xmls_dir,
+            "classes": classes,
+            "level": config.level,
+            "output_dir": str(output_dir),
+            "mask_tile_width": config.mask_tile_width,
+            "mask_tile_height": config.mask_tile_height,
+        },
+        max_concurrent=config.max_concurrent,
+    )
 
     logger.log_artifacts(
         local_dir=str(output_dir),
         artifact_path=config.mlflow_artifact_path,
     )
-
-    failed_csv_path = output_dir / "failed_slides.csv"
-    pd.DataFrame(
-        {"slide_stem": list(failed_slides), "error": list(failed_slides.values())}
-    ).to_csv(failed_csv_path, index=False)
-    logger.log_artifact(local_path=str(failed_csv_path))
 
 
 if __name__ == "__main__":

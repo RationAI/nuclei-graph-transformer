@@ -30,4 +30,7 @@ dataset:
 
     masks:
       # preprocessing/tissue_masks.py
-      tissue: ??? 
+      tissue: mlflow-artifacts:/37/d5cb346183094fbd892652a27b3b6e4a/artifacts/tissue_masks
+      
+      # preprocessing/annotation_masks/beetle.py
+      carcinoma: ???
