@@ -5,8 +5,8 @@ submit_job(
     job_name="nuclei-graph-icaird-cervix-qc-masks",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
-    cpu=4,
-    memory="16Gi",
+    cpu=1,
+    memory="4Gi",
     public=True,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",
