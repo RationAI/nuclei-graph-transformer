@@ -1,0 +1,16 @@
+# @package _global_
+
+datasets: ???
+comparison:
+  baseline: ???
+  candidate: ???
+references: []
+metrics:
+  - AUROC
+  - AUPRC
+n_bootstrap: 2000
+seed: 0
+mlflow_artifact_path: paired_difference_plots
+
+metadata:
+  run_name: Paired Difference Plot
