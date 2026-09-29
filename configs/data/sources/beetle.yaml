@@ -26,7 +26,7 @@ dataset:
 
   mlflow_uris:
     # exploration/beetle/save_metadataset.py
-    exploration: mlflow-artifacts:/37/a35200d898694690b4f09891facde4fb/artifacts/beetle/slides_metadata.csv
+    exploration: mlflow-artifacts:/37/69e68626aa11483d8d2f5eae3a24f853/artifacts/beetle/slides_metadata.csv
 
     masks:
       # preprocessing/tissue_masks.py

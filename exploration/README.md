@@ -53,7 +53,7 @@ panda/
 **Output layout**:
 ```text
 beetle/
-  errors.log (slides listed in data_overview.csv but missing on disk)
+  errors.log (slides listed in data_overview.csv but missing on disk, or unreadable by OpenSlide)
   slides_metadata.csv (metadata for the valid slides)
   summary.csv (aggregate statistics)
 ```
@@ -71,6 +71,10 @@ beetle/
 - `scanner` (`str`)
 - `split` (`str`): "development" or "evaluation".
 - `validation_fold` (`str`): cross-validation fold within the development split; `None` for evaluation slides.
+- `extent_x` (`int`)
+- `extent_y` (`int`)
+- `mpp_x` (`float`)
+- `mpp_y` (`float`)
 
 ### iCAIRD Cervix Dataset
 

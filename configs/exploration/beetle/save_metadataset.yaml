@@ -2,6 +2,7 @@
 
 overview_csv: ${dataset.paths.wsi_data.overview_csv}
 root: ${dataset.paths.wsi_data.root}
+max_concurrent: 16
 
 metadata:
   run_name: "Exploration: ${dataset.name}"
