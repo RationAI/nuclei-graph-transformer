@@ -15,7 +15,7 @@ submit_job(
         "export MLFLOW_TRACKING_PASSWORD='...'",
         "export MLFLOW_TRACKING_URI='https://mlflow.rationai.cloud.e-infra.cz/'",
         "uv sync --frozen",
-        "uv run python -m preprocessing.annotation_masks.beetle",
+        "uv run -m preprocessing.annotation_masks.beetle",
     ],
     storage=[storage.public.DATA, storage.public.PROJECTS],
 )

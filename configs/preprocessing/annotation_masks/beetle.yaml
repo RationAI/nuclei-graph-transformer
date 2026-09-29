@@ -6,6 +6,8 @@ defaults:
 
 xmls_dir: ${dataset.paths.annotations.xml}
 wsis_dir: ${dataset.paths.wsi_data.slides}
+# defines the frame of the XML coordinates (differs from the WSI's level 0 for TCGA)
+reference_masks_dir: ${dataset.paths.annotations.tif}
 output_dir: ${project_path}/BEETLE/annotations/masks_generated
 
 classes:

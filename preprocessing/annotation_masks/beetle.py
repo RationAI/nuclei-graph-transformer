@@ -72,6 +72,22 @@ def iter_polygons(geometry: BaseGeometry) -> list[Polygon]:
     return []
 
 
+def get_annotation_size(reference_masks_dir: Path, stem: str) -> tuple[int, int]:
+    """Returns the pixel size of the frame the XML coordinates are expressed in.
+
+    The annotations were drawn on ~0.5 mpp images, so for TCGA slides whose WSI is
+    ~0.25 mpp (or finer) the coordinates are in a 2x (or 4x) downsampled frame
+    relative to the WSI's level 0. The reference masks share the annotation frame.
+    """
+    reference_path = reference_masks_dir / f"{stem}.tif"
+    if not reference_path.exists():
+        raise FileNotFoundError(
+            f"No reference mask found for {stem} in {reference_masks_dir}"
+        )
+    with OpenSlide(reference_path) as reference:
+        return reference.level_dimensions[0]
+
+
 def output_path_for(output_dir: str, group: str, slide_path: Path) -> Path:
     return Path(output_dir, slugify_class(group), slide_path.with_suffix(".tiff").name)
 
@@ -80,6 +96,7 @@ def output_path_for(output_dir: str, group: str, slide_path: Path) -> Path:
 def process_slide(
     xml_path: Path,
     wsis_dir: Path,
+    reference_masks_dir: Path,
     classes: list[str],
     level: int,
     output_dir: str,
@@ -96,11 +113,12 @@ def process_slide(
 
         with OpenSlide(slide_path) as slide:
             mpp_x, mpp_y = slide.slide_resolution(level)
-            mask_size_base = slide.level_dimensions[0]
             mask_size = slide.level_dimensions[level]
 
-        scale_x = mask_size[0] / mask_size_base[0]
-        scale_y = mask_size[1] / mask_size_base[1]
+        # XML coordinates -> mask pixels; NOT relative to the WSI's level 0 (see above)
+        annotation_size = get_annotation_size(reference_masks_dir, xml_path.stem)
+        scale_x = mask_size[0] / annotation_size[0]
+        scale_y = mask_size[1] / annotation_size[1]
 
         parser = load_asap_parser(xml_path)
         for group in classes:
@@ -149,6 +167,7 @@ def process_slide(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     xmls_dir = Path(config.xmls_dir)
     wsis_dir = Path(config.wsis_dir)
+    reference_masks_dir = Path(config.reference_masks_dir)
     classes = list(config.classes)
 
     output_dir = Path(config.output_dir)
@@ -162,6 +181,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             process_item=process_slide,
             fn_kwargs={
                 "wsis_dir": wsis_dir,
+                "reference_masks_dir": reference_masks_dir,
                 "classes": classes,
                 "level": config.level,
                 "output_dir": str(output_dir),
