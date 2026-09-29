@@ -1,0 +1,6 @@
+# @package _global_
+
+# The shallowest slides (22 TCGA .svs, pyramid 1x/4x/16x) have only 3 levels, so level 3
+# from the default config does not exist for them. Level 2 is ~2 µm/px for the .tif
+# slides (2x pyramid) and ~4 µm/px for the TCGA slides.
+level: 2

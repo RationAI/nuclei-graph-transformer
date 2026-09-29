@@ -13,6 +13,15 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
+def get_patient_id(row: dict[str, str]) -> str | None:
+    if row["patient_id"]:
+        return row["patient_id"]
+    if row["source"] == "tcga":
+        # TCGA slides have no patient_id; use the barcode prefix
+        return "-".join(row["name"].split("-")[:3])
+    return None
+
+
 def parse_slide_info(
     row: dict[str, str], root: Path, log_file: Path
 ) -> dict[str, str | bool | None] | None:
@@ -24,7 +33,7 @@ def parse_slide_info(
         return None
 
     slide_path = root / "data" / row["wsi_path"]
-    if not slide_path.exists():
+    if not row["wsi_path"] or not slide_path.is_file():
         log(f"SLIDE_MISSING: {row['name']} ({slide_path})")
         return None
 
@@ -43,7 +52,7 @@ def parse_slide_info(
         "has_annotation": bool(mask_path and mask_path.exists()),
         "has_annotation_xml": bool(xml_path and xml_path.exists()),
         "has_annotation_json": bool(json_path and json_path.exists()),
-        "patient_id": row["patient_id"],
+        "patient_id": get_patient_id(row),
         "source": row["source"],
         "specimen_type": row["specimen_type"],
         "scanner": row["scanner"],

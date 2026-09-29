@@ -8,6 +8,9 @@ dataset:
   
   paths: 
     wsi_data:
+      # dataset root; `wsi_path` and annotation paths in the overview CSV are relative to it
+      root: ${project_path}/BEETLE
+
       slides: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/data/images/development/wsis
     
       # dataset-provided index of slides, annotations, and splits
@@ -17,3 +20,14 @@ dataset:
       xml: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/xmls
       json: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/jsons
       tif: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/masks
+
+    # preprocessing/nuclei_segmentation.py
+    nuclei_seg: ${project_path}/nuclei_segmentation/BEETLE
+
+  mlflow_uris:
+    # exploration/beetle/save_metadataset.py
+    exploration: ???  # <mlflow_project_pc>/<run_id>/artifacts/beetle/slides_metadata.csv
+
+    masks:
+      # preprocessing/tissue_masks.py
+      tissue: ???  # <mlflow_project_pc>/<run_id>/artifacts/tissue_masks

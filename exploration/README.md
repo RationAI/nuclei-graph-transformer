@@ -65,7 +65,7 @@ beetle/
 - `has_annotation` (`bool`): True if the annotation mask exists.
 - `has_annotation_xml` (`bool`): True if the XML annotation exists.
 - `has_annotation_json` (`bool`): True if the JSON annotation exists.
-- `patient_id` (`str`)
+- `patient_id` (`str`): derived from the slide name for TCGA slides; `None` if unknown (some jb/rumc slides).
 - `source` (`str`): originating institution/collection (e.g. "rumc", "tcga", "nki").
 - `specimen_type` (`str`): "resection" or "biopsy".
 - `scanner` (`str`)
