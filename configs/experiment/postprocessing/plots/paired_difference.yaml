@@ -1,0 +1,45 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl@sources.mmci
+  - /data/sources/panda@sources.panda
+  - _self_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz/
+
+# Difference is plotted as candidate - baseline.
+comparison:
+  baseline: "Blank Token"
+  candidate: "Spatial Stats"
+
+# Drawn as faint vertical lines in the score panels (point estimate only).
+# A reference without a URI for a dataset is skipped for that dataset.
+references:
+  - "Shape (no context)"
+  - "Shape + Spatial Stats"
+
+# `models` maps each label above to that model's test predictions directory
+# (the `predictions_uri` used in postprocessing/crop/metrics).
+datasets:
+  - name: "MMCI"
+    metadata_uri: ${sources.mmci.dataset.mlflow_uris.metadata.test}
+    supervision_dir: ${sources.mmci.dataset.paths.supervision.annotation}
+    label_column: annot_label
+    models:
+      "Blank Token": ??? # k-NN, k=12
+      "Spatial Stats": ??? # k-NN, k=24
+      "Shape (no context)": null
+      "Shape + Spatial Stats": null # k-NN, k=32
+
+  - name: "Radboud"
+    metadata_uri: ${sources.panda.dataset.providers.radboud.metadata.test}
+    supervision_dir: ${sources.panda.dataset.providers.radboud.supervision.annotation}
+    label_column: annot_label
+    models:
+      "Blank Token": ??? # k-NN, k=32
+      "Spatial Stats": ??? # k-NN, k=20
+      "Shape (no context)": null
+      "Shape + Spatial Stats": null # k-NN, k=32
+
+metadata:
+  run_name: "Paired Difference: Spatial Stats vs Blank Token"
