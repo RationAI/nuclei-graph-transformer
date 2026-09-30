@@ -9,17 +9,17 @@ dataset:
   paths: 
     wsi_data:
       # dataset root; `wsi_path` and annotation paths in the overview CSV are relative to it
-      root: ${project_path}/BEETLE
+      root: ${data_path}/Public/Public/breast/BEETLE
 
-      slides: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/data/images/development/wsis
+      slides: ${dataset.paths.wsi_data.root}/data/images/development/wsis
     
       # dataset-provided index of slides, annotations, and splits
-      overview_csv: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/data_overview.csv
+      overview_csv: ${dataset.paths.wsi_data.root}/data_overview.csv
       
     annotations:
-      xml: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/xmls
-      json: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/jsons
-      tif: /mnt/projects/nuclei_based_wsi_analysis/BEETLE/annotations/masks
+      xml: ${dataset.paths.wsi_data.root}/annotations/xmls
+      json: ${dataset.paths.wsi_data.root}/annotations/jsons
+      tif: ${dataset.paths.wsi_data.root}/annotations/masks
 
     # preprocessing/nuclei_segmentation.py
     nuclei_seg: ${project_path}/nuclei_segmentation/BEETLE
