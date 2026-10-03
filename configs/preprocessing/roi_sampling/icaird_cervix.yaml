@@ -10,6 +10,9 @@ mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 split: test
 level: 2
+# Tissue masks the ROIs are restricted to; `tissue_level` is the level they were written at.
+tissue_uri: ${dataset.mlflow_uris.masks.tissue}
+tissue_level: 3
 max_concurrent: 6
 seed: 42
 
@@ -25,12 +28,14 @@ roi:
   max_area_mm2: 1.0
   # ROI sides are w = sqrt(area * r), h = sqrt(area / r) with r log-uniform in [1, max_aspect_ratio].
   max_aspect_ratio: 2.0
-  # Minimum fraction of an ROI that has to lie inside the positive annotation.
-  min_coverage: 0.3
+  # Minimum fraction of an ROI that has to lie inside the positive annotation on tissue.
+  # A slide that cannot be sampled at the first value falls back to the next ones; if none
+  # works, it gets a single minimum-sized ROI where the coverage is the highest.
+  coverage_steps: [0.8, 0.6, 0.4, 0.2]
   # Minimum distance between ROIs, so they stay separate objects in the binary mask.
   min_gap_um: 100
-  # Candidate ROIs tried per slide before giving up.
-  max_attempts: 5000
+  # Candidate ROIs tried per ROI (and per coverage step) before giving up.
+  max_attempts: 50000
 
 metadata:
   run_name: "🎯 ROI Sampling (${split}): ${dataset.name}"
