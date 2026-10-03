@@ -4,6 +4,8 @@ metadata_uri: ${dataset.mlflow_uris.exploration}
 output_path: ???
 artifact_path: null # subdirectory inside the run's artifacts; null logs to the artifact root
 
+retry_errors_uri: null # qc_errors.log of a previous run; if set, only the slides listed there are processed
+
 request_timeout: 18000
 max_concurrent: 5
 

@@ -1,6 +1,7 @@
 # credits: https://github.com/RationAI/carcinoma-binary-classification-methods/blob/master/preprocessing/masks/quality_control_v2.py
 
 import asyncio
+import re
 import shutil
 from collections.abc import Generator
 from pathlib import Path
@@ -50,6 +51,17 @@ def organize_masks(output_path: Path, subdir: str, current_subdir: str) -> None:
         file.rename(destination)
 
 
+def failed_slides_from_log(log_uri: str) -> list[str]:
+    """Slide paths listed in a `qc_errors.log` written by a previous run."""
+    log_path = Path(download_artifacts(log_uri))
+    pattern = re.compile(r"^Failed to process (.+?): ")
+    return [
+        match.group(1)
+        for line in log_path.read_text().splitlines()
+        if (match := pattern.match(line))
+    ]
+
+
 async def qc_main(
     output_path: Path,
     slides: list[str],
@@ -97,6 +109,12 @@ async def qc_main(
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     dataset = pd.read_csv(download_artifacts(config.metadata_uri))
 
+    slides = dataset["slide_path"].to_list()
+    if config.get("retry_errors_uri"):
+        failed = set(failed_slides_from_log(config.retry_errors_uri))
+        slides = [slide for slide in slides if slide in failed]
+        print(f"Retrying {len(slides)} slides from {config.retry_errors_uri}")
+
     output_path = Path(config.output_path)
     if output_path.exists():
         shutil.rmtree(str(output_path))
@@ -106,7 +124,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     asyncio.run(
         qc_main(
             output_path=output_path,
-            slides=dataset["slide_path"].to_list(),
+            slides=slides,
             logger=logger,
             request_timeout=config.request_timeout,
             max_concurrent=config.max_concurrent,
