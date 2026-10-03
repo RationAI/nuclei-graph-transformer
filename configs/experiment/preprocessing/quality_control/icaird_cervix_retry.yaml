@@ -1,9 +1,12 @@
 # @package _global_
 
-# Re-runs QC for the slides that failed in run 149a9da90b6046db8ac880b9c4cfc318 (QC service timeouts).
+# Re-runs QC for the slides that failed (QC service timeouts).
 retry_errors_uri: mlflow-artifacts:/37/149a9da90b6046db8ac880b9c4cfc318/artifacts/qc_errors.log
 
-# Separate directory: qc_analysis wipes output_path before running.
+# Log into the original run: masks land in the same artifact directories, qc_metrics.csv is merged into the existing one.
+mlflow_run_id: 149a9da90b6046db8ac880b9c4cfc318
+
+# Local directory only: qc_analysis wipes output_path before running.
 output_path: ${project_path}/qc_masks/iCAIRD_retry
 
 request_timeout: 43200

@@ -71,6 +71,7 @@ async def qc_main(
     qc_parameters: QCParameters,
     base_url: str,
     artifact_path: str | None = None,
+    previous_metrics_uri: str | None = None,
 ) -> None:
     async with rationai.AsyncClient(qc_base_url=base_url) as client:  # type: ignore[attr-defined]
         async for result in tqdm(
@@ -93,10 +94,14 @@ async def qc_main(
             organize_masks(Path(output_path), artifact_name, prefix)
 
         csvs = list(Path(output_path).rglob("*.csv"))
-        if len(csvs) > 1: 
-            pd.concat([pd.read_csv(f) for f in csvs]).to_csv(
-                Path(output_path, "qc_metrics.csv"), index=False
-            )
+        if len(csvs) > 1 or (csvs and previous_metrics_uri):
+            metrics = pd.concat([pd.read_csv(f) for f in csvs])
+            if previous_metrics_uri:
+                # retrying inside an existing run: extend its metrics instead of overwriting them
+                metrics = pd.concat(
+                    [pd.read_csv(download_artifacts(previous_metrics_uri)), metrics]
+                ).drop_duplicates("slide_name", keep="last")
+            metrics.to_csv(Path(output_path, "qc_metrics.csv"), index=False)
             for f in csvs:
                 f.unlink()
 
@@ -110,10 +115,13 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     dataset = pd.read_csv(download_artifacts(config.metadata_uri))
 
     slides = dataset["slide_path"].to_list()
+    previous_metrics_uri = None
     if config.get("retry_errors_uri"):
         failed = set(failed_slides_from_log(config.retry_errors_uri))
         slides = [slide for slide in slides if slide in failed]
         print(f"Retrying {len(slides)} slides from {config.retry_errors_uri}")
+        if config.mlflow_run_id:
+            previous_metrics_uri = f"runs:/{config.mlflow_run_id}/qc_metrics.csv"
 
     output_path = Path(config.output_path)
     if output_path.exists():
@@ -131,6 +139,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             qc_parameters=config.qc_parameters,
             base_url=config.base_url,
             artifact_path=config.get("artifact_path"),
+            previous_metrics_uri=previous_metrics_uri,
         )
     )
 

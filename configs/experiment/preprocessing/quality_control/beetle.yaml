@@ -1,7 +1,0 @@
-# @package _global_
-
-output_path: ${project_path}/qc_masks/BEETLE
-
-qc_parameters:
-  # the default level 3 does not exist in the 22 TCGA .svs slides 
-  mask_level: 2
