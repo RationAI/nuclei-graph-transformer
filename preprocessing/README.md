@@ -74,9 +74,11 @@
 **Output layout**:
 ```text
 <DATASET_NAME>/
-   slide_id=<SLIDE_NAME>/
-      *.parquet (segmented nuclei)
+   <BATCH_NAME>/
+      slide_id=<SLIDE_NAME>/
+         *.parquet (segmented nuclei)
 ```
+`<BATCH_NAME>` is the `batch_name` config value, or by default the folder holding the metadata CSV (a CSV at the root of a run's artifacts has to set `batch_name`).
 **Parquet row schema (one row = one nucleus)**:
 - `id` (`str`): Unique nucleus hash ID.
 - `polygon` (`np.ndarray[float]`): Flattened polygon coordinates (64 points × 2 coordinates).

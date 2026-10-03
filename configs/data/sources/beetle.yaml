@@ -29,7 +29,7 @@ dataset:
     exploration: mlflow-artifacts:/37/69e68626aa11483d8d2f5eae3a24f853/artifacts/beetle/slides_metadata.csv
 
     masks:
-      # preprocessing/tissue_masks.py
+      # preprocessing/tissue_masks/beetle.py
       tissue: mlflow-artifacts:/37/d5cb346183094fbd892652a27b3b6e4a/artifacts/tissue_masks
       
       # preprocessing/annotation_masks/beetle.py

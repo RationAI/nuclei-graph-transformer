@@ -275,15 +275,32 @@ def run_segmentation(
     nuclei.write_parquet(str(output_dir), partition_cols=["slide_id"])
 
 
+def output_batch_name(metadata_uri: str, batch_name: str | None) -> str:
+    """Name of the output subfolder of a metadata CSV: `batch_name`, or its parent folder."""
+    if batch_name:
+        return batch_name
+
+    parent = Path(urlparse(metadata_uri).path).parent.name
+    if parent == "artifacts":
+        raise ValueError(
+            f"{metadata_uri} is at the root of its run's artifacts, so its folder name "
+            "does not identify the batch. Set `batch_name`."
+        )
+    return parent
+
+
 @with_cli_args(["+preprocessing=nuclei_segmentation"])
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
+    batch_names = [
+        output_batch_name(metadata_uri, config.batch_name)
+        for metadata_uri in config.metadata_uris
+    ]
     tissue_masks_dir = Path(download_artifacts(config.tissue_masks_uri))
 
-    for metadata_uri in config.metadata_uris:
+    for metadata_uri, batch_name in zip(config.metadata_uris, batch_names, strict=True):
         slides = pd.read_csv(download_artifacts(metadata_uri))
-        batch_name = Path(urlparse(metadata_uri).path).parent.name
         run_segmentation(
             slide_paths=slides["slide_path"].tolist(),
             output_dir=Path(config.output_path, batch_name),

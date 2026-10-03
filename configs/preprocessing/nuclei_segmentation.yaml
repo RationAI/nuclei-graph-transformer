@@ -7,6 +7,8 @@ batch_size: 8
 tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue}
 output_path: ${dataset.paths.nuclei_seg}
 metadata_uris: ???
+# Subfolder of `output_path` the nuclei are written to.
+batch_name: null
 
 metadata:
   run_name: "Nuclei Segmentation: ${dataset.name}"

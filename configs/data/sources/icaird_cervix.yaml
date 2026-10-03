@@ -37,5 +37,6 @@ dataset:
         merged:
           carcinoma: ${mlflow_project_pc}/7b33b3027aa142719eb792890ff95d82/artifacts/carcinoma
 
-      tissue: mlflow-artifacts:/37/456af5dc52ad425983b167c2a9a6b97f/artifacts/tissue_masks
+      # preprocessing/tissue_masks/icaird_cervix.py
+      tissue: mlflow-artifacts:/37/fef378b6af1049949495e84c985b0fc4/artifacts/tissue_masks
 

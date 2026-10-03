@@ -1,0 +1,29 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+level: 3
+max_concurrent: 20
+mask_tile_width: 512
+mask_tile_height: 512
+
+
+mask_params:
+  # pixels with HSV value (0-255) up to this are ignored.
+  dark_threshold: 100
+  # Glass has a saturation of ~3-9 and pale tissue of ~15-35, so 12 separates them
+  saturation_threshold: 12
+  blur_size: 7 # px, of the Gaussian the saturation is blurred with before thresholding
+  disk_factor: 10 # closing and opening disk radius in px is disk_factor / mpp
+  max_hole_um2: 8000 # holes smaller than this are filled
+
+metadata:
+  run_name: "Tissue Masks: ${dataset.name}"
+  hyperparams:
+    level: ${level}
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
+    mask_params: ${mask_params}
