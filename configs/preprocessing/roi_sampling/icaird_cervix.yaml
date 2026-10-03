@@ -1,0 +1,48 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+annots_dir: ${dataset.paths.annotations}
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+split: test
+level: 2
+max_concurrent: 6
+seed: 42
+
+# Annotation classes ROIs are sampled in (matched against `properties.classification.name`).
+positive_patterns:
+  high_grade: (?i)^high\s*grade$
+  malignant: (?i)^malignant$
+
+roi:
+  # Per slide, the sampled ROIs cover ~this fraction of the positive annotation area.
+  target_fraction: 0.1
+  min_area_mm2: 0.25
+  max_area_mm2: 1.0
+  # ROI sides are w = sqrt(area * r), h = sqrt(area / r) with r log-uniform in [1, max_aspect_ratio].
+  max_aspect_ratio: 2.0
+  # Minimum fraction of an ROI that has to lie inside the positive annotation.
+  min_coverage: 0.3
+  # Minimum distance between ROIs, so they stay separate objects in the binary mask.
+  min_gap_um: 100
+  # Candidate ROIs tried per slide before giving up.
+  max_attempts: 5000
+
+metadata:
+  run_name: "🎯 ROI Sampling (${split}): ${dataset.name}"
+  description: |
+    Randomly sampled rectangular ROIs inside the positive (high grade / malignant)
+    annotations of the ${split} split of the [${dataset.name}](https://www.icaird.com/),
+    for precise re-annotation by a pathologist. One binary mask (255 = ROI) per slide in
+    `roi_masks/`, plus `rois.csv` (one row per ROI) and `slides_summary.csv` (one row per
+    slide, incl. why a slide got no ROIs).
+  hyperparams:
+    split: ${split}
+    level: ${level}
+    seed: ${seed}
+    roi: ${roi}
+    positive_patterns: ${positive_patterns}
