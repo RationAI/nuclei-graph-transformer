@@ -64,6 +64,9 @@
 2. **Annotation Masks** (`annotation_masks/icaird_cervix.py`, [output structure](#icaird-annotation-masks-output))  
    Generates per-slide masks from QuPath GeoJSON annotations, encoding the most severe classification (low grade / high grade / malignant) covering each pixel.
 
+3. **ROI Sampling** (`roi_sampling/icaird_cervix.py`, [output structure](#icaird-roi-sampling-output))  
+   Randomly samples rectangular ROIs inside the positive (high grade / malignant) annotations of the test split, for precise re-annotation by a pathologist.
+
 ## Output Structure Overview
 
 <a id="nuclei-segmentation-output"></a>
@@ -135,6 +138,39 @@ annotation_masks/
 - `3`: malignant (squamous carcinoma, adenocarcinoma, ...)
 
 Slides in the "normal_inflammation" category (see the dataset's `index.csv`) have no lesion annotations and are skipped.
+<p align="right"><a href="#icaird-cervix-workflow">↑ back</a></p>
+
+---
+
+<a id="icaird-roi-sampling-output"></a>
+### ROI Sampling: `roi_sampling/icaird_cervix.py`
+
+**Location**: MLflow artifacts
+
+**Output layout**:
+```text
+roi_masks/
+  <SLIDE_NAME>.tiff (binary mask, one file per slide with at least one ROI)
+rois.csv (one row per ROI)
+slides_summary.csv (one row per slide)
+```
+
+**Mask pixel values** (level `level`, 1 µm/px by default):
+- `0`: background
+- `255`: ROI
+
+**Sampling** (parameters under `roi` in `configs/preprocessing/roi_sampling/icaird_cervix.yaml`):
+- The positive region of a slide is the high grade ∪ malignant annotation **restricted to tissue** (the tissue mask logged by `tissue_masks/icaird_cervix.py`, `tissue_uri`).
+- Per slide, rectangular ROIs are drawn until their part inside the positive tissue reaches `target_fraction` (10 %) of the slide's positive tissue area; the last ROI is kept only if it brings the total closer to the target.
+- ROI area is uniform in `min_area_mm2`–`max_area_mm2` (0.25–1 mm²), the aspect ratio is log-uniform in 1–`max_aspect_ratio` with a random orientation.
+- At least `coverage_steps[0]` (80 %) of each ROI has to lie inside the positive tissue. A slide for which no such ROI exists (small or fragmented lesions) is not left out: the requirement is relaxed to the next value of `coverage_steps` (60 %, 40 %, 20 %), and if even the last fails, the slide gets a single minimum-sized ROI where the coverage is the highest (`best_effort`).
+- If 10 % of a slide's positive area is smaller than a minimum-sized ROI, the slide still gets one minimum-sized ROI.
+- ROIs do not overlap and are `min_gap_um` apart (so they stay separate objects in the binary mask).
+- Sampling is reproducible: the RNG is seeded from `seed` and the slide name. Coverage is evaluated on a raster at `tissue_level` (level 3), i.e. to ~2 µm.
+
+**`rois.csv` columns**: `slide_id`, `roi_id`, `x0`, `y0`, `x1`, `y1` (mask pixel coordinates, `x1`/`y1` exclusive), `area_mm2`, `coverage` (fraction of the ROI inside the positive annotation on tissue), `tissue_fraction` (fraction of the ROI on tissue), `coverage_high_grade`, `coverage_malignant` (fractions inside each annotation class, regardless of tissue).
+
+**`slides_summary.csv` columns**: `slide_id`, `category`, `subcategory`, `status` (`ok`, `relaxed_coverage`, `best_effort`, `no_positive_annotation`, `no_feasible_roi`), `min_coverage_used` (the `coverage_steps` value the ROIs were sampled at; empty for `best_effort`), `tissue_mask` (`used`, or `missing` / `ignored` if the tissue mask could not be used), `positive_area_mm2`, `positive_tissue_area_mm2`, `n_rois`, `roi_area_mm2`, `sampled_positive_area_mm2`, `sampled_fraction` (of the positive tissue area).
 <p align="right"><a href="#icaird-cervix-workflow">↑ back</a></p>
 
 ---

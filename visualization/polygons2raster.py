@@ -14,9 +14,9 @@ Visualization Modes:
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
-from typing import Any
 
 import hydra
+import numpy as np
 import pandas as pd
 import pyvips
 import ray
@@ -24,7 +24,6 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from PIL import Image, ImageDraw
 from rationai.masks import process_items, write_big_tiff
-from rationai.mlkit import autolog
 from rationai.mlkit import autolog
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
@@ -85,21 +84,19 @@ def set_filling_and_get_outline_color(
 @ray.remote(memory=90 * 1024**3)
 def process_slide(
     item: dict[str, Any],
-    item: dict[str, Any],
     visualization_mode: int,
     mask_tile_width: int,
     mask_tile_height: int,
+    level: int,
     output_dir: Path,
     label_dirs: dict[str, Path | None],
     label_column: str | None,
     pred_thr: float | None,
 ) -> None:
     nuclei = pd.read_parquet(item["slide_nuclei_path"])
-    nuclei = pd.read_parquet(item["slide_nuclei_path"])
     nuclei, outline_color = set_filling_and_get_outline_color(
         nuclei,
         visualization_mode,
-        Path(item["slide_path"]),
         Path(item["slide_path"]),
         **label_dirs,
         label_column=label_column,
@@ -107,25 +104,27 @@ def process_slide(
     )
 
     with OpenSlide(item["slide_path"]) as slide:
-        level = 0  # rasterize at the highest resolution level
-    with OpenSlide(item["slide_path"]) as slide:
-        level = 0  # rasterize at the highest resolution level
         mask_mpp_x, mask_mpp_y = slide.slide_resolution(level)
+        mask_size_base = slide.level_dimensions[0]
         mask_size = slide.level_dimensions[level]
+
+    # nuclei polygons are in level-0 pixel coordinates
+    scale = np.array([mask_size[0] / mask_size_base[0], mask_size[1] / mask_size_base[1]])
+    line_width = max(1, round(7 * scale[0]))
+
     mask = Image.new("L", size=mask_size)
     canvas = ImageDraw.Draw(mask)
 
     for row in nuclei.itertuples(index=False):
+        polygon = (row.polygon.reshape(-1, 2) * scale).ravel()
         if row.fill_color is not None:
-            canvas.polygon(xy=row.polygon, outline=None, fill=row.fill_color)
+            canvas.polygon(xy=polygon, outline=None, fill=row.fill_color)
         if outline_color is not None:  # use line with width param for better visibility
-            poly = row.polygon.tolist()
-            closed_poly = poly + poly[:2]
-            canvas.line(xy=closed_poly, fill=outline_color, width=7)
+            closed_polygon = polygon.tolist() + polygon[:2].tolist()
+            canvas.line(xy=closed_polygon, fill=outline_color, width=line_width)
 
     write_big_tiff(
         image=pyvips.Image.new_from_array(mask),
-        path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         path=output_dir / Path(item["slide_path"]).with_suffix(".tiff").name,
         mpp_x=mask_mpp_x,
         mpp_y=mask_mpp_y,
@@ -145,7 +144,6 @@ def uris2df(uris: list[str]) -> pd.DataFrame:
 def main(config: DictConfig, logger: MLFlowLogger) -> None:
     assert config.visualization_mode in {1, 2, 3, 4}
     metadata = uris2df(config.metadata_uris)
-    metadata = uris2df(config.metadata_uris)
 
     label_dirs = {
         "heatmap_labels_dir": Path(config.heatmap_labels_dir)
@@ -162,12 +160,12 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     with TemporaryDirectory() as output_dir:
         process_items(
             items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
-            items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
             process_item=process_slide,
             fn_kwargs={
                 "visualization_mode": int(config.visualization_mode),
                 "mask_tile_width": config.mask_tile_width,
                 "mask_tile_height": config.mask_tile_height,
+                "level": config.level,
                 "output_dir": Path(output_dir),
                 "label_dirs": label_dirs,
                 "label_column": config.label_column,

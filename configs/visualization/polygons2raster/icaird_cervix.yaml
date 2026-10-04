@@ -1,23 +1,21 @@
 # @package _global_
 
 defaults:
-  - /data/sources/panda
+  - /data/sources/icaird_cervix
   - _self_
 
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 visualization_mode: ???
-level: 0  # pyramid level the mask is rasterized at (polygons are scaled from level 0)
+level: 2  # 1 µm/px
 max_concurrent: 1
-heatmap_labels_dir: ${dataset.providers.karolinska.supervision.annotation}
+heatmap_labels_dir: null
 label_column: null
 cam_labels_dir: null
 predictions_uri: null
 pred_thr: null
-metadata_uris:
-  - ${dataset.providers.karolinska.metadata.train}
-  #- ${dataset.providers.karolinska.metadata.test}
-nuclei_path: ${dataset.paths.nuclei.standardized}
+metadata_uris: ???  # metadata parquet(s) with `slide_path` and `slide_nuclei_path`
+nuclei_path: ${dataset.paths.nuclei_seg}/cervix
 mlflow_artifact_path: nuclei_masks
 
 metadata:
@@ -25,3 +23,4 @@ metadata:
   hyperparams:
     mask_tile_width: ${mask_tile_width}
     mask_tile_height: ${mask_tile_height}
+    level: ${level}

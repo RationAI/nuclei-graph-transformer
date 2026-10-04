@@ -7,6 +7,7 @@ defaults:
 mask_tile_width: ${dataset.mask_tile_width}
 mask_tile_height: ${dataset.mask_tile_height}
 visualization_mode: ???
+level: 0  # pyramid level the mask is rasterized at (polygons are scaled from level 0)
 max_concurrent: 1
 heatmap_labels_dir: ${dataset.paths.supervision.annotation}
 label_column: null
