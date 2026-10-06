@@ -29,6 +29,8 @@ data:
     embedding_mode: "efd" # "efd", "bbox", "spatial", "efd_spatial", "blank"
   supervision:
     paths: ${dataset.paths.supervision}
+    eval_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology}
 
 model:
   net:
