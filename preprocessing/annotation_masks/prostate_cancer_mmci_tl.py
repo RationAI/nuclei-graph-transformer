@@ -4,7 +4,10 @@ Annotation groups:
     - "Carcinoma": regions containing carcinoma (cancerous tissue)
     - "Exclude": regions that should be removed from the carcinoma mask (holes, artifacts)
     - "Another pathology": various non-cancerous regions (inflammation, pre-cancer, etc.); should be classified as negative
-The resulting mask only marks regions that are "Carcinoma" and are neither "Exclude" nor "Another pathology".
+Outputs:
+    - Carcinoma masks (positive slides only): regions that are "Carcinoma" and are neither "Exclude" nor "Another pathology".
+    - Another pathology masks (all annotated slides containing the group): "Another pathology" regions,
+      used to exclude the corresponding nuclei from supervision.
 """
 
 import os
@@ -29,29 +32,61 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 
-def filter_carcinoma(slide_path: Path) -> list[BaseGeometry]:
-    parser = ASAPParser(slide_path.with_suffix(".xml"))
+def make_valid_geom(geom: BaseGeometry) -> BaseGeometry:
+    return make_valid(geom) if not geom.is_valid else geom
+
+
+def to_polygons(geom: BaseGeometry) -> list[Polygon]:
+    if geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    return [g for g in getattr(geom, "geoms", []) if isinstance(g, Polygon)]
+
+
+def filter_carcinoma(parser: ASAPParser) -> list[Polygon]:
     carcinoma = MultiPolygon(list(parser.get_polygons(part_of_group="Carcinoma")))
     exclude = MultiPolygon(list(parser.get_polygons(part_of_group="Exclude")))
     another = MultiPolygon(list(parser.get_polygons(part_of_group="Another pathology")))
 
     # fix self-intersections, etc.
     carcinoma, exclude, another = [
-        make_valid(geom) if not geom.is_valid else geom
-        for geom in [carcinoma, exclude, another]
+        make_valid_geom(geom) for geom in [carcinoma, exclude, another]
     ]
-    exclusions = unary_union([exclude, another])
-    exclusions = make_valid(exclusions) if not exclusions.is_valid else exclusions
-    result = carcinoma.difference(exclusions)
-    result = make_valid(result) if not result.is_valid else result
-    return [result] if isinstance(result, Polygon) else result.geoms
+    exclusions = make_valid_geom(unary_union([exclude, another]))
+    result = make_valid_geom(carcinoma.difference(exclusions))
+    return to_polygons(result)
+
+
+def filter_another_pathology(parser: ASAPParser) -> list[Polygon]:
+    another = MultiPolygon(list(parser.get_polygons(part_of_group="Another pathology")))
+    return to_polygons(make_valid_geom(unary_union(make_valid_geom(another))))
+
+
+def draw_mask(
+    polygons: list[Polygon], mask_size: tuple[int, int], scale_x: float, scale_y: float
+) -> Image.Image:
+    mask = Image.new("L", size=mask_size)
+    canvas = ImageDraw.Draw(mask)
+
+    for polygon in polygons:
+        exterior_coords = [
+            (x * scale_x, y * scale_y) for x, y in polygon.exterior.coords
+        ]
+        canvas.polygon(xy=exterior_coords, fill=255)
+
+        for interior in polygon.interiors:  # draw holes
+            interior_coords = [(x * scale_x, y * scale_y) for x, y in interior.coords]
+            canvas.polygon(xy=interior_coords, fill=0)
+    return mask
 
 
 @ray.remote(num_cpus=1, memory=(3 * 1024**3))
 def process_slide(
     slide_path: Path,
     level: int,
-    output_dir: str,
+    carcinoma_dir: str | None,
+    another_pathology_dir: str,
     mask_tile_width: int,
     mask_tile_height: int,
 ) -> None:
@@ -63,31 +98,28 @@ def process_slide(
         scale_x = mask_size[0] / mask_size_base[0]
         scale_y = mask_size[1] / mask_size_base[1]
 
-    mask = Image.new("L", size=mask_size)
-    canvas = ImageDraw.Draw(mask)
-    filtered_carcinoma = filter_carcinoma(slide_path)
+    parser = ASAPParser(slide_path.with_suffix(".xml"))
+    masks: dict[str, list[Polygon]] = {}
+    if carcinoma_dir is not None:
+        masks[carcinoma_dir] = filter_carcinoma(parser)
 
-    for polygon in filtered_carcinoma:
-        exterior_coords = [
-            (x * scale_x, y * scale_y) for x, y in polygon.exterior.coords
-        ]
-        canvas.polygon(xy=exterior_coords, fill=255)
+    another_pathology = filter_another_pathology(parser)
+    if another_pathology:  # only slides containing the group
+        masks[another_pathology_dir] = another_pathology
 
-        for interior in polygon.interiors:  # draw holes
-            interior_coords = [(x * scale_x, y * scale_y) for x, y in interior.coords]
-            canvas.polygon(xy=interior_coords, fill=0)
+    for output_dir, polygons in masks.items():
+        mask = draw_mask(polygons, mask_size, scale_x, scale_y)
+        output_path = Path(output_dir, slide_path.with_suffix(".tiff").name)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_path = Path(output_dir, slide_path.with_suffix(".tiff").name)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    write_big_tiff(
-        image=pyvips.Image.new_from_array(mask),
-        path=output_path,
-        mpp_x=mpp_x,
-        mpp_y=mpp_y,
-        tile_width=mask_tile_width,
-        tile_height=mask_tile_height,
-    )
+        write_big_tiff(
+            image=pyvips.Image.new_from_array(mask),
+            path=output_path,
+            mpp_x=mpp_x,
+            mpp_y=mpp_y,
+            tile_width=mask_tile_width,
+            tile_height=mask_tile_height,
+        )
 
 
 @with_cli_args(["+preprocessing/annotation_masks=prostate_cancer_mmci_tl"])
@@ -97,24 +129,34 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     train_df = pd.read_csv(download_artifacts(config.train_metadata_uri))
     test_df = pd.read_csv(download_artifacts(config.test_metadata_uri))
     slides = pd.concat([train_df, test_df])
-    slides_annots = slides[slides["has_annotation"] & (slides["is_carcinoma"])]
+    slides_annots = slides[slides["has_annotation"]]
     missing_annots = slides[~slides["has_annotation"] & (slides["is_carcinoma"])]
 
-    with TemporaryDirectory(dir=os.getcwd()) as output_dir:
-        process_items(
-            slides_annots["slide_path"].map(Path),
-            process_item=process_slide,
-            fn_kwargs={
-                "level": config.level,
-                "output_dir": output_dir,
-                "mask_tile_width": config.mask_tile_width,
-                "mask_tile_height": config.mask_tile_height,
-            },
-            max_concurrent=config.max_concurrent,
-        )
+    with (
+        TemporaryDirectory(dir=os.getcwd()) as output_dir,
+        TemporaryDirectory(dir=os.getcwd()) as another_pathology_dir,
+    ):
+        # carcinoma masks only for positive slides, "Another pathology" masks for all
+        for is_carcinoma, group in slides_annots.groupby("is_carcinoma"):
+            process_items(
+                group["slide_path"].map(Path),
+                process_item=process_slide,
+                fn_kwargs={
+                    "level": config.level,
+                    "carcinoma_dir": output_dir if is_carcinoma else None,
+                    "another_pathology_dir": another_pathology_dir,
+                    "mask_tile_width": config.mask_tile_width,
+                    "mask_tile_height": config.mask_tile_height,
+                },
+                max_concurrent=config.max_concurrent,
+            )
         logger.log_artifacts(
             local_dir=output_dir,
             artifact_path=config.mlflow_artifact_path,
+        )
+        logger.log_artifacts(
+            local_dir=another_pathology_dir,
+            artifact_path=config.another_pathology_artifact_path,
         )
         csv_path = Path(output_dir, "missing_annotations.csv")
         missing_annots.to_csv(csv_path, columns=["slide_path"], index=False)

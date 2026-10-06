@@ -11,12 +11,14 @@ max_concurrent: 6
 train_metadata_uri: ${dataset.mlflow_uris.exploration.train}
 test_metadata_uri: ${dataset.mlflow_uris.exploration.test}
 mlflow_artifact_path: annotation_masks
+another_pathology_artifact_path: another_pathology_masks
 
 metadata:
   run_name: "🖍️ Annotation Masks: ${dataset.name}"
   description: |
     Annotation Masks for the [${dataset.name}](https://youtrack.rationai.cloud.e-infra.cz/articles/PC-A-13/Tile-Level-Annotations-Data). 
     Handles *Carcinoma*, *Exclude* and *Another pathology* regions. The resulting mask marks regions that are *Carcinoma* and are neither *Exclude* nor *Another pathology*.
+    *Another pathology* regions of all annotated slides (incl. negative ones) are additionally logged as separate masks in `${another_pathology_artifact_path}`.
 
     Positive slides with no annotations are logged in `missing_annotations.csv`.
   hyperparams:

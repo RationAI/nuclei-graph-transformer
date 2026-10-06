@@ -7,7 +7,7 @@ Each nucleus is assigned label 1 if the fraction of its polygon vertices
 falling inside the thresholded heatmap (intensity > `positive_threshold`)
 is ≥ `overlap_threshold`, otherwise 0.
 
-The labels are stored only for positive slides.
+The labels are stored only for slides that have a heatmap.
 """
 
 from pathlib import Path
@@ -80,7 +80,8 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
     heatmaps_dir = download_artifacts(config.heatmap_uri)
     slides = uris2df(config.metadata_uris)
     exclude_slides = uris2df(config.exclude_slides_uris)
-    valid_mask = (slides["is_carcinoma"]) & (
+    heatmap_stems = {p.stem for p in Path(heatmaps_dir).glob("*.tiff")}
+    valid_mask = slides["slide_path"].map(lambda p: Path(p).stem in heatmap_stems) & (
         ~slides["slide_path"].isin(exclude_slides["slide_path"])
     )
 
