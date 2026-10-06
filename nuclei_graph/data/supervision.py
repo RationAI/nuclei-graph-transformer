@@ -109,6 +109,17 @@ class AnnotationNucleiSupervision(DenseNucleiSupervision):
         super().__init__(is_carcinoma, labels=annot_label, ignore=ignore)
 
 
+class SparseAnnotationNucleiSupervision(AnnotationNucleiSupervision):
+    """Supervision based on non-exhaustive pathologist annotations.
+
+    In positive slides, only nuclei inside annotations are supervised (as positive);
+    nuclei outside annotations are unlabeled. Negatives come from negative slides only.
+    """
+
+    def _get_sup_mask(self) -> Tensor:
+        return self.labels == 1
+
+
 class PredictionNucleiSupervision(DenseNucleiSupervision):
     """Supervision based on model predictions."""
 
@@ -189,6 +200,7 @@ class DatasetSupervision:
 class SupervisionStrategy:
     STRATEGY_MAP: ClassVar = {
         "annotation": (AnnotationNucleiSupervision, ["annot_label"]),
+        "annotation_sparse": (SparseAnnotationNucleiSupervision, ["annot_label"]),
         "cam": (CAMNucleiSupervision, ["cam_label"]),
         "agreement": (AgreementNucleiSupervision, ["annot_label", "cam_label"]),
         "prediction": (PredictionNucleiSupervision, ["pred_label"]),

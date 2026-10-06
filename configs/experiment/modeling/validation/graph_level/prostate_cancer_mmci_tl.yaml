@@ -6,7 +6,7 @@ defaults:
   - /model/meta_archs@model: crop
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/crop@data.dataset: graph_classification
-  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation_sparse
   - /callbacks/plot_curves@trainer.callbacks.thresholds: crop
   - _self_
 
