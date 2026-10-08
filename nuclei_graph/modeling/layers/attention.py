@@ -29,8 +29,9 @@ class RotarySparseAttention(nn.Module):
         Args:
             dim: Model dimension.
             num_heads: Number of attention heads.
-            rotate_v: Also apply RoPE to V, not just Q/K. Used for the
-                blank-token position/attention-only ablation.
+            rotate_v: Also apply RoPE to V, not just Q/K, and rotate the output back
+                by the query's position, so values carry relative positions. Used
+                for the blank-token position/attention-only ablation.
             context: "knn" or "dense" attend via the block mask; "none" makes
                 each nucleus attend only to itself (softmax over a single key
                 is 1, so the output reduces to W_o W_v x — a per-nucleus MLP).
@@ -70,6 +71,10 @@ class RotarySparseAttention(nn.Module):
 
         if isinstance(x_out, tuple):
             x_out = x_out[0]
+        if self.rope is not None and self.rotate_v:
+            # Σⱼ A_ij R(p_j) P v_j -> Σⱼ A_ij R(p_j − p_i) P v_j: depends only on relative
+            # positions; P is not undone, wo absorbs it
+            x_out = self.rope.rotate(x_out, pos, inverse=True)
         x = rearrange(x_out, "b h n d -> b n (h d)")
 
         return self.wo(x)

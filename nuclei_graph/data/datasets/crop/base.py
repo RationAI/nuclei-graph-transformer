@@ -155,14 +155,15 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         polygons: NDArray[np.float32] | None,
         centroids: NDArray[np.float32],
         slide: pd.Series,
-        true_centroids: NDArray[np.float32],
+        nuclei: pd.DataFrame,
+        crop_indices: NDArray[np.int64],
     ) -> tuple[NDArray[np.float32] | None, NDArray[np.float32] | None]:
         """Generates geometric features or bounding boxes based on the selected embedding mode.
 
-        `centroids` may reflect augmented (e.g. rotated/jittered) geometry and drives the
-        `efd`/`spatial` feature branches. `true_centroids` are the real slide positions
-        and must be used for `bbox` extraction, since the WSI pixels themselves
-        are never transformed by the geometric augmentations.
+        `polygons`/`centroids` may reflect augmented (e.g. rotated/jittered) geometry and
+        drive the `efd`/`spatial` feature branches. `bbox` extraction instead reads the
+        real slide geometry of `crop_indices` from `nuclei`, since the WSI pixels
+        themselves are never transformed by the geometric augmentations.
         """
         geom_features, bboxes = None, None
 
@@ -183,8 +184,15 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         elif self.embedding_mode == "blank":
             geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
         elif self.embedding_mode == "bbox":
+            true_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
+            true_polygons = rearrange(true_polygons, "n (v c) -> n v c", c=2)
+            true_centroids = np.stack(nuclei["centroid"].iloc[crop_indices].tolist())
             bboxes = self.get_nuclei_bboxes(
-                true_centroids, slide.slide_path, slide.mpp_x, slide.mpp_y
+                true_centroids.astype(np.float32),
+                true_polygons.astype(np.float32),
+                slide.slide_path,
+                slide.mpp_x,
+                slide.mpp_y,
             )
         assert geom_features is not None or bboxes is not None
         return geom_features, bboxes

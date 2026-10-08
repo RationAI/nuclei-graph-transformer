@@ -39,14 +39,29 @@ class RoPE(nn.Module):
             x ([b, h, n, d]): Input tensor.
             positions ([b, n, pos_dim]): Positions tensor.
         """
-        px = self.P(x.float())
+        return self.rotate(self.P(x.float()), positions).to(x)
 
-        # apply RoPE-Mixed
+    @torch.autocast("cuda", dtype=torch.float32)
+    def rotate(self, x: Tensor, positions: Tensor, inverse: bool = False) -> Tensor:
+        """Rotate by the RoPE-Mixed angles of `positions` (without P).
+
+        Angles are linear in position, so rotate(rotate(x, p_j), p_i, inverse=True)
+        rotates by the angles of p_j - p_i.
+
+        Args:
+            x ([b, h, n, d]): Input tensor.
+            positions ([b, n, pos_dim]): Positions tensor.
+            inverse: Rotate by the negated angles.
+        """
         freqs = positions.to(self.freqs) @ self.freqs
+        if inverse:
+            freqs = -freqs
         freqs_cis = rearrange(
             torch.polar(torch.ones_like(freqs), freqs), "b n c -> b 1 n c"
         )
-        px_ = torch.view_as_complex(rearrange(px, "... (d two) -> ... d two", two=2))
-        out = rearrange(torch.view_as_real(px_ * freqs_cis), "... d two -> ... (d two)")
+        x_ = torch.view_as_complex(
+            rearrange(x.float(), "... (d two) -> ... d two", two=2).contiguous()
+        )
+        out = rearrange(torch.view_as_real(x_ * freqs_cis), "... d two -> ... (d two)")
 
         return out.to(x)

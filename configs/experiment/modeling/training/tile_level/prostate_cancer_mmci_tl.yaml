@@ -7,8 +7,8 @@ defaults:
   - /model/models@model.net: self_attn_transformer
   - /data/datasets/tile@data.dataset: classification
   - /data/samplers@data.sampler: interleaved_weighted_sampler
-  - /data/supervision@data.supervision.train_strategy: annotation # dummy
-  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /data/supervision@data.supervision.train_strategy: annotation_sparse # dummy
+  - /data/supervision@data.supervision.eval_strategy: annotation_sparse
   - _self_
 
 monitor: validation/graph/loss
@@ -50,6 +50,10 @@ data:
 
   supervision:
     paths: ${dataset.paths.supervision}
+    train_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology} # Another pathology nuclei are unlabeled
+    eval_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology}
   sampler:
     target_col: carcinoma
 

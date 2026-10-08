@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+heatmap_uri: ${dataset.mlflow_uris.masks.another_pathology}
+metadata_uris:
+  - ${dataset.mlflow_uris.exploration.train}
+  - ${dataset.mlflow_uris.exploration.test}
+overlap_threshold: 0.01 # any vertex inside the region
+positive_threshold: 0.0 # annotation masks are binary
+label_column: ignore_label
+nuclei_path: ${dataset.paths.nuclei_seg}
+output_path: ${dataset.paths.supervision.another_pathology}
+
+metadata:
+  run_name: "🏷️ Nuclei Another Pathology Labeling: ${dataset.name}"

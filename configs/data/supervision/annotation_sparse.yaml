@@ -2,6 +2,5 @@ defaults:
   - /data/supervision/base@_here_
   - _self_
 
-mode: cam
+mode: annotation_sparse
 annot_dir: ${data.supervision.paths.annotation}
-cam_dir: ${data.supervision.paths.cam.default_thr}

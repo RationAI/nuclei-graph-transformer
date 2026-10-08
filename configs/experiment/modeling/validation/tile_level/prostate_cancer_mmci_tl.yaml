@@ -41,6 +41,8 @@ data:
 
   supervision:
     paths: ${dataset.paths.supervision}
+    eval_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology}
 
 model:
   net:
