@@ -11,9 +11,9 @@ defaults:
   - /callbacks/masks@trainer.callbacks.nuclei_masks: nuclei
   - _self_
 
-checkpoint: mlflow-artifacts:/97/205de83cb4264db2a6b910f8a2e60474/artifacts/checkpoints/epoch=206-step=9315/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/1a2afaf18fc5410193387893dff5cc19/artifacts/checkpoints/epoch=216-step=9765/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: 205de83cb4264db2a6b910f8a2e60474
+mlflow_parent_run_id: 1a2afaf18fc5410193387893dff5cc19
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
