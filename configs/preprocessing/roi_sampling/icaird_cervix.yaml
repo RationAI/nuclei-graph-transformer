@@ -31,7 +31,7 @@ roi:
   # Minimum fraction of an ROI that has to lie inside the positive annotation on tissue.
   # A slide that cannot be sampled at the first value falls back to the next ones; if none
   # works, it gets a single minimum-sized ROI where the coverage is the highest.
-  coverage_steps: [0.8, 0.6, 0.4, 0.2]
+  coverage_steps: [0.9, 0.8, 0.6, 0.4, 0.2]
   # Minimum distance between ROIs, so they stay separate objects in the binary mask.
   min_gap_um: 100
   # Candidate ROIs tried per ROI (and per coverage step) before giving up.
