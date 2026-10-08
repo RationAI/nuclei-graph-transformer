@@ -12,6 +12,7 @@ from nuclei_graph.data.efd import (
     normalize_efd_for_scale,
 )
 from nuclei_graph.nuclei_graph_typing import (
+    BBOX_MASK_MARGIN_UM,
     MAX_CROP_PATCH_SIDE,
     TARGET_BBOX_CONTEXT_UM,
     Box,
@@ -43,6 +44,18 @@ class NucleiFeatureExtractor:
         efds = rearrange(efds, "n order c -> n (order c)")
         features = np.concatenate([efds, log_scales, cos_angles, sin_angles], axis=-1)
         return features.astype(np.float32)
+
+    def get_orientations(
+        self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
+    ) -> NDArray[np.float64]:
+        """Orientation ψ of each nucleus's first EFD harmonic (as in `get_efd_features`).
+
+        ψ depends only on the first harmonic, so higher orders are not computed.
+        """
+        contours = polygons * np.array([mpp_x, mpp_y], dtype=np.float32)
+        efds = elliptic_fourier_descriptors(contours.astype(np.float64), order=1)
+        _, angles = normalize_efd_for_rotation(efds)
+        return np.nan_to_num(angles[:, 0])
 
     def get_spatial_features(self, pos: NDArray[np.float32]) -> NDArray[np.float32]:
         """Computes explicit spatial statistics."""
@@ -121,25 +134,93 @@ class NucleiFeatureExtractor:
             )
         return canvas
 
+    def nucleus_patch(
+        self,
+        window: NDArray[np.uint8],
+        box: Box,
+        centroid: NDArray[np.float32],
+        polygon: NDArray[np.float32],
+        psi: float,
+        mpp_x: float,
+        mpp_y: float,
+    ) -> NDArray[np.uint8]:
+        """Masks the nucleus in its read `window` and maps it to a `patch_size` patch.
+
+        Pixels farther than `BBOX_MASK_MARGIN_UM` from the nucleus polygon are set to
+        white (as outside the slide). One affine warp then rotates the nucleus by -ψ
+        (first EFD harmonic along the x-axis), centre-crops `TARGET_BBOX_CONTEXT_UM`
+        around the centroid, and resamples to `patch_size`, so the image is only
+        interpolated once.
+        """
+        assert self.patch_size is not None
+        origin = np.array([box.lx, box.ly], dtype=np.float32)
+
+        mask = np.zeros(window.shape[:2], dtype=np.uint8)
+        vertices = np.round((polygon - origin) * 16).astype(np.int32)  # 4-bit subpixel
+        cv2.fillPoly(mask, [vertices], 255, lineType=cv2.LINE_8, shift=4)
+        margin_px = max(1, round(BBOX_MASK_MARGIN_UM / min(mpp_x, mpp_y)))
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (2 * margin_px + 1, 2 * margin_px + 1)
+        )
+        mask = cv2.dilate(mask, kernel)
+
+        # window px -> µm (D) -> rotated by -ψ (R) -> patch px, centroid to patch centre
+        cos_psi, sin_psi = np.cos(psi), np.sin(psi)
+        rotation = np.array([[cos_psi, sin_psi], [-sin_psi, cos_psi]])
+        linear = (
+            (self.patch_size / TARGET_BBOX_CONTEXT_UM)
+            * rotation
+            @ np.diag([mpp_x, mpp_y])
+        )
+        centre = np.full(2, (self.patch_size - 1) / 2)
+        offset = centre - linear @ (centroid - origin)
+        affine = np.hstack([linear, offset[:, None]])
+
+        size = (self.patch_size, self.patch_size)
+        patch = cv2.warpAffine(
+            window,
+            affine,
+            size,
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(255, 255, 255),
+        )
+        mask = cv2.warpAffine(
+            mask,
+            affine,
+            size,
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        )
+        patch[mask < 128] = 255
+        return patch
+
     def get_nuclei_bboxes(
         self,
-        centroids: NDArray[np.float32],
+        centroids_px: NDArray[np.float32],
+        polygons_px: NDArray[np.float32],
         slide_path: str,
         mpp_x: float,
         mpp_y: float,
     ) -> torch.Tensor | None:
-        """Extracts a fixed-size RGB patch from the WSI around each nucleus's centroid."""
+        """Extracts a masked, orientation-normalized RGB patch of each nucleus.
+
+        `centroids_px` (n, 2) and `polygons_px` (n, v, 2) are in level-0 pixels and must
+        match the WSI pixels (i.e. not augmented). See `nucleus_patch`.
+        """
         if self.patch_size is None:
             return None
 
-        read_size_px_x = int(TARGET_BBOX_CONTEXT_UM / mpp_x)
-        read_size_px_y = int(TARGET_BBOX_CONTEXT_UM / mpp_y)
+        psis = self.get_orientations(polygons_px, mpp_x, mpp_y)
+
+        # read √2 larger than the target so rotating leaves no empty corners
+        read_um = TARGET_BBOX_CONTEXT_UM * np.sqrt(2)
+        read_size_px_x = int(np.ceil(read_um / mpp_x)) + 2
+        read_size_px_y = int(np.ceil(read_um / mpp_y)) + 2
         half_read_x = read_size_px_x // 2
         half_read_y = read_size_px_y // 2
 
-        # Convert to Pixels
-        mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
-        centroids_px = centroids / mpps
         lx = centroids_px[:, 0].astype(np.int64) - half_read_x
         ly = centroids_px[:, 1].astype(np.int64) - half_read_y
         rx, ry = lx + read_size_px_x, ly + read_size_px_y
@@ -150,7 +231,7 @@ class NucleiFeatureExtractor:
             union_w = int(rx.max() - lx.min())
             union_h = int(ry.max() - ly.min())
 
-            bboxes: list[NDArray[np.uint8] | None] = [None] * len(centroids)
+            bboxes: list[NDArray[np.uint8] | None] = [None] * len(centroids_px)
 
             if max(union_w, union_h) <= MAX_CROP_PATCH_SIDE:
                 union_box = self.clip_box(
@@ -158,13 +239,17 @@ class NucleiFeatureExtractor:
                     slide_size,
                 )
                 source = self.read_region(wsi, union_box)
-                for i in range(len(centroids)):
+                for i in range(len(centroids_px)):
                     box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                    raw_patch = self.extract_patch(source, box, slide_size)
-                    bboxes[i] = cv2.resize(
-                        raw_patch,
-                        (self.patch_size, self.patch_size),
-                        interpolation=cv2.INTER_LINEAR,
+                    window = self.extract_patch(source, box, slide_size)
+                    bboxes[i] = self.nucleus_patch(
+                        window,
+                        box,
+                        centroids_px[i],
+                        polygons_px[i],
+                        psis[i],
+                        mpp_x,
+                        mpp_y,
                     )
             else:
                 cell_size_x = MAX_CROP_PATCH_SIDE - read_size_px_x
@@ -191,11 +276,15 @@ class NucleiFeatureExtractor:
                     source = self.read_region(wsi, cell_box)
                     for i in indices:
                         box = Box(int(lx[i]), int(ly[i]), int(rx[i]), int(ry[i]))
-                        raw_patch = self.extract_patch(source, box, slide_size)
-                        bboxes[i] = cv2.resize(
-                            raw_patch,
-                            (self.patch_size, self.patch_size),
-                            interpolation=cv2.INTER_LINEAR,
+                        window = self.extract_patch(source, box, slide_size)
+                        bboxes[i] = self.nucleus_patch(
+                            window,
+                            box,
+                            centroids_px[i],
+                            polygons_px[i],
+                            psis[i],
+                            mpp_x,
+                            mpp_y,
                         )
 
         assert all(b is not None for b in bboxes)

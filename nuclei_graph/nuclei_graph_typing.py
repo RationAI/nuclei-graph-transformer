@@ -20,6 +20,8 @@ MAX_CROP_PATCH_SIDE = 8192
 
 # Target nuclei patch physical size — estimated patch is 48px * 0.2339um ~ 11.23um
 TARGET_BBOX_CONTEXT_UM = 11.0
+# Margin kept around the nucleus polygon in its patch; everything beyond it is blanked
+BBOX_MASK_MARGIN_UM = 1.0
 
 
 class Box(NamedTuple):

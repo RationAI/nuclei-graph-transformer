@@ -1,0 +1,81 @@
+# @package _global_
+
+# Supervision scheme comparison: same setup as `prostate_cancer_mmci_tl`, but without
+# validation; a checkpoint is kept every 25 epochs for evaluating the schemes afterwards.
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/prostate_cancer_mmci_tl
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/augmentations@data.dataset.augmentations: base # spatial polygon_spatial base
+  - /data/supervision@data.supervision.train_strategy: annotation_sparse # annotation_sparse annotation cam agreement
+  - /data/supervision@data.supervision.eval_strategy: agreement # unused (no validation), required by the datamodule
+  - _self_
+
+# every checkpoint counts as "kept" (top-k over the epoch), so the MLflow logger keeps
+# all of them instead of replacing the previous one
+monitor: epoch
+checkpoint_mode: max
+
+trainer:
+  max_epochs: 350
+  gradient_clip_val: 0.7
+  #accumulate_grad_batches: 2
+  limit_val_batches: 0 # no validation
+  num_sanity_val_steps: 0
+  callbacks:
+    - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+      every_n_epochs: 25
+      save_top_k: -1
+      monitor: ${monitor}
+      mode: ${checkpoint_mode}
+      save_on_train_epoch_end: true
+      filename: "epoch={epoch:03d}"
+      auto_insert_metric_name: false
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 16
+  k: 28
+  split_stratify_col: "is_carcinoma"
+  split_group_col: "patient_id"
+  split_size: 0.1 # still held out from training, for evaluating the checkpoints later
+  metadata: ${dataset.mlflow_uris.metadata}
+
+  dataset:
+    crop_size_min: 512
+    crop_size_max: 8192
+    alpha: 0.8
+    efd_order: 16
+    patch_size: 48
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+
+  supervision:
+    paths: ${dataset.paths.supervision}
+    train_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology} # Another pathology nuclei are unlabeled
+    eval_strategy:
+      ignore_dir: ${data.supervision.paths.another_pathology}
+  sampler:
+    positivity_thr: 0.05
+    pos_slide_ratio: 0.75
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.15
+      attention_variant: rel_value # vrope, standard, rel_value
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "Supervision: ${data.supervision.train_strategy.mode}, k=28 (ckpt every 25 epochs, no val)"
+  description: ""

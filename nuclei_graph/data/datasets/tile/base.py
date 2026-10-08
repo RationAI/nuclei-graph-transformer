@@ -244,8 +244,10 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
             elif self.embedding_mode == "blank":
                 geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
             elif self.embedding_mode == "bbox":
+                assert polygons is not None
                 bboxes = self.get_nuclei_bboxes(
-                    centroids,
+                    centroids,  # level-0 pixels, like the polygons
+                    polygons,
                     props["slide_path"],
                     props["mpp_x"],
                     props["mpp_y"],
