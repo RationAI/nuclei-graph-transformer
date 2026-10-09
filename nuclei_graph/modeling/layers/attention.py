@@ -49,7 +49,7 @@ class RotarySparseAttention(nn.Module):
         self.qkv = nn.Linear(dim, dim * 3, bias=False)
         self.wo = nn.Linear(dim, dim, bias=False)
 
-        self.rope = RoPE(self.head_dim) if use_rope else None
+        #self.rope = RoPE(self.head_dim) if use_rope else None
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask | None) -> Tensor:
         if self.context == "none":
@@ -61,20 +61,20 @@ class RotarySparseAttention(nn.Module):
             self.qkv(x), "b n (three h d) -> three b h n d", three=3, d=self.head_dim
         )
 
-        if self.rope is not None:
-            q = self.rope(q, pos)
-            k = self.rope(k, pos)
-            if self.rotate_v:
-                v = self.rope(v, pos)
+        # if self.rope is not None:
+        #     q = self.rope(q, pos)
+        #     k = self.rope(k, pos)
+        #     if self.rotate_v:
+        #         v = self.rope(v, pos)
 
         x_out = flex_attention(q, k, v, block_mask=block_mask)
 
         if isinstance(x_out, tuple):
             x_out = x_out[0]
-        if self.rope is not None and self.rotate_v:
-            # Σⱼ A_ij R(p_j) P v_j -> Σⱼ A_ij R(p_j − p_i) P v_j: depends only on relative
-            # positions; P is not undone, wo absorbs it
-            x_out = self.rope.rotate(x_out, pos, inverse=True)
+        # if self.rope is not None and self.rotate_v:
+        #     # Σⱼ A_ij R(p_j) P v_j -> Σⱼ A_ij R(p_j − p_i) P v_j: depends only on relative
+        #     # positions; P is not undone, wo absorbs it
+        #     x_out = self.rope.rotate(x_out, pos, inverse=True)
         x = rearrange(x_out, "b h n d -> b n (h d)")
 
         return self.wo(x)
