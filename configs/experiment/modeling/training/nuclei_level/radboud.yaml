@@ -36,7 +36,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "bbox" # "efd", "bbox", "spatial", "efd_spatial", "blank"
+    embedding_mode: "efd" # "efd", "bbox", "spatial", "efd_spatial", "blank"
 
   supervision:
     paths: ${dataset.providers.radboud.supervision}
@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=24: CNN Bboxes + Self-only Attn"
+  run_name: "Radboud, k=24: Polygons + k-NN Attn"
   description: ""
