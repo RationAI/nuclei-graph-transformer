@@ -57,9 +57,9 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      attention_variant: standard # vrope, standard, rel_value
+      attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=24: CNN Bboxes + k-NN Attn"
+  run_name: "Radboud, k=24: CNN Bboxes + RoVE + k-NN Attn"
   description: ""
