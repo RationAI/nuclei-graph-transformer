@@ -128,6 +128,7 @@ class Transformer(nn.Module):
             nn.init.normal_(self.blank_token, std=0.02)
         elif self.embedding_mode == "bbox":
             self.patch_cnn = CNN(out_dim=config.dim)
+            self.angle_proj = nn.Linear(2, config.dim)  # (cos 2ψ, sin 2ψ)
 
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim, config.num_classes)
@@ -188,7 +189,9 @@ class Transformer(nn.Module):
             return feats
 
         assert bboxes is not None, "Bounding boxes cannot be None in 'bbox' mode."
-        return self.embed_patches(bboxes)
+        assert x is not None, "Orientations cannot be None in 'bbox' mode."
+        # patches are orientation-normalized, so the orientation is added back
+        return self.embed_patches(bboxes) + self.angle_proj(x)
 
     def pool(
         self, x: Tensor, attn_scores: Tensor, seq_lens_list: list[int]

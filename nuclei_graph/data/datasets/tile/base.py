@@ -219,6 +219,7 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
                 geom_features = np.zeros((1, 1), dtype=np.float32)
             elif self.embedding_mode == "bbox":
                 assert self.patch_size is not None
+                geom_features = np.zeros((1, 2), dtype=np.float32)
                 bboxes = torch.zeros(
                     (1, 3, self.patch_size, self.patch_size), dtype=torch.uint8
                 )
@@ -245,6 +246,9 @@ class BaseTileDataset(NucleiFeatureExtractor, MetaTiledSlides[T]):
                 geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
             elif self.embedding_mode == "bbox":
                 assert polygons is not None
+                geom_features = self.get_orientation_features(
+                    polygons, props["mpp_x"], props["mpp_y"]
+                )
                 bboxes = self.get_nuclei_bboxes(
                     centroids,  # level-0 pixels, like the polygons
                     polygons,

@@ -57,6 +57,14 @@ class NucleiFeatureExtractor:
         _, angles = normalize_efd_for_rotation(efds)
         return np.nan_to_num(angles[:, 0])
 
+    def get_orientation_features(
+        self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
+    ) -> NDArray[np.float32]:
+        """(cos 2ψ, sin 2ψ) of each nucleus, encoded as the angles in `get_efd_features`."""
+        psis = self.get_orientations(polygons, mpp_x, mpp_y)[:, None]
+        features = np.concatenate([np.cos(2.0 * psis), np.sin(2.0 * psis)], axis=-1)
+        return features.astype(np.float32)
+
     def get_spatial_features(self, pos: NDArray[np.float32]) -> NDArray[np.float32]:
         """Computes explicit spatial statistics."""
         n = len(pos)

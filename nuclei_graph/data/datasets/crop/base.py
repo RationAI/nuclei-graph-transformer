@@ -136,6 +136,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         if self.augmentations is not None or self.embedding_mode in [
             "efd",
             "efd_spatial",
+            "bbox",
         ]:
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             crop_polygons = rearrange(crop_polygons, "n (v c) -> n v c", c=2)
@@ -163,7 +164,9 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         `polygons`/`centroids` may reflect augmented (e.g. rotated/jittered) geometry and
         drive the `efd`/`spatial` feature branches. `bbox` extraction instead reads the
         real slide geometry of `crop_indices` from `nuclei`, since the WSI pixels
-        themselves are never transformed by the geometric augmentations.
+        themselves are never transformed by the geometric augmentations. Its patches are
+        orientation-normalized, so the (augmented) orientations of `polygons` are
+        returned alongside them as features.
         """
         geom_features, bboxes = None, None
 
@@ -184,6 +187,10 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         elif self.embedding_mode == "blank":
             geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
         elif self.embedding_mode == "bbox":
+            assert polygons is not None
+            geom_features = self.get_orientation_features(
+                polygons, slide.mpp_x, slide.mpp_y
+            )
             true_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             true_polygons = rearrange(true_polygons, "n (v c) -> n v c", c=2)
             true_centroids = np.stack(nuclei["centroid"].iloc[crop_indices].tolist())
