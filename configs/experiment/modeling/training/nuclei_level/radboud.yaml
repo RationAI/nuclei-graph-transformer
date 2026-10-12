@@ -23,7 +23,7 @@ trainer:
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 16
-  k: 40
+  k: 44
   context: none
   split_stratify_col: "gleason_score"
   split_group_col: null
@@ -62,5 +62,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=40: Blank Token + RoVE + k-NN Attn"
+  run_name: "Radboud, k=44: Blank Token + RoVE + k-NN Attn"
   description: ""
