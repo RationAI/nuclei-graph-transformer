@@ -66,4 +66,4 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "SL (full-slide-based), k=28: Polygons + RoVE + k-NN Attn"
+  run_name: "SL (full-slide-based), k=44: Polygons + RoVE + k-NN Attn"
