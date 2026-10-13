@@ -16,17 +16,17 @@ mlflow_parent_run_id: 2ec2a07ee62943cfa6a1cb9ebaaa7458
 
 data:
   _target_: nuclei_graph.data.datamodules.tile.TileDataModule
-
   batch_size: 32
-  k: 16
-  metadata: ${dataset.mlflow_uris.metadata}
+  k: 16 # unused by the model when context={none, dense}
+  context: knn # none, dense, knn
 
+  metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     uris: ${dataset.mlflow_uris.tiles.512.test}
     tile_size: 512
     margin: 128
     efd_order: 16
-    embedding_mode: "bbox" # "efd", "bbox", "blank"
+    embedding_mode: bbox # efd, bbox, blank
     carcinoma_filter: false
 
     thresholds:

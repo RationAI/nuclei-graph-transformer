@@ -17,7 +17,9 @@ mlflow_parent_run_id: d9728e73e2874ef9a6f1537c7f28c13d
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 44
+  k: 24 # unused by the model when context={none, dense}
+  context: knn # none, dense, knn
+  
   split_stratify_col: "gleason_score"
   split_group_col: null
   split_size: 0.1
@@ -25,7 +27,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "blank"
+    embedding_mode: efd # efd, bbox, blank
   supervision:
     paths: ${dataset.providers.radboud.supervision}
 

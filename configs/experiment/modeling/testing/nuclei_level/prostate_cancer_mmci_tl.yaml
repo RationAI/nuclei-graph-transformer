@@ -17,12 +17,14 @@ mlflow_parent_run_id: bfb5f7a1a4724bf983c6d39bcb84a616
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
-  k: 24
+  k: 24 # unused by the model when context={none, dense}
+  context: knn # none, dense, knn
+
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "blank"
+    embedding_mode: efd # efd, bbox, blank
   supervision:
     paths: ${dataset.paths.supervision}
 
