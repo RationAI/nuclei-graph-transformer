@@ -120,7 +120,7 @@ class Transformer(nn.Module):
         )
 
         # Projections based on the selected embedding mode
-        if self.embedding_mode in ["efd", "spatial", "efd_spatial"]:
+        if self.embedding_mode == "efd":
             self.batch_norm = nn.BatchNorm1d(config.norm_dim)
             self.input_proj = nn.Linear(config.node_features, config.dim)
         elif self.embedding_mode == "blank":
@@ -159,12 +159,6 @@ class Transformer(nn.Module):
             outputs.append(self.patch_cnn(chunk))
         return torch.cat(outputs, dim=0)
 
-    def embed_spatial(self, x: Tensor, real_seq_len: int) -> Tensor:
-        """Embeds spatial statistics. All features are normalized."""
-        norm_full = torch.zeros_like(x)
-        norm_full[:real_seq_len] = self.batch_norm(x[:real_seq_len])
-        return self.input_proj(norm_full)
-
     def prepare_features(
         self,
         x: Tensor,
@@ -173,15 +167,10 @@ class Transformer(nn.Module):
         real_seq_len: int,
         seq_lens: Tensor,
     ) -> Tensor:
-        if self.embedding_mode in ["efd", "efd_spatial"]:
-            assert x is not None, (
-                f"Features cannot be None in '{self.embedding_mode}' mode."
-            )
+        if self.embedding_mode == "efd":
+            assert x is not None, "Features cannot be None in 'efd' mode."
             feats = self.embed_efd(x, real_seq_len)
             return self.input_proj(feats)
-        elif self.embedding_mode == "spatial":
-            assert x is not None, "Spatial features cannot be None in 'spatial' mode."
-            return self.embed_spatial(x, real_seq_len)
         elif self.embedding_mode == "blank":
             total_len = pos.shape[0]
             feats = self.blank_token.new_zeros(total_len, self.blank_token.shape[0])

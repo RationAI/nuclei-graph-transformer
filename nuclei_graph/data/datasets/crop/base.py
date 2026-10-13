@@ -135,7 +135,6 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         crop_polygons = None
         if self.augmentations is not None or self.embedding_mode in [
             "efd",
-            "efd_spatial",
             "bbox",
         ]:
             crop_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
@@ -162,7 +161,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         """Generates geometric features or bounding boxes based on the selected embedding mode.
 
         `polygons`/`centroids` may reflect augmented (e.g. rotated/jittered) geometry and
-        drive the `efd`/`spatial` feature branches. `bbox` extraction instead reads the
+        drive the `efd` feature branch. `bbox` extraction instead reads the
         real slide geometry of `crop_indices` from `nuclei`, since the WSI pixels
         themselves are never transformed by the geometric augmentations. Its patches are
         orientation-normalized, so the (augmented) orientations of `polygons` are
@@ -172,18 +171,6 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
 
         if self.embedding_mode == "efd":
             geom_features = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
-        elif self.embedding_mode == "efd_spatial":
-            efd_feats = self.get_efd_features(polygons, slide.mpp_x, slide.mpp_y)
-            spatial_feats = self.get_spatial_features(centroids)
-
-            efd_to_norm = efd_feats[..., :-2]
-            angles = efd_feats[..., -2:]
-
-            geom_features = np.concatenate(
-                [efd_to_norm, spatial_feats, angles], axis=-1
-            )
-        elif self.embedding_mode == "spatial":
-            geom_features = self.get_spatial_features(centroids)
         elif self.embedding_mode == "blank":
             geom_features = np.zeros((len(centroids), 1), dtype=np.float32)
         elif self.embedding_mode == "bbox":

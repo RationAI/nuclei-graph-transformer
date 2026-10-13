@@ -9,8 +9,6 @@ from torch.nn.attention.flex_attention import BlockMask
 EMBEDDING_MODES = (
     "efd",
     "bbox",
-    "spatial",
-    "efd_spatial",
     "blank",
 )
 CONTEXT_MODES = ("none", "dense", "knn")  # which nuclei each nucleus attends to

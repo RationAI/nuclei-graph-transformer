@@ -4,7 +4,6 @@ import torch
 from einops import rearrange
 from numpy.typing import NDArray
 from ratiopath.openslide import OpenSlide
-from scipy.spatial import Delaunay, KDTree
 
 from nuclei_graph.data.efd import (
     elliptic_fourier_descriptors,
@@ -64,47 +63,6 @@ class NucleiFeatureExtractor:
         psis = self.get_orientations(polygons, mpp_x, mpp_y)[:, None]
         features = np.concatenate([np.cos(2.0 * psis), np.sin(2.0 * psis)], axis=-1)
         return features.astype(np.float32)
-
-    def get_spatial_features(self, pos: NDArray[np.float32]) -> NDArray[np.float32]:
-        """Computes explicit spatial statistics."""
-        n = len(pos)
-        tree = KDTree(pos)
-
-        # K-NN Distances
-        dists_all, indices = tree.query(pos, k=6)
-        d1 = dists_all[:, 1:2]
-        d3 = dists_all[:, 3:4]
-        d5 = dists_all[:, 5:6]
-
-        d1_d3_ratio = d1 / (d3 + 1e-6)
-        d1_d5_ratio = d1 / (d5 + 1e-6)
-
-        mean_dist = np.mean(dists_all[:, 1:], axis=1, keepdims=True)
-        std_dist = np.std(dists_all[:, 1:], axis=1, keepdims=True)
-        cv_dist = std_dist / (mean_dist + 1e-6)  # Coefficient of Variation
-
-        # Angular Dispersion
-        nn_indices = np.asarray(indices)[:, 1:]
-        diffs = pos[nn_indices] - pos[:, None, :]
-        angles = np.arctan2(diffs[..., 1], diffs[..., 0])
-        mean_sin = np.mean(np.sin(angles), axis=1, keepdims=True)
-        mean_cos = np.mean(np.cos(angles), axis=1, keepdims=True)
-        angular_dispersion = 1.0 - np.sqrt(mean_sin**2 + mean_cos**2)
-
-        # Delaunay Degree
-        tri = Delaunay(pos)
-        indptr, _ = tri.vertex_neighbor_vertices
-        degree = np.array([indptr[i + 1] - indptr[i] for i in range(n)])[..., None]
-
-        return np.column_stack(
-            [
-                d1_d3_ratio,
-                d1_d5_ratio,
-                cv_dist,
-                angular_dispersion,
-                degree,
-            ]
-        ).astype(np.float32)
 
     def clip_box(self, box: Box, slide_size: SlideSize) -> Box:
         """Clips `box` to the slide bounds.

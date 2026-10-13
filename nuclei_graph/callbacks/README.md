@@ -15,10 +15,7 @@ Most callbacks accept an optional `mlflow_run_id` constructor argument: when set
 4. **Permutation Feature Importance** (`feature_importances.py`, [output structure](#feature-importances-output))  
    Measures the AUROC drop from shuffling each EFD feature group on the test set.
 
-5. **Spatial Permutation Importance** (`spatial_permutation_importance.py`, [output structure](#spatial-permutation-output))  
-   Measures the metric drop from shuffling nuclei spatial positions on the test set.
-
-6. **Parent Run Tagging** (`parent_run.py`)  
+5. **Parent Run Tagging** (`parent_run.py`)  
    Tags the active MLflow run with `mlflow.parentRunId`, nesting it under an existing run (e.g. the training run a checkpoint came from) in the MLflow UI. 
 
 ## Output Structure Overview
@@ -105,17 +102,3 @@ Bar chart of AUROC decrease per shuffled EFD feature group (EFD orders, scale, r
 <p align="right"><a href="#callbacks-overview">↑ back</a></p>
 
 ---
-
-<a id="spatial-permutation-output"></a>
-### Spatial Permutation Importance: `spatial_permutation_importance.py`
-
-**Location**: MLflow artifacts
-
-**Output layout**:
-```text
-spatial_permutation/
-  metrics.png (bar chart of metric decrease after permuting nuclei positions)
-  pr_curve.png (baseline vs. permuted Precision-Recall curve)
-```
-
-<p align="right"><a href="#callbacks-overview">↑ back</a></p>

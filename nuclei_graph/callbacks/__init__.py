@@ -14,9 +14,6 @@ from nuclei_graph.callbacks.predictions import (
 from nuclei_graph.callbacks.shape_features_permutation_importances import (
     ShapePermutationImportanceCallback,
 )
-from nuclei_graph.callbacks.spatial_features_permutation_importances import (
-    SpatialPermutationImportanceCallback,
-)
 
 
 __all__ = [
@@ -28,6 +25,5 @@ __all__ = [
     "NucleiPredictionMasksCallback",
     "PositionImportanceCallback",
     "ShapePermutationImportanceCallback",
-    "SpatialPermutationImportanceCallback",
     "TilePredictionCallback",
 ]
