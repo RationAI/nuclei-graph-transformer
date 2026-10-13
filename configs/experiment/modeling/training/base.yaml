@@ -68,3 +68,4 @@ metadata:
     embedding_mode: ${model.net.config.embedding_mode}
     context: ${oc.select:model.net.config.context,knn}
     use_rope: ${oc.select:model.net.config.use_rope,true}
+    attention_variant: ${oc.select:model.net.config.attention_variant,standard}

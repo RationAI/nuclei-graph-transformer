@@ -36,3 +36,4 @@ metadata:
   hyperparams:
     validation_supervision_mode: ${data.supervision.eval_strategy.mode}
     embedding_mode: ${model.net.config.embedding_mode}
+    attention_variant: ${oc.select:model.net.config.attention_variant,standard}
