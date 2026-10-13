@@ -11,9 +11,9 @@ defaults:
   #- /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/683f7f695aeb4be7ab8de7c5838e8ece/artifacts/checkpoints/epoch=294-step=13275/checkpoint.ckpt
-mlflow_run_id: 69d2eaeeacaa4942b074edf2bea5d3fd
-mlflow_parent_run_id: 683f7f695aeb4be7ab8de7c5838e8ece
+checkpoint: mlflow-artifacts:/97/1d9b8a0c7cc74000832ff935e0d475d0/artifacts/checkpoints/epoch=281-step=12690/checkpoint.ckpt
+mlflow_run_id: 778e0c2b4daf457a9cea637b7c6d70ca
+mlflow_parent_run_id: 1d9b8a0c7cc74000832ff935e0d475d0
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
