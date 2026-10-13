@@ -1,8 +1,5 @@
 # @package _global_
 
-# Supervision scheme comparison: same setup as `prostate_cancer_mmci_tl`, but without
-# validation; a checkpoint is kept every 25 epochs for evaluating the schemes afterwards.
-
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/prostate_cancer_mmci_tl
@@ -37,7 +34,7 @@ trainer:
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 16
-  k: 28
+  k: 44
   split_stratify_col: is_carcinoma
   split_group_col: patient_id
   split_size: 0.1
@@ -54,7 +51,7 @@ data:
   supervision:
     paths: ${dataset.paths.supervision}
     train_strategy:
-      ignore_dir: ${data.supervision.paths.another_pathology} # Another pathology nuclei are unlabeled
+      ignore_dir: ${data.supervision.paths.another_pathology}
     eval_strategy:
       ignore_dir: ${data.supervision.paths.another_pathology}
   sampler:
@@ -71,9 +68,9 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      attention_variant: rel_value # vrope, standard, rel_value
+      attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Supervision: ${data.supervision.train_strategy.mode}, k=28 (ckpt every 25 epochs, no val)"
+  run_name: "Supervision: ${data.supervision.train_strategy.mode}, k=44 (ckpt every 25 epochs, no val)"
   description: ""
