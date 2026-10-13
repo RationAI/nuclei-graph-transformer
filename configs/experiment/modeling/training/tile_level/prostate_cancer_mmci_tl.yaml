@@ -51,7 +51,7 @@ data:
   supervision:
     paths: ${dataset.paths.supervision}
     train_strategy:
-      ignore_dir: ${data.supervision.paths.another_pathology} # Another pathology nuclei are unlabeled
+      ignore_dir: ${data.supervision.paths.another_pathology}
     eval_strategy:
       ignore_dir: ${data.supervision.paths.another_pathology}
   sampler:

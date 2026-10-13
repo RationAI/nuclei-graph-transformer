@@ -11,18 +11,18 @@ defaults:
   #- /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/683f7f695aeb4be7ab8de7c5838e8ece/artifacts/checkpoints/epoch=294-step=13275/checkpoint.ckpt
-mlflow_run_id: 5d5a782a4a0c422b83b6fd19c1d6140b
-mlflow_parent_run_id: 683f7f695aeb4be7ab8de7c5838e8ece
+checkpoint: mlflow-artifacts:/97/1d9b8a0c7cc74000832ff935e0d475d0/artifacts/checkpoints/epoch=281-step=12690/checkpoint.ckpt
+mlflow_run_id: c045c1f1ede640ea9416041514269057
+mlflow_parent_run_id: 1d9b8a0c7cc74000832ff935e0d475d0
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 24 # unused by the model when context={none, dense}
+  k: 44 # unused by the model when context={none, dense}
   context: knn # none, dense, knn
 
-  split_stratify_col: "is_carcinoma"
-  split_group_col: "patient_id"
+  split_stratify_col: is_carcinoma
+  split_group_col: patient_id
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:

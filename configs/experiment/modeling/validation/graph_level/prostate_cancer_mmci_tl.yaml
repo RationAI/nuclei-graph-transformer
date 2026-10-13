@@ -18,17 +18,17 @@ data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
   k: 20
-  split_stratify_col: "is_carcinoma"
-  split_group_col: "patient_id"
+  split_stratify_col: is_carcinoma
+  split_group_col: patient_id
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd_spatial"
+    embedding_mode: efd # efd, bbox, blank
     full_slide: true
   supervision:
-    paths: ${dataset.paths.supervision}
+    paths: ${dataset.paths.supervision
     eval_strategy:
       ignore_dir: ${data.supervision.paths.another_pathology}
 

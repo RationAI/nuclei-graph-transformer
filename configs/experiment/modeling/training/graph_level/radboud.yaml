@@ -25,7 +25,7 @@ data:
 
   batch_size: 16
   k: 44
-  split_stratify_col: "gleason_score"
+  split_stratify_col: gleason_score
   split_group_col: null
   split_size: 0.1
   metadata: ${dataset.providers.radboud.metadata}
@@ -37,7 +37,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "efd" # "efd", "bbox", "blank"
+    embedding_mode: efd # efd, bbox, blank
 
   supervision:
     paths: ${dataset.providers.radboud.supervision}

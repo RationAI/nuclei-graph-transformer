@@ -25,8 +25,8 @@ data:
   batch_size: 16
   k: 44 # unused by the model when context={none, dense}
   context: knn # none, dense, knn
-  split_stratify_col: "is_carcinoma"
-  split_group_col: "patient_id"
+  split_stratify_col: is_carcinoma
+  split_group_col: patient_id
   split_size: 0.1
   metadata: ${dataset.mlflow_uris.metadata}
 
@@ -36,7 +36,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 48
-    embedding_mode: "blank" # "efd", "bbox", "blank"
+    embedding_mode: blank # efd, bbox, blank
 
   supervision:
     paths: ${dataset.paths.supervision}
