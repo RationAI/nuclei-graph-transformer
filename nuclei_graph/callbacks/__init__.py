@@ -1,3 +1,4 @@
+from nuclei_graph.callbacks.activations import ActivationsCallback
 from nuclei_graph.callbacks.masks import (
     AttentionMasksCallback,
     NucleiPredictionMasksCallback,
@@ -17,6 +18,7 @@ from nuclei_graph.callbacks.shape_features_permutation_importances import (
 
 
 __all__ = [
+    "ActivationsCallback",
     "AttentionMasksCallback",
     "CropCurvesCallback",
     "CropPredictionCallback",

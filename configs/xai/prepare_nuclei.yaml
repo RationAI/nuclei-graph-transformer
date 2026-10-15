@@ -1,0 +1,33 @@
+# @package _global_
+
+splits: [validation, test] # validation = the training run's validation split
+activations_dir: ${out_dir}/activations
+
+# concept_sample.parquet, for the probe analysis only (not used by the autoencoders)
+probe_sample:
+  max_per_slide: 500 # balanced: up to max_per_slide / 2 per label, filled from the other label
+
+# only its loading, splitting and supervision helpers are used
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 1
+  num_workers: 0
+  eval_num_workers: 0
+  block_size: 128
+  k: 1
+  metadata: ???
+  dataset:
+    _target_: nuclei_graph.data.datasets.crop.prediction.PredictionDataset
+    embedding_mode: efd
+  split_size: ???
+  split_stratify_col: ???
+  split_group_col: null
+  supervision:
+    paths: ???
+    train_strategy: null
+
+metadata:
+  run_name: "XAI: Nuclei Index"
+  hyperparams:
+    probe_max_per_slide: ${probe_sample.max_per_slide}
+    seed: ${seed}

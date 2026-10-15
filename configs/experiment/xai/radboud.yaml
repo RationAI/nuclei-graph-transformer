@@ -1,0 +1,17 @@
+# @package _global_
+
+# Concept (SAE) analysis of "Radboud, k=24: Polygons + RoVE + k-NN Attn".
+defaults:
+  - /data/sources/panda
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - _self_
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+
+# as in training (configs/experiment/modeling/training/nuclei_level/radboud.yaml)
+data:
+  metadata: ${dataset.providers.radboud.metadata}
+  split_size: 0.1
+  split_stratify_col: gleason_score
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}

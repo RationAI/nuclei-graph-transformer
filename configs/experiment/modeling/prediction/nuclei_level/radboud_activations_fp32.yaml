@@ -1,0 +1,25 @@
+# @package _global_
+
+# Test logits of the explained model in full fp32 (no TF32), only to document the
+# sensitivity of the stored (TF32) arrays; see xai/precision_check.py.
+defaults:
+  - /experiment/modeling/prediction/nuclei_level/radboud_activations@_here_
+  - _self_
+
+matmul_precision: highest
+precision_check_dir: ${xai_out_dir}/precision_check
+
+trainer:
+  callbacks:
+    activations:
+      slides_path: ${precision_check_dir}/slides_test.parquet
+      output_dir: ${precision_check_dir}
+      resume: false
+      mlflow_artifact_path: precision_check
+
+data:
+  metadata:
+    predict: ${precision_check_dir}/slides_test.parquet
+
+metadata:
+  run_name: "XAI: FP32 Precision Check"

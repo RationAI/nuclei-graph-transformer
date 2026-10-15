@@ -29,6 +29,8 @@ dataset:
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
       carcinoma: mlflow-artifacts:/38/cd504aaafb8c408184584d808a99cf15/artifacts/carcinoma_mask
+      # tissue masks (0/255 pyramidal TIFFs aligned with level 0), from the prostate cancer project
+      tissue: /mnt/projects/prostate_cancer/cancer/tissue_masks/tissue_mask
 
   mlflow_uris:
     # preprocessing/exploration/panda/save_metadataset.py

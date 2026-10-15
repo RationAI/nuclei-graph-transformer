@@ -1,0 +1,42 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+concept_dir: ${out_dir}/concepts/k16_seed1 # output of xai.concept_material
+output_dir: ${out_dir}/session
+
+session_seed: 2026 # letters, example concept and region order
+example_concept: null # null = a random unstable concept
+include_unstable: true # append the other unstable concepts after the stable ones
+
+regions: # as in xai.concept_material
+  size_um: 500.0
+  polygon_margin_um: 15.0
+  cmap: viridis
+  inactive_color: "#d9d9d9"
+
+strip:
+  num: 8
+  size_um: 100.0
+  tile_px: 200
+
+page:
+  width_in: 11.69 # A4 landscape
+  height_in: 8.27
+  dpi: 150
+  jpeg_quality: 90
+  scale_bar_um: 100.0
+
+overlays: # whole-slide masks as nuclei_graph.callbacks.masks (level 0, 512 px tiles)
+  concepts: [2, 1, 4, 0]
+  level: 0
+  tile_px: 512
+  min_slide_nuclei: 5000
+  carcinoma_min_share: 0.3 # carcinoma slide: is_carcinoma and ≥ this share of carcinoma nuclei
+  benign_max_share: 0.05 # benign-dominant slide: ≤ this share of carcinoma nuclei
+
+metadata:
+  run_name: "XAI: Session Material (k=16)"
+  hyperparams:
+    session_seed: ${session_seed}
+    overlay_concepts: ${overlays.concepts}

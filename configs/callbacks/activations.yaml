@@ -1,0 +1,12 @@
+# @package _global_
+
+_target_: nuclei_graph.callbacks.activations.ActivationsCallback
+slides_path: ${xai_out_dir}/slides.parquet # from xai.prepare_nuclei
+output_dir: ${xai_out_dir}/activations
+h_dtype: float16
+logits_dtype: float32 # float16 resolution (~5e-3 at |logit| ~ 8) is too coarse for FE
+save_layers: false # also save the output of every transformer layer (~8x the size of h)
+resume: true # skip slides with a done marker, reopen existing arrays in place
+atol: 1e-4 # max |class_head(h) - logits|, before the cast to h_dtype
+mlflow_artifact_path: activations
+mlflow_run_id: ${mlflow_run_id}

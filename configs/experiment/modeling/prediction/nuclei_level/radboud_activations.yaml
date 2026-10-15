@@ -1,0 +1,46 @@
+# @package _global_
+
+# Activation extraction for the concept (SAE) analysis, see xai/README.md.
+defaults:
+  - /experiment/modeling/prediction/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks@trainer.callbacks.activations: activations
+  - _self_
+
+checkpoint: mlflow-artifacts:/37/c8f268536be8416f9fe395eea95c458e/artifacts/checkpoints/epoch=179-step=39240/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: c8f268536be8416f9fe395eea95c458e
+xai_out_dir: ${project_path}/xai/${mlflow_parent_run_id}
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  k: 24 # as in training
+  context: knn # none, dense, knn
+
+  metadata:
+    predict: ${xai_out_dir}/slides.parquet # validation + test slides, from xai.prepare_nuclei
+  dataset:
+    efd_order: 16
+    patch_size: 48
+    embedding_mode: efd # efd, bbox, blank
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      use_rope: true
+      attention_variant: vrope # standard, vrope, rel_value
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "Radboud: XAI Activations"

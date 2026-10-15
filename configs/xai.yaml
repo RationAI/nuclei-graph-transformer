@@ -1,0 +1,10 @@
+defaults:
+  - base
+  - _self_
+
+dataset: ???
+seed: 42
+matmul_precision: high # TF32, as nuclei_graph.__main__ (the XAI arrays' inference)
+
+parent_run_id: ??? # the model being explained; runs are logged as its children
+out_dir: ${project_path}/xai/${parent_run_id}

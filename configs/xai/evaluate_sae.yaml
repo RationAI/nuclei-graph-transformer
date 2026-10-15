@@ -1,0 +1,15 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+sae_dir: ${out_dir}/sae
+output_path: ${out_dir}/completeness.csv
+ate_atol: 1e-4 # |ATE - FE|
+stability_threshold: 0.8 # matched decoder cosine
+spectrum_components: [8, 16, 32, 64]
+device: ${oc.env:XAI_DEVICE,cuda} # for encoding
+
+metadata:
+  run_name: "XAI: SAE Completeness"
+  hyperparams:
+    ate_atol: ${ate_atol}
+    stability_threshold: ${stability_threshold}

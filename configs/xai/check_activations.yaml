@@ -1,0 +1,13 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+extraction_run_name: "Radboud: XAI Activations"
+sample_size: 10000 # random nuclei per split
+atol: 1e-3 # max |class_head(h) - logits| with h as stored (float16)
+
+metadata:
+  run_name: "XAI: Activations Check"
+  hyperparams:
+    sample_size: ${sample_size}
+    atol: ${atol}
+    seed: ${seed}

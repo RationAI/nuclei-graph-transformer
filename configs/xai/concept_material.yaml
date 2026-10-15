@@ -1,0 +1,38 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+sae_dir: ${out_dir}/sae
+slides: ${out_dir}/slides.parquet
+num_concepts: 16
+sae_seed: null # null = the seed with the lowest holdout (validation) RE
+output_dir: ${out_dir}/concepts
+device: ${oc.env:XAI_DEVICE,cuda} # for encoding
+
+top_n: 50 # top_nuclei.parquet
+max_per_slide: 3
+stability_threshold: 0.8 # matched decoder cosine below it in any other seed = unstable
+
+regions: # concept maps (main output)
+  size_um: 500.0
+  stride_um: 250.0 # window grid
+  min_nuclei: 150 # per window; excludes sparse tissue edges
+  min_tissue_fraction: 0.6 # per window, from the tissue mask (high regions only)
+  num_high: 3 # + 1 region where the concept is absent
+  polygon_margin_um: 15.0
+  vmax_quantile: 0.99 # shared color scale per concept: [0, quantile of positive c_j]
+  cmap: viridis
+  inactive_color: "#d9d9d9"
+
+tissue:
+  masks: ${dataset.paths.masks.tissue}
+  target_um_per_px: 4.0 # coarsest mask pyramid level at or below this resolution
+  boundary_um: 50.0 # "near the boundary" for boundary_activation_share
+  n_jobs: 8
+
+gallery: # secondary output
+  num: 16
+  size_um: 100.0
+  tile_px: 200
+
+metadata:
+  run_name: "XAI: Concept Material (k=${num_concepts})"
