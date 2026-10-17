@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - concept_masks # concepts, scales and mask format as in xai.concept_masks
+  - _self_
+
+slides_csv: ${out_dir}/concept_masks/report_key.csv # slide_id column; null = all test slides
+cutoff: 64 # nucleus layers: mask value at which the alpha ramp starts (≈ 0.25 · s_j)
+
+overview:
+  level: 2
+  sigma_um: 50.0
+  scale_quantile: 0.99 # T_j: quantile of the density at the active nuclei of all test slides
+  n_jobs: 8
+
+metadata:
+  run_name: "SAE k${num_concepts} seed${sae_seed} concept display layers"
+  description: "Display layers of the blinded review's concepts for xOpat: nucleus
+    masks with an alpha ramp from the cutoff, and smoothed activation-density overviews."
+  hyperparams:
+    cutoff: ${cutoff}
+    display_rule: "0 if v <= cutoff else round(255 * (v - cutoff) / (255 - cutoff)), v = concept mask value"
+    overview_level: ${overview.level}
+    overview_sigma_um: ${overview.sigma_um}
+    overview_rule: "round(255 * min(D_j / T_j, 1)), D_j = sum_i (c_ij / s_j) * G_sigma; T_j = ${overview.scale_quantile} quantile of D_j at active nuclei, all test slides"
