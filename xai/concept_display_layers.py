@@ -11,8 +11,9 @@ slide in `slides_csv` (all test slides if null):
   threshold is the threshold itself, so the ramp has to be in the pixels.
 - `overview_masks/<label>/<slide_id>.tiff` (level `overview.level`): activation density
   D_j = Σ_i (c_ij / s_j) · G_sigma(x - x_i) over the nucleus centroids, as
-  round(255 · min(D_j / T_j, 1)), where T_j is the `scale_quantile` quantile of D_j at
-  the active nuclei (c_ij > 0) of all test slides.
+  u = round(255 · min(D_j / T_j, 1)), where T_j is the `scale_quantile` quantile of D_j
+  at the active nuclei (c_ij > 0) of all test slides, remapped like the nucleus masks
+  with `overview.cutoff` (0 for u ≤ cutoff, then linear to 255).
 - `scales.json`: label -> s_j and T_j.
 
 As in `xai.concept_masks`, nothing logged tells a concept's SAE index.
@@ -104,6 +105,7 @@ def render_display_slide(
     name = Path(item["slide_path"]).with_suffix(".tiff").name
     for j, label in enumerate(labels):
         values = np.rint(255 * np.minimum(grid[j] / scales[j], 1.0)).astype(np.uint8)
+        values = display_values(values, overview.cutoff)
         path = overview_dir / label / name
         path.parent.mkdir(parents=True, exist_ok=True)
         write_big_tiff(
