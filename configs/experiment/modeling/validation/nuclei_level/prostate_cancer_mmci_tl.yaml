@@ -11,14 +11,14 @@ defaults:
   #- /callbacks@trainer.callbacks.shape_permutation_importance: shape_features_permutation_importances
   - _self_
 
-checkpoint: mlflow-artifacts:/97/742e6b8596804bbabe111fda99eb4835/artifacts/checkpoints/epoch=229-step=10350/checkpoint.ckpt
-mlflow_run_id: 376525eefc8b4929a158dd20473a7d6e
-mlflow_parent_run_id: 742e6b8596804bbabe111fda99eb4835
+checkpoint: mlflow-artifacts:/97/f2e573b304694d10b0871c8e86286151/artifacts/checkpoints/epoch=674-step=30375/checkpoint.ckpt
+mlflow_run_id: cc2dbb2ffee74c5fac06f7194fde3424
+mlflow_parent_run_id: f2e573b304694d10b0871c8e86286151
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 44 # unused by the model when context={none, dense}
+  k: 28 # unused by the model when context={none, dense}
   context: knn # none, dense, knn
 
   split_stratify_col: is_carcinoma
@@ -28,7 +28,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 48
-    embedding_mode: efd # efd, bbox, blank
+    embedding_mode: blank # efd, bbox, blank
   supervision:
     paths: ${dataset.paths.supervision}
     eval_strategy:
@@ -42,7 +42,7 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.15
-      attention_variant: standard # standard, vrope, rel_value
+      attention_variant: vrope # standard, vrope, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
