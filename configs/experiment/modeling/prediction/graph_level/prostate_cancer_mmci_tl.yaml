@@ -12,9 +12,9 @@ defaults:
   - /callbacks/masks@trainer.callbacks.attn_masks: attention
   - _self_
 
-checkpoint: mlflow-artifacts:/97/ea7b8192e2724586ad7968466ff2aa0a/artifacts/checkpoints/epoch=167-step=7560/checkpoint.ckpt
+checkpoint: mlflow-artifacts:/97/a17cf19cfd6b4465a1e9119c02dd37a0/artifacts/checkpoints/epoch=152-step=6885/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: ea7b8192e2724586ad7968466ff2aa0a
+mlflow_parent_run_id: a17cf19cfd6b4465a1e9119c02dd37a0
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
