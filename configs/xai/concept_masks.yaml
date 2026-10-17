@@ -1,0 +1,35 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+sae_dir: ${out_dir}/sae
+num_concepts: 16
+sae_seed: 1
+concept_dir: ${out_dir}/concepts/k${num_concepts}_seed${sae_seed} # output of xai.concept_material
+
+deck_key: ${out_dir}/session/key.csv # letters of the deck (xai.session_material)
+letters: [A, B, C, D, E, F, G, H] # the stable concepts (main section of the deck)
+key_path: ${out_dir}/concept_masks/key.csv # label -> SAE index; local only, never logged
+
+scale_quantile: 0.99 # s_j: quantile of the positive c_j over all test nuclei
+high_fraction: 0.5 # slide_summary: share of nuclei with c_j > high_fraction · s_j
+
+level: 0
+mask_tile_width: ${dataset.mask_tile_width}
+mask_tile_height: ${dataset.mask_tile_height}
+slide_ids: null # null = all test slides
+max_concurrent: 3
+task_memory_gb: 16 # peak ≈ 13 GB for the largest test slide (≈ 1 Gpx at level 0, 8 masks)
+
+metadata:
+  run_name: "SAE k${num_concepts} seed${sae_seed} concept activation masks"
+  description: "Whole-slide activation masks (SAE codes) of the blinded review's
+    concepts, labeled by their deck letters, for xOpat."
+  hyperparams:
+    source_dir: ${out_dir}
+    level: ${level}
+    sae_k: ${num_concepts}
+    sae_seed: ${sae_seed}
+    scaling_rule: "0 if c == 0 else max(1, round(255 * min(c / s_j, 1))); s_j = ${scale_quantile} quantile of c_j > 0 over all test nuclei"
+    mask_tile_width: ${mask_tile_width}
+    mask_tile_height: ${mask_tile_height}
