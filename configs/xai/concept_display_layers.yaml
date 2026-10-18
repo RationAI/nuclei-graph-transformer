@@ -7,21 +7,25 @@ defaults:
 slides_csv: ${out_dir}/concept_masks/report_key.csv # slide_id column; null = all test slides
 cutoff: 64 # nucleus layers: mask value at which the alpha ramp starts (≈ 0.25 · s_j)
 
-overview:
+regions:
   level: 2
   sigma_um: 50.0
-  cutoff: 64 # density value (of 255) at which the alpha ramp starts (25 % of T_j)
-  scale_quantile: 0.99 # T_j: quantile of the density at the active nuclei of all test slides
+  kappa_nuclei: 2.0 # shrinkage: kernel mass of this many nuclei within sigma
+  tissue_masks: ${dataset.paths.masks.tissue} # <slide_id>.tiff; regions are 0 outside
+  cutoff: 64 # regions value (of 255) at which the alpha ramp starts (25 % of Q_j)
+  scale_quantile: 0.99 # Q_j: quantile of the local mean over the tissue pixels of all test slides
+  bins: 50000 # histogram over [0, max c_j] for Q_j
   n_jobs: 8
 
 metadata:
   run_name: "SAE k${num_concepts} seed${sae_seed} concept display layers"
   description: "Display layers of the blinded review's concepts for xOpat: nucleus
-    masks with an alpha ramp from the cutoff, and smoothed activation-density overviews (regions) with an alpha ramp from their cutoff."
+    masks with an alpha ramp from the cutoff, and regions (shrunk local mean activation within tissue) with an alpha ramp from their cutoff."
   hyperparams:
     cutoff: ${cutoff}
     display_rule: "0 if v <= cutoff else round(255 * (v - cutoff) / (255 - cutoff)), v = concept mask value"
-    overview_level: ${overview.level}
-    overview_sigma_um: ${overview.sigma_um}
-    overview_cutoff: ${overview.cutoff}
-    overview_rule: "u = round(255 * min(D_j / T_j, 1)), remapped with overview_cutoff as display_rule; D_j = sum_i (c_ij / s_j) * G_sigma; T_j = ${overview.scale_quantile} quantile of D_j at active nuclei, all test slides"
+    regions_level: ${regions.level}
+    regions_sigma_um: ${regions.sigma_um}
+    regions_kappa_nuclei: ${regions.kappa_nuclei}
+    regions_cutoff: ${regions.cutoff}
+    regions_rule: "u = round(255 * min(m_j / Q_j, 1)), remapped with regions_cutoff as display_rule; m_j = sum_i c_ij G / (sum_i G + kappa), kappa = kappa_nuclei / (pi sigma^2), 0 outside the tissue mask; Q_j = ${regions.scale_quantile} quantile of m_j over tissue pixels, all test slides"

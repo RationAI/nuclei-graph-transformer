@@ -1,4 +1,4 @@
-"""Display layers of the blinded review's concepts for xOpat: nucleus and overview masks.
+"""Display layers of the blinded review's concepts for xOpat: nucleus and regions masks.
 
 For each concept in `letters` (`concept_<letter>`, as in `xai.concept_masks`) and each
 slide in `slides_csv` (all test slides if null):
@@ -9,12 +9,15 @@ slide in `slides_csv` (all test slides if null):
   `heatmap` (alpha ∝ value), this is alpha 0 at the cutoff rising linearly to the layer
   opacity at 255. The heatmap can hide values below a threshold, but its alpha at the
   threshold is the threshold itself, so the ramp has to be in the pixels.
-- `overview_masks/<label>/<slide_id>.tiff` (level `overview.level`): activation density
-  D_j = Σ_i (c_ij / s_j) · G_sigma(x - x_i) over the nucleus centroids, as
-  u = round(255 · min(D_j / T_j, 1)), where T_j is the `scale_quantile` quantile of D_j
-  at the active nuclei (c_ij > 0) of all test slides, remapped like the nucleus masks
-  with `overview.cutoff` (0 for u ≤ cutoff, then linear to 255).
-- `scales.json`: label -> s_j and T_j.
+- `regions_masks/<label>/<slide_id>.tiff` (level `regions.level`): the shrunk local
+  mean activation m_j = Σ_i c_ij G(x - p_i) / (Σ_i G(x - p_i) + κ) over the nucleus
+  centroids p_i, with G a Gaussian of `regions.sigma_um` (discrete, sum 1, cut at 4 sigma) and
+  κ the kernel mass of `regions.kappa_nuclei` nuclei within sigma (kappa_nuclei / (π sigma²) per
+  µm²), 0 outside the tissue mask. As u = round(255 · min(m_j / Q_j, 1)), where Q_j is the
+  `regions.scale_quantile` quantile of m_j over the tissue pixels of all test slides,
+  remapped like the nucleus masks with `regions.cutoff` (0 for u ≤ cutoff, then linear
+  to 255).
+- `scales.json`: label -> s_j and Q_j.
 
 As in `xai.concept_masks`, nothing logged tells a concept's SAE index.
 """
@@ -32,6 +35,7 @@ import pyvips
 import ray
 from joblib import Parallel, delayed
 from omegaconf import DictConfig
+from PIL import Image
 from rationai.masks import process_items, write_big_tiff
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
@@ -39,6 +43,7 @@ from ratiopath.openslide import OpenSlide
 from scipy.ndimage import gaussian_filter
 
 from nuclei_graph.mlflow_utils import tag_parent_run
+from nuclei_graph.xai.tissue import TissueMask
 from xai.concept_masks import code_commit, concept_key, pixel_values, render_slide
 
 
@@ -48,24 +53,7 @@ def display_values(values: np.ndarray, cutoff: int) -> np.ndarray:
     return np.where(values > cutoff, ramp, 0).astype(np.uint8)
 
 
-def density(
-    centroids_um: np.ndarray,
-    weights: np.ndarray,
-    size: tuple[int, int],
-    mpp: float,
-    sigma_um: float,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Gaussian density (concepts x height x width) and each nucleus' pixel (x, y)."""
-    width, height = size
-    px = np.clip((centroids_um / mpp).astype(np.int64), 0, [width - 1, height - 1])
-    grid = np.zeros((weights.shape[1], height, width), dtype=np.float64)
-    for j in range(weights.shape[1]):
-        np.add.at(grid[j], (px[:, 1], px[:, 0]), weights[:, j])
-        grid[j] = gaussian_filter(grid[j], sigma_um / mpp, mode="constant")
-    return grid, px
-
-
-def overview_geometry(
+def regions_geometry(
     slide_path: str, level: int
 ) -> tuple[tuple[int, int], float, float]:
     with OpenSlide(slide_path) as slide:
@@ -73,16 +61,63 @@ def overview_geometry(
         return slide.level_dimensions[level], mpp_x, mpp_y
 
 
-def density_at_nuclei(
-    slide_path: str,
+def local_mean(
     centroids_um: np.ndarray,
-    weights: np.ndarray,
-    level: int,
+    c: np.ndarray,
+    size: tuple[int, int],
+    mpp: float,
     sigma_um: float,
+    kappa_nuclei: float,
 ) -> np.ndarray:
-    size, mpp_x, _ = overview_geometry(slide_path, level)
-    grid, px = density(centroids_um, weights, size, mpp_x, sigma_um)
-    return grid[:, px[:, 1], px[:, 0]].T.astype(np.float32)
+    """Shrunk local mean Σ_i c_ij G / (Σ_i G + κ), concepts x height x width."""
+    width, height = size
+    sigma = sigma_um / mpp
+    px = np.clip((centroids_um / mpp).astype(np.int64), 0, [width - 1, height - 1])
+    count = np.zeros((height, width))
+    np.add.at(count, (px[:, 1], px[:, 0]), 1.0)
+    count = gaussian_filter(count, sigma, mode="constant")
+    # κ in the units of `count` (kernel mass per pixel): kappa_nuclei / (πσ²) per µm²
+    kappa = kappa_nuclei / (np.pi * sigma_um**2) * mpp**2
+    mean = np.empty((c.shape[1], height, width), dtype=np.float32)
+    for j in range(c.shape[1]):
+        total = np.zeros((height, width))
+        np.add.at(total, (px[:, 1], px[:, 0]), c[:, j])
+        mean[j] = gaussian_filter(total, sigma, mode="constant") / (count + kappa)
+    return mean
+
+
+def tissue_grid(
+    path: str, mpp0: float, mpp: float, size: tuple[int, int]
+) -> np.ndarray:
+    """The tissue mask resampled (nearest) to the regions grid."""
+    mask = TissueMask.read(path, mpp0, mpp).mask
+    return np.asarray(Image.fromarray(mask).resize(size, Image.NEAREST))
+
+
+def slide_regions(item: dict[str, Any], regions: DictConfig) -> tuple[np.ndarray, Any]:
+    """Regions values (0 outside tissue), the tissue grid and the grid's (size, mpp)."""
+    size, mpp_x, mpp_y = regions_geometry(item["slide_path"], regions.level)
+    mean = local_mean(
+        item["centroids_um"],
+        item["c"],
+        size,
+        mpp_x,
+        regions.sigma_um,
+        regions.kappa_nuclei,
+    )
+    tissue = tissue_grid(item["tissue_path"], item["mpp0"], mpp_x, size)
+    mean[:, ~tissue] = 0.0
+    return mean, (tissue, size, mpp_x, mpp_y)
+
+
+def regions_histogram(
+    item: dict[str, Any], regions: DictConfig, edges: list[np.ndarray]
+) -> np.ndarray:
+    """Per concept, the histogram of the regions values over the slide's tissue pixels."""
+    mean, (tissue, *_) = slide_regions(item, regions)
+    return np.stack(
+        [np.histogram(mean[j][tissue], bins=edges[j])[0] for j in range(len(edges))]
+    )
 
 
 @ray.remote
@@ -90,23 +125,20 @@ def render_display_slide(
     item: dict[str, Any],
     labels: list[str],
     scales: np.ndarray,
-    overview: DictConfig,
+    regions: DictConfig,
     tile_width: int,
     tile_height: int,
     display_dir: Path,
-    overview_dir: Path,
+    regions_dir: Path,
 ) -> None:
     render_slide(item, labels, 0, tile_width, tile_height, display_dir)
 
-    size, mpp_x, mpp_y = overview_geometry(item["slide_path"], overview.level)
-    grid, _ = density(
-        item["centroids_um"], item["weights"], size, mpp_x, overview.sigma_um
-    )
+    mean, (_, _, mpp_x, mpp_y) = slide_regions(item, regions)
     name = Path(item["slide_path"]).with_suffix(".tiff").name
     for j, label in enumerate(labels):
-        values = np.rint(255 * np.minimum(grid[j] / scales[j], 1.0)).astype(np.uint8)
-        values = display_values(values, overview.cutoff)
-        path = overview_dir / label / name
+        values = np.rint(255 * np.minimum(mean[j] / scales[j], 1.0)).astype(np.uint8)
+        values = display_values(values, regions.cutoff)
+        path = regions_dir / label / name
         path.parent.mkdir(parents=True, exist_ok=True)
         write_big_tiff(
             image=pyvips.Image.new_from_array(values),
@@ -143,7 +175,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         ]
     )
     display = display_values(pixel_values(c, scales), config.cutoff)
-    weights = (c / scales).astype(np.float32)
     centroids = np.stack(
         [
             index.column("centroid_x_um").to_numpy(),
@@ -152,49 +183,53 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         axis=1,
     )
 
-    sections = [
-        slice(slide.offset, slide.offset + slide.n_nuclei)
+    items = [
+        {
+            "slide_id": slide.slide_id,
+            "slide_path": slide.slide_path,
+            "slide_nuclei_path": slide.slide_nuclei_path,
+            "tissue_path": str(
+                Path(config.regions.tissue_masks) / f"{slide.slide_id}.tiff"
+            ),
+            "mpp0": slide.mpp_x,
+            "offset": slide.offset,
+            "values": display[slide.offset : slide.offset + slide.n_nuclei],
+            "centroids_um": centroids[slide.offset : slide.offset + slide.n_nuclei],
+            "c": c[slide.offset : slide.offset + slide.n_nuclei],
+        }
         for slide in slides.itertuples(index=False)
     ]
-    sampled = Parallel(n_jobs=config.overview.n_jobs)(
-        delayed(density_at_nuclei)(
-            slide.slide_path,
-            centroids[section],
-            weights[section],
-            config.overview.level,
-            config.overview.sigma_um,
+    # Q_j from a fine histogram over [0, max c_j] (the local mean cannot exceed it)
+    edges = [
+        np.linspace(0.0, float(c[:, j].max()), config.regions.bins + 1)
+        for j in range(c.shape[1])
+    ]
+    histogram = sum(
+        Parallel(n_jobs=config.regions.n_jobs)(
+            delayed(regions_histogram)(item, config.regions, edges) for item in items
         )
-        for slide, section in zip(slides.itertuples(index=False), sections, strict=True)
     )
-    d = np.concatenate(sampled)
-    overview_scales = np.array(
+    cumulative = np.cumsum(histogram, axis=1) / histogram.sum(axis=1, keepdims=True)
+    regions_scales = np.array(
         [
-            np.quantile(d[c[:, j] > 0, j], config.overview.scale_quantile)
+            edges[j][np.searchsorted(cumulative[j], config.regions.scale_quantile) + 1]
             for j in range(c.shape[1])
         ]
     )
 
     if config.slides_csv is not None:
         selected = set(pd.read_csv(config.slides_csv)["slide_id"])
-        slides = slides[slides["slide_id"].isin(selected)]
+        items = [item for item in items if item["slide_id"] in selected]
     nucleus_ids = index.column("nucleus_id")
-    items = [
-        {
-            "slide_id": slide.slide_id,
-            "slide_path": slide.slide_path,
-            "slide_nuclei_path": slide.slide_nuclei_path,
-            "nucleus_ids": nucleus_ids.slice(slide.offset, slide.n_nuclei).to_numpy(),
-            "values": display[slide.offset : slide.offset + slide.n_nuclei],
-            "centroids_um": centroids[slide.offset : slide.offset + slide.n_nuclei],
-            "weights": weights[slide.offset : slide.offset + slide.n_nuclei],
-        }
-        for slide in slides.itertuples(index=False)
-    ]
+    for item in items:
+        item["nucleus_ids"] = nucleus_ids.slice(
+            item["offset"], len(item["c"])
+        ).to_numpy()
 
     with TemporaryDirectory() as tmp:
-        display_dir, overview_dir = (
+        display_dir, regions_dir = (
             Path(tmp) / "display_masks",
-            Path(tmp) / "overview_masks",
+            Path(tmp) / "regions_masks",
         )
         process_items(
             items=items,
@@ -203,20 +238,20 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             ),
             fn_kwargs={
                 "labels": labels,
-                "scales": overview_scales,
-                "overview": config.overview,
+                "scales": regions_scales,
+                "regions": config.regions,
                 "tile_width": config.mask_tile_width,
                 "tile_height": config.mask_tile_height,
                 "display_dir": display_dir,
-                "overview_dir": overview_dir,
+                "regions_dir": regions_dir,
             },
             max_concurrent=config.max_concurrent,
         )
         (Path(tmp) / "scales.json").write_text(
             json.dumps(
                 {
-                    label: {"s": float(s), "overview_T": float(t)}
-                    for label, s, t in zip(labels, scales, overview_scales, strict=True)
+                    label: {"s": float(s), "regions_Q": float(q)}
+                    for label, s, q in zip(labels, scales, regions_scales, strict=True)
                 },
                 indent=2,
             )
@@ -226,7 +261,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             {"code_commit": commit, "code_dirty": dirty, "slides": len(items)}
         )
         logger.log_artifacts(str(display_dir), "display_masks")
-        logger.log_artifacts(str(overview_dir), "overview_masks")
+        logger.log_artifacts(str(regions_dir), "regions_masks")
         logger.log_artifact(str(Path(tmp) / "scales.json"))
 
 
