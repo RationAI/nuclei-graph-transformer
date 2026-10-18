@@ -13,7 +13,7 @@ slide in `slides_csv` (all test slides if null):
   mean activation m_j = Σ_i c_ij G(x - p_i) / (Σ_i G(x - p_i) + κ) over the nucleus
   centroids p_i, with G a Gaussian of `regions.sigma_um` (discrete, sum 1, cut at 4 sigma) and
   κ the kernel mass of `regions.kappa_nuclei` nuclei within sigma (kappa_nuclei / (π sigma²) per
-  µm²), 0 outside the tissue mask. As u = round(255 · min(m_j / Q_j, 1)), where Q_j is the
+  µm²), 0 outside the tissue mask and on glass (`regions.background`). As u = round(255 · min(m_j / Q_j, 1)), where Q_j is the
   `regions.scale_quantile` quantile of m_j over the tissue pixels of all test slides,
   remapped like the nucleus masks with `regions.cutoff` (0 for u ≤ cutoff, then linear
   to 255).
@@ -87,11 +87,25 @@ def local_mean(
 
 
 def tissue_grid(
-    path: str, mpp0: float, mpp: float, size: tuple[int, int]
+    item: dict[str, Any],
+    level: int,
+    mpp: float,
+    size: tuple[int, int],
+    background: DictConfig,
 ) -> np.ndarray:
-    """The tissue mask resampled (nearest) to the regions grid."""
-    mask = TissueMask.read(path, mpp0, mpp).mask
-    return np.asarray(Image.fromarray(mask).resize(size, Image.NEAREST))
+    """Tissue on the regions grid: the tissue mask (nearest) without background pixels.
+
+    The masks extend past the tissue and fill lumens, so pixels of the slide's own
+    `level` image that are bright and unsaturated (glass) are removed.
+    """
+    mask = TissueMask.read(item["tissue_path"], item["mpp0"], mpp).mask
+    mask = np.asarray(Image.fromarray(mask).resize(size, Image.NEAREST))
+    with OpenSlide(item["slide_path"]) as slide:
+        rgb = np.asarray(slide.read_region((0, 0), level, size).convert("RGB"), float)
+    glass = (rgb.mean(-1) > background.min_brightness) & (
+        rgb.max(-1) - rgb.min(-1) < background.max_saturation
+    )
+    return mask & ~glass
 
 
 def slide_regions(item: dict[str, Any], regions: DictConfig) -> tuple[np.ndarray, Any]:
@@ -105,7 +119,7 @@ def slide_regions(item: dict[str, Any], regions: DictConfig) -> tuple[np.ndarray
         regions.sigma_um,
         regions.kappa_nuclei,
     )
-    tissue = tissue_grid(item["tissue_path"], item["mpp0"], mpp_x, size)
+    tissue = tissue_grid(item, regions.level, mpp_x, size, regions.background)
     mean[:, ~tissue] = 0.0
     return mean, (tissue, size, mpp_x, mpp_y)
 

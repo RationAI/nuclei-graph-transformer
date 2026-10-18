@@ -12,6 +12,9 @@ regions:
   sigma_um: 50.0
   kappa_nuclei: 2.0 # shrinkage: kernel mass of this many nuclei within sigma
   tissue_masks: ${dataset.paths.masks.tissue} # <slide_id>.tiff; regions are 0 outside
+  background: # glass in the slide's regions-level image, removed from the tissue mask
+    min_brightness: 215 # mean RGB above this
+    max_saturation: 25 # and max - min RGB below this
   cutoff: 64 # regions value (of 255) at which the alpha ramp starts (25 % of Q_j)
   scale_quantile: 0.99 # Q_j: quantile of the local mean over the tissue pixels of all test slides
   bins: 50000 # histogram over [0, max c_j] for Q_j
@@ -28,4 +31,4 @@ metadata:
     regions_sigma_um: ${regions.sigma_um}
     regions_kappa_nuclei: ${regions.kappa_nuclei}
     regions_cutoff: ${regions.cutoff}
-    regions_rule: "u = round(255 * min(m_j / Q_j, 1)), remapped with regions_cutoff as display_rule; m_j = sum_i c_ij G / (sum_i G + kappa), kappa = kappa_nuclei / (pi sigma^2), 0 outside the tissue mask; Q_j = ${regions.scale_quantile} quantile of m_j over tissue pixels, all test slides"
+    regions_rule: "u = round(255 * min(m_j / Q_j, 1)), remapped with regions_cutoff as display_rule; m_j = sum_i c_ij G / (sum_i G + kappa), kappa = kappa_nuclei / (pi sigma^2), 0 outside the tissue mask and on glass (mean RGB > ${regions.background.min_brightness}, max - min < ${regions.background.max_saturation}); Q_j = ${regions.scale_quantile} quantile of m_j over tissue pixels, all test slides"
