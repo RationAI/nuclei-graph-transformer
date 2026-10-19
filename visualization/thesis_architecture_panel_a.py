@@ -34,12 +34,20 @@ import mlflow
 import numpy as np
 import pandas as pd
 from matplotlib.collections import PolyCollection
-from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 from matplotlib.transforms import Bbox
 from numpy.typing import NDArray
 from ratiopath.openslide import OpenSlide
 from scipy.spatial import KDTree
 from sklearn.neighbors import NearestNeighbors
+
+from nuclei_graph.data.datasets.crop.prediction import PredictionDataset
+from nuclei_graph.data.datasets.nuclei_features import NucleiFeatureExtractor
+from nuclei_graph.data.efd import (
+    elliptic_fourier_descriptors,
+    normalize_efd_for_rotation,
+    normalize_efd_for_scale,
+)
 
 
 MODEL_RUN_ID = "c8f268536be8416f9fe395eea95c458e"  # Radboud, k=24: Polygons + RoVE + k-NN Attn
@@ -71,7 +79,7 @@ CMAP = "viridis"
 CM = 1 / 2.54
 PANEL_W = 16.0
 IMG_CM = 2.35
-EMBED_BOX = (3.7, 1.5)  # fits "(shape / texture / blank)" at 8 pt
+EMBED_BOX = (3.7, 1.5)  # the shape-embedding slot (the size of the former text box)
 POOL_BOX = (2.75, 1.25)
 EDGE = 0.02  # figure edge to the outermost artists
 CBAR_GAP, CBAR_W, CBAR_BLOCK = 0.1, 0.15, 1.15  # the block includes ticks and label
@@ -81,18 +89,33 @@ MIN_ARROW_CLEARANCE = 0.05  # horizontal arrow to the images beside it
 FONT_SIZE, SMALL_FONT_SIZE = 8, 7
 LINE_PT = 0.8
 BORDER_GREY = "#999999"
-EMBED_FILL = "#D5E8D4"
 POOL_FILL = "#D1D6D1"
 ARROW_STYLE = "-|>,head_length=3,head_width=1.5"
+
+# shape embedding of the k-NN query nucleus (the main setup: embedding_mode "efd")
+EFD_ORDER = 16
+QUERY_RING_LW, QUERY_RING_HALO = 4, 7  # px; white halo under the orange ring
+QUERY_RING_MARGIN_UM = 3.0  # ring radius = farthest polygon vertex + margin
+ORDER1_COLOR, ORDER16_COLOR = "#9ecae1", "#08519c"
+STRIP_CMAP = "RdBu_r"
+# colour scale of the feature strip: symmetric around 0, linear below this value and
+# logarithmic above it, so the small higher-order coefficients (|·| < 0.02 here) show
+STRIP_LINTHRESH = 0.01
+STRIP_GROUPS = (("EFD (64)", 4 * EFD_ORDER), ("log $s$", 1), ("$\\psi$", 2))
+STRIP_H, STRIP_GROUP_GAP = 0.11, 0.4  # cm
+STRIP_INSET = 0.06  # cm at each side, room for the labels of the narrow groups
+SLOT_GAP = 0.02  # cm, between the rows of the slot
+CURVE_LW = 1.0
+RECON_RMS_MAX = 0.02  # of the scale s (first-harmonic semi-major axis)
 
 CAPTIONS = {
     "a1": "H&E with\nsegmented nuclei",
     "a2": "Point cloud: polygon\nand centroid $p_i$",
-    "embed": "Per-nucleus input",
+    "embed": "Shape embedding (EFD)",
     "a4": "$L$ layers: attention to\n$k$ nearest neighbors",
     "a5": "Nucleus logits $z_i$",
 }
-EMBED_TEXT = "Nucleus embedding\n(shape / texture / blank)\n→ $x_i$"
+EMBED_TEXT = "→ BatchNorm + Linear → $\\mathbf{x}_i$"
 POOL_TEXT = "Attention pooling\n$Z = \\sum_i \\alpha_i z_i$"
 SLIDE_TEXT = "Slide logit $\\mathbfit{Z}$"
 
@@ -171,11 +194,95 @@ def load_region() -> dict:
         "knn": knn,
         "knn_dist": dist,
         "kth_gap_um": float(d_next[K] - d_next[K - 1]),
+        "query_polygon": polygons_um[query],
         "all_centroids": centroids_um,
         "logits": logits,
         "he": he,
         "he_extent": he_extent,
     }
+
+
+def efd_curve(coeffs: NDArray[np.float64], n: int = 1024) -> NDArray[np.float64]:
+    """Contour of EFD coefficients (orders x [a, b, c, d]), without the DC term."""
+    t = np.linspace(0.0, 1.0, n, endpoint=False)[:, None]
+    phase = 2 * np.pi * t * np.arange(1, len(coeffs) + 1)[None]
+    cos, sin = np.cos(phase), np.sin(phase)
+    return np.stack(
+        [cos @ coeffs[:, 0] + sin @ coeffs[:, 1], cos @ coeffs[:, 2] + sin @ coeffs[:, 3]],
+        axis=1,
+    )
+
+
+def shape_embedding(r: dict) -> dict:
+    """The k-NN query nucleus's shape features, exactly as the model receives them.
+
+    The features are `NucleiFeatureExtractor.get_efd_features` of the level-0 polygon
+    (order 16; normalised for the starting point, rotated by -ψ and divided by the scale
+    s): 64 coefficients, log s, cos 2ψ, sin 2ψ, before the model's BatchNorm. Checked
+    against the dataset's own feature vector for this nucleus (`PredictionDataset`, the
+    full-slide sample) and the order-16 contour against the normalised polygon.
+    """
+    slide, q = r["slide"], r["query"]
+    polygon = np.asarray(r["nuclei"]["polygon"].iloc[q], dtype=np.float32).reshape(-1, 2)
+    extractor = NucleiFeatureExtractor()
+    extractor.efd_order = EFD_ORDER
+    features = extractor.get_efd_features(polygon[None], slide.mpp_x, slide.mpp_y)[0]
+
+    dataset = PredictionDataset(
+        metadata=pd.DataFrame([slide]).reset_index(drop=True),
+        embedding_mode="efd",
+        efd_order=EFD_ORDER,
+    )
+    sample = dataset[0]
+    assert sample["metadata"]["nuclei_ids"][q] == r["nuclei"]["id"].iloc[q]
+    dataset_features = sample["features"][q].numpy()
+    max_abs_diff = float(np.abs(features - dataset_features).max())
+    assert max_abs_diff < 1e-6, max_abs_diff
+
+    # the steps of get_efd_features, kept for the contour
+    contour = (polygon * np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)).astype(np.float64)
+    coeffs = elliptic_fourier_descriptors(contour[None], EFD_ORDER)
+    coeffs, psi = normalize_efd_for_rotation(coeffs)
+    coeffs, scale = normalize_efd_for_scale(coeffs)
+    coeffs, psi, scale = coeffs[0], float(psi[0, 0]), float(scale[0, 0])
+    assert np.array_equal(coeffs.ravel().astype(np.float32), features[: 4 * EFD_ORDER])
+    assert np.isclose(features[4 * EFD_ORDER], np.log(scale + 1e-6))
+
+    # the polygon normalised the same way: minus the EFD's DC term (the arc-length
+    # weighted mean of the closed polygon), rotated by -ψ, divided by s
+    closed = np.vstack([contour, contour[:1]])
+    lengths = np.linalg.norm(np.diff(closed, axis=0), axis=1)
+    centre = ((closed[:-1] + closed[1:]) / 2 * lengths[:, None]).sum(0) / lengths.sum()
+    rotation = np.array([[np.cos(psi), np.sin(psi)], [-np.sin(psi), np.cos(psi)]])
+    normalised = (contour - centre) @ rotation.T / scale
+
+    order1, order16 = efd_curve(coeffs[:1]), efd_curve(coeffs)
+    distance, _ = KDTree(efd_curve(coeffs, n=16384)).query(normalised)
+    rms = float(np.sqrt(np.mean(distance**2)))
+    assert rms < RECON_RMS_MAX, rms
+    return {
+        "features": features,
+        "order1": order1,
+        "order16": order16,
+        "normalised_polygon": normalised,
+        "psi_deg": float(np.degrees(psi)),
+        "scale_um": scale,
+        "recon_rms": rms,
+        "recon_rms_um": rms * scale,
+        "recon_max": float(distance.max()),
+        "max_abs_diff_dataset": max_abs_diff,
+    }
+
+
+def query_ring(ax: plt.Axes, r: dict) -> None:
+    """Thin orange ring around the k-NN query nucleus (as in a4), with a white halo."""
+    centre = r["all_centroids"][r["query"]]
+    radius = np.linalg.norm(r["query_polygon"] - centre, axis=1).max() + QUERY_RING_MARGIN_UM
+    ax.add_patch(
+        plt.Circle(centre, radius, fill=False, edgecolor=ACCENT_COLOR, lw=QUERY_RING_LW * PX_PT,
+                   path_effects=[pe.withStroke(linewidth=QUERY_RING_HALO * PX_PT, foreground="white")],
+                   zorder=5)
+    )
 
 
 def region_axes() -> tuple[plt.Figure, plt.Axes]:
@@ -213,6 +320,7 @@ def draw_he(r: dict) -> plt.Figure:
         plt.Rectangle((x0 + inset, y0 + inset), x1 - x0 - 2 * inset, y1 - y0 - 2 * inset,
                       facecolor="white", edgecolor="black", lw=stroke_px * PX_PT)
     )
+    query_ring(ax, r)
     return fig
 
 
@@ -244,6 +352,7 @@ def draw_heatmap(r: dict) -> plt.Figure:
                            edgecolors="none", antialiased=True)
     cells.set_array(r["prob"])
     ax.add_collection(cells)
+    query_ring(ax, r)
     return fig
 
 
@@ -304,7 +413,88 @@ def text_box(lay: plt.Axes, centre: tuple[float, float], size: tuple[float, floa
     return patch, label
 
 
-def draw_panel(images: dict[str, NDArray[np.uint8]]) -> tuple[plt.Figure, dict]:
+def draw_shape_slot(
+    fig: plt.Figure, lay: plt.Axes, slot: tuple[float, float, float, float], shape: dict, cm_rect
+) -> dict:
+    """The shape embedding in the slot (x, y, w, h; cm).
+
+    Top to bottom: the normalised contour (order 1 dashed, order 16 solid), the feature
+    strip with its group labels and the step to x_i. Laid out bottom-up so that the
+    contour takes the rest of the height.
+    """
+    x, y, w, h = slot
+    renderer = fig.canvas.get_renderer()
+
+    def height_cm(artist) -> float:
+        return artist.get_window_extent(renderer).height / fig.dpi * 2.54
+
+    text = lay.text(x + w / 2, y, EMBED_TEXT, ha="center", va="bottom", fontsize=FONT_SIZE)
+
+    n_cells = sum(n for _, n in STRIP_GROUPS)
+    cell_w = (w - 2 * STRIP_INSET - STRIP_GROUP_GAP * (len(STRIP_GROUPS) - 1)) / n_cells
+    starts = STRIP_INSET + np.cumsum(
+        [0.0] + [n * cell_w + STRIP_GROUP_GAP for _, n in STRIP_GROUPS[:-1]]
+    )
+    label_y = y + height_cm(text) + SLOT_GAP
+    labels = [
+        lay.text(x + s + n * cell_w / 2, label_y, name, ha="center", va="bottom",
+                 fontsize=SMALL_FONT_SIZE)
+        for (name, n), s in zip(STRIP_GROUPS, starts, strict=True)
+    ]
+    strip_y = label_y + max(height_cm(t) for t in labels) + SLOT_GAP
+
+    values = shape["features"]
+    vmax = float(np.abs(values).max())
+    norm = mpl.colors.SymLogNorm(STRIP_LINTHRESH, vmin=-vmax, vmax=vmax, base=10)
+    cmap = mpl.colormaps[STRIP_CMAP]
+    groups, i = [], 0
+    for (_, n), s in zip(STRIP_GROUPS, starts, strict=True):
+        for k in range(n):
+            lay.add_patch(Rectangle((x + s + k * cell_w, strip_y), cell_w, STRIP_H,
+                                    facecolor=cmap(norm(values[i + k])), edgecolor="none", lw=0))
+        groups.append(lay.add_patch(Rectangle((x + s, strip_y), n * cell_w, STRIP_H, fill=False,
+                                              edgecolor=BORDER_GREY, lw=0.4)))
+        i += n
+    assert i == len(values)
+
+    # contour: equal aspect, y down as in the slide, centred in the slot; legend right
+    bottom = strip_y + STRIP_H + SLOT_GAP
+    contour_h = y + h - bottom
+    points = np.vstack([shape["order1"], shape["order16"]])
+    lo, hi = points.min(axis=0), points.max(axis=0)
+    pad = 0.04 * (hi - lo).max()
+    data_w, data_h = hi - lo + 2 * pad
+    contour_w = contour_h * data_w / data_h
+    cax = fig.add_axes(cm_rect(x + w / 2 - contour_w / 2, bottom, contour_w, contour_h))
+    closed = lambda c: np.vstack([c, c[:1]])
+    cax.plot(*closed(shape["order16"]).T, color=ORDER16_COLOR, lw=CURVE_LW, label="order 16")
+    cax.plot(*closed(shape["order1"]).T, color=ORDER1_COLOR, lw=CURVE_LW, ls=(0, (3, 2)),
+             label="order 1", zorder=3)
+    cax.set_xlim(lo[0] - pad, hi[0] + pad)
+    cax.set_ylim(hi[1] + pad, lo[1] - pad)
+    cax.set_aspect("equal")
+    cax.axis("off")
+    handles, names = cax.get_legend_handles_labels()
+    legend = cax.legend(handles[::-1], names[::-1], loc="center left", bbox_to_anchor=(1.0, 0.5),
+                        fontsize=SMALL_FONT_SIZE, frameon=False, handlelength=1.8,
+                        handletextpad=0.4, labelspacing=0.15, borderpad=0.0, borderaxespad=0.3)
+    # centre the contour and its legend together in the slot
+    legend_w = legend.get_window_extent(renderer).x1 / fig.dpi * 2.54 - (x + w / 2 + contour_w / 2)
+    cax.set_position(cm_rect(x + (w - contour_w - legend_w) / 2, bottom, contour_w, contour_h))
+    return {
+        "slot": slot,
+        "text": text,
+        "labels": labels,
+        "groups": groups,
+        "contour": cax,
+        "legend": legend,
+        "contour_share": contour_h / h,
+        "cell_w": cell_w,
+        "vmax": vmax,
+    }
+
+
+def draw_panel(images: dict[str, NDArray[np.uint8]], shape: dict) -> tuple[plt.Figure, dict]:
     widths = {"a1": IMG_CM, "a2": IMG_CM, "embed": EMBED_BOX[0], "a4": IMG_CM, "a5": IMG_CM}
     height = TOP + CAPTION_H + CAPTION_PAD + IMG_CM + ARROW_PAD + ARROW_LEN + POOL_BOX[1] + EDGE
     img_top = height - TOP - CAPTION_H - CAPTION_PAD
@@ -367,8 +557,8 @@ def draw_panel(images: dict[str, NDArray[np.uint8]]) -> tuple[plt.Figure, dict]:
     )
     items["scale_bar_um"] = (x0, x1, y0, y1)
 
-    embed_cx = left["embed"] + EMBED_BOX[0] / 2
-    items["embed_box"] = text_box(lay, (embed_cx, img_mid), EMBED_BOX, EMBED_FILL, EMBED_TEXT)
+    slot = (left["embed"], img_mid - EMBED_BOX[1] / 2, *EMBED_BOX)
+    items["embed_slot"] = draw_shape_slot(fig, lay, slot, shape, cm_rect)
 
     for name, caption in items["captions"].items():
         caption.set_x(left[name] + widths[name] / 2)
@@ -422,13 +612,39 @@ def panel_checks(fig: plt.Figure, items: dict) -> dict:
         boxes[f"image:{name}"] = cm_box(ax.get_window_extent(renderer))
     for name, a in items["arrows"].items():
         boxes[f"arrow:{name}"] = cm_box(a.get_window_extent(renderer))
-    for name in ("embed_box", "pool_box"):
-        patch, label = items[name]
-        box, text = cm_box(patch.get_window_extent(renderer)), cm_box(label.get_window_extent(renderer))
-        assert box.x0 < text.x0 and text.x1 < box.x1 and box.y0 < text.y0 and text.y1 < box.y1, (
-            f"{name}: text not inside its box"
-        )
-        boxes[name] = box
+    patch, label = items["pool_box"]
+    box, text = cm_box(patch.get_window_extent(renderer)), cm_box(label.get_window_extent(renderer))
+    assert box.x0 < text.x0 and text.x1 < box.x1 and box.y0 < text.y0 and text.y1 < box.y1, (
+        "pool_box: text not inside its box"
+    )
+    boxes["pool_box"] = box
+
+    # the shape slot: every part inside it, no two parts overlapping
+    slot = items["embed_slot"]
+    slot_box = Bbox.from_bounds(*slot["slot"])
+    parts = {
+        "contour": cm_box(slot["contour"].get_window_extent(renderer)),
+        "legend": cm_box(slot["legend"].get_window_extent(renderer)),
+        "text": cm_box(slot["text"].get_window_extent(renderer)),
+        **{f"strip{i}": cm_box(g.get_window_extent(renderer)) for i, g in enumerate(slot["groups"])},
+        **{f"label{i}": cm_box(t.get_window_extent(renderer)) for i, t in enumerate(slot["labels"])},
+    }
+    eps = 1e-6
+    slot_clearances = {}
+    for name, b in parts.items():
+        assert b.y0 >= slot_box.y0 - eps and b.y1 <= slot_box.y1 + eps, f"embed:{name} outside the slot"
+        if name != "text":  # the 8 pt line may overhang sideways, see below
+            assert b.x0 >= slot_box.x0 - eps and b.x1 <= slot_box.x1 + eps, f"embed:{name} outside the slot"
+    part_names = list(parts)
+    for i, a in enumerate(part_names):
+        for c in part_names[i + 1 :]:
+            assert not parts[a].overlaps(parts[c]), f"embed:{a} overlaps embed:{c}"
+            dx = max(parts[c].x0 - parts[a].x1, parts[a].x0 - parts[c].x1, 0.0)
+            dy = max(parts[c].y0 - parts[a].y1, parts[a].y0 - parts[c].y1, 0.0)
+            slot_clearances[f"{a} | {c}"] = round(max(dx, dy), 3)
+    boxes["embed_slot"] = slot_box
+    boxes["embed_text"] = parts["text"]  # globally checked; it belongs to the slot
+    text_overhang = max(slot_box.x0 - parts["text"].x0, parts["text"].x1 - slot_box.x1, 0.0)
     boxes["colorbar"] = cm_box(items["colorbar"].get_tightbbox(renderer))
     boxes["slide_text"] = cm_box(items["slide_text"].get_window_extent(renderer))
 
@@ -439,6 +655,8 @@ def panel_checks(fig: plt.Figure, items: dict) -> dict:
         b = boxes[a]
         assert b.x0 >= 0 and b.y0 >= 0 and b.x1 <= width and b.y1 <= height, f"{a} outside: {b}"
         for c in names[i + 1 :]:
+            if {a, c} == {"embed_slot", "embed_text"}:
+                continue
             assert not b.overlaps(boxes[c]), f"{a} overlaps {c}"
             dx = max(boxes[c].x0 - b.x1, b.x0 - boxes[c].x1, 0.0)
             dy = max(boxes[c].y0 - b.y1, b.y0 - boxes[c].y1, 0.0)
@@ -464,6 +682,13 @@ def panel_checks(fig: plt.Figure, items: dict) -> dict:
         "image_cm": IMG_CM,
         "arrow_gaps_cm": [round(g, 3) for g in items["gaps_cm"]],
         "smallest_clearances_cm": dict(sorted(clearances.items(), key=lambda kv: kv[1])[:6]),
+        "embed_slot": {
+            "size_cm": [slot_box.width, slot_box.height],
+            "contour_share_of_height": round(slot["contour_share"], 3),
+            "text_overhang_cm": round(text_overhang, 3),
+            "strip_cell_cm": round(slot["cell_w"], 4),
+            "smallest_clearances_cm": dict(sorted(slot_clearances.items(), key=lambda kv: kv[1])[:4]),
+        },
     }
 
 
@@ -484,6 +709,7 @@ def main() -> None:
     r = load_region()
     figs = {"a1": draw_he(r), "a2": draw_points(r), "a4": draw_knn(r), "a5": draw_heatmap(r)}
     checks = image_checks(figs, r)
+    shape = shape_embedding(r)
 
     q = r["query"]
     y, p = r["labels"], r["prob"]
@@ -512,6 +738,18 @@ def main() -> None:
             "max_neighbour_distance_um": float(r["knn_dist"].max()),
             "kth_distance_gap_um": r["kth_gap_um"],
         },
+        "shape_embedding": {
+            "nucleus_id": str(r["nuclei"]["id"].iloc[q]),
+            "efd_order": EFD_ORDER,
+            "psi_deg": shape["psi_deg"],
+            "scale_um": shape["scale_um"],
+            "features": [float(v) for v in shape["features"]],
+            "max_abs_diff_to_dataset": shape["max_abs_diff_dataset"],
+            "order16_rms_to_normalised_polygon": shape["recon_rms"],
+            "order16_rms_um": shape["recon_rms_um"],
+            "order16_max_distance": shape["recon_max"],
+            "strip_colour_scale": f"{STRIP_CMAP}, SymLogNorm(linthresh={STRIP_LINTHRESH}), symmetric",
+        },
     }
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -521,7 +759,7 @@ def main() -> None:
         fig.savefig(OUT_DIR / IMAGES[name].replace(".png", ".pdf"), facecolor="white")
         images[name] = to_array(fig)
 
-    panel, items = draw_panel(images)
+    panel, items = draw_panel(images, shape)
     checks["panel"] = panel_checks(panel, items)
     print(json.dumps(checks, indent=1))
     # unresampled images in the PDF, smooth downsampling in the PNG
