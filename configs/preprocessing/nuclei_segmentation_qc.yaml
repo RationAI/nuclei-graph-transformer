@@ -1,0 +1,49 @@
+# @package _global_
+
+slides_index: ${dataset.paths.wsi_data.metadata_csv} # the dataset's slides, one per row
+slide_column: slide # file name; its stem is the slide id
+slides_dir: ${dataset.paths.wsi_data.slides} # <slide_id>.tiff
+batch_name: ??? # output subfolder of nuclei_segmentation.py
+nuclei_dir: ${dataset.paths.nuclei_seg}/${batch_name} # slide_id=<slide_id>/*.parquet
+tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue} # <slide_id>.tiff, as used by the segmentation
+slide_ids: null # a subset for a trial run; null = every slide of the index
+n_jobs: 8
+
+segmentation: # as configs/preprocessing/nuclei_segmentation.yaml
+  mpp: ${dataset.mpp}
+  tile_extent: 2048
+  overlap: 64
+
+coverage:
+  mask_max_um_per_px: 8.0 # tissue mask page used for coverage and alignment
+  min_tissue_fraction: 0.25 # a tile (inner region) with at least this tissue is expected to have nuclei
+  min_nucleus_area_um2: 2.0 # plausible nucleus area range
+  max_nucleus_area_um2: 500.0
+
+stain: # nucleus-like hematoxylin blobs in the gap tiles
+  mpp: 1.0 # slide level read for the check
+  calibration_tiles: 8 # segmented tiles per slide used to set the threshold
+  min_calibration_nuclei: 50 # a calibration tile has at least this many nuclei
+  threshold_quantile: 0.25 # of the hematoxylin at the segmented nuclei' centroids
+  min_blob_area_um2: 10.0
+  max_blob_area_um2: 150.0
+  min_blobs: 10 # a gap tile with at least this many blobs has missed nuclei
+  max_gap_tiles: 500 # per slide
+  seed: 0
+
+flags:
+  max_centroid_offset_px: 1.0
+  max_area_outlier_fraction: 0.05
+  min_on_tissue_fraction: 0.8
+  min_missed_gap_tiles: 1
+  min_density_ratio: 0.25 # of the dataset's median nuclei per mm² of tissue
+
+metadata:
+  run_name: "Nuclei Segmentation QC: ${dataset.name}"
+  description: "Presence, integrity, alignment and coverage check of the nuclei segmentation, with a hematoxylin check of the tissue tiles without nuclei."
+  hyperparams:
+    batch_name: ${batch_name}
+    segmentation: ${segmentation}
+    coverage: ${coverage}
+    stain: ${stain}
+    flags: ${flags}

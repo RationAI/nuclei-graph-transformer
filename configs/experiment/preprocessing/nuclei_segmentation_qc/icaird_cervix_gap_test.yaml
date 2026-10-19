@@ -1,0 +1,4 @@
+# @package _global_
+
+# 26 slides with >= 5 tiles of missed nuclei in the QC run 463d869663644b009956df56dc81533e
+tiles_uri: ${mlflow_project_pc}/463d869663644b009956df56dc81533e/artifacts/segmentation_qc/gap_test_tiles.csv

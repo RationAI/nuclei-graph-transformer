@@ -1,0 +1,19 @@
+# @package _global_
+
+# CSV of the tiles to re-segment (slide_id, slide_path, kind, tile_x, tile_y, blobs, stored_nuclei)
+tiles_uri: ???
+batch_size: 8
+min_nuclei: 10 # a gap tile with at least this many re-segmented nuclei is no longer empty
+overlay_size: 1024 # px of the saved gap-tile overlays
+
+segmentation: # as configs/preprocessing/nuclei_segmentation.yaml
+  mpp: ${dataset.mpp}
+  tile_extent: 2048
+  overlap: 64
+
+metadata:
+  run_name: "Nuclei Segmentation Gap Test: ${dataset.name}"
+  description: "Re-segmentation of tissue tiles without nuclei (and control tiles) flagged by nuclei_segmentation_qc.py."
+  hyperparams:
+    tiles_uri: ${tiles_uri}
+    segmentation: ${segmentation}
