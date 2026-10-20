@@ -90,8 +90,8 @@ S_PERCENTILES = (40, 90)  # of the slide's semi-major axes s
 MIN_SOLIDITY = 0.9
 OVERLAP_UM2 = 1e-6  # intersection area that counts as an overlap
 MIN_KNN_EACH = 5  # neighbours with sigmoid(z) >= 0.5 and < 0.5, each
-PSI_RANGE_DEG = (20.0, 50.0)  # |ψ|, so the angle reads in B
-ARC_RADIUS = 0.4  # of s
+PSI_RANGE_DEG = (15.0, 90.0)  # |ψ|: below 15° the ψ arc in B is unreadable
+ARC_RADIUS = 0.5  # of s
 MIN_ARC_CLEARANCE = 0.1  # of s, from the ψ arc to the ellipse
 N_CANDIDATES = 5  # reported
 
@@ -112,15 +112,18 @@ TOKEN_GREY, TOKEN_LW = "#9A9A9A", 0.5
 CENTROID_GREY, CENTROID_D = "#888888", 1.0
 NEIGHBOUR_LW = 0.8
 EDGE_LW, EDGE_ALPHA = 0.5, 0.7
-VERTEX_COLOR, VERTEX_D = "#333333", 1.5
+VERTEX_COLOR, VERTEX_D, VERTEX_ALPHA = "#333333", 1.0, 0.8
 ORDER16_COLOR, ORDER16_LW = "#1F5FA8", 1.1
 ORDER1_COLOR, ORDER1_LW = "#7FB2E5", 0.9
-AXIS_LW = 0.6
+AXIS_LW, ARC_LW = 0.6, 0.8
+REFERENCE_LEN = 0.8  # of s, the horizontal ψ reference line
+PSI_LABEL_RADIUS = 0.65  # of s, the first radius tried for the ψ label
+LABEL_PAD_PT = 0.25  # labels keep this far from every line
 CALLOUT_COLOR, CALLOUT_LW = "#999999", 0.5
 SCALE_BAR_LW = 0.5  # black outline of the white bar
 TEXT_STROKE = 1.0  # black outline of white text (half of it shows)
 CMAP = "viridis"
-B_PAD = 0.2  # padding around the shape in B, of its extent
+B_PAD = 0.05  # padding around the shape in B, of its extent (room for the ψ label inside)
 
 # panel layout, cm
 CM = 1 / 2.54
@@ -244,7 +247,10 @@ def choose_nucleus(nuclei: pd.DataFrame, centroids: NDArray, polygons: NDArray, 
     return int(table["index"].iloc[0]), table
 
 
-def load_region() -> dict:
+def load_slide() -> dict:
+    """The slide's nuclei, logits, k-NN graph, the dataset's EFD features and the ranked
+    candidates for the highlighted nucleus.
+    """
     slides = pd.read_parquet(XAI_DIR / "slides.parquet").set_index("slide_id", drop=False)
     slide = slides.loc[SLIDE_ID]
     assert slide.split == "test"
@@ -274,8 +280,35 @@ def load_region() -> dict:
     pos = (centroids_um - centroids_um.mean(axis=0)).astype(np.float32)
     nbrs = NearestNeighbors(n_neighbors=K, metric="euclidean").fit(pos)
     knn_dist_all, knn_all = nbrs.kneighbors(pos)
-    query, candidates = choose_nucleus(nuclei, centroids_um, polygons_um, prob, knn_all)
-    knn, dist = knn_all[query], knn_dist_all[query]
+    _, candidates = choose_nucleus(nuclei, centroids_um, polygons_um, prob, knn_all)
+
+    # the dataset's own EFD features (the full-slide prediction sample)
+    sample = PredictionDataset(
+        metadata=pd.DataFrame([slide]).reset_index(drop=True),
+        embedding_mode="efd",
+        efd_order=EFD_ORDER,
+    )[0]
+    assert (sample["metadata"]["nuclei_ids"] == nuclei["id"].to_numpy()).all()
+    return {
+        "slide": slide,
+        "nuclei": nuclei,
+        "centroids": centroids_um,
+        "polygons": polygons_um,
+        "logits": logits,
+        "prob": prob,
+        "labels": index["label"].to_numpy(),
+        "knn": knn_all,
+        "knn_dist": knn_dist_all,
+        "candidates": candidates,
+        "dataset_features": sample["features"].numpy(),
+    }
+
+
+def region_for(sd: dict, rank: int) -> dict:
+    """The window around the candidate of this rank and everything drawn from it."""
+    slide, centroids_um, polygons_um, prob = sd["slide"], sd["centroids"], sd["polygons"], sd["prob"]
+    query = int(sd["candidates"]["index"].iloc[rank])
+    knn, dist = sd["knn"][query], sd["knn_dist"][query]
     assert knn[0] == query and dist[0] == 0.0
     # the neighbourhood is unambiguous (no tie at the k-th distance) and the same with
     # a KD-tree on the uncentred µm positions
@@ -304,27 +337,27 @@ def load_region() -> dict:
         (lx - 0.5) * slide.mpp_x, (rx - 0.5) * slide.mpp_x,
         (ry - 0.5) * slide.mpp_y, (ly - 0.5) * slide.mpp_y,
     )
-
-    labels = index["label"].to_numpy()
     return {
         "slide": slide,
-        "nuclei": nuclei,
+        "nuclei": sd["nuclei"],
+        "rank": rank,
         "x_um": x_um,
         "y_um": y_um,
         "window": window,
-        "candidates": candidates,
+        "candidates": sd["candidates"],
+        "dataset_features": sd["dataset_features"],
         "region": region,
         "centroids": centroids_um[region],
         "polygons": polygons_um[region],
         "prob": prob[region],
-        "labels": labels[region],
+        "labels": sd["labels"][region],
         "query": query,
         "knn": knn,
         "knn_dist": dist,
         "kth_gap_um": float(d_next[K] - d_next[K - 1]),
         "all_centroids": centroids_um,
         "all_polygons": polygons_um,
-        "logits": logits,
+        "logits": sd["logits"],
         "he": he,
         "he_extent": he_extent,
     }
@@ -357,14 +390,7 @@ def shape_encoding(r: dict) -> dict:
     extractor.efd_order = EFD_ORDER
     features = extractor.get_efd_features(polygon[None], slide.mpp_x, slide.mpp_y)[0]
 
-    dataset = PredictionDataset(
-        metadata=pd.DataFrame([slide]).reset_index(drop=True),
-        embedding_mode="efd",
-        efd_order=EFD_ORDER,
-    )
-    sample = dataset[0]
-    assert sample["metadata"]["nuclei_ids"][q] == r["nuclei"]["id"].iloc[q]
-    max_abs_diff = float(np.abs(features - sample["features"][q].numpy()).max())
+    max_abs_diff = float(np.abs(features - r["dataset_features"][q]).max())
     assert max_abs_diff < 1e-6, max_abs_diff
 
     coeffs = features[: 4 * EFD_ORDER].reshape(EFD_ORDER, 4).astype(np.float64)
@@ -399,23 +425,23 @@ def shape_encoding(r: dict) -> dict:
     # the order-1 ellipse reaches s along ±ψ and b perpendicular to it
     radii = np.linalg.norm(order1 - centre, axis=1)
     assert np.isclose(radii.max(), scale, rtol=1e-3) and np.isclose(radii.min(), minor_len, rtol=1e-3)
-    # the ψ arc stays inside the order-16 contour
-    t = np.linspace(0.0, psi, 64)
-    arc = centre + ARC_RADIUS * scale * np.stack([np.cos(t), np.sin(t)], axis=1)
-    arc_gap, _ = KDTree(order16).query(arc)
-    assert arc_gap.min() > 0.05 * scale, arc_gap.min()
+    # the semi-major axis ends exactly on the order-1 ellipse
+    on_ellipse, _ = KDTree(to_um(efd_curve(coeffs[:1], n=200_000))).query(centre + scale * major)
+    assert on_ellipse < 1e-3 * scale, on_ellipse
     return {
         "features": features,
         "vertices": vertices,
         "order16": order16,
         "order1": order1,
         "centre": centre,
+        "efd_centre_um": dc,
+        "centroid_um": centroid,
         "major": major,
         "minor_len": minor_len,
         "psi": psi,
         "scale_um": scale,
         "axis_ratio": scale / minor_len,
-        "arc_gap_to_contour_um": float(arc_gap.min()),
+        "axis_end_to_ellipse_um": float(on_ellipse),
         "dc_offset_um": float(np.linalg.norm(centre)),
         "recon_rms_um": rms,
         "recon_max_um": float(distance.max()),
@@ -470,8 +496,18 @@ def draw_he(ax: plt.Axes, r: dict, shape: dict) -> dict:
     return {"scale_text": text, "scale_bar_um": (x0, x1, y0, y1), "marker": marker}
 
 
+class LayoutError(ValueError):
+    """Element B cannot be annotated cleanly for this nucleus."""
+
+
 def draw_efd(ax: plt.Axes, r: dict, shape: dict, text_h_cm: float) -> dict:
-    """The shape in µm around the centroid; the plot above the two lines of text."""
+    """The shape in µm around the centroid; the plot above the two lines of text.
+
+    The order-1 ellipse, its axes, the ψ reference and arc are centred at the EFD
+    constant terms (A0, C0). Raises LayoutError if the ψ arc meets the contour or a label
+    has no position that keeps LABEL_PAD_PT from every line (and, for ψ, lies inside the
+    order-16 outline).
+    """
     frame(ax)
     curves = np.vstack([shape["vertices"], shape["order16"], shape["order1"], [shape["centre"]]])
     lo, hi = curves.min(axis=0), curves.max(axis=0)
@@ -487,31 +523,37 @@ def draw_efd(ax: plt.Axes, r: dict, shape: dict, text_h_cm: float) -> dict:
     ax.set_ylim(top + h_cm * um_per_cm, top)  # y down, as in the slide
     ax.set_aspect("auto")  # equal by construction: the same µm per cm on both axes
 
-    closed = np.vstack
-    ax.plot(*closed([shape["order1"], shape["order1"][:1]]).T, color=ORDER1_COLOR, lw=ORDER1_LW,
-            ls=(0, (3, 2)), zorder=2)
-    ax.plot(*closed([shape["order16"], shape["order16"][:1]]).T, color=ORDER16_COLOR,
-            lw=ORDER16_LW, zorder=3)
-    ax.scatter(*shape["vertices"].T, s=VERTEX_D**2, c=VERTEX_COLOR, lw=0, zorder=4)
+    def closed(curve: NDArray) -> NDArray:
+        return np.vstack([curve, curve[:1]])
+
+    # ellipse (dashed) under the vertices, the order-16 curve on top of them
+    ax.plot(*closed(shape["order1"]).T, color=ORDER1_COLOR, lw=ORDER1_LW, ls=(0, (3, 2)), zorder=2)
+    ax.scatter(*shape["vertices"].T, s=VERTEX_D**2, c=VERTEX_COLOR, alpha=VERTEX_ALPHA, lw=0, zorder=3)
+    ax.plot(*closed(shape["order16"]).T, color=ORDER16_COLOR, lw=ORDER16_LW, zorder=4)
 
     # semi-major axis (solid), semi-minor axis (dotted), the horizontal reference
-    # (dotted) and the ψ arc between it and the major axis
+    # (dotted) and the ψ arc between it and the major axis, all from (A0, C0)
     c, u, psi, s = shape["centre"], shape["major"], shape["psi"], shape["scale_um"]
     v = np.array([-u[1], u[0]])
     wedge = np.array([1.0, 0.0]) + u  # bisector of the ψ wedge
-    if v @ wedge > 0:  # the minor axis on the side away from the wedge
+    if v @ wedge > 0:  # the minor axis and the s label on the side away from the wedge
         v = -v
-    t = np.linspace(0.0, psi, 64)
+    t = np.linspace(0.0, psi, 128)
     guides = {
         "major": np.stack([c, c + s * u]),
         "minor": np.stack([c, c + shape["minor_len"] * v]),
-        "reference": np.stack([c, c + (ARC_RADIUS + 0.35) * s * np.array([1.0, 0.0])]),
+        "reference": np.stack([c, c + REFERENCE_LEN * s * np.array([1.0, 0.0])]),
         "arc": c + ARC_RADIUS * s * np.stack([np.cos(t), np.sin(t)], axis=1),
     }
-    ax.plot(*guides["major"].T, color=ORDER16_COLOR, lw=AXIS_LW, zorder=3)
-    ax.plot(*guides["minor"].T, color=ORDER16_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=3)
-    ax.plot(*guides["reference"].T, color=VERTEX_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=3)
-    ax.plot(*guides["arc"].T, color=VERTEX_COLOR, lw=AXIS_LW, zorder=3)
+    ax.plot(*guides["major"].T, color=ORDER16_COLOR, lw=AXIS_LW, zorder=5)
+    ax.plot(*guides["minor"].T, color=ORDER16_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=5)
+    ax.plot(*guides["reference"].T, color=ORDER16_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=5)
+    ax.plot(*guides["arc"].T, color=ORDER16_COLOR, lw=ARC_LW, zorder=5)
+
+    outline = mpl.path.Path(closed(shape["order16"]))
+    arc_gap, _ = KDTree(shape["order16"]).query(guides["arc"])
+    if arc_gap.min() < MIN_ARC_CLEARANCE * s or not outline.contains_points(guides["arc"][1:-1]).all():
+        raise LayoutError("ψ arc meets the contour")
 
     # everything a label must keep clear of, densely sampled (µm)
     def dense(line: NDArray) -> NDArray:
@@ -519,51 +561,49 @@ def draw_efd(ax: plt.Axes, r: dict, shape: dict, text_h_cm: float) -> dict:
         return np.concatenate([a + steps * (b - a) for a, b in zip(line[:-1], line[1:], strict=True)])
 
     obstacles = np.vstack([
-        dense(closed([shape["order16"], shape["order16"][:1]])),
-        dense(closed([shape["order1"], shape["order1"][:1]])),
-        shape["vertices"], *(dense(g) for g in guides.values()),
+        dense(closed(shape["order16"])), dense(closed(shape["order1"])), shape["vertices"],
+        *(dense(g) for g in guides.values()),
     ])
     renderer = ax.figure.canvas.get_renderer()
     frame_box = ax.get_window_extent(renderer)
+    pad_px = LABEL_PAD_PT * ax.figure.dpi / 72
 
-    def place(text: str, color: str, positions: list[NDArray], placed: list) -> plt.Text:
-        """The first position whose text box (padded by 1 pt) clears every obstacle and
-        every label placed before."""
-        pad = ax.figure.dpi / 72
+    def place(text: str, positions: list[NDArray], placed: list, in_outline: bool) -> plt.Text:
+        """The first position whose text box, padded by LABEL_PAD_PT, clears every line
+        and every label placed before (and lies inside the outline if asked).
+        """
         px = ax.transData.transform(obstacles)
+        to_data = ax.transData.inverted()
         for xy in positions:
             label = ax.text(*xy, text, ha="center", va="center", fontsize=SMALL_FONT_SIZE,
-                            color=color, zorder=6)
-            box = label.get_window_extent(renderer).padded(pad)
+                            color=ORDER16_COLOR, zorder=6)
+            box = label.get_window_extent(renderer).padded(pad_px)
             free = not ((px[:, 0] > box.x0) & (px[:, 0] < box.x1)
                         & (px[:, 1] > box.y0) & (px[:, 1] < box.y1)).any()
             inside = frame_box.contains(box.x0, box.y0) and frame_box.contains(box.x1, box.y1)
-            if free and inside and not any(box.overlaps(p.get_window_extent(renderer)) for p in placed):
+            corners = to_data.transform([[box.x0, box.y0], [box.x1, box.y0], [box.x0, box.y1], [box.x1, box.y1]])
+            enclosed = outline.contains_points(corners).all() if in_outline else True
+            if free and inside and enclosed and not any(
+                box.overlaps(p.get_window_extent(renderer)) for p in placed
+            ):
                 return label
             label.remove()
-        raise ValueError(f"no free position for {text}")
+        raise LayoutError(f"no free position for {text}")
 
-    # "s" beside the middle of the major axis, on the side away from the wedge; "ψ" on
-    # the wedge's bisector beyond the arc; both as close as they fit, inside the
-    # nucleus if there is room, else just outside it
-    s_label = place("$s$", ORDER16_COLOR,
-                    [c + 0.5 * s * u + d * s * v for d in np.arange(0.15, 1.5, 0.02)], [])
-    # ψ: in the wedge beyond the arc; else next to the arc's start, on the other side of
-    # the reference line; else further out along the bisector
+    # ψ at the arc's angular midpoint, just outside the arc, inside the outline
     mid = np.array([np.cos(psi / 2), np.sin(psi / 2)])
-    side = -np.sign(psi)  # away from the wedge, across the reference line
-    wedge_spots = [c + d * s * mid for d in np.arange(ARC_RADIUS + 0.12, 0.95, 0.02)]
-    start_spots = [
-        c + d * s * np.array([np.cos(a), np.sin(a)])
-        for d in np.arange(ARC_RADIUS + 0.05, 0.9, 0.03)
-        for a in side * np.radians(np.arange(12.0, 50.0, 4.0))
-    ]
-    outer_spots = [c + d * s * mid for d in np.arange(0.95, 2.0, 0.02)]
-    psi_label = place("$\\psi$", VERTEX_COLOR, wedge_spots + start_spots + outer_spots, [s_label])
+    psi_label = place("$\\psi$", [c + d * s * mid for d in np.arange(PSI_LABEL_RADIUS, 1.2, 0.01)],
+                      [], in_outline=True)
+    # s beside the middle of the major axis, offset perpendicular to it, away from the arc
+    s_label = place("$s$", [c + 0.5 * s * u + d * s * v for d in np.arange(0.08, 1.5, 0.01)],
+                    [psi_label], in_outline=False)
     text = ax.text(0.5, 0.03, B_TEXT, transform=ax.transAxes, ha="center", va="bottom",
                    ma="center", fontsize=SMALL_FONT_SIZE, linespacing=1.15)
+    data_per_s = np.linalg.norm(np.array(psi_label.get_position()) - c) / s
     return {"text": text, "s_label": s_label, "psi_label": psi_label, "um_per_cm": um_per_cm,
-            "curves_um": curves, "obstacles_um": obstacles, "guides": guides}
+            "curves_um": curves, "obstacles_um": obstacles, "guides": guides,
+            "psi_label_radius_s": float(data_per_s), "arc_gap_to_contour_um": float(arc_gap.min()),
+            "outline": outline}
 
 
 def draw_tokens(ax: plt.Axes, r: dict, shape: dict) -> dict:
@@ -609,20 +649,38 @@ def text_size_cm(texts: dict[str, str], fontsize: float) -> dict[str, tuple[floa
     return sizes
 
 
-def draw_panel(r: dict, shape: dict) -> tuple[plt.Figure, dict]:
+def panel_geometry() -> dict:
+    """Element sizes, gaps and the panel height (cm), from the text sizes alone."""
     captions = text_size_cm(CAPTIONS, FONT_SIZE)
     labels = text_size_cm(ARROW_LABELS, SMALL_FONT_SIZE)
-    b_text_h = text_size_cm({"b": B_TEXT}, SMALL_FONT_SIZE)["b"][1] + 0.12
-
     gaps = {"A->B": AB_GAP}
     gaps |= {name: labels[name][0] + 2 * MIN_LABEL_CLEARANCE + 0.02 for name in ARROW_LABELS}
     lead = 0.0
     for _ in range(3):  # the row starts far enough in for the first caption
         side = (PANEL_W - 2 * EDGE - lead - CBAR_BLOCK - B_W - sum(gaps.values())) / 3
         lead = max(0.0, (captions["A"][0] - side) / 2 + 0.01)
-    widths = {"A": side, "B": B_W, "C": side, "D": side}
     caption_h = max(h for _, h in captions.values())
-    height = TOP + caption_h + CAPTION_PAD + side + BOTTOM
+    return {
+        "side": side, "lead": lead, "gaps": gaps,
+        "widths": {"A": side, "B": B_W, "C": side, "D": side},
+        "height": TOP + caption_h + CAPTION_PAD + side + BOTTOM,
+        "b_text_h": text_size_cm({"b": B_TEXT}, SMALL_FONT_SIZE)["b"][1] + 0.12,
+    }
+
+
+def try_b(r: dict, shape: dict, geo: dict) -> None:
+    """Lays out element B alone at its panel size; raises LayoutError if it does not fit."""
+    fig = plt.figure(figsize=(B_W * CM, geo["side"] * CM))
+    try:
+        draw_efd(fig.add_axes((0, 0, 1, 1)), r, shape, geo["b_text_h"])
+    finally:
+        plt.close(fig)
+
+
+def draw_panel(r: dict, shape: dict) -> tuple[plt.Figure, dict]:
+    geo = panel_geometry()
+    side, lead, gaps, widths, height = geo["side"], geo["lead"], geo["gaps"], geo["widths"], geo["height"]
+    b_text_h = geo["b_text_h"]
     bottom, mid = BOTTOM, BOTTOM + side / 2
 
     fig = plt.figure(figsize=(PANEL_W * CM, height * CM), facecolor="white")
@@ -779,8 +837,14 @@ def panel_checks(fig: plt.Figure, items: dict, r: dict, shape: dict) -> dict:
     y_scale = -np.diff(b_ax.transData.transform([[0, 0], [0, 1]]), axis=0)[0, 1]
     assert np.isclose(x_scale, y_scale), "B not equal aspect"
     obstacles_px = b_ax.transData.transform(b_extras["obstacles_um"])
+    pad_px = LABEL_PAD_PT * fig.dpi / 72
+    psi_box = b_extras["psi_label"].get_window_extent(renderer)
+    corners = b_ax.transData.inverted().transform(
+        [[psi_box.x0, psi_box.y0], [psi_box.x1, psi_box.y0], [psi_box.x0, psi_box.y1], [psi_box.x1, psi_box.y1]]
+    )
+    assert b_extras["outline"].contains_points(corners).all(), "B ψ label outside the outline"
     for key in ("s_label", "psi_label"):
-        t = b_extras[key].get_window_extent(renderer)
+        t = b_extras[key].get_window_extent(renderer).padded(pad_px)
         hit = ((obstacles_px[:, 0] > t.x0) & (obstacles_px[:, 0] < t.x1)
                & (obstacles_px[:, 1] > t.y0) & (obstacles_px[:, 1] < t.y1))
         assert not hit.any(), f"B {key} on a line"
@@ -839,7 +903,7 @@ def save_elements(r: dict, shape: dict, items: dict) -> None:
         fig = plt.figure(figsize=(w * CM, side * CM), facecolor="white")
         ax = fig.add_axes((0, 0, 1, 1))
         if name == "B":
-            draw_efd(ax, r, shape, text_size_cm({"b": B_TEXT}, SMALL_FONT_SIZE)["b"][1] + 0.12)
+            draw_efd(ax, r, shape, panel_geometry()["b_text_h"])
         else:
             {"A": draw_he, "C": draw_tokens, "D": draw_heatmap}[name](ax, r, shape)
         fig.savefig(OUT_DIR / f"{FILES[name]}.pdf", facecolor="white")
@@ -861,8 +925,21 @@ def main() -> None:
             "pdf.fonttype": 42,
         }
     )
-    r = load_region()
-    shape = shape_encoding(r)
+    sd = load_slide()
+    geo = panel_geometry()
+    skipped = []
+    for rank in range(len(sd["candidates"])):
+        r = region_for(sd, rank)
+        shape = shape_encoding(r)
+        try:
+            try_b(r, shape, geo)
+        except LayoutError as e:
+            skipped.append({"rank": rank, "nucleus_id": str(r["nuclei"]["id"].iloc[r["query"]]),
+                            "psi_deg": float(np.degrees(shape["psi"])), "reason": str(e)})
+            continue
+        break
+    else:
+        raise LayoutError("no candidate fits element B")
     panel, items = draw_panel(r, shape)
     checks = data_checks(items, r)
     checks["panel"] = panel_checks(panel, items, r, shape)
@@ -912,6 +989,8 @@ def main() -> None:
             },
             "ranking": "kNN balance desc, |axis ratio - 2.5| asc, window imbalance asc, margin desc",
             "top": json.loads(r["candidates"].head(N_CANDIDATES).to_json(orient="records")),
+            "chosen_rank": r["rank"],
+            "skipped_for_element_b": skipped,
         },
         "shape_encoding": {
             "efd_order": EFD_ORDER,
@@ -921,9 +1000,15 @@ def main() -> None:
             "scale_um": shape["scale_um"],
             "axis_ratio": shape["axis_ratio"],
             "sigmoid_z": float(1.0 / (1.0 + np.exp(-r["logits"][q]))),
-            "arc_gap_to_contour_um": shape["arc_gap_to_contour_um"],
-            "efd_centre_to_centroid_um": shape["dc_offset_um"],
-            "features": [float(v) for v in shape["features"]],
+            "efd_centre_A0_C0_um": [float(v) for v in shape["efd_centre_um"]],
+            "stored_centroid_um": [float(v) for v in shape["centroid_um"]],
+            "efd_centre_to_centroid_distance_um": shape["dc_offset_um"],
+            "axis_end_to_ellipse_um": shape["axis_end_to_ellipse_um"],
+            "ellipse_points": 2048,
+            "arc_radius_s": ARC_RADIUS,
+            "arc_gap_to_contour_um": items["extras"]["B"]["arc_gap_to_contour_um"],
+            "psi_label_radius_s": items["extras"]["B"]["psi_label_radius_s"],
+                "features": [float(v) for v in shape["features"]],
             "max_abs_diff_to_dataset": shape["max_abs_diff_dataset"],
             "order16_rms_to_polygon_um": shape["recon_rms_um"],
             "order16_max_distance_um": shape["recon_max_um"],
