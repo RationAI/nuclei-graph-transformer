@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+heatmap_uri: ${dataset.mlflow_uris.masks.annotation.merged.carcinoma}
+metadata_uris:
+  - ${dataset.mlflow_uris.exploration}
+exclude_slides_uris: null
+splits: [train, valid]
+overlap_threshold: 1.0 # nucleus fully inside the annotation (sparse positives)
+positive_threshold: 0.0 # annotation masks are binary
+label_column: annot_label
+nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_batch_name: cervix # slides live in `slides/`, nuclei in `nuclei_seg/cervix/`
+output_path: ${dataset.paths.supervision.annotation}
+
+metadata:
+  run_name: "🏷️ Nuclei Annotation-based Labeling: ${dataset.name}"
+  description: |
+    Nuclei labels from the merged *carcinoma* (malignant + high grade) annotation masks.
+    Annotations are non-exhaustive, so only `annot_label == 1` is meant to be used as
+    supervision in positive slides (`data/supervision=annotation_sparse`).
+  hyperparams:
+    splits: ${splits}

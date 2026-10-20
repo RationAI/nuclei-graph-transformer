@@ -9,6 +9,7 @@ mask_tile_height: ${dataset.mask_tile_height}
 visualization_mode: ???
 level: 2  # 1 µm/px
 max_concurrent: 1
+slide_memory_gb: 16  # Ray memory reserved per slide (default 90 for level-0 masks)
 heatmap_labels_dir: null
 label_column: null
 cam_labels_dir: null

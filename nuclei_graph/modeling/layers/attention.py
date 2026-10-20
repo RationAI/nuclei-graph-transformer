@@ -53,7 +53,6 @@ class RotarySparseAttention(nn.Module):
 
     def forward(self, x: Tensor, pos: Tensor, block_mask: BlockMask | None) -> Tensor:
         if self.context == "none":
-            # Self-only attention: no interaction between nuclei, RoPE cancels (q, k share a position)
             w_v = self.qkv.weight[2 * x.shape[-1] :]
             return self.wo(F.linear(x, w_v))
 
@@ -72,8 +71,6 @@ class RotarySparseAttention(nn.Module):
         if isinstance(x_out, tuple):
             x_out = x_out[0]
         if self.rope is not None and self.rotate_v:
-            # Σⱼ A_ij R(p_j) P v_j -> Σⱼ A_ij R(p_j − p_i) P v_j: depends only on relative
-            # positions; P is not undone, wo absorbs it
             x_out = self.rope.rotate(x_out, pos, inverse=True)
         x = rearrange(x_out, "b h n d -> b n (h d)")
 
@@ -81,12 +78,7 @@ class RotarySparseAttention(nn.Module):
 
 
 class RelativePositionValueAttention(nn.Module):
-    """Vector attention with relative-position info routed into V.
-
-    Following Point Transformer's vector self-attention formulation.
-    Not usable with flex_attention's fused kernel. Uses an explicit
-    gather over precomputed k-NN neighbor indices instead.
-    """
+    """Vector attention with relative-position info routed into V."""
 
     def __init__(self, dim: int, num_heads: int, mlp_hidden: int = 64) -> None:
         super().__init__()
@@ -136,7 +128,7 @@ class RelativePositionValueAttention(nn.Module):
         scores = scores.masked_fill(~neighbor_mask.view(1, 1, n, -1), float("-inf"))
 
         attn = torch.softmax(scores, dim=-1)
-        attn = torch.nan_to_num(attn, nan=0.0)  # guard: fully-masked (padded) rows
+        attn = torch.nan_to_num(attn, nan=0.0)
 
         out = torch.einsum("bhnk,bhnkd->bhnd", attn, v_ij)
         out = rearrange(out, "b h n d -> b n (h d)")

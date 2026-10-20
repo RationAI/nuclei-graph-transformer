@@ -7,7 +7,8 @@ Each nucleus is assigned label 1 if the fraction of its polygon vertices
 falling inside the thresholded heatmap (intensity > `positive_threshold`)
 is ≥ `overlap_threshold`, otherwise 0.
 
-The labels are stored only for slides that have a heatmap.
+The labels are stored only for slides that have a heatmap (optionally restricted
+to the `splits` given by the metadata's `split` column).
 """
 
 from pathlib import Path
@@ -31,14 +32,15 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 def label_slide(
     slide_path: Path,
     nuclei_dir: Path,
+    nuclei_batch_name: str | None,
     heatmaps_dir: Path,
     output_dir: Path,
     label_column: str,
     overlap_thr: float,
     positive_thr: float,
 ) -> None:
-    dataset_name = slide_path.parents[0].name
-    nuclei_path = nuclei_dir / dataset_name / f"slide_id={slide_path.stem}"
+    batch_name = nuclei_batch_name or slide_path.parents[0].name
+    nuclei_path = nuclei_dir / batch_name / f"slide_id={slide_path.stem}"
     nuclei = pd.read_parquet(nuclei_path, columns=["id", "polygon"]).sort_values("id")
     nuclei["slide_id"] = slide_path.stem
 
@@ -79,6 +81,8 @@ def uris2df(uris: list[str] | None) -> pd.DataFrame:
 def main(config: DictConfig, _: MLFlowLogger) -> None:
     heatmaps_dir = download_artifacts(config.heatmap_uri)
     slides = uris2df(config.metadata_uris)
+    if config.splits is not None:
+        slides = slides[slides["split"].isin(config.splits)]
     exclude_slides = uris2df(config.exclude_slides_uris)
     heatmap_stems = {p.stem for p in Path(heatmaps_dir).glob("*.tiff")}
     valid_mask = slides["slide_path"].map(lambda p: Path(p).stem in heatmap_stems) & (
@@ -90,6 +94,7 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
         process_item=label_slide,
         fn_kwargs={
             "nuclei_dir": Path(config.nuclei_path),
+            "nuclei_batch_name": config.nuclei_batch_name,
             "heatmaps_dir": Path(heatmaps_dir),
             "output_dir": Path(config.output_path),
             "label_column": config.label_column,

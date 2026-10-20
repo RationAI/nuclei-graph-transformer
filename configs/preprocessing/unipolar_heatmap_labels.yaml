@@ -3,10 +3,14 @@
 heatmap_uri: ???
 metadata_uris: ???
 exclude_slides_uris: null
+splits: null # restrict to these values of the metadata `split` column (null = all)
 overlap_threshold: ???
 positive_threshold: ??? # in [0, 1]
 label_column: ???
 max_concurrent: 6
+# Subfolder of `nuclei_path` holding the slides' nuclei (the segmentation `batch_name`);
+# defaults to the name of the slide's parent folder.
+nuclei_batch_name: null
 output_path: ???
 
 metadata:
