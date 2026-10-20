@@ -6,7 +6,8 @@ One row, left to right, top-aligned, of a PANDA Radboud test slide:
     the nucleus to B,
 (B) the highlighted nucleus's shape encoding in µm and its true orientation: the 64
     polygon vertices, the order-16 EFD reconstruction, the order-1 ellipse with its
-    semi-major axis s and the angle ψ; the EFD is `NucleiFeatureExtractor.
+    semi-major axis s (solid), semi-minor axis (dotted) and the angle ψ from the
+    horizontal (dotted reference, arc); the EFD is `NucleiFeatureExtractor.
     get_efd_features` (order 16, checked against the dataset's feature vector), with
     the normalisation inverted for display (scaled by s, rotated by ψ, shifted to the
     EFD centre),
@@ -16,10 +17,23 @@ One row, left to right, top-aligned, of a PANDA Radboud test slide:
     positions, the nucleus itself included),
 (D) the polygons filled by sigmoid(z_i), the explained model's stored test logit
     (`xai/<run>/activations/test/logits.npy`, no inference is run), with its colorbar.
-A, C and D show the same window and only the nuclei whose centroid lies in it. The
-window (WINDOW_UM wide) keeps the nucleus at least MIN_MARGIN_UM from every edge and
-holds at least MIN_BENIGN of nuclei with sigmoid(z) < 0.5; of those windows, the one
-with the largest margin.
+
+The highlighted nucleus (`choose_nucleus`) is elongated, mid-sized, cleanly segmented
+and at a gland-stroma boundary: order-1 axis ratio in RATIO_RANGE, s between the
+slide's S_PERCENTILES, solidity >= MIN_SOLIDITY, no overlap with other polygons, at
+least MIN_KNN_EACH of its 23 neighbours on each side of sigmoid(z) = 0.5, and a window
+as below. For a readable ψ in B, |ψ| in PSI_RANGE_DEG and the ψ arc (ARC_RADIUS · s)
+at least MIN_ARC_CLEARANCE · s inside the ellipse. Ranked by the kNN balance, the
+axis ratio's distance to RATIO_TARGET, the window's balance and its margin.
+
+A, C and D show the same window and only the nuclei whose centroid lies in it: the
+WINDOW_UM square that keeps the nucleus at least MIN_MARGIN_UM from every edge, holds
+its 23 neighbours and at least MIN_CLASS_SHARE of nuclei on each side of sigmoid(z) =
+0.5; of those, the one with the largest margin, then the most balanced.
+
+ψ is the angle of the semi-major axis in image coordinates (x right, y down), taken
+modulo 180° (the model sees cos 2ψ, sin 2ψ) in (-90°, 90°]: positive is clockwise on
+screen, i.e. the axis points down to the right.
 
 The panel is drawn at its print size (16 cm wide, fonts in pt) and exported unscaled:
 the elements are drawn in µm directly into the panel, so line widths and marker sizes
@@ -44,6 +58,7 @@ import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pandas as pd
+import shapely
 from matplotlib.collections import PolyCollection
 from matplotlib.patches import FancyArrowPatch, Rectangle
 from matplotlib.transforms import Bbox
@@ -54,20 +69,35 @@ from sklearn.neighbors import NearestNeighbors
 
 from nuclei_graph.data.datasets.crop.prediction import PredictionDataset
 from nuclei_graph.data.datasets.nuclei_features import NucleiFeatureExtractor
+from nuclei_graph.data.efd import (
+    elliptic_fourier_descriptors,
+    normalize_efd_for_rotation,
+    normalize_efd_for_scale,
+)
 
 
 MODEL_RUN_ID = "c8f268536be8416f9fe395eea95c458e"  # Radboud, k=24: Polygons + RoVE + k-NN Attn
 PANEL_RUN_ID = "21b298d40aa84d268093bd24edbf5665"  # "Thesis figure: architecture panel (a)"
 XAI_DIR = Path("/mnt/projects/nuclei_based_wsi_analysis/xai") / MODEL_RUN_ID
 SLIDE_ID = "89b62c165838d36fd294a57624db8e4f"  # PANDA Radboud test, Gleason 4+3
-QUERY_ID = "4ef1e93f727351ac9492621292c45531f91d7548252fa727cf6523fef0e75a65"
-QUERY_CENTROID_UM = (389.3, 2598.1)
 K = 24  # as in training and in the activation run
 EFD_ORDER = 16
 
+# the highlighted nucleus
+RATIO_RANGE = (2.0, 3.0)  # semi-major / semi-minor of the order-1 ellipse
+RATIO_TARGET = 2.5
+S_PERCENTILES = (40, 90)  # of the slide's semi-major axes s
+MIN_SOLIDITY = 0.9
+OVERLAP_UM2 = 1e-6  # intersection area that counts as an overlap
+MIN_KNN_EACH = 5  # neighbours with sigmoid(z) >= 0.5 and < 0.5, each
+PSI_RANGE_DEG = (20.0, 50.0)  # |ψ|, so the angle reads in B
+ARC_RADIUS = 0.4  # of s
+MIN_ARC_CLEARANCE = 0.1  # of s, from the ψ arc to the ellipse
+N_CANDIDATES = 5  # reported
+
 WINDOW_UM = 130.0
 MIN_MARGIN_UM = 40.0  # highlighted nucleus to every window edge
-MIN_BENIGN = 0.30  # share of window nuclei with sigmoid(z) < 0.5 (target 0.25, with slack)
+MIN_CLASS_SHARE = 0.25  # of the window's nuclei on each side of sigmoid(z) = 0.5
 WINDOW_STEP_UM = 1.0
 
 SCALE_BAR_UM = 25.0
@@ -122,27 +152,96 @@ FILES = {"A": "a_he", "B": "b_efd", "C": "c_tokens", "D": "d_logits"}
 OUT_DIR = Path("figures/arch_panel_a")
 
 
-def choose_window(centroids: NDArray, prob: NDArray, q: int) -> dict:
-    """The WINDOW_UM square: nucleus q at least MIN_MARGIN_UM from every edge, at least
-    MIN_BENIGN of its nuclei with sigmoid(z) < 0.5, then the largest margin (then the
-    largest benign share).
+def choose_window(centroids: NDArray, prob: NDArray, q: int, knn: NDArray) -> dict | None:
+    """The WINDOW_UM square around nucleus q, or None.
+
+    q at least MIN_MARGIN_UM from every edge, its k-NN inside, at least MIN_CLASS_SHARE of
+    the nuclei on each side of sigmoid(z) = 0.5; then the largest margin, then the most
+    balanced.
     """
     cq = centroids[q]
+    near = np.flatnonzero(np.abs(centroids - cq).max(axis=1) < WINDOW_UM)
+    c, pr = centroids[near], prob[near]
+    knn_c = centroids[knn]
     best = None
     offsets = np.arange(MIN_MARGIN_UM, WINDOW_UM - MIN_MARGIN_UM + 1e-9, WINDOW_STEP_UM)
     for dx in offsets:
         for dy in offsets:
             x0, y0 = cq[0] - dx, cq[1] - dy
-            inside = (
-                (centroids[:, 0] >= x0) & (centroids[:, 0] < x0 + WINDOW_UM)
-                & (centroids[:, 1] >= y0) & (centroids[:, 1] < y0 + WINDOW_UM)
-            )
-            benign = float((prob[inside] < 0.5).mean())
+            if not ((knn_c >= [x0, y0]) & (knn_c < [x0 + WINDOW_UM, y0 + WINDOW_UM])).all():
+                continue
+            inside = (c[:, 0] >= x0) & (c[:, 0] < x0 + WINDOW_UM) & (c[:, 1] >= y0) & (c[:, 1] < y0 + WINDOW_UM)
+            low = float((pr[inside] < 0.5).mean())
+            if min(low, 1 - low) < MIN_CLASS_SHARE:
+                continue
             margin = float(min(dx, dy, WINDOW_UM - dx, WINDOW_UM - dy))
-            if benign >= MIN_BENIGN and (best is None or (margin, benign) > (best["margin"], best["benign"])):
-                best = {"x0": float(x0), "y0": float(y0), "margin": margin, "benign": benign}
-    assert best is not None, "no window meets the criteria"
+            key = (margin, min(low, 1 - low))
+            if best is None or key > (best["margin"], best["balance"]):
+                best = {"x0": float(x0), "y0": float(y0), "margin": margin, "balance": key[1],
+                        "share_below_0.5": low, "n": int(inside.sum())}
     return best
+
+
+def choose_nucleus(nuclei: pd.DataFrame, centroids: NDArray, polygons: NDArray, prob: NDArray,
+                   knn: NDArray) -> tuple[int, pd.DataFrame]:
+    """The highlighted nucleus (see the module docstring) and the top candidates."""
+    coeffs = elliptic_fourier_descriptors(polygons.astype(np.float64), 1)
+    coeffs, psi = normalize_efd_for_rotation(coeffs)
+    coeffs, scale = normalize_efd_for_scale(coeffs)
+    ratio = 1.0 / np.abs(coeffs[:, 0, 3])
+    scale = scale[:, 0]
+    psi_deg = np.degrees(0.5 * np.arctan2(np.sin(2 * psi[:, 0]), np.cos(2 * psi[:, 0])))
+    s_lo, s_hi = np.percentile(scale, S_PERCENTILES)
+    shapes = shapely.polygons(polygons)
+    solidity = shapely.area(shapes) / shapely.area(shapely.convex_hull(shapes))
+    high = (prob[knn[:, 1:]] >= 0.5).sum(axis=1)
+    low = (K - 1) - high
+
+    # ψ arc of radius ARC_RADIUS · s from the horizontal to the axis, against the ellipse
+    theta = np.radians(np.linspace(0.0, 1.0, 64))[None] * np.abs(psi_deg)[:, None]
+    ellipse_r = 1.0 / np.sqrt(np.cos(theta) ** 2 + (ratio[:, None] * np.sin(theta)) ** 2)
+    arc_clearance = ellipse_r.min(axis=1) - ARC_RADIUS
+
+    hard = (
+        (ratio >= RATIO_RANGE[0]) & (ratio <= RATIO_RANGE[1])
+        & (scale >= s_lo) & (scale <= s_hi)
+        & (solidity >= MIN_SOLIDITY)
+        & (high >= MIN_KNN_EACH) & (low >= MIN_KNN_EACH)
+    )
+    readable = (
+        (np.abs(psi_deg) >= PSI_RANGE_DEG[0]) & (np.abs(psi_deg) <= PSI_RANGE_DEG[1])
+        & (arc_clearance >= MIN_ARC_CLEARANCE)
+    )
+    tree = shapely.STRtree(shapes)
+    rows = []
+    for q in np.flatnonzero(hard & readable):
+        touching = [j for j in tree.query(shapes[q]) if j != q]
+        if any(shapely.intersection(shapes[q], shapes[j]).area > OVERLAP_UM2 for j in touching):
+            continue
+        window = choose_window(centroids, prob, q, knn[q])
+        if window is None:
+            continue
+        rows.append({
+            "index": int(q), "nucleus_id": str(nuclei["id"].iloc[q]),
+            "centroid_um": [round(float(v), 2) for v in centroids[q]],
+            "axis_ratio": float(ratio[q]), "s_um": float(scale[q]), "psi_deg": float(psi_deg[q]),
+            "solidity": float(solidity[q]), "sigmoid_z": float(prob[q]),
+            "knn_high": int(high[q]), "knn_low": int(low[q]), "arc_clearance_s": float(arc_clearance[q]),
+            "window_margin_um": window["margin"], "window_share_below_0.5": window["share_below_0.5"],
+            "window_n": window["n"],
+        })
+    table = pd.DataFrame(rows)
+    assert len(table), "no nucleus meets the criteria"
+    table["knn_balance"] = table[["knn_high", "knn_low"]].min(axis=1)
+    table["ratio_distance"] = (table["axis_ratio"] - RATIO_TARGET).abs()
+    table["window_imbalance"] = (table["window_share_below_0.5"] - 0.5).abs()
+    table = table.sort_values(
+        ["knn_balance", "ratio_distance", "window_imbalance", "window_margin_um"],
+        ascending=[False, True, True, False],
+    ).reset_index(drop=True)
+    table.attrs = {"s_percentiles_um": [float(s_lo), float(s_hi)], "n_hard": int(hard.sum()),
+                   "n_hard_and_readable": int((hard & readable).sum()), "n_eligible": len(table)}
+    return int(table["index"].iloc[0]), table
 
 
 def load_region() -> dict:
@@ -171,14 +270,12 @@ def load_region() -> dict:
     logits = np.asarray(logits_all[slide.offset : slide.offset + slide.n_nuclei], dtype=np.float64)
     prob = 1.0 / (1.0 + np.exp(-logits))
 
-    query = int(np.flatnonzero(nuclei["id"].to_numpy() == QUERY_ID)[0])
-    assert np.allclose(centroids_um[query], QUERY_CENTROID_UM, atol=0.05)
-
     # as GraphCollator: k-NN over the whole slide, on the dataset's centred positions
     pos = (centroids_um - centroids_um.mean(axis=0)).astype(np.float32)
     nbrs = NearestNeighbors(n_neighbors=K, metric="euclidean").fit(pos)
-    dist, knn = nbrs.kneighbors(pos[[query]])
-    knn, dist = knn[0], dist[0]
+    knn_dist_all, knn_all = nbrs.kneighbors(pos)
+    query, candidates = choose_nucleus(nuclei, centroids_um, polygons_um, prob, knn_all)
+    knn, dist = knn_all[query], knn_dist_all[query]
     assert knn[0] == query and dist[0] == 0.0
     # the neighbourhood is unambiguous (no tie at the k-th distance) and the same with
     # a KD-tree on the uncentred µm positions
@@ -187,7 +284,8 @@ def load_region() -> dict:
     _, knn_tree = KDTree(centroids_um).query(centroids_um[query], k=K)
     assert set(knn_tree) == set(knn)
 
-    window = choose_window(centroids_um, prob, query)
+    window = choose_window(centroids_um, prob, query, knn)
+    assert window is not None
     x_um = (window["x0"], window["x0"] + WINDOW_UM)
     y_um = (window["y0"], window["y0"] + WINDOW_UM)
     inside = (
@@ -214,6 +312,7 @@ def load_region() -> dict:
         "x_um": x_um,
         "y_um": y_um,
         "window": window,
+        "candidates": candidates,
         "region": region,
         "centroids": centroids_um[region],
         "polygons": polygons_um[region],
@@ -264,28 +363,29 @@ def shape_encoding(r: dict) -> dict:
         efd_order=EFD_ORDER,
     )
     sample = dataset[0]
-    assert sample["metadata"]["nuclei_ids"][q] == QUERY_ID
+    assert sample["metadata"]["nuclei_ids"][q] == r["nuclei"]["id"].iloc[q]
     max_abs_diff = float(np.abs(features - sample["features"][q].numpy()).max())
     assert max_abs_diff < 1e-6, max_abs_diff
 
     coeffs = features[: 4 * EFD_ORDER].reshape(EFD_ORDER, 4).astype(np.float64)
-    scale = float(np.exp(features[4 * EFD_ORDER]))  # log(s + 1e-6) in the features
+    scale = float(np.exp(features[4 * EFD_ORDER])) - 1e-6  # the features hold log(s + 1e-6)
+    psi_feature = float(extractor.get_orientations(polygon[None], slide.mpp_x, slide.mpp_y)[0])
+    # ψ as the model sees it (cos 2ψ, sin 2ψ): modulo 180°, in (-90°, 90°]
     psi = 0.5 * float(np.arctan2(features[4 * EFD_ORDER + 2], features[4 * EFD_ORDER + 1]))
-    psi_feature = extractor.get_orientations(polygon[None], slide.mpp_x, slide.mpp_y)[0]
-    # cos 2ψ / sin 2ψ fix ψ up to π; the extractor's own ψ picks the branch
-    if abs(np.angle(np.exp(1j * (psi - psi_feature)))) > np.pi / 2:
-        psi += np.pi
-    assert abs(np.angle(np.exp(1j * (psi - psi_feature)))) < 1e-5
+    assert np.isclose(np.cos(2 * (psi - psi_feature)), 1.0, atol=1e-6)
 
     contour = (polygon * np.array([slide.mpp_x, slide.mpp_y], dtype=np.float32)).astype(np.float64)
     closed = np.vstack([contour, contour[:1]])
     lengths = np.linalg.norm(np.diff(closed, axis=0), axis=1)
     dc = ((closed[:-1] + closed[1:]) / 2 * lengths[:, None]).sum(0) / lengths.sum()
     centroid = r["all_centroids"][q].astype(np.float64)
-    rotation = np.array([[np.cos(psi), -np.sin(psi)], [np.sin(psi), np.cos(psi)]])  # by +ψ
+    # back from the normalised frame: by +ψ_feature (rotating by ψ or ψ + 180° is the
+    # same curve up to the order-1 sign, so the extractor's own branch is used)
+    rotation = np.array([[np.cos(psi_feature), -np.sin(psi_feature)],
+                         [np.sin(psi_feature), np.cos(psi_feature)]])
 
     def to_um(normalised: NDArray[np.float64]) -> NDArray[np.float64]:
-        return normalised * (scale - 1e-6) @ rotation.T + dc - centroid
+        return normalised * scale @ rotation.T + dc - centroid
 
     order16 = to_um(efd_curve(coeffs))
     order1 = to_um(efd_curve(coeffs[:1]))
@@ -294,18 +394,28 @@ def shape_encoding(r: dict) -> dict:
     rms = float(np.sqrt(np.mean(distance**2)))
     assert rms < 0.05 * scale, rms
     centre = dc - centroid
-    axis_end = centre + (scale - 1e-6) * np.array([np.cos(psi), np.sin(psi)])
-    # the order-1 ellipse's semi-major axis is s along ψ by construction
-    assert np.isclose(np.linalg.norm(order1 - centre, axis=1).max(), scale, rtol=1e-3)
+    major = np.array([np.cos(psi), np.sin(psi)])
+    minor_len = scale * abs(coeffs[0, 3])  # the normalised order-1 ellipse is (1, |d1|)
+    # the order-1 ellipse reaches s along ±ψ and b perpendicular to it
+    radii = np.linalg.norm(order1 - centre, axis=1)
+    assert np.isclose(radii.max(), scale, rtol=1e-3) and np.isclose(radii.min(), minor_len, rtol=1e-3)
+    # the ψ arc stays inside the order-16 contour
+    t = np.linspace(0.0, psi, 64)
+    arc = centre + ARC_RADIUS * scale * np.stack([np.cos(t), np.sin(t)], axis=1)
+    arc_gap, _ = KDTree(order16).query(arc)
+    assert arc_gap.min() > 0.05 * scale, arc_gap.min()
     return {
         "features": features,
         "vertices": vertices,
         "order16": order16,
         "order1": order1,
         "centre": centre,
-        "axis_end": axis_end,
+        "major": major,
+        "minor_len": minor_len,
         "psi": psi,
         "scale_um": scale,
+        "axis_ratio": scale / minor_len,
+        "arc_gap_to_contour_um": float(arc_gap.min()),
         "dc_offset_um": float(np.linalg.norm(centre)),
         "recon_rms_um": rms,
         "recon_max_um": float(distance.max()),
@@ -377,33 +487,83 @@ def draw_efd(ax: plt.Axes, r: dict, shape: dict, text_h_cm: float) -> dict:
     ax.set_ylim(top + h_cm * um_per_cm, top)  # y down, as in the slide
     ax.set_aspect("auto")  # equal by construction: the same µm per cm on both axes
 
-    closed = lambda c: np.vstack([c, c[:1]])
-    ax.plot(*closed(shape["order1"]).T, color=ORDER1_COLOR, lw=ORDER1_LW, ls=(0, (3, 2)), zorder=2)
-    ax.plot(*closed(shape["order16"]).T, color=ORDER16_COLOR, lw=ORDER16_LW, zorder=3)
+    closed = np.vstack
+    ax.plot(*closed([shape["order1"], shape["order1"][:1]]).T, color=ORDER1_COLOR, lw=ORDER1_LW,
+            ls=(0, (3, 2)), zorder=2)
+    ax.plot(*closed([shape["order16"], shape["order16"][:1]]).T, color=ORDER16_COLOR,
+            lw=ORDER16_LW, zorder=3)
     ax.scatter(*shape["vertices"].T, s=VERTEX_D**2, c=VERTEX_COLOR, lw=0, zorder=4)
 
-    # semi-major axis s, from the centre along ψ; the arc from the horizontal to it
-    c, end, psi, s = shape["centre"], shape["axis_end"], shape["psi"], shape["scale_um"]
-    ax.plot(*np.stack([c, end]).T, color=ORDER16_COLOR, lw=AXIS_LW, zorder=3)
-    ax.plot([c[0], c[0] + 0.55 * s], [c[1], c[1]], color=VERTEX_COLOR, lw=AXIS_LW / 2,
-            ls=(0, (2, 1.5)), zorder=3)
-    t = np.linspace(0.0, psi, 50)
-    ax.plot(c[0] + 0.32 * s * np.cos(t), c[1] + 0.32 * s * np.sin(t), color=VERTEX_COLOR,
-            lw=AXIS_LW, zorder=3)
-    u = (end - c) / s
-    normal = np.array([-u[1], u[0]])
-    if normal[0] > 0:  # the side of the axis away from the ψ wedge (towards -x)
-        normal = -normal
-    s_label = ax.text(*(c + 0.6 * s * u + 0.2 * s * normal), "$s$", ha="center", va="center",
-                      fontsize=SMALL_FONT_SIZE, color=ORDER16_COLOR, zorder=6)
-    mid = psi / 2
-    psi_label = ax.text(c[0] + 0.5 * s * np.cos(mid), c[1] + 0.5 * s * np.sin(mid), "$\\psi$",
-                        ha="center", va="center", fontsize=SMALL_FONT_SIZE, color=VERTEX_COLOR,
-                        zorder=6)
+    # semi-major axis (solid), semi-minor axis (dotted), the horizontal reference
+    # (dotted) and the ψ arc between it and the major axis
+    c, u, psi, s = shape["centre"], shape["major"], shape["psi"], shape["scale_um"]
+    v = np.array([-u[1], u[0]])
+    wedge = np.array([1.0, 0.0]) + u  # bisector of the ψ wedge
+    if v @ wedge > 0:  # the minor axis on the side away from the wedge
+        v = -v
+    t = np.linspace(0.0, psi, 64)
+    guides = {
+        "major": np.stack([c, c + s * u]),
+        "minor": np.stack([c, c + shape["minor_len"] * v]),
+        "reference": np.stack([c, c + (ARC_RADIUS + 0.35) * s * np.array([1.0, 0.0])]),
+        "arc": c + ARC_RADIUS * s * np.stack([np.cos(t), np.sin(t)], axis=1),
+    }
+    ax.plot(*guides["major"].T, color=ORDER16_COLOR, lw=AXIS_LW, zorder=3)
+    ax.plot(*guides["minor"].T, color=ORDER16_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=3)
+    ax.plot(*guides["reference"].T, color=VERTEX_COLOR, lw=AXIS_LW / 2, ls=(0, (1, 1.5)), zorder=3)
+    ax.plot(*guides["arc"].T, color=VERTEX_COLOR, lw=AXIS_LW, zorder=3)
+
+    # everything a label must keep clear of, densely sampled (µm)
+    def dense(line: NDArray) -> NDArray:
+        steps = np.linspace(0.0, 1.0, 40)[:, None]
+        return np.concatenate([a + steps * (b - a) for a, b in zip(line[:-1], line[1:], strict=True)])
+
+    obstacles = np.vstack([
+        dense(closed([shape["order16"], shape["order16"][:1]])),
+        dense(closed([shape["order1"], shape["order1"][:1]])),
+        shape["vertices"], *(dense(g) for g in guides.values()),
+    ])
+    renderer = ax.figure.canvas.get_renderer()
+    frame_box = ax.get_window_extent(renderer)
+
+    def place(text: str, color: str, positions: list[NDArray], placed: list) -> plt.Text:
+        """The first position whose text box (padded by 1 pt) clears every obstacle and
+        every label placed before."""
+        pad = ax.figure.dpi / 72
+        px = ax.transData.transform(obstacles)
+        for xy in positions:
+            label = ax.text(*xy, text, ha="center", va="center", fontsize=SMALL_FONT_SIZE,
+                            color=color, zorder=6)
+            box = label.get_window_extent(renderer).padded(pad)
+            free = not ((px[:, 0] > box.x0) & (px[:, 0] < box.x1)
+                        & (px[:, 1] > box.y0) & (px[:, 1] < box.y1)).any()
+            inside = frame_box.contains(box.x0, box.y0) and frame_box.contains(box.x1, box.y1)
+            if free and inside and not any(box.overlaps(p.get_window_extent(renderer)) for p in placed):
+                return label
+            label.remove()
+        raise ValueError(f"no free position for {text}")
+
+    # "s" beside the middle of the major axis, on the side away from the wedge; "ψ" on
+    # the wedge's bisector beyond the arc; both as close as they fit, inside the
+    # nucleus if there is room, else just outside it
+    s_label = place("$s$", ORDER16_COLOR,
+                    [c + 0.5 * s * u + d * s * v for d in np.arange(0.15, 1.5, 0.02)], [])
+    # ψ: in the wedge beyond the arc; else next to the arc's start, on the other side of
+    # the reference line; else further out along the bisector
+    mid = np.array([np.cos(psi / 2), np.sin(psi / 2)])
+    side = -np.sign(psi)  # away from the wedge, across the reference line
+    wedge_spots = [c + d * s * mid for d in np.arange(ARC_RADIUS + 0.12, 0.95, 0.02)]
+    start_spots = [
+        c + d * s * np.array([np.cos(a), np.sin(a)])
+        for d in np.arange(ARC_RADIUS + 0.05, 0.9, 0.03)
+        for a in side * np.radians(np.arange(12.0, 50.0, 4.0))
+    ]
+    outer_spots = [c + d * s * mid for d in np.arange(0.95, 2.0, 0.02)]
+    psi_label = place("$\\psi$", VERTEX_COLOR, wedge_spots + start_spots + outer_spots, [s_label])
     text = ax.text(0.5, 0.03, B_TEXT, transform=ax.transAxes, ha="center", va="bottom",
                    ma="center", fontsize=SMALL_FONT_SIZE, linespacing=1.15)
     return {"text": text, "s_label": s_label, "psi_label": psi_label, "um_per_cm": um_per_cm,
-            "curves_um": curves}
+            "curves_um": curves, "obstacles_um": obstacles, "guides": guides}
 
 
 def draw_tokens(ax: plt.Axes, r: dict, shape: dict) -> dict:
@@ -618,13 +778,14 @@ def panel_checks(fig: plt.Figure, items: dict, r: dict, shape: dict) -> dict:
     x_scale = np.diff(b_ax.transData.transform([[0, 0], [1, 0]]), axis=0)[0, 0]
     y_scale = -np.diff(b_ax.transData.transform([[0, 0], [0, 1]]), axis=0)[0, 1]
     assert np.isclose(x_scale, y_scale), "B not equal aspect"
+    obstacles_px = b_ax.transData.transform(b_extras["obstacles_um"])
     for key in ("s_label", "psi_label"):
         t = b_extras[key].get_window_extent(renderer)
-        lines = [shape["order16"], shape["order1"], shape["vertices"]]
-        for line in lines:
-            px = b_ax.transData.transform(line)
-            hit = (px[:, 0] > t.x0) & (px[:, 0] < t.x1) & (px[:, 1] > t.y0) & (px[:, 1] < t.y1)
-            assert not hit.any(), f"B {key} on a curve"
+        hit = ((obstacles_px[:, 0] > t.x0) & (obstacles_px[:, 0] < t.x1)
+               & (obstacles_px[:, 1] > t.y0) & (obstacles_px[:, 1] < t.y1))
+        assert not hit.any(), f"B {key} on a line"
+    assert not b_extras["s_label"].get_window_extent(renderer).overlaps(
+        b_extras["psi_label"].get_window_extent(renderer)), "B labels overlap"
 
     # the same µm mapping in A, C, D
     ref = None
@@ -717,8 +878,9 @@ def main() -> None:
         "window_um": {"x": list(r["x_um"]), "y": list(r["y_um"])},
         "window_rule": (
             f"{WINDOW_UM:g} µm square, nuclei with centroid in [x0, x1) × [y0, y1); nucleus "
-            f">= {MIN_MARGIN_UM:g} µm from every edge; >= {MIN_BENIGN:.0%} of nuclei with "
-            "sigmoid(z) < 0.5; then the largest margin"
+            f">= {MIN_MARGIN_UM:g} µm from every edge, its k-NN inside; >= "
+            f"{MIN_CLASS_SHARE:.0%} of nuclei on each side of sigmoid(z) = 0.5; then the "
+            "largest margin, then the most balanced"
         ),
         "nucleus_margin_um": w["margin"],
         "n_nuclei": len(r["region"]),
@@ -731,17 +893,35 @@ def main() -> None:
             "k": K,
             "includes_query": True,
             "query_index": q,
-            "query_nucleus_id": QUERY_ID,
+            "query_nucleus_id": str(r["nuclei"]["id"].iloc[q]),
             "query_centroid_um": [float(v) for v in r["all_centroids"][q]],
             "query_logit": float(r["logits"][q]),
             "neighbour_indices": [int(i) for i in r["knn"][1:]],
             "max_neighbour_distance_um": float(r["knn_dist"].max()),
             "kth_distance_gap_um": r["kth_gap_um"],
         },
+        "nucleus_selection": {
+            **r["candidates"].attrs,
+            "criteria": {
+                "axis_ratio": list(RATIO_RANGE), "s_percentiles": list(S_PERCENTILES),
+                "min_solidity": MIN_SOLIDITY, "no_overlap": True,
+                "min_knn_each_side_of_0.5": MIN_KNN_EACH,
+                "abs_psi_deg_for_display": list(PSI_RANGE_DEG),
+                "min_arc_clearance_s": MIN_ARC_CLEARANCE,
+                "window": "see window_rule",
+            },
+            "ranking": "kNN balance desc, |axis ratio - 2.5| asc, window imbalance asc, margin desc",
+            "top": json.loads(r["candidates"].head(N_CANDIDATES).to_json(orient="records")),
+        },
         "shape_encoding": {
             "efd_order": EFD_ORDER,
             "psi_deg": float(np.degrees(shape["psi"])),
+            "psi_convention": "image coordinates (x right, y down), modulo 180° in (-90°, 90°]; "
+            "positive = clockwise on screen",
             "scale_um": shape["scale_um"],
+            "axis_ratio": shape["axis_ratio"],
+            "sigmoid_z": float(1.0 / (1.0 + np.exp(-r["logits"][q]))),
+            "arc_gap_to_contour_um": shape["arc_gap_to_contour_um"],
             "efd_centre_to_centroid_um": shape["dc_offset_um"],
             "features": [float(v) for v in shape["features"]],
             "max_abs_diff_to_dataset": shape["max_abs_diff_dataset"],
