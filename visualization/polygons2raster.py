@@ -160,7 +160,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     with TemporaryDirectory() as output_dir:
         process_items(
             items=metadata[["slide_path", "slide_nuclei_path"]].to_dict("records"),
-            process_item=process_slide,
+            process_item=process_slide.options(
+                memory=config.get("slide_memory_gb", 90) * 1024**3
+            ),
             fn_kwargs={
                 "visualization_mode": int(config.visualization_mode),
                 "mask_tile_width": config.mask_tile_width,
