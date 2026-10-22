@@ -265,7 +265,7 @@ def write_readme(path: Path, config: DictConfig, features: dict, summary: pd.Dat
         "",
         "How classic nuclear morphometry changes with the activation kappa_j of each concept.",
         (f"Code: `xai/morphometry_features.py` (step 1), `xai/concept_morphometry.py` (steps 2-3), "
-        f"commit `{commit}`{' (uncommitted changes)' if dirty else ''}."),
+        f"commit `{commit}`{' (the repository had other uncommitted changes)' if dirty else ''}."),
         "",
         "## Data",
         "",
@@ -297,7 +297,8 @@ def write_readme(path: Path, config: DictConfig, features: dict, summary: pd.Dat
         (f"- Active nuclei (kappa_j > 0) in {config.n_bins} quantile bins of kappa_j (edges from all active nuclei, "
         "shared by all measurements); per bin the median and quartiles; plus a `top` point, the concept's "
         f"{config.top_n:,} most active nuclei. OD statistics use the random sample only (the top point: all "
-        "OD-measured top nuclei)."),
+        "OD-measured top nuclei). The random sample takes up to 500 nuclei per slide, so OD statistics weight "
+        "slides more evenly than the polygon statistics (all nuclei)."),
         "- References: median over all nuclei (dashed) and over the inactive nuclei, kappa_j = 0 (dotted).",
         (f"- Spearman rho over the active nuclei (OD: of the random sample); 95 % percentile CI from "
         f"{config.n_bootstrap:,} resamples of slides (seed {config.seed}; ranks of the full sample kept, "
