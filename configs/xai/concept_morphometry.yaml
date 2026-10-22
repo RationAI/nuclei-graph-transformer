@@ -1,0 +1,22 @@
+# @package _global_
+
+slides: ${out_dir}/slides.parquet
+concept_dir: ${out_dir}/concepts/k16_seed1 # the fixed SAE (k = 16, seed 1)
+morphometry_dir: ${concept_dir}/morphometry # step 1 (xai.morphometry_features) and the outputs
+# letter -> SAE index of the blinded review; read locally, nothing written names an index
+deck_key: ${out_dir}/session/key.csv
+named_concepts: [G] # the compact figure (thesis)
+
+n_bins: 10 # quantile bins of kappa_j over the active nuclei
+top_n: 2000 # the extra "top" point: each concept's most strongly activated nuclei
+n_bootstrap: 1000 # Spearman CI: resampling slides
+validation: true # polygon features on validation as a consistency check
+
+sae_model: ${out_dir}/sae/sae_k16_seed1_l13.pt
+links: # recorded as tags
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99 # selected the SAE (models.csv)
+  sae_trained_in_run_id: 9f79f90954de4c7f917dc48df201aead # first trained it (same file)
+  concept_material_run_id: 150c0c93268e450aa873fdad744a8f92
+
+metadata:
+  run_name: "XAI: Concept morphometry"

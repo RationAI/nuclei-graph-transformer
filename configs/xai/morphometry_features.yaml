@@ -1,0 +1,13 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+concept_dir: ${out_dir}/concepts/k16_seed1 # the fixed SAE (k = 16, seed 1): codes_test.npy
+output_dir: ${concept_dir}/morphometry
+split: test # test (with OD) or validation (polygon features only: od.enabled=false)
+n_jobs: 8 # slides in parallel
+
+od: # hematoxylin optical density, on a subsample (reads level 0 of the slides)
+  enabled: true
+  max_per_slide: 500 # random nuclei per slide (seed: `seed`)
+  top_per_concept: 2000 # plus each concept's most strongly activated test nuclei
