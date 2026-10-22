@@ -220,31 +220,70 @@ def points_figure(stats: pd.DataFrame, population: pd.DataFrame, letters: list[s
     return fig
 
 
+# heatmap classes: |delta| < 5 % (no difference), 5-15 %, 15-30 %, > 30 %, lower (blue) or higher (orange)
+CLASS_EDGES = [5.0, 15.0, 30.0]
+LOWER_COLOURS = ["#c6dbef", "#6b9bd1", "#1F5FA8"]  # 5-15, 15-30, > 30 %
+HIGHER_COLOURS = ["#fdd8b0", "#f3a35a", "#d46a10"]
+NEUTRAL_COLOUR = "#ffffff"
+GRID_COLOUR = "#d9d9d9"
+# cmr10 is TeX-encoded (OT1): U+2013 is missing and "<", ">" print as inverted marks, so the en
+# dash uses the slot of "{" and the comparison signs are set as math
+EN_DASH = "{"
+
+
+def delta_class(value: float) -> tuple[str, bool]:
+    """Fill colour of a % difference and whether its text should be white."""
+    level = int(np.searchsorted(CLASS_EDGES, abs(value), side="right"))  # 0: < 5 %
+    if level == 0:
+        return NEUTRAL_COLOUR, False
+    colours = HIGHER_COLOURS if value > 0 else LOWER_COLOURS
+    return colours[level - 1], level == 3
+
+
 def heatmap_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, pd.DataFrame]:
-    """% difference of the top nuclei's median vs. the inactive median, concepts x measures."""
+    """% difference of the top nuclei's median vs. the inactive median, concepts x measures.
+
+    7 classes (vector cells, no colour bar), the value printed in each cell.
+    """
     s = stats.set_index(["concept", "measurement", "group"])["median"]
     table = pd.DataFrame({column: [100 * (s[(letter, column, "top")] / s[(letter, column, "inactive")] - 1)
                                    for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
-    limit = float(np.ceil(np.abs(table.to_numpy()).max() / 10) * 10)
-    cmap = mpl.colors.LinearSegmentedColormap.from_list("blue_orange", ["#1F5FA8", "#f7f7f7", "#E08214"])
     side = FIG_W_CM / 2.54
-    fig, ax = plt.subplots(figsize=(side * 0.75, side * 0.62))
-    image = ax.imshow(table.to_numpy(), cmap=cmap, vmin=-limit, vmax=limit, aspect="auto")
+    fig = plt.figure(figsize=(side, side * 0.62))
+    ax = fig.add_axes([0.08, 0.2, 0.9, 0.69])
+    n_rows, n_cols = table.shape
     for (i, k), value in np.ndenumerate(table.to_numpy()):
-        light = abs(value) > 0.6 * limit
+        colour, dark = delta_class(value)
+        ax.add_patch(plt.Rectangle((k - 0.5, i - 0.5), 1, 1, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
         ax.text(k, i, rf"${value:+.0f}\,\%$", ha="center", va="center", fontsize=7,
-                color="white" if light else "black")
-    ax.set_xticks(range(len(VIOLIN_MEASUREMENTS)), [TITLES[c] for c in VIOLIN_MEASUREMENTS], fontsize=7)
-    ax.set_yticks(range(len(letters)), letters, fontsize=8)
+                color="white" if dark else "black")
+    ax.set_xlim(-0.5, n_cols - 0.5)
+    ax.set_ylim(n_rows - 0.5, -0.5)
+    ax.set_xticks(range(n_cols), [TITLES[c] for c in VIOLIN_MEASUREMENTS], fontsize=7)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(n_rows), letters, fontsize=8)
     ax.tick_params(length=0)
     ax.set_ylabel("concept", fontsize=8)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    bar = fig.colorbar(image, ax=ax, fraction=0.05, pad=0.03)
-    bar.set_label(f"median, top {top_n:,} vs. inactive (%)", fontsize=7)
-    bar.ax.tick_params(labelsize=6.5, length=2, width=0.4)
-    bar.outline.set_linewidth(0.4)
-    fig.tight_layout()
+    fig.suptitle(f"Median of the {top_n:,} most strongly activated nuclei relative to nuclei where the "
+                 "concept is inactive", fontsize=8, y=0.985)
+
+    # legend: 7 labelled patches, lower (blue, > 30 % first) | no difference | higher (orange)
+    legend = fig.add_axes([0.08, 0.01, 0.9, 0.14])
+    legend.set_xlim(0, 7)
+    legend.set_ylim(0, 1)
+    legend.axis("off")
+    labels = [r"$>30$ %", f"15{EN_DASH}30 %", f"5{EN_DASH}15 %", r"$<5$ % (no difference)",
+              f"5{EN_DASH}15 %", f"15{EN_DASH}30 %", r"$>30$ %"]
+    colours = [*LOWER_COLOURS[::-1], NEUTRAL_COLOUR, *HIGHER_COLOURS]
+    for x, (label, colour) in enumerate(zip(labels, colours, strict=True)):
+        legend.add_patch(plt.Rectangle((x + 0.3, 0.42), 0.4, 0.22, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
+        legend.text(x + 0.5, 0.34, label, ha="center", va="top", fontsize=6.5)
+    legend.text(1.5, 0.78, "lower than in nuclei where the concept is inactive", ha="center", va="bottom",
+                fontsize=6.5)
+    legend.text(5.5, 0.78, "higher than in nuclei where the concept is inactive", ha="center", va="bottom",
+                fontsize=6.5)
     return fig, table
 
 
