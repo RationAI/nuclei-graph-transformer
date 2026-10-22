@@ -132,6 +132,145 @@ def violin_figure(letter: str, data: dict, stats: pd.DataFrame, ranges: dict, to
     return fig
 
 
+def population_stats(morphometry: pd.DataFrame) -> pd.DataFrame:
+    """Median and 5th / 95th percentile of each measure over all nuclei (OD: the random sample)."""
+    random = morphometry["od_random_sample"].to_numpy()
+    rows = []
+    for column in VIOLIN_MEASUREMENTS:
+        values = morphometry[column].to_numpy(dtype=np.float64)
+        values = values[random] if MEASUREMENTS[column][1] else values
+        q05, q50, q95 = np.quantile(values, [0.05, 0.5, 0.95])
+        rows.append({"measurement": column, "n": len(values), "median": q50, "q05": q05, "q95": q95})
+    return pd.DataFrame(rows).set_index("measurement")
+
+
+def group_handles(top_n: int, extra: list | None = None) -> tuple[list, list]:
+    handles = [mpl.lines.Line2D([], [], color=colour, marker="o", ms=3, lw=0.8) for _, colour in GROUPS.values()]
+    labels = [label.format(n=top_n) for label, _ in GROUPS.values()]
+    for handle, label in extra or []:
+        handles.append(handle)
+        labels.append(label)
+    return handles, labels
+
+
+def points_figure(stats: pd.DataFrame, population: pd.DataFrame, letters: list[str], top_n: int,
+                  relative: bool) -> plt.Figure:
+    """Measures stacked vertically; per concept the groups' medians with IQR bars.
+
+    `relative`: as % difference from the concept's inactive median (0 % line, +-5 % band).
+    Otherwise the y range is the 5th-95th percentile of all nuclei; a median beyond it is
+    marked by an arrow at the edge with its value.
+    """
+    side = FIG_W_CM / 2.54
+    fig, axes = plt.subplots(len(VIOLIN_MEASUREMENTS), 1, figsize=(side, side * 1.12), sharex=True)
+    offsets = np.linspace(-0.3, 0.3, len(GROUPS))
+    for ax, column in zip(axes, VIOLIN_MEASUREMENTS, strict=True):
+        s = stats[stats["measurement"] == column].set_index(["concept", "group"])
+        spans, off_scale = [], []
+        for i, letter in enumerate(letters):
+            base = s.loc[(letter, "inactive"), "median"]
+            for offset, (group, (_, colour)) in zip(offsets, GROUPS.items(), strict=True):
+                q25, q50, q75 = s.loc[(letter, group), ["q25", "median", "q75"]]
+                if relative:
+                    q25, q50, q75 = (100 * (q / base - 1) for q in (q25, q50, q75))
+                spans += [q25, q75]
+                ax.plot([i + offset] * 2, [q25, q75], color=colour, lw=0.8, solid_capstyle="butt")
+                ax.plot(i + offset, q50, "o", color=colour, ms=3, mec="none")
+                if not relative:
+                    off_scale.append((i + offset, q50, colour))
+        if relative:
+            ax.axhspan(-5, 5, color="#e6e6e6", lw=0, zorder=0)
+            ax.axhline(0, color="black", lw=0.6)
+            pad = 0.05 * (max(spans) - min(spans))
+            ax.set_ylim(min(min(spans), -5) - pad, max(max(spans), 5) + pad)
+            ax.set_ylabel(TITLES[column] + "\n" + r"$\Delta$ vs. inactive (%)", fontsize=7)
+        else:
+            ax.axhline(population.loc[column, "median"], color="black", lw=0.6, ls=(0, (3, 2)))
+            low, high = population.loc[column, "q05"], population.loc[column, "q95"]
+            ax.set_ylim(low, high)
+            ax.set_ylabel(TITLES[column], fontsize=7)
+            # medians beyond the 5th-95th percentile range: an arrow at the edge with the value
+            for x, q50, colour in off_scale:
+                if low <= q50 <= high:
+                    continue
+                below = q50 < low
+                edge = low if below else high
+                ax.plot(x, edge, "v" if below else "^", color=colour, ms=4, mec="none", clip_on=False, zorder=5)
+                ax.annotate(f"{q50:.2f}" if abs(q50) < 10 else f"{q50:.0f}", (x, edge),
+                            xytext=(3, 4 if below else -4), textcoords="offset points", ha="left",
+                            va="bottom" if below else "top", fontsize=5.5, color=colour)
+        for i in range(1, len(letters)):
+            ax.axvline(i - 0.5, color="#e6e6e6", lw=0.4, zorder=0)
+        ax.set_xlim(-0.5, len(letters) - 0.5)
+        ax.tick_params(labelsize=6.5, length=2, width=0.4, pad=1.5)
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.4)
+    axes[-1].set_xticks(range(len(letters)), letters, fontsize=8)
+    axes[-1].tick_params(axis="x", length=0, pad=3)
+    axes[-1].set_xlabel("concept", fontsize=8)
+    if relative:
+        extra = [(mpl.lines.Line2D([], [], color="black", lw=0.6), r"$0\,\%$"),
+                 (plt.Rectangle((0, 0), 1, 1, color="#e6e6e6"), r"$\pm 5\,\%$")]
+    else:
+        extra = [(mpl.lines.Line2D([], [], color="black", lw=0.6, ls=(0, (3, 2))), "median of all nuclei")]
+    handles, labels = group_handles(top_n, extra)
+    fig.legend(handles, labels, loc="upper center", ncols=len(labels), fontsize=6.5, frameon=False,
+               handlelength=1.4, columnspacing=1.0, borderaxespad=0.2)
+    fig.subplots_adjust(left=0.1, right=0.99, bottom=0.05, top=0.955, hspace=0.12)
+    return fig
+
+
+def heatmap_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, pd.DataFrame]:
+    """% difference of the top nuclei's median vs. the inactive median, concepts x measures."""
+    s = stats.set_index(["concept", "measurement", "group"])["median"]
+    table = pd.DataFrame({column: [100 * (s[(letter, column, "top")] / s[(letter, column, "inactive")] - 1)
+                                   for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
+    limit = float(np.ceil(np.abs(table.to_numpy()).max() / 10) * 10)
+    cmap = mpl.colors.LinearSegmentedColormap.from_list("blue_orange", ["#1F5FA8", "#f7f7f7", "#E08214"])
+    side = FIG_W_CM / 2.54
+    fig, ax = plt.subplots(figsize=(side * 0.75, side * 0.62))
+    image = ax.imshow(table.to_numpy(), cmap=cmap, vmin=-limit, vmax=limit, aspect="auto")
+    for (i, k), value in np.ndenumerate(table.to_numpy()):
+        light = abs(value) > 0.6 * limit
+        ax.text(k, i, rf"${value:+.0f}\,\%$", ha="center", va="center", fontsize=7,
+                color="white" if light else "black")
+    ax.set_xticks(range(len(VIOLIN_MEASUREMENTS)), [TITLES[c] for c in VIOLIN_MEASUREMENTS], fontsize=7)
+    ax.set_yticks(range(len(letters)), letters, fontsize=8)
+    ax.tick_params(length=0)
+    ax.set_ylabel("concept", fontsize=8)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    bar = fig.colorbar(image, ax=ax, fraction=0.05, pad=0.03)
+    bar.set_label(f"median, top {top_n:,} vs. inactive (%)", fontsize=7)
+    bar.ax.tick_params(labelsize=6.5, length=2, width=0.4)
+    bar.outline.set_linewidth(0.4)
+    fig.tight_layout()
+    return fig, table
+
+
+def counts_table(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[pd.DataFrame, str]:
+    """N per group: polygon measures (all nuclei) and OD (random sample)."""
+    rows = []
+    for letter in letters:
+        row = {"concept": letter}
+        for kind, column in (("polygon", "area_um2"), ("od", "h_od_mean_norm")):
+            s = stats[(stats["concept"] == letter) & (stats["measurement"] == column)].set_index("group")["n"]
+            row |= {f"{kind}_{group}": int(s[group]) for group in GROUPS}
+        rows.append(row)
+    table = pd.DataFrame(rows)
+    names = [label.format(n=top_n).replace(r"($\kappa_j = 0$)", "").strip() for label, _ in GROUPS.values()]
+    lines = ["\\begin{tabular}{l " + "r " * len(GROUPS) + "r " * len(GROUPS) + "}", "\\toprule",
+             (f" & \\multicolumn{{{len(GROUPS)}}}{{c}}{{polygon measures (all nuclei)}} & "
+             f"\\multicolumn{{{len(GROUPS)}}}{{c}}{{H-OD (random sample)}} \\\\"),
+             f"\\cmidrule(lr){{2-{1 + len(GROUPS)}}} \\cmidrule(lr){{{2 + len(GROUPS)}-{1 + 2 * len(GROUPS)}}}",
+             "Concept & " + " & ".join(names * 2) + " \\\\", "\\midrule"]
+    for _, r in table.iterrows():
+        cells = [f"{r[f'{kind}_{g}']:,}".replace(",", "\\,") for kind in ("polygon", "od") for g in GROUPS]
+        lines.append(r["concept"] + " & " + " & ".join(cells) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}", ""]
+    return table, "\n".join(lines)
+
+
 def inactive_rows(codes: NDArray, morphometry: pd.DataFrame, concepts: list[tuple[int, str]]
                   ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """The curves' inactive rows and the reference medians (all / inactive)."""
@@ -203,6 +342,25 @@ def main(config: DictConfig) -> None:
             fig.savefig(out / "figures" / f"violins_{letter}.pdf")
             fig.savefig(out / "figures" / f"violins_{letter}.png", dpi=300)
             plt.close(fig)
+
+    # 3. all concepts: points (absolute and relative to inactive), heatmap, n per group
+    population = population_stats(morphometry)
+    population.to_csv(out / "population_stats.csv")
+    letters_v = list(config.violin_concepts)
+    with mpl.rc_context(THESIS_RC):
+        for name, relative in (("morphometry_groups", False), ("morphometry_groups_relative", True)):
+            fig = points_figure(stats, population, letters_v, config.top_n, relative)
+            fig.savefig(out / "figures" / f"{name}.pdf")
+            fig.savefig(out / "figures" / f"{name}.png", dpi=300)
+            plt.close(fig)
+        fig, heat = heatmap_figure(stats, letters_v, config.top_n)
+        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.pdf")
+        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.png", dpi=300)
+        plt.close(fig)
+    heat.round(2).to_csv(out / "top_vs_inactive_percent.csv", index_label="concept")
+    counts, tex = counts_table(stats, letters_v, config.top_n)
+    counts.to_csv(out / "group_counts.csv", index=False)
+    (out / "group_counts.tex").write_text(tex)
 
 
 if __name__ == "__main__":
