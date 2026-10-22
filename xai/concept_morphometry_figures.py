@@ -240,14 +240,113 @@ def delta_class(value: float) -> tuple[str, bool]:
     return colours[level - 1], level == 3
 
 
-def heatmap_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, pd.DataFrame]:
-    """% difference of the top nuclei's median vs. the inactive median, concepts x measures.
+RELATIVE_TITLES = {
+    "area_um2": r"Area ($\mu\mathrm{m}^2$)",
+    "long_axis_um": r"Long axis ($\mu\mathrm{m}$)",
+    "short_axis_um": r"Short axis ($\mu\mathrm{m}$)",
+    "circularity": r"Circularity ($4\pi A/P^2$)",
+    "h_od_mean_norm": "Hematoxylin OD (slide-normalised)",
+}
+POOL_BAND_SPREAD = 0.15  # pool the inactive IQR band if its edges vary < this share of its width
+RELATIVE_CAPTION = (
+    "Nuclear morphometry for the eight stable concepts A{d}H (test set). For each concept, the nuclei are "
+    "grouped by activation: weak, medium and strong (tertiles of the active nuclei) and the 2,000 most strongly "
+    "activated. Dots show the group median as a percentage difference from the median of nuclei where the concept "
+    "is inactive; bars show the group{a}s interquartile range on the same scale (a spread, not a confidence "
+    "interval). The grey band is the interquartile range of the inactive nuclei. +100 % means twice the inactive "
+    "median."
+).format(d="\u2013", a="\u2019")
 
-    7 classes (vector cells, no colour bar), the value printed in each cell.
+
+def percent_ticks(value: float, _: int) -> str:
+    return "0" if abs(value) < 1e-9 else rf"${value:+.0f}\,\%$"
+
+
+def relative_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, dict]:
+    """Medians and IQRs of the active groups as % difference from the inactive median.
+
+    Per panel the inactive nuclei's IQR (on the same scale) is a grey band: pooled over the
+    concepts (median of their edges) if the edges vary by less than POOL_BAND_SPREAD of the band
+    width, otherwise per concept column. Y scales symmetric around 0 unless one side is under a
+    third of the other.
     """
+    side = FIG_W_CM / 2.54
+    fig, axes = plt.subplots(len(VIOLIN_MEASUREMENTS), 1, figsize=(side, side * 1.2), sharex=True)
+    groups = [g for g in GROUPS if g != "inactive"]
+    offsets = np.linspace(-0.27, 0.27, len(groups))
+    bands = {}
+    for ax, column in zip(axes, VIOLIN_MEASUREMENTS, strict=True):
+        s = stats[stats["measurement"] == column].set_index(["concept", "group"])
+        inactive = s.xs("inactive", level="group").loc[letters]
+        low_edge = 100 * (inactive["q25"] / inactive["median"] - 1)
+        high_edge = 100 * (inactive["q75"] / inactive["median"] - 1)
+        spread = max(np.ptp(low_edge), np.ptp(high_edge)) / float((high_edge - low_edge).mean())
+        pooled = spread < POOL_BAND_SPREAD
+        bands[column] = {"pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
+                         "low": round(float(low_edge.median()), 2), "high": round(float(high_edge.median()), 2)}
+        if pooled:
+            ax.axhspan(low_edge.median(), high_edge.median(), color="#e3e3e3", lw=0, zorder=0)
+        else:
+            for i, letter in enumerate(letters):
+                ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0,
+                                zorder=0)
+        ax.axhline(0, color="black", lw=0.6, zorder=1)
+        spans = [*low_edge, *high_edge]
+        for i, letter in enumerate(letters):
+            base = s.loc[(letter, "inactive"), "median"]
+            for offset, group in zip(offsets, groups, strict=True):
+                q25, q50, q75 = (100 * (q / base - 1) for q in s.loc[(letter, group), ["q25", "median", "q75"]])
+                colour = GROUPS[group][1]
+                spans += [q25, q75]
+                ax.plot([i + offset] * 2, [q25, q75], color=colour, lw=0.9, solid_capstyle="butt", zorder=3)
+                ax.plot(i + offset, q50, "o", color=colour, ms=3.5, mec="none", zorder=4)
+        low, high = min(spans), max(spans)
+        limit = max(abs(low), abs(high))
+        if min(abs(low), abs(high)) >= limit / 3:
+            low, high = -limit, limit
+        pad = 0.06 * (high - low)
+        ax.set_ylim(low - pad, high + pad)
+        ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, symmetric=low == -high, steps=[1, 2, 2.5, 5, 10]))
+        ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(percent_ticks))
+        ax.grid(axis="y", color="#ececec", lw=0.4, zorder=0)
+        ax.set_axisbelow(True)
+        for i in range(1, len(letters)):
+            ax.axvline(i - 0.5, color="#d9d9d9", lw=0.4, zorder=0)
+        ax.set_xlim(-0.5, len(letters) - 0.5)
+        ax.set_title(RELATIVE_TITLES[column], fontsize=8, pad=3, loc="left")
+        ax.tick_params(labelsize=7, length=2, width=0.4, pad=1.5)
+        ax.tick_params(axis="x", length=0)
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.4)
+    axes[-1].set_xticks(range(len(letters)), letters, fontsize=8)
+    axes[-1].tick_params(axis="x", length=0, pad=3)
+    fig.supylabel("difference from inactive nuclei (median, %)", fontsize=8, x=0.01)
+
+    handles = [mpl.lines.Line2D([], [], color=GROUPS[g][1], marker="o", ms=3.5, lw=0.9) for g in groups]
+    labels = [GROUPS[g][0].format(n=top_n) for g in groups]
+    handles.append(plt.Rectangle((0, 0), 1, 1, color="#e3e3e3"))
+    labels.append("IQR of inactive nuclei")
+    fig.legend(handles, labels, loc="upper center", ncols=len(labels), fontsize=7, frameon=False,
+               handlelength=1.4, columnspacing=1.2, bbox_to_anchor=(0.53, 0.985))
+    fig.text(0.53, 0.955, f"weak / medium / strong = activation tertiles of the active nuclei; top {top_n:,} = "
+             "most strongly activated nuclei", ha="center", va="top", fontsize=7)
+    fig.subplots_adjust(left=0.1, right=0.99, bottom=0.04, top=0.92, hspace=0.32)
+    return fig, bands
+
+
+def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
+    """% difference of the top nuclei's median vs. the inactive median, concepts x measures."""
     s = stats.set_index(["concept", "measurement", "group"])["median"]
-    table = pd.DataFrame({column: [100 * (s[(letter, column, "top")] / s[(letter, column, "inactive")] - 1)
-                                   for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
+    return pd.DataFrame({column: [100 * (s[(letter, column, "top")] / s[(letter, column, "inactive")] - 1)
+                                  for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
+
+
+def heatmap_figure(table: pd.DataFrame, titles: list[str], top_n: int) -> plt.Figure:
+    """% differences (concepts x measures) in 7 classes, the value printed in each cell.
+
+    Vector cells, no colour bar; drawn by `xai.concept_context_figures` with the neighbourhood
+    shape measures.
+    """
     side = FIG_W_CM / 2.54
     fig = plt.figure(figsize=(side, side * 0.62))
     ax = fig.add_axes([0.08, 0.2, 0.9, 0.69])
@@ -259,9 +358,9 @@ def heatmap_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple
                 color="white" if dark else "black")
     ax.set_xlim(-0.5, n_cols - 0.5)
     ax.set_ylim(n_rows - 0.5, -0.5)
-    ax.set_xticks(range(n_cols), [TITLES[c] for c in VIOLIN_MEASUREMENTS], fontsize=7)
+    ax.set_xticks(range(n_cols), titles, fontsize=7)
     ax.xaxis.tick_top()
-    ax.set_yticks(range(n_rows), letters, fontsize=8)
+    ax.set_yticks(range(n_rows), table.index, fontsize=8)
     ax.tick_params(length=0)
     ax.set_ylabel("concept", fontsize=8)
     for spine in ax.spines.values():
@@ -284,7 +383,7 @@ def heatmap_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple
                 fontsize=6.5)
     legend.text(5.5, 0.78, "higher than in nuclei where the concept is inactive", ha="center", va="bottom",
                 fontsize=6.5)
-    return fig, table
+    return fig
 
 
 def counts_table(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[pd.DataFrame, str]:
@@ -387,16 +486,17 @@ def main(config: DictConfig) -> None:
     population.to_csv(out / "population_stats.csv")
     letters_v = list(config.violin_concepts)
     with mpl.rc_context(THESIS_RC):
-        for name, relative in (("morphometry_groups", False), ("morphometry_groups_relative", True)):
-            fig = points_figure(stats, population, letters_v, config.top_n, relative)
-            fig.savefig(out / "figures" / f"{name}.pdf")
-            fig.savefig(out / "figures" / f"{name}.png", dpi=300)
-            plt.close(fig)
-        fig, heat = heatmap_figure(stats, letters_v, config.top_n)
-        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.pdf")
-        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.png", dpi=300)
+        fig = points_figure(stats, population, letters_v, config.top_n, False)
+        fig.savefig(out / "figures" / "morphometry_groups.pdf")
+        fig.savefig(out / "figures" / "morphometry_groups.png", dpi=300)
         plt.close(fig)
-    heat.round(2).to_csv(out / "top_vs_inactive_percent.csv", index_label="concept")
+        fig, _ = relative_figure(stats, letters_v, config.top_n)
+        fig.savefig(out / "figures" / "morphometry_groups_relative.pdf")
+        fig.savefig(out / "figures" / "morphometry_groups_relative.png", dpi=300)
+        plt.close(fig)
+    (out / "figures" / "morphometry_relative_caption.txt").write_text(RELATIVE_CAPTION + "\n")
+    # the heatmap (with the neighbourhood shape measures) is drawn by xai.concept_context_figures
+    percent_table(stats, letters_v).round(2).to_csv(out / "top_vs_inactive_percent.csv", index_label="concept")
     counts, tex = counts_table(stats, letters_v, config.top_n)
     counts.to_csv(out / "group_counts.csv", index=False)
     (out / "group_counts.tex").write_text(tex)
