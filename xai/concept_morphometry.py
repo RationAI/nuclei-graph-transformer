@@ -7,8 +7,9 @@ stored codes:
 - activation curves: the active nuclei (kappa_j > 0) in `n_bins` quantile bins of kappa_j
   (bin edges from all active nuclei, so all measurements share them), per bin n, the kappa
   range and the median and quartiles of the measurement; plus a "top" point, the concept's
-  `top_n` most strongly activated nuclei (all OD-measured); references: the median over all
-  nuclei and over the inactive ones (kappa_j = 0). OD statistics use the random sample only.
+  `top_n` most strongly activated nuclei (all OD-measured) and an "inactive" point (kappa_j = 0,
+  median and quartiles, drawn left as "off"); references: the median over all nuclei and over
+  the inactive ones. OD statistics use the random sample only.
 - Spearman rho of kappa_j with the measurement over the active nuclei (OD: of the random
   sample), with a 95 % percentile CI from `n_bootstrap` resamples of slides. The point
   estimate is exact; the bootstrap keeps the ranks of the full sample (Pearson of fixed
@@ -65,6 +66,7 @@ SHORT = {"area_um2": "Area", "perimeter_um": "Perim.", "long_axis_um": "Long ax.
          "short_axis_um": "Short ax.", "axis_ratio": "Ratio", "circularity": "Circ.",
          "h_od_mean_norm": "OD", "h_od_integrated_norm": "Int. OD"}
 LINE_COLOR = "#1F5FA8"
+INACTIVE_COLOR = "#7a7a7a"
 # the thesis font, as the other thesis figures: Computer Modern (cmr10 + mathtext cm)
 THESIS_RC = {
     "font.family": "serif",
@@ -138,7 +140,9 @@ def analyse(codes: NDArray, morphometry: pd.DataFrame, slide: NDArray, concepts:
             od = MEASUREMENTS[column][1]
             population = random if od else np.ones(len(kappa), dtype=bool)
             on = active & population
-            rows = bin_curve(kappa[on], values[on], bins[on], config.n_bins)
+            off = ~active & population
+            rows = [summary_row("inactive", kappa[off], values[off]),
+                    *bin_curve(kappa[on], values[on], bins[on], config.n_bins)]
             assert np.isfinite(values[top]).all(), (letter, column)
             rows.append(summary_row("top", kappa[top], values[top]))
             curves += [{"concept": letter, "measurement": column, **r} for r in rows]
@@ -152,8 +156,13 @@ def analyse(codes: NDArray, morphometry: pd.DataFrame, slide: NDArray, concepts:
 
 
 def draw_panel(ax, curve: pd.DataFrame, med: pd.Series, n_bins: int) -> None:
-    deciles = curve[curve["bin"] != "top"]
+    deciles = curve[~curve["bin"].isin(["top", "inactive"])]
     top = curve[curve["bin"] == "top"].iloc[0]
+    inactive = curve[curve["bin"] == "inactive"].iloc[0]
+    x_inactive = -0.5
+    ax.errorbar([x_inactive], [inactive["median"]],
+                yerr=[[inactive["median"] - inactive["q25"]], [inactive["q75"] - inactive["median"]]],
+                color=INACTIVE_COLOR, marker="s", ms=2.2, lw=0.8, capsize=0)
     x = np.arange(1, n_bins + 1)
     ax.fill_between(x, deciles["q25"], deciles["q75"], color=LINE_COLOR, alpha=0.2, lw=0)
     ax.plot(x, deciles["median"], color=LINE_COLOR, lw=0.9, marker="o", ms=1.8)
@@ -161,9 +170,9 @@ def draw_panel(ax, curve: pd.DataFrame, med: pd.Series, n_bins: int) -> None:
     ax.errorbar([x_top], [top["median"]], yerr=[[top["median"] - top["q25"]], [top["q75"] - top["median"]]],
                 color=LINE_COLOR, marker="D", ms=2.2, lw=0.8, capsize=0)
     ax.axhline(med["median_all"], color="black", lw=0.6, ls=(0, (3, 2)))
-    ax.axhline(med["median_inactive"], color="#7a7a7a", lw=0.6, ls=(0, (1, 1.5)))
-    ax.set_xlim(0.4, x_top + 0.6)
-    ax.set_xticks([1, 5, n_bins, x_top], ["1", "5", str(n_bins), "top"])
+    ax.axhline(med["median_inactive"], color=INACTIVE_COLOR, lw=0.6, ls=(0, (1, 1.5)))
+    ax.set_xlim(x_inactive - 0.6, x_top + 0.6)
+    ax.set_xticks([x_inactive, 1, 5, n_bins, x_top], ["off", "1", "5", str(n_bins), "top"])
     ax.tick_params(labelsize=6, length=2, width=0.4, pad=1.5)
     for spine in ax.spines.values():
         spine.set_linewidth(0.4)

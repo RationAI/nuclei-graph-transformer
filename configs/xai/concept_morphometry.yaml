@@ -6,6 +6,7 @@ morphometry_dir: ${concept_dir}/morphometry # step 1 (xai.morphometry_features) 
 # letter -> SAE index of the blinded review; read locally, nothing written names an index
 deck_key: ${out_dir}/session/key.csv
 named_concepts: [G] # the compact figure (thesis)
+violin_concepts: [A, B, C, D, E, F, G, H] # xai.concept_morphometry_figures
 
 n_bins: 10 # quantile bins of kappa_j over the active nuclei
 top_n: 2000 # the extra "top" point: each concept's most strongly activated nuclei
