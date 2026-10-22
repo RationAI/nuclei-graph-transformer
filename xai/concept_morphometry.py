@@ -14,7 +14,8 @@ stored codes:
   estimate is exact; the bootstrap keeps the ranks of the full sample (Pearson of fixed
   ranks over the resampled slides, from per-slide sums).
 - summary table: frequency, median active vs. all, rho [CI] per measurement, and the
-  measurement with the largest |rho| (size: area, perimeter, axes, integrated OD).
+  measurement with the largest |rho|; a concept "tracks size" if |rho| with the area is at
+  least `size_min_rho` (the axes alone can also mean elongation).
 
 With `validation`, the polygon features' curves and rho are repeated on validation (codes
 from the fixed SAE, forward pass only) and compared with test.
@@ -215,7 +216,7 @@ def named_figure(named: list[str], curves: pd.DataFrame, spearman: pd.DataFrame,
 
 
 def summary_table(spearman: pd.DataFrame, medians: pd.DataFrame, letters: list[str],
-                  sections: dict[str, str]) -> pd.DataFrame:
+                  sections: dict[str, str], size_min_rho: float) -> pd.DataFrame:
     table = medians.merge(spearman, on=["concept", "measurement"])
     rows = []
     for letter in letters:
@@ -226,7 +227,7 @@ def summary_table(spearman: pd.DataFrame, medians: pd.DataFrame, letters: list[s
                 row[f"{column}_{field}"] = t.loc[column, field]
         dominant = t["rho"].abs().idxmax()
         row |= {"dominant_measurement": dominant, "dominant_rho": t.loc[dominant, "rho"],
-                "tracks_size": MEASUREMENTS[dominant][2]}
+                "tracks_size": abs(t.loc["area_um2", "rho"]) >= size_min_rho}
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -304,8 +305,8 @@ def write_readme(path: Path, config: DictConfig, features: dict, summary: pd.Dat
         f"{config.n_bootstrap:,} resamples of slides (seed {config.seed}; ranks of the full sample kept, "
         "Pearson of the ranks over the resampled slides). Effect sizes only: with millions of nuclei p-values are "
         "meaningless."),
-        ("- `tracks_size`: the measurement with the largest |rho| is a size measurement (area, perimeter, axes, "
-        "integrated OD). Size enters the model directly (log s, the first-harmonic semi-major axis, is an input "
+        (f"- `tracks_size`: |rho| with the area >= {config.size_min_rho:g} (the axes alone can also mean "
+        "elongation: a falling short axis with a rising axis ratio). Size enters the model directly (log s, the first-harmonic semi-major axis, is an input "
         "feature, as is the orientation psi), so size-related concepts are expected. "
         f"Concepts that mainly track size: {', '.join(size) if size else 'none'}."),
         "",
@@ -369,7 +370,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     curves, spearman, medians = analyse(codes, morphometry, slide, concepts, list(MEASUREMENTS), config)
     curves.to_csv(out / "activation_curves.csv", index=False)
     spearman.to_csv(out / "spearman.csv", index=False)
-    summary = summary_table(spearman, medians, letters, sections)
+    summary = summary_table(spearman, medians, letters, sections, config.size_min_rho)
     summary.to_csv(out / "summary_table.csv", index=False)
     (out / "summary_table.tex").write_text(latex_tables(summary))
 

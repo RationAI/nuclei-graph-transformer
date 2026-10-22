@@ -11,6 +11,7 @@ n_bins: 10 # quantile bins of kappa_j over the active nuclei
 top_n: 2000 # the extra "top" point: each concept's most strongly activated nuclei
 n_bootstrap: 1000 # Spearman CI: resampling slides
 validation: true # polygon features on validation as a consistency check
+size_min_rho: 0.2 # "tracks size": |rho| with the area at least this
 
 sae_model: ${out_dir}/sae/sae_k16_seed1_l13.pt
 links: # recorded as tags
