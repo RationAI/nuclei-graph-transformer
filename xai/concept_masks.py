@@ -148,7 +148,11 @@ def process_slide(item: dict[str, Any], records_dir: Path, **kwargs: Any) -> Non
     )
 
 
-def code_commit() -> tuple[str, bool]:
+def code_commit(*paths: str) -> tuple[str, bool]:
+    """HEAD and whether tracked files have uncommitted changes.
+
+    With `paths` (relative to the repository root), only files under them count.
+    """
     repo = Path(__file__).parent
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -158,7 +162,8 @@ def code_commit() -> tuple[str, bool]:
         check=True,
     ).stdout.strip()
     dirty = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=no"],
+        ["git", "status", "--porcelain", "--untracked-files=no", "--"]
+        + [f":(top){path}" for path in paths],
         cwd=repo,
         capture_output=True,
         text=True,

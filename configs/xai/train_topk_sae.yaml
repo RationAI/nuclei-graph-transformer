@@ -1,0 +1,64 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+sae_dir: ${out_dir}/sae # the k = 16 SAE: holdout_slides.csv, the reference model
+topk_dir: ${out_dir}/concepts/topk
+
+holdout_size: 0.1 # as xai.train_sae: must reproduce sae/holdout_slides.csv
+sampler:
+  max_slide_share: 0.01 # as xai.train_sae (carcinoma:benign = 1:1, no slide above ~1%)
+
+# grid with seed 0; the main configuration (fixed in advance) also with seeds 1, 2
+grid:
+  num_latents: [1024, 4096]
+  k: [8, 16, 32]
+  seed: 0
+main:
+  num_latents: 1024
+  k: 16
+  seeds: [0, 1, 2]
+controls: # part of the grid; K = 4 matches the L0 of the k = 16 SAE (3.5): dictionary
+  # size (K = 4 vs. the k = 16 SAE) apart from more active latents (K = 4 vs. K = 16)
+  - {num_latents: 1024, k: 4, seed: 0}
+reuse_existing: true # models already in topk_dir/models (same m, K, seed) are kept
+
+training:
+  lr: 2e-4
+  warmup_steps: 1000 # linear warmup (about 4M samples)
+  batch_size: 4096
+  samples_per_epoch: 2097152 # as xai.train_sae: drawn with replacement by the sampler
+  max_epochs: 100
+  patience: 10
+  k_aux: 256
+  aux_coeff: 0.03125 # 1/32
+  dead_after: 1000000 # training samples without firing
+  device: ${oc.env:XAI_DEVICE,cpu}
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,6}}
+
+reference: # the k = 16 SAE (unchanged; only read)
+  model: ${sae_dir}/sae_k16_seed1_l13.pt
+  run_id: 4cf1db8f2cff4fef844426e57a387b99 # "XAI: SAE Training" that selected it
+  codes_test: ${out_dir}/concepts/k16_seed1/codes_test.npy
+  fit_nuclei: 5436214 # logged by that run
+  holdout_nuclei: 682722
+  check_rows: 100000 # random test rows: stored codes vs. a CPU forward pass
+
+metadata:
+  run_name: "XAI: Overcomplete SAE Training"
+  hyperparams:
+    grid: ${grid}
+    main: ${main}
+    controls: ${controls}
+    holdout_size: ${holdout_size}
+    max_slide_share: ${sampler.max_slide_share}
+    lr: ${training.lr}
+    warmup_steps: ${training.warmup_steps}
+    batch_size: ${training.batch_size}
+    samples_per_epoch: ${training.samples_per_epoch}
+    max_epochs: ${training.max_epochs}
+    patience: ${training.patience}
+    k_aux: ${training.k_aux}
+    aux_coeff: ${training.aux_coeff}
+    dead_after: ${training.dead_after}
+    reference_run_id: ${reference.run_id}
