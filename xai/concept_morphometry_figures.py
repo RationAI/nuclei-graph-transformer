@@ -90,6 +90,8 @@ def density(values: NDArray, low: float, high: float) -> tuple[NDArray, NDArray]
 
 
 def count_label(n: int) -> str:
+    if n >= 1e7:
+        return f"{n / 1e6:.0f}M"
     if n >= 1e6:
         return f"{n / 1e6:.1f}M"
     if n >= 1e4:
