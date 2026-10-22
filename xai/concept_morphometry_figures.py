@@ -220,9 +220,12 @@ def points_figure(stats: pd.DataFrame, population: pd.DataFrame, letters: list[s
     return fig
 
 
-# heatmap classes: |delta| < 5 % (no difference), 5-15 %, 15-30 %, > 30 %, lower (blue) or higher (orange)
-CLASS_EDGES = [5.0, 15.0, 30.0]
-LOWER_COLOURS = ["#c6dbef", "#6b9bd1", "#1F5FA8"]  # 5-15, 15-30, > 30 %
+# heatmap classes: |delta| below the first threshold = no difference; then 3 classes, lower
+# (blue) or higher (orange); thresholds per unit (%, percentage points, um: 5 / 15 / 30;
+# Delta of an index in [-1, 1]: 0.05 / 0.15 / 0.30)
+CLASS_EDGES = {"%": [5.0, 15.0, 30.0], "pp": [5.0, 15.0, 30.0], "um": [5.0, 15.0, 30.0], "Δ": [0.05, 0.15, 0.30]}
+UNIT_HEADER = {"%": "(%)", "pp": "(pp)", "um": r"($\mu\mathrm{m}$)", "Δ": r"($\Delta$ index)"}
+LOWER_COLOURS = ["#c6dbef", "#6b9bd1", "#1F5FA8"]  # small, medium, large
 HIGHER_COLOURS = ["#fdd8b0", "#f3a35a", "#d46a10"]
 NEUTRAL_COLOUR = "#ffffff"
 GRID_COLOUR = "#d9d9d9"
@@ -231,13 +234,21 @@ GRID_COLOUR = "#d9d9d9"
 EN_DASH = "{"
 
 
-def delta_class(value: float) -> tuple[str, bool]:
-    """Fill colour of a % difference and whether its text should be white."""
-    level = int(np.searchsorted(CLASS_EDGES, abs(value), side="right"))  # 0: < 5 %
+def delta_class(value: float, unit: str) -> tuple[str, bool]:
+    """Fill colour of a difference and whether its text should be white."""
+    level = int(np.searchsorted(CLASS_EDGES[unit], abs(value), side="right"))  # 0: no difference
     if level == 0:
         return NEUTRAL_COLOUR, False
     colours = HIGHER_COLOURS if value > 0 else LOWER_COLOURS
     return colours[level - 1], level == 3
+
+
+def cell_text(value: float, unit: str) -> str:
+    suffix = {"%": r"\,\%", "pp": r"\,\mathrm{pp}", "um": r"\,\mu\mathrm{m}", "Δ": ""}[unit]
+    digits = 2 if unit == "Δ" else 0
+    if round(value, digits) == 0:  # neither "+0" nor "-0"
+        return rf"$0{suffix}$"
+    return rf"${value:+.{digits}f}{suffix}$"
 
 
 RELATIVE_TITLES = {
@@ -262,76 +273,100 @@ def percent_ticks(value: float, _: int) -> str:
     return "0" if abs(value) < 1e-9 else rf"${value:+.0f}\,\%$"
 
 
-def relative_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, dict]:
-    """Medians and IQRs of the active groups as % difference from the inactive median.
+def delta_ticks(value: float, _: int) -> str:
+    return "0" if abs(value) < 1e-9 else rf"${value:+.2g}$"
 
-    Per panel the inactive nuclei's IQR (on the same scale) is a grey band: pooled over the
-    concepts (median of their edges) if the edges vary by less than POOL_BAND_SPREAD of the band
-    width, otherwise per concept column. Y scales symmetric around 0 unless one side is under a
-    third of the other.
+
+def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str) -> dict:
+    """One panel of active-group medians and IQRs relative to the inactive median.
+
+    As % (`unit` "%") or as a difference ("diff"), over the inactive nuclei's IQR band. `rows`
+    is indexed by (concept, group) with median, q25, q75. The band is pooled over the concepts
+    (median of their edges) if its edges vary by less than POOL_BAND_SPREAD of its width,
+    otherwise drawn per concept column. The y scale is symmetric around 0 unless one side is
+    under a third of the other.
     """
-    side = FIG_W_CM / 2.54
-    fig, axes = plt.subplots(len(VIOLIN_MEASUREMENTS), 1, figsize=(side, side * 1.2), sharex=True)
+    def rel(q: float, base: float) -> float:
+        return 100 * (q / base - 1) if unit == "%" else q - base
+
     groups = [g for g in GROUPS if g != "inactive"]
     offsets = np.linspace(-0.27, 0.27, len(groups))
-    bands = {}
-    for ax, column in zip(axes, VIOLIN_MEASUREMENTS, strict=True):
-        s = stats[stats["measurement"] == column].set_index(["concept", "group"])
-        inactive = s.xs("inactive", level="group").loc[letters]
-        low_edge = 100 * (inactive["q25"] / inactive["median"] - 1)
-        high_edge = 100 * (inactive["q75"] / inactive["median"] - 1)
-        spread = max(np.ptp(low_edge), np.ptp(high_edge)) / float((high_edge - low_edge).mean())
-        pooled = spread < POOL_BAND_SPREAD
-        bands[column] = {"pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
-                         "low": round(float(low_edge.median()), 2), "high": round(float(high_edge.median()), 2)}
-        if pooled:
-            ax.axhspan(low_edge.median(), high_edge.median(), color="#e3e3e3", lw=0, zorder=0)
-        else:
-            for i, letter in enumerate(letters):
-                ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0,
-                                zorder=0)
-        ax.axhline(0, color="black", lw=0.6, zorder=1)
-        spans = [*low_edge, *high_edge]
+    inactive = rows.xs("inactive", level="group").loc[letters]
+    low_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q25"], inactive["median"], strict=True)], letters)
+    high_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q75"], inactive["median"], strict=True)], letters)
+    spread = max(np.ptp(low_edge), np.ptp(high_edge)) / float((high_edge - low_edge).mean())
+    pooled = spread < POOL_BAND_SPREAD
+    if pooled:
+        ax.axhspan(low_edge.median(), high_edge.median(), color="#e3e3e3", lw=0, zorder=0)
+    else:
         for i, letter in enumerate(letters):
-            base = s.loc[(letter, "inactive"), "median"]
-            for offset, group in zip(offsets, groups, strict=True):
-                q25, q50, q75 = (100 * (q / base - 1) for q in s.loc[(letter, group), ["q25", "median", "q75"]])
-                colour = GROUPS[group][1]
-                spans += [q25, q75]
-                ax.plot([i + offset] * 2, [q25, q75], color=colour, lw=0.9, solid_capstyle="butt", zorder=3)
-                ax.plot(i + offset, q50, "o", color=colour, ms=3.5, mec="none", zorder=4)
-        low, high = min(spans), max(spans)
-        limit = max(abs(low), abs(high))
-        if min(abs(low), abs(high)) >= limit / 3:
-            low, high = -limit, limit
-        pad = 0.06 * (high - low)
-        ax.set_ylim(low - pad, high + pad)
-        ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, symmetric=low == -high, steps=[1, 2, 2.5, 5, 10]))
-        ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(percent_ticks))
-        ax.grid(axis="y", color="#ececec", lw=0.4, zorder=0)
-        ax.set_axisbelow(True)
-        for i in range(1, len(letters)):
-            ax.axvline(i - 0.5, color="#d9d9d9", lw=0.4, zorder=0)
-        ax.set_xlim(-0.5, len(letters) - 0.5)
-        ax.set_title(RELATIVE_TITLES[column], fontsize=8, pad=3, loc="left")
-        ax.tick_params(labelsize=7, length=2, width=0.4, pad=1.5)
-        ax.tick_params(axis="x", length=0)
-        for spine in ax.spines.values():
-            spine.set_linewidth(0.4)
-    axes[-1].set_xticks(range(len(letters)), letters, fontsize=8)
-    axes[-1].tick_params(axis="x", length=0, pad=3)
-    fig.supylabel("difference from inactive nuclei (median, %)", fontsize=8, x=0.01)
+            ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0, zorder=0)
+    ax.axhline(0, color="black", lw=0.6, zorder=1)
+    spans = [*low_edge, *high_edge]
+    for i, letter in enumerate(letters):
+        base = rows.loc[(letter, "inactive"), "median"]
+        for offset, group in zip(offsets, groups, strict=True):
+            q25, q50, q75 = (rel(q, base) for q in rows.loc[(letter, group), ["q25", "median", "q75"]])
+            colour = GROUPS[group][1]
+            spans += [q25, q75]
+            ax.plot([i + offset] * 2, [q25, q75], color=colour, lw=0.9, solid_capstyle="butt", zorder=3)
+            ax.plot(i + offset, q50, "o", color=colour, ms=3.5, mec="none", zorder=4)
+    low, high = min(spans), max(spans)
+    limit = max(abs(low), abs(high))
+    if min(abs(low), abs(high)) >= limit / 3:
+        low, high = -limit, limit
+    pad = 0.06 * (high - low)
+    ax.set_ylim(low - pad, high + pad)
+    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, symmetric=low == -high, steps=[1, 2, 2.5, 5, 10]))
+    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(percent_ticks if unit == "%" else delta_ticks))
+    ax.grid(axis="y", color="#ececec", lw=0.4, zorder=0)
+    ax.set_axisbelow(True)
+    for i in range(1, len(letters)):
+        ax.axvline(i - 0.5, color="#d9d9d9", lw=0.4, zorder=0)
+    ax.set_xlim(-0.5, len(letters) - 0.5)
+    ax.tick_params(labelsize=7, length=2, width=0.4, pad=1.5)
+    ax.tick_params(axis="x", length=0)
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.4)
+    return {"pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
+            "low": round(float(low_edge.median()), 3), "high": round(float(high_edge.median()), 3)}
 
+
+def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, ylabel: str
+                           ) -> tuple[plt.Figure, dict]:
+    """Panels stacked vertically (`panels`: title, rows, unit, optional note), legend above."""
+    side = FIG_W_CM / 2.54
+    fig, axes = plt.subplots(len(panels), 1, figsize=(side, side * 0.24 * len(panels) + 0.75), sharex=True,
+                             squeeze=False)
+    axes = axes[:, 0]
+    bands = {}
+    for ax, panel in zip(axes, panels, strict=True):
+        bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"])
+        ax.set_title(panel["title"], fontsize=8, pad=3, loc="left")
+        if panel.get("note"):
+            ax.text(1.0, 1.02, panel["note"], transform=ax.transAxes, ha="right", va="bottom", fontsize=6.5)
+    axes[-1].set_xticks(range(len(letters)), letters, fontsize=8)
+    fig.supylabel(ylabel, fontsize=8, x=0.01)
+    groups = [g for g in GROUPS if g != "inactive"]
     handles = [mpl.lines.Line2D([], [], color=GROUPS[g][1], marker="o", ms=3.5, lw=0.9) for g in groups]
     labels = [GROUPS[g][0].format(n=top_n) for g in groups]
     handles.append(plt.Rectangle((0, 0), 1, 1, color="#e3e3e3"))
     labels.append("IQR of inactive nuclei")
+    height = fig.get_size_inches()[1]
     fig.legend(handles, labels, loc="upper center", ncols=len(labels), fontsize=7, frameon=False,
-               handlelength=1.4, columnspacing=1.2, bbox_to_anchor=(0.53, 0.985))
-    fig.text(0.53, 0.955, f"weak / medium / strong = activation tertiles of the active nuclei; top {top_n:,} = "
-             "most strongly activated nuclei", ha="center", va="top", fontsize=7)
-    fig.subplots_adjust(left=0.1, right=0.99, bottom=0.04, top=0.92, hspace=0.32)
+               handlelength=1.4, columnspacing=1.2, bbox_to_anchor=(0.53, 1 - 0.04 / height))
+    fig.text(0.53, 1 - 0.3 / height, f"weak / medium / strong = activation tertiles of the active nuclei; top "
+             f"{top_n:,} = most strongly activated nuclei", ha="center", va="top", fontsize=7)
+    fig.subplots_adjust(left=0.1, right=0.99, bottom=0.3 / height, top=1 - 0.68 / height, hspace=0.38)
     return fig, bands
+
+
+def relative_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, dict]:
+    """The 5 morphometric measures as % difference from the inactive median."""
+    panels = [{"title": RELATIVE_TITLES[c], "unit": "%",
+               "rows": stats[stats["measurement"] == c].set_index(["concept", "group"])}
+              for c in VIOLIN_MEASUREMENTS]
+    return relative_panels_figure(panels, letters, top_n, "difference from inactive nuclei (median, %)")
 
 
 def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
@@ -341,24 +376,25 @@ def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
                                   for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
 
 
-def heatmap_figure(table: pd.DataFrame, titles: list[str], top_n: int) -> plt.Figure:
-    """% differences (concepts x measures) in 7 classes, the value printed in each cell.
+def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top_n: int) -> plt.Figure:
+    """Differences top vs. inactive (concepts x measures) in 7 classes, the value in each cell.
 
-    Vector cells, no colour bar; drawn by `xai.concept_context_figures` with the neighbourhood
-    shape measures.
+    `units` per column ("%", "pp", "um" or "Δ"), shown in the column header; vector cells, no
+    colour bar.
     """
     side = FIG_W_CM / 2.54
-    fig = plt.figure(figsize=(side, side * 0.62))
-    ax = fig.add_axes([0.08, 0.2, 0.9, 0.69])
+    fig = plt.figure(figsize=(side, side * 0.66))
+    ax = fig.add_axes([0.08, 0.22, 0.9, 0.64])
     n_rows, n_cols = table.shape
     for (i, k), value in np.ndenumerate(table.to_numpy()):
-        colour, dark = delta_class(value)
+        colour, dark = delta_class(value, units[k])
         ax.add_patch(plt.Rectangle((k - 0.5, i - 0.5), 1, 1, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
-        ax.text(k, i, rf"${value:+.0f}\,\%$", ha="center", va="center", fontsize=7,
+        ax.text(k, i, cell_text(value, units[k]), ha="center", va="center", fontsize=7,
                 color="white" if dark else "black")
     ax.set_xlim(-0.5, n_cols - 0.5)
     ax.set_ylim(n_rows - 0.5, -0.5)
-    ax.set_xticks(range(n_cols), titles, fontsize=7)
+    headers = [f"{title}\n{UNIT_HEADER[unit]}" for title, unit in zip(titles, units, strict=True)]
+    ax.set_xticks(range(n_cols), headers, fontsize=6.5)
     ax.xaxis.tick_top()
     ax.set_yticks(range(n_rows), table.index, fontsize=8)
     ax.tick_params(length=0)
@@ -368,21 +404,34 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], top_n: int) -> plt.Fi
     fig.suptitle(f"Median of the {top_n:,} most strongly activated nuclei relative to nuclei where the "
                  "concept is inactive", fontsize=8, y=0.985)
 
-    # legend: 7 labelled patches, lower (blue, > 30 % first) | no difference | higher (orange)
-    legend = fig.add_axes([0.08, 0.01, 0.9, 0.14])
+    # legend: 7 labelled patches, lower (blue, large first) | no difference | higher (orange)
+    legend = fig.add_axes([0.08, 0.01, 0.9, 0.16])
     legend.set_xlim(0, 7)
     legend.set_ylim(0, 1)
     legend.axis("off")
-    labels = [r"$>30$ %", f"15{EN_DASH}30 %", f"5{EN_DASH}15 %", r"$<5$ % (no difference)",
-              f"5{EN_DASH}15 %", f"15{EN_DASH}30 %", r"$>30$ %"]
+    used = [u for u in CLASS_EDGES if u in units]
+    if used == ["Δ"] or all(u != "Δ" for u in used):
+        a, b, c = CLASS_EDGES[used[0]]
+        labels = [rf"$>{c:g}$", f"{b:g}{EN_DASH}{c:g}", f"{a:g}{EN_DASH}{b:g}", rf"$<{a:g}$ (no difference)",
+                  f"{a:g}{EN_DASH}{b:g}", f"{b:g}{EN_DASH}{c:g}", rf"$>{c:g}$"]
+    else:  # % / pp / um and Delta index together
+        labels = [r"$>30$" + "\n" + r"($>0.30$)", f"15{EN_DASH}30\n(0.15{EN_DASH}0.30)",
+                  f"5{EN_DASH}15\n(0.05{EN_DASH}0.15)", r"$<5$ ($<0.05$)" + "\nno difference",
+                  f"5{EN_DASH}15\n(0.05{EN_DASH}0.15)", f"15{EN_DASH}30\n(0.15{EN_DASH}0.30)",
+                  r"$>30$" + "\n" + r"($>0.30$)"]
     colours = [*LOWER_COLOURS[::-1], NEUTRAL_COLOUR, *HIGHER_COLOURS]
     for x, (label, colour) in enumerate(zip(labels, colours, strict=True)):
-        legend.add_patch(plt.Rectangle((x + 0.3, 0.42), 0.4, 0.22, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
-        legend.text(x + 0.5, 0.34, label, ha="center", va="top", fontsize=6.5)
-    legend.text(1.5, 0.78, "lower than in nuclei where the concept is inactive", ha="center", va="bottom",
+        legend.add_patch(plt.Rectangle((x + 0.3, 0.6), 0.4, 0.18, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
+        legend.text(x + 0.5, 0.53, label, ha="center", va="top", fontsize=6, linespacing=1.15)
+    legend.text(1.5, 0.86, "lower than in nuclei where the concept is inactive", ha="center", va="bottom",
                 fontsize=6.5)
-    legend.text(5.5, 0.78, "higher than in nuclei where the concept is inactive", ha="center", va="bottom",
+    legend.text(5.5, 0.86, "higher than in nuclei where the concept is inactive", ha="center", va="bottom",
                 fontsize=6.5)
+    units_note = ", ".join({"%": "%", "pp": "percentage points", "um": r"$\mu$m"}[u] for u in used if u != "Δ")
+    note = f"class limits in {units_note}" if units_note else ""
+    if "Δ" in used:
+        note += ("; " if note else "") + r"in brackets: $\Delta$ index" if units_note else r"$\Delta$ index"
+    legend.text(3.5, -0.08, note, ha="center", va="bottom", fontsize=6)
     return fig
 
 

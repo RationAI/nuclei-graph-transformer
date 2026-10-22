@@ -16,7 +16,8 @@ Writes `context_<split>.parquet` to `output_dir`, one row per nucleus in the ord
 - from the segmentation polygons (sorted by `id`, checked against the index's id checksum;
   um): `solidity` = area / convex-hull area and `irregularity` = 1 - solidity;
   `pleomorphism_cv` = coefficient of variation (sample std / mean) of the area over the
-  nucleus and its 8 nearest neighbours; `orientation_coherence` = mean cos 2(psi_i - psi_j)
+  8 nearest neighbours (without the nucleus itself; `pleomorphism_incl_self`: with it);
+  `orientation_coherence` = mean cos 2(psi_i - psi_j)
   over the 8 nearest neighbours j, psi the long-axis angle of the moment ellipse, for nuclei
   with axis ratio > `min_axis_ratio` and over the neighbours above it too (a round
   nucleus has no defined orientation); NaN otherwise. 1 = all parallel, 0 = random,
@@ -65,8 +66,10 @@ def neighbourhood_shape(polygons_um: NDArray[np.float64], neighbours: NDArray[np
     features = polygon_features(polygons_um)
     hulls = shapely.convex_hull(shapely.polygons(polygons_um))
     solidity = features["area_um2"] / shapely.area(hulls)
-    areas = features["area_um2"][np.concatenate([np.arange(len(neighbours))[:, None], neighbours], axis=1)]
+    areas = features["area_um2"][neighbours]
     pleomorphism = areas.std(axis=1, ddof=1) / areas.mean(axis=1)
+    with_self = np.concatenate([features["area_um2"][:, None], areas], axis=1)
+    pleomorphism_incl_self = with_self.std(axis=1, ddof=1) / with_self.mean(axis=1)
     elongated = features["axis_ratio"] > min_axis_ratio
     psi = features["orientation_rad"]
     agreement = np.cos(2 * (psi[:, None] - psi[neighbours]))
@@ -77,6 +80,7 @@ def neighbourhood_shape(polygons_um: NDArray[np.float64], neighbours: NDArray[np
     coherence[~elongated | (counts == 0)] = np.nan
     return {"solidity": solidity.astype(np.float32), "irregularity": np.maximum(1 - solidity, 0.0).astype(np.float32),
             "pleomorphism_cv": pleomorphism.astype(np.float32),
+            "pleomorphism_incl_self": pleomorphism_incl_self.astype(np.float32),
             "orientation_coherence": coherence.astype(np.float32)}
 
 
@@ -134,7 +138,7 @@ def main(config: DictConfig) -> None:
     )
     table = {name: np.concatenate([r[name] for r in results])
              for name in ("compartment", "boundary_dist_um", "knn8_mean_dist_um", "solidity", "irregularity",
-                          "pleomorphism_cv", "orientation_coherence")}
+                          "pleomorphism_cv", "pleomorphism_incl_self", "orientation_coherence")}
     coarse = np.concatenate([r["coarse_compartment"] for r in results])
     pd.DataFrame(table).to_parquet(out_dir / f"context_{split}.parquet", index=False)
 
