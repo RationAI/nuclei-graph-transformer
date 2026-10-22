@@ -77,6 +77,8 @@ def polygon_features(polygons_um: NDArray[np.float64]) -> dict[str, NDArray[np.f
         "short_axis_um": short_axis,
         "axis_ratio": long_axis / short_axis,
         "circularity": 4 * np.pi * area / perimeter**2,
+        # long axis angle in image coordinates (x right, y down), modulo pi
+        "orientation_rad": 0.5 * np.arctan2(2 * xy, xx - yy),
     }
 
 

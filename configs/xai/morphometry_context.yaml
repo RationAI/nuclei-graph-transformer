@@ -7,4 +7,5 @@ split: test
 masks_dir: ${data_path}/Public/Public/prostate/PANDA/train_label_masks # Radboud label masks
 mask_level: 1 # for the boundary distance (about 1.94 um/px); the compartment is read at level 0
 k: 8 # nearest neighbours (same slide, all nuclei)
+min_axis_ratio: 1.2 # orientation coherence: only nuclei (and neighbours) above it
 n_jobs: 8

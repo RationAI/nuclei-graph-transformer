@@ -38,7 +38,15 @@ from rationai.mlkit import with_cli_args
 from scipy.stats import spearmanr
 
 from xai.concept_morphometry import FIG_W_CM, THESIS_RC, concept_letters, spearman_ci
-from xai.concept_morphometry_figures import GROUPS, group_handles, groups_of
+from xai.concept_morphometry_figures import (
+    GROUPS,
+    TITLES,
+    VIOLIN_MEASUREMENTS,
+    group_handles,
+    groups_of,
+    percent_table,
+)
+from xai.concept_morphometry_figures import heatmap_figure as percent_heatmap
 
 
 # name -> (label, kind, relative unit): kind "continuous" or "share"
@@ -50,6 +58,13 @@ ATTRIBUTES = {
     "cancer_epithelium": ("cancerous epithelium (%)", "share", "pp"),
 }
 LABEL_ATTRIBUTES = {"carcinoma_label": ("carcinoma-labelled (%)", "share", "pp")}
+# neighbourhood shape (xai.morphometry_context); also extra columns of the morphometry heatmap
+SHAPE_ATTRIBUTES = {
+    "irregularity": ("contour irregularity", "continuous", "%"),
+    "pleomorphism_cv": ("pleomorphism (CV)", "continuous", "%"),
+    "orientation_coherence": ("orientation coherence", "continuous", "%"),
+}
+SHAPE_HEAT_TITLES = ["contour\nirregularity", "pleomorphism\n(CV)", "orientation\ncoherence"]
 RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inactive ($\mu\mathrm{m}$)",
                   "pp": r"$\Delta$ vs. inactive (pp)"}
 HEAT_HEADER = {"%": "%", "um": r"$\mu\mathrm{m}$", "pp": "pp"}
@@ -60,6 +75,7 @@ def attribute_values(context: pd.DataFrame, labels: NDArray) -> dict[str, NDArra
     return {
         "knn8_mean_dist_um": context["knn8_mean_dist_um"].to_numpy(dtype=np.float64),
         "boundary_dist_um": context["boundary_dist_um"].to_numpy(dtype=np.float64),
+        **{name: context[name].to_numpy(dtype=np.float64) for name in SHAPE_ATTRIBUTES},
         "stroma": (compartment == 1).astype(np.float64),
         "benign_epithelium": (compartment == 2).astype(np.float64),
         "cancer_epithelium": (compartment >= 3).astype(np.float64),
@@ -229,19 +245,21 @@ def main(config: DictConfig) -> None:
     out = Path(config.morphometry_dir)
     concepts = concept_letters(config.deck_key)
     letters = list(config.violin_concepts)
-    specs_all = ATTRIBUTES | LABEL_ATTRIBUTES
+    specs_all = ATTRIBUTES | SHAPE_ATTRIBUTES | LABEL_ATTRIBUTES
 
     codes, values = load(config, "test")
     stats = group_stats(codes, values, concepts, letters, specs_all, config.top_n)
     stats.to_csv(out / "context_stats.csv", index=False)
     ranges = ranges_for(values, specs_all, stats)
     with mpl.rc_context(THESIS_RC):
-        for stem, specs in (("context", ATTRIBUTES), ("label_share", LABEL_ATTRIBUTES)):
+        for stem, specs in (("context", ATTRIBUTES), ("shape", SHAPE_ATTRIBUTES), ("label_share", LABEL_ATTRIBUTES)):
             for suffix, as_relative in (("groups", False), ("groups_relative", True)):
                 fig = points_figure(stats, specs, letters, config.top_n, as_relative, ranges)
                 fig.savefig(out / "figures" / f"{stem}_{suffix}.pdf")
                 fig.savefig(out / "figures" / f"{stem}_{suffix}.png", dpi=300)
                 plt.close(fig)
+            if stem == "shape":  # its heatmap columns join the morphometry heatmap below
+                continue
             table = top_vs_inactive(stats, specs, letters)
             table.round(2).to_csv(out / f"{stem}_top_vs_inactive.csv", index_label="concept")
             fig = heatmap_figure(table, specs, config.top_n)
@@ -249,11 +267,20 @@ def main(config: DictConfig) -> None:
             fig.savefig(out / "figures" / f"{stem}_top_vs_inactive.png", dpi=300)
             plt.close(fig)
 
+        # the morphometry heatmap: the 5 shape measures and the neighbourhood shape measures (all %)
+        heat = pd.concat([percent_table(pd.read_csv(out / "violin_stats.csv"), letters),
+                          top_vs_inactive(stats, SHAPE_ATTRIBUTES, letters)], axis=1)
+        heat.round(2).to_csv(out / "morphometry_top_vs_inactive.csv", index_label="concept")
+        fig = percent_heatmap(heat, [TITLES[c] for c in VIOLIN_MEASUREMENTS] + SHAPE_HEAT_TITLES, config.top_n)
+        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.pdf")
+        fig.savefig(out / "figures" / "morphometry_top_vs_inactive.png", dpi=300)
+        plt.close(fig)
+
     # Spearman rho of kappa_j with the continuous attributes (active nuclei), test with CI
     slides = pd.read_parquet(config.slides)
     rng = np.random.default_rng(config.seed)
     index = {letter: j for j, letter in concepts}
-    continuous = [n for n, (_, kind, _) in ATTRIBUTES.items() if kind == "continuous"]
+    continuous = [n for n, (_, kind, _) in (ATTRIBUTES | SHAPE_ATTRIBUTES).items() if kind == "continuous"]
     test_slides = slides[slides["split"] == "test"].sort_values("offset")
     slide = np.repeat(np.arange(len(test_slides)), test_slides["n_nuclei"].to_numpy())
     rho_rows = []

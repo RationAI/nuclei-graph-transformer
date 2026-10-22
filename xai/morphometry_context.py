@@ -12,7 +12,15 @@ Writes `context_<split>.parquet` to `output_dir`, one row per nucleus in the ord
   1.94 um/px), sampled at the centroid's pixel; a pixel's distance to the nearest pixel of
   the other side minus half a pixel (the boundary lies between the two);
 - `knn8_mean_dist_um`: mean distance to the 8 nearest other nuclei of the same slide
-  (all nuclei; centroids in um from the index).
+  (all nuclei; centroids in um from the index);
+- from the segmentation polygons (sorted by `id`, checked against the index's id checksum;
+  um): `solidity` = area / convex-hull area and `irregularity` = 1 - solidity;
+  `pleomorphism_cv` = coefficient of variation (sample std / mean) of the area over the
+  nucleus and its 8 nearest neighbours; `orientation_coherence` = mean cos 2(psi_i - psi_j)
+  over the 8 nearest neighbours j, psi the long-axis angle of the moment ellipse, for nuclei
+  with axis ratio > `min_axis_ratio` and over the neighbours above it too (a round
+  nucleus has no defined orientation); NaN otherwise. 1 = all parallel, 0 = random,
+  -1 = all perpendicular.
 """
 
 import json
@@ -22,6 +30,7 @@ import hydra
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
+import shapely
 import tifffile
 import zarr
 from joblib import Parallel, delayed
@@ -30,6 +39,9 @@ from omegaconf import DictConfig
 from rationai.mlkit import with_cli_args
 from scipy.ndimage import distance_transform_edt
 from scipy.spatial import cKDTree
+
+from xai.morphometry_features import polygon_features
+from xai.prepare_nuclei import ids_checksum
 
 
 def mask_level(path: Path, level: int) -> zarr.Array:
@@ -47,8 +59,29 @@ def signed_boundary_distance(mask: NDArray[np.uint8], pixel_um: float) -> NDArra
     return out
 
 
+def neighbourhood_shape(polygons_um: NDArray[np.float64], neighbours: NDArray[np.int64],
+                        min_axis_ratio: float) -> dict[str, NDArray[np.float32]]:
+    """Solidity, irregularity, pleomorphism and orientation coherence (`neighbours`: n x k)."""
+    features = polygon_features(polygons_um)
+    hulls = shapely.convex_hull(shapely.polygons(polygons_um))
+    solidity = features["area_um2"] / shapely.area(hulls)
+    areas = features["area_um2"][np.concatenate([np.arange(len(neighbours))[:, None], neighbours], axis=1)]
+    pleomorphism = areas.std(axis=1, ddof=1) / areas.mean(axis=1)
+    elongated = features["axis_ratio"] > min_axis_ratio
+    psi = features["orientation_rad"]
+    agreement = np.cos(2 * (psi[:, None] - psi[neighbours]))
+    use = elongated[neighbours]
+    counts = use.sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        coherence = np.where(use, agreement, 0.0).sum(axis=1) / counts
+    coherence[~elongated | (counts == 0)] = np.nan
+    return {"solidity": solidity.astype(np.float32), "irregularity": np.maximum(1 - solidity, 0.0).astype(np.float32),
+            "pleomorphism_cv": pleomorphism.astype(np.float32),
+            "orientation_coherence": coherence.astype(np.float32)}
+
+
 def process_slide(slide: dict, centroids_um: NDArray[np.float64], masks_dir: str, level: int,
-                  k: int) -> dict:
+                  k: int, min_axis_ratio: float) -> dict:
     mpp = np.array([slide["mpp_x"], slide["mpp_y"]])
     centroids_px = centroids_um / mpp  # level-0 px, pixel i centred at i
     path = Path(masks_dir) / f"{slide['slide_id']}_mask.tiff"
@@ -66,9 +99,14 @@ def process_slide(slide: dict, centroids_um: NDArray[np.float64], masks_dir: str
     cx = np.clip(np.floor(centroids_px[:, 0] * scale[0]).astype(np.int64), 0, coarse.shape[1] - 1)
     cy = np.clip(np.floor(centroids_px[:, 1] * scale[1]).astype(np.int64), 0, coarse.shape[0] - 1)
 
-    distances, _ = cKDTree(centroids_um).query(centroids_um, k=k + 1)  # the first is the nucleus
+    distances, neighbours = cKDTree(centroids_um).query(centroids_um, k=k + 1)  # the first is the nucleus
+
+    nuclei = pd.read_parquet(slide["slide_nuclei_path"], columns=["id", "polygon"]).sort_values("id")
+    assert ids_checksum(nuclei["id"].to_numpy()) == slide["ids_crc32"], slide["slide_id"]
+    polygons_um = np.array(nuclei["polygon"].tolist(), dtype=np.float64).reshape(len(nuclei), -1, 2) * mpp
+    shape = neighbourhood_shape(polygons_um, neighbours[:, 1:], min_axis_ratio)
     return {"compartment": compartment, "boundary_dist_um": distance[cy, cx],
-            "knn8_mean_dist_um": distances[:, 1:].mean(axis=1).astype(np.float32),
+            "knn8_mean_dist_um": distances[:, 1:].mean(axis=1).astype(np.float32), **shape,
             "coarse_compartment": coarse[cy, cx].astype(np.int8), "pixel_um": pixel_um}
 
 
@@ -91,11 +129,12 @@ def main(config: DictConfig) -> None:
 
     results = Parallel(n_jobs=config.n_jobs, verbose=5)(
         delayed(process_slide)(s, centroids[s["offset"]: s["offset"] + s["n_nuclei"]], config.masks_dir,
-                               config.mask_level, config.k)
+                               config.mask_level, config.k, config.min_axis_ratio)
         for s in slides.to_dict("records")
     )
     table = {name: np.concatenate([r[name] for r in results])
-             for name in ("compartment", "boundary_dist_um", "knn8_mean_dist_um")}
+             for name in ("compartment", "boundary_dist_um", "knn8_mean_dist_um", "solidity", "irregularity",
+                          "pleomorphism_cv", "orientation_coherence")}
     coarse = np.concatenate([r["coarse_compartment"] for r in results])
     pd.DataFrame(table).to_parquet(out_dir / f"context_{split}.parquet", index=False)
 
@@ -107,6 +146,8 @@ def main(config: DictConfig) -> None:
         "compartment_counts": {int(c): int(n) for c, n in zip(*np.unique(table["compartment"], return_counts=True),
                                                              strict=True)},
         "boundary_dist_nan": int(np.isnan(table["boundary_dist_um"]).sum()),
+        "orientation_coherence_nan": int(np.isnan(table["orientation_coherence"]).sum()),
+        "min_axis_ratio": config.min_axis_ratio,
         "level0_vs_level1_side_agreement": float((side(table["compartment"]) == side(coarse))[known].mean()),
     }
     (out_dir / f"context_{split}.json").write_text(json.dumps(summary, indent=2))
