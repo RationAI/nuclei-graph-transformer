@@ -95,9 +95,44 @@ HEAT_NAMES = {"area_um2": "area", "long_axis_um": "long axis", "short_axis_um": 
               "orientation_coherence": "orientation\ncoherence of\nneighbours",
               "knn8_mean_dist_um": "8-NN distance", "boundary_dist_um": "boundary distance", "stroma": "stroma",
               "benign_epithelium": "benign\nepithelium", "cancer_epithelium": "cancerous\nepithelium",
-              "epithelium": "epithelium", "carcinoma_label": "carcinoma-\nlabelled"}
+              "epithelium": "epithelium\nshare", "carcinoma_label": "carcinoma-\nlabelled"}
 RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inactive ($\mu\mathrm{m}$)",
                   "pp": r"$\Delta$ vs. inactive (pp)", "Δ": r"$\Delta$ vs. inactive (index)"}
+# the pathologist set
+NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]
+NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
+                       "boundary_dist_um": "um", "epithelium": "pp"}
+NUCLEUS_DEFINITION = (
+    r"Long and short axis: $2\times$ the semi-axes of the moment ellipse; circularity: $4\pi A/P^2$; contour "
+    r"irregularity: $1 - A/A_\mathrm{hull}$." + "\n"
+    "H-OD: mean hematoxylin optical density, normalised by the slide median."
+)
+NEIGHBOURHOOD_DEFINITION = (
+    "8-NN distance: mean distance to the 8 nearest nuclei; pleomorphism of neighbours: CV of the area of the 8 "
+    "nearest neighbours." + "\n"
+    r"Orientation coherence of neighbours: mean $\cos 2\Delta\psi$ between the long axes of a nucleus and its 8 "
+    r"nearest neighbours (axis ratio $>1.2$)." + "\n"
+    f"Boundary distance: positive = in stroma, away from the epithelium{EN_DASH}stroma boundary; negative = "
+    "inside epithelium. Epithelium share: benign + cancerous."
+)
+CONTEXT_RELATIVE = {"knn8_mean_dist_um": "%", "boundary_dist_um": "um", "epithelium": "pp"}
+CONTEXT_TITLES = {
+    "knn8_mean_dist_um": "8-NN distance (mean distance to the 8 nearest nuclei), % difference",
+    "boundary_dist_um": (r"Boundary distance ($\mu$m; positive = in stroma, negative = inside epithelium), "
+                         r"difference in $\mu$m"),
+    "epithelium": "Epithelium share (benign + cancerous), difference in percentage points; bars: 95 % CI",
+}
+CONTEXT_CAPTION = (
+    "Tissue context for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure (weak, "
+    "medium and strong activation tertiles of the active nuclei; the 2,000 most strongly activated). 8-NN distance: "
+    "mean distance to the 8 nearest nuclei of the same slide. Boundary distance: signed distance to the "
+    "epithelium{d}stroma boundary of the annotation, positive = in stroma, away from the epithelium{d}stroma boundary; "
+    "negative = inside epithelium. Epithelium share: share of the group{a}s nuclei in benign or cancerous epithelium. "
+    "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
+    "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
+    "range on the same scale (a spread), for the epithelium share its 95 % confidence interval. The grey band is the "
+    "interquartile range of the inactive nuclei."
+).format(d="\u2013", a="\u2019", mu="\u00b5")
 SHAPE_CAPTION = (
     "Neighbourhood shape for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure "
     "(weak, medium and strong activation tertiles of the active nuclei; the 2,000 most strongly activated). Contour "
@@ -158,6 +193,12 @@ def group_stats(codes: NDArray, values: dict, concepts: list[tuple[int, str]], l
     for name, (_, kind, _) in specs.items():
         rows.append({"concept": "all", "attribute": name, "group": "all", **stats_row(values[name], kind)})
     return pd.DataFrame(rows)
+
+
+def panel_rows(stats: pd.DataFrame, name: str) -> pd.DataFrame:
+    """An attribute's group statistics as `relative_panel` rows (median / share and its spread)."""
+    rows = stats[stats["attribute"] == name].rename(columns={"value": "median", "low": "q25", "high": "q75"})
+    return rows.set_index(["concept", "group"])
 
 
 def relative(stats: pd.DataFrame, unit: str, base: float) -> pd.DataFrame:
@@ -282,49 +323,62 @@ def main(config: DictConfig) -> None:
                 fig.savefig(out / folder / f"{name}.png", dpi=300)
             plt.close(fig)
 
-        both = ("figures", "figures/pathologist")
-        sets = (("context", ATTRIBUTES, ("figures",)), ("context", PATHOLOGIST_ATTRIBUTES, ("figures/pathologist",)),
-                ("label_share", LABEL_ATTRIBUTES, ("figures",)))
-        for stem, specs, folders in sets:
+        # internal figures (benign / cancerous epithelium apart, label shares)
+        for stem, specs in (("context", ATTRIBUTES), ("label_share", LABEL_ATTRIBUTES)):
             for suffix, as_relative in (("groups", False), ("groups_relative", True)):
-                save(points_figure(stats, specs, letters, config.top_n, as_relative, ranges), f"{stem}_{suffix}",
-                     folders)
+                save(points_figure(stats, specs, letters, config.top_n, as_relative, ranges), f"{stem}_{suffix}")
             table = top_vs_inactive(stats, specs, letters)
-            name = f"{stem}_top_vs_inactive" + ("_pathologist" if folders == ("figures/pathologist",) else "")
-            table.round(2).to_csv(out / f"{name}.csv", index_label="concept")
+            table.round(2).to_csv(out / f"{stem}_top_vs_inactive.csv", index_label="concept")
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in specs], [u for _, _, u in specs.values()],
-                                 config.top_n), f"{stem}_top_vs_inactive", folders)
+                                 config.top_n), f"{stem}_top_vs_inactive")
 
         # neighbourhood shape: absolute, and relative in the style of the morphometry figure
-        save(points_figure(stats, SHAPE_ATTRIBUTES, letters, config.top_n, False, ranges), "shape_groups", both)
+        save(points_figure(stats, SHAPE_ATTRIBUTES, letters, config.top_n, False, ranges), "shape_groups")
         defined = stats[(stats["attribute"] == "orientation_coherence") & stats["concept"].isin(letters)]
-        panels = [{"title": SHAPE_TITLES[name], "unit": "%" if unit == "%" else "diff",
-                   "rows": stats[stats["attribute"] == name].rename(
-                       columns={"value": "median", "low": "q25", "high": "q75"}).set_index(["concept", "group"]),
+        panels = [{"title": SHAPE_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
                    "note": (f"defined for {100 * defined['defined_share'].min():.0f}{EN_DASH}"
                             f"{100 * defined['defined_share'].max():.0f} % of a group's nuclei (axis ratio $>1.2$)"
                             if name == "orientation_coherence" else None)}
                   for name, (_, _, unit) in SHAPE_ATTRIBUTES.items()]
         fig, _ = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei (median)")
-        save(fig, "shape_groups_relative", both)
-        for folder in both:
-            (out / folder / "shape_relative_caption.txt").write_text(SHAPE_CAPTION + "\n")
+        save(fig, "shape_groups_relative")
+        (out / "figures" / "shape_relative_caption.txt").write_text(SHAPE_CAPTION + "\n")
 
         # the morphometry heatmap: the 5 shape measures (%) and the neighbourhood shape measures
-        heat = pd.concat([percent_table(pd.read_csv(out / "violin_stats.csv"), letters),
-                          top_vs_inactive(stats, SHAPE_ATTRIBUTES, letters)], axis=1)
+        violin_stats = pd.read_csv(out / "violin_stats.csv")
+        heat = pd.concat([percent_table(violin_stats, letters), top_vs_inactive(stats, SHAPE_ATTRIBUTES, letters)],
+                         axis=1)
         heat.round(3).to_csv(out / "morphometry_top_vs_inactive.csv", index_label="concept")
         units = ["%"] * len(VIOLIN_MEASUREMENTS) + [u for _, _, u in SHAPE_ATTRIBUTES.values()]
         save(percent_heatmap(heat, [HEAT_NAMES[c] for c in heat.columns], units, config.top_n),
-             "morphometry_top_vs_inactive", both)
+             "morphometry_top_vs_inactive")
 
-    # the morphometry figures of xai.concept_morphometry_figures and the shape-matched control
-    for name in ("morphometry_groups", "morphometry_groups_relative", "context_shape_matched"):
-        for suffix in (".pdf", ".png"):
-            if (out / "figures" / f"{name}{suffix}").exists():
-                shutil.copy(out / "figures" / f"{name}{suffix}", out / "figures" / "pathologist")
-    if (out / "figures" / "morphometry_relative_caption.txt").exists():
-        shutil.copy(out / "figures" / "morphometry_relative_caption.txt", out / "figures" / "pathologist")
+        # the pathologist set: letters only, epithelium merged, no stroma, no label shares
+        folder = out / "figures" / "pathologist"
+        for old in folder.glob("*"):
+            old.unlink()
+        pathologist = ("figures/pathologist",)
+        nucleus = heat[NUCLEUS_COLUMNS]
+        neighbourhood = pd.concat([top_vs_inactive(stats, ATTRIBUTES, letters), heat,
+                                   top_vs_inactive(stats, PATHOLOGIST_ATTRIBUTES, letters)], axis=1)
+        neighbourhood = neighbourhood.loc[:, ~neighbourhood.columns.duplicated()][list(NEIGHBOURHOOD_UNITS)]
+        for name, table, units, definition in (
+                ("nucleus_top_vs_inactive", nucleus, ["%"] * len(NUCLEUS_COLUMNS), NUCLEUS_DEFINITION),
+                ("neighbourhood_top_vs_inactive", neighbourhood, list(NEIGHBOURHOOD_UNITS.values()),
+                 NEIGHBOURHOOD_DEFINITION)):
+            table.round(3).to_csv(out / f"{name}.csv", index_label="concept")
+            save(percent_heatmap(table, [HEAT_NAMES[c] for c in table.columns], units, config.top_n, definition),
+                 name, pathologist)
+        panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
+                   "band": name != "epithelium"} for name, unit in CONTEXT_RELATIVE.items()]
+        fig, _ = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")
+        save(fig, "context_groups_relative", pathologist)
+        (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION + "\n")
+
+    # the morphometry relative figure of xai.concept_morphometry_figures, with its caption
+    for name in ("morphometry_groups_relative.pdf", "morphometry_groups_relative.png",
+                 "morphometry_relative_caption.txt"):
+        shutil.copy(out / "figures" / name, out / "figures" / "pathologist")
 
     # Spearman rho of kappa_j with the continuous attributes (active nuclei), test with CI
     slides = pd.read_parquet(config.slides)

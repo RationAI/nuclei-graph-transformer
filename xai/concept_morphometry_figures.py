@@ -277,11 +277,21 @@ def delta_ticks(value: float, _: int) -> str:
     return "0" if abs(value) < 1e-9 else rf"${value:+.2g}$"
 
 
-def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str) -> dict:
+def unit_ticks(suffix: str):
+    def ticks(value: float, _: int) -> str:
+        return "0" if abs(value) < 1e-9 else rf"${value:+.0f}\,{suffix}$"
+    return ticks
+
+
+TICKS = {"%": percent_ticks, "Δ": delta_ticks, "um": unit_ticks(r"\mu\mathrm{m}"), "pp": unit_ticks(r"\mathrm{pp}")}
+
+
+def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: bool = True) -> dict:
     """One panel of active-group medians and IQRs relative to the inactive median.
 
-    As % (`unit` "%") or as a difference ("diff"), over the inactive nuclei's IQR band. `rows`
-    is indexed by (concept, group) with median, q25, q75. The band is pooled over the concepts
+    As % (`unit` "%") or as a difference in index units ("Δ"), um or percentage points ("pp"),
+    over the inactive nuclei's IQR band (`band`). `rows` is indexed by (concept, group) with
+    median, q25, q75 (for a share: the share and its interval). The band is pooled over the concepts
     (median of their edges) if its edges vary by less than POOL_BAND_SPREAD of its width,
     otherwise drawn per concept column. The y scale is symmetric around 0 unless one side is
     under a third of the other.
@@ -294,15 +304,17 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str) -> dic
     inactive = rows.xs("inactive", level="group").loc[letters]
     low_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q25"], inactive["median"], strict=True)], letters)
     high_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q75"], inactive["median"], strict=True)], letters)
-    spread = max(np.ptp(low_edge), np.ptp(high_edge)) / float((high_edge - low_edge).mean())
+    spread = max(np.ptp(low_edge), np.ptp(high_edge)) / max(float((high_edge - low_edge).mean()), 1e-12)
     pooled = spread < POOL_BAND_SPREAD
-    if pooled:
+    if not band:
+        pass
+    elif pooled:
         ax.axhspan(low_edge.median(), high_edge.median(), color="#e3e3e3", lw=0, zorder=0)
     else:
         for i, letter in enumerate(letters):
             ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0, zorder=0)
     ax.axhline(0, color="black", lw=0.6, zorder=1)
-    spans = [*low_edge, *high_edge]
+    spans = [*low_edge, *high_edge] if band else []
     for i, letter in enumerate(letters):
         base = rows.loc[(letter, "inactive"), "median"]
         for offset, group in zip(offsets, groups, strict=True):
@@ -318,7 +330,7 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str) -> dic
     pad = 0.06 * (high - low)
     ax.set_ylim(low - pad, high + pad)
     ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, symmetric=low == -high, steps=[1, 2, 2.5, 5, 10]))
-    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(percent_ticks if unit == "%" else delta_ticks))
+    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(TICKS[unit]))
     ax.grid(axis="y", color="#ececec", lw=0.4, zorder=0)
     ax.set_axisbelow(True)
     for i in range(1, len(letters)):
@@ -328,20 +340,20 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str) -> dic
     ax.tick_params(axis="x", length=0)
     for spine in ax.spines.values():
         spine.set_linewidth(0.4)
-    return {"pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
+    return {"band": band, "pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
             "low": round(float(low_edge.median()), 3), "high": round(float(high_edge.median()), 3)}
 
 
-def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, ylabel: str
-                           ) -> tuple[plt.Figure, dict]:
-    """Panels stacked vertically (`panels`: title, rows, unit, optional note), legend above."""
+def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, ylabel: str,
+                           band_label: str = "IQR of inactive nuclei") -> tuple[plt.Figure, dict]:
+    """Panels stacked vertically (`panels`: title, rows, unit, optional note and band), legend above."""
     side = FIG_W_CM / 2.54
     fig, axes = plt.subplots(len(panels), 1, figsize=(side, side * 0.24 * len(panels) + 0.75), sharex=True,
                              squeeze=False)
     axes = axes[:, 0]
     bands = {}
     for ax, panel in zip(axes, panels, strict=True):
-        bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"])
+        bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"], panel.get("band", True))
         ax.set_title(panel["title"], fontsize=8, pad=3, loc="left")
         if panel.get("note"):
             ax.text(1.0, 1.02, panel["note"], transform=ax.transAxes, ha="right", va="bottom", fontsize=6.5)
@@ -351,7 +363,7 @@ def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, y
     handles = [mpl.lines.Line2D([], [], color=GROUPS[g][1], marker="o", ms=3.5, lw=0.9) for g in groups]
     labels = [GROUPS[g][0].format(n=top_n) for g in groups]
     handles.append(plt.Rectangle((0, 0), 1, 1, color="#e3e3e3"))
-    labels.append("IQR of inactive nuclei")
+    labels.append(band_label)
     height = fig.get_size_inches()[1]
     fig.legend(handles, labels, loc="upper center", ncols=len(labels), fontsize=7, frameon=False,
                handlelength=1.4, columnspacing=1.2, bbox_to_anchor=(0.53, 1 - 0.04 / height))
@@ -376,15 +388,19 @@ def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
                                   for letter in letters] for column in VIOLIN_MEASUREMENTS}, index=letters)
 
 
-def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top_n: int) -> plt.Figure:
+def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top_n: int,
+                   definition: str | None = None) -> plt.Figure:
     """Differences top vs. inactive (concepts x measures) in 7 classes, the value in each cell.
 
     `units` per column ("%", "pp", "um" or "Δ"), shown in the column header; vector cells, no
     colour bar.
     """
     side = FIG_W_CM / 2.54
-    fig = plt.figure(figsize=(side, side * 0.66))
-    ax = fig.add_axes([0.08, 0.22, 0.9, 0.64])
+    base = side * 0.66
+    extra = 0.13 * (definition.count("\n") + 1) + 0.12 if definition else 0.0  # inches, for the definition
+    height = base + extra
+    fig = plt.figure(figsize=(side, height))
+    ax = fig.add_axes([0.08, (0.22 * base + extra) / height, 0.9, 0.64 * base / height])
     n_rows, n_cols = table.shape
     for (i, k), value in np.ndenumerate(table.to_numpy()):
         colour, dark = delta_class(value, units[k])
@@ -402,10 +418,12 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     for spine in ax.spines.values():
         spine.set_visible(False)
     fig.suptitle(f"Median of the {top_n:,} most strongly activated nuclei relative to nuclei where the "
-                 "concept is inactive", fontsize=8, y=0.985)
+                 "concept is inactive", fontsize=8, y=1 - 0.1 / height)
+    if definition:
+        fig.text(0.03, (extra - 0.06) / height, definition, ha="left", va="top", fontsize=6, linespacing=1.3)
 
     # legend: 7 labelled patches, lower (blue, large first) | no difference | higher (orange)
-    legend = fig.add_axes([0.08, 0.01, 0.9, 0.16])
+    legend = fig.add_axes([0.08, (0.01 * base + extra) / height, 0.9, 0.16 * base / height])
     legend.set_xlim(0, 7)
     legend.set_ylim(0, 1)
     legend.axis("off")
