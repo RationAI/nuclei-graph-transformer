@@ -251,22 +251,11 @@ def delta_class(value: float, unit: str) -> tuple[str, bool]:
 DISPLAY_DIGITS = {"%": 0, "pp": 0, "um": 0, "Δ": 2}
 
 
-def class_labels(edges: list[float], bracket_edges: list[float] | None = None) -> list[str]:
-    """Signed ranges, in patch order (lower: below -c, -b to -c, -a to -b; -a to +a; higher)."""
-    def ranges(e: list[float], fmt: str) -> list[str]:
-        a, b, c = (format(v, fmt) for v in e)
-        return [rf"below $-{c}$", rf"$-{b}$ to $-{c}$", rf"$-{a}$ to $-{b}$", rf"$|\Delta| < {a}$",
-                rf"$+{a}$ to $+{b}$", rf"$+{b}$ to $+{c}$", rf"above $+{c}$"]
-
-    labels = ranges(edges, "g")
-    if bracket_edges is not None:
-        labels = [f"{label}\n({bracket})" for label, bracket in zip(labels, ranges(bracket_edges, ".2f"), strict=True)]
-    if bracket_edges is None:
-        labels[3] += "\n(no difference)"
-    else:  # "|Δ| < 5 (no difference)" with the coherence limit in brackets below
-        main, bracket = labels[3].split("\n")
-        labels[3] = f"{main} (no difference)\n{bracket}"
-    return labels
+def class_labels(edges: list[float]) -> list[str]:
+    """Signed ranges in patch order: below -c, -c to -b, -b to -a, |d| < a, +a to +b, +b to +c, above +c."""
+    a, b, c = (format(v, "g") for v in edges)
+    return [rf"below $-{c}$", rf"$-{c}$ to $-{b}$", rf"$-{b}$ to $-{a}$", rf"$|\Delta| < {a}$ (no difference)",
+            rf"$+{a}$ to $+{b}$", rf"$+{b}$ to $+{c}$", rf"above $+{c}$"]
 
 
 def cell_text(value: float, unit: str) -> str:
@@ -480,8 +469,8 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
         labels = class_labels(CLASS_EDGES["Δ"])
     elif "Δ" not in used:
         labels = class_labels(CLASS_EDGES[used[0]])
-    else:  # % / pp / um and Delta index together: Delta index in brackets
-        labels = class_labels(CLASS_EDGES["%"], CLASS_EDGES["Δ"])
+    else:  # % / pp / um and Delta index together
+        labels = class_labels(CLASS_EDGES["%"])  # the coherence limits are given in the note
     colours = [*LOWER_COLOURS[::-1], NEUTRAL_COLOUR, *HIGHER_COLOURS]
     for x, (label, colour) in enumerate(zip(labels, colours, strict=True)):
         legend.add_patch(plt.Rectangle((x + 0.3, 0.6), 0.4, 0.18, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
@@ -493,7 +482,9 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     units_note = ", ".join({"%": "%", "pp": "percentage points", "um": r"$\mu$m"}[u] for u in used if u != "Δ")
     note = f"class limits in {units_note}" if units_note else ""
     if "Δ" in used:
-        note += ("; in brackets: " if note else "") + "limits for orientation coherence (plain difference)"
+        limits = " / ".join(f"{v:.2f}" for v in CLASS_EDGES["Δ"])
+        note += (f"; for orientation coherence {limits} (plain difference)" if note
+                 else f"class limits {limits} (plain difference)")
     legend.text(3.5, -0.08, note, ha="center", va="bottom", fontsize=6)
     return fig
 
