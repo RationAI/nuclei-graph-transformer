@@ -57,6 +57,7 @@ from xai.concept_morphometry_figures import (
     groups_of,
     percent_table,
     relative_panels_figure,
+    signature_figure,
 )
 from xai.concept_morphometry_figures import heatmap_figure as percent_heatmap
 
@@ -169,6 +170,30 @@ def subtitle(columns: list[str], units: list[str]) -> str:
     return "difference of medians; for shares, difference of shares"
 
 
+# the summary ("signature") heatmap: column groups
+SIGNATURE_GROUPS = [
+    ("Nucleus", ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]),
+    ("Neighbourhood", ["knn8_mean_dist_um", "pleomorphism_cv", "orientation_coherence"]),
+    ("Location", ["boundary_dist_um", "epithelium"]),
+]
+SIGNATURE_NAMES = {"area_um2": "area", "long_axis_um": "long\naxis", "short_axis_um": "short\naxis",
+                   "circularity": "circularity", "irregularity": "contour\nirregularity", "h_od_mean_norm": "H-OD",
+                   "knn8_mean_dist_um": "8-NN\ndistance", "pleomorphism_cv": "pleomorphism\nof neighbours",
+                   "orientation_coherence": "orientation\ncoherence of\nneighbours",
+                   "boundary_dist_um": "boundary\ndistance", "epithelium": "epithelium\nshare"}
+SIGNATURE_UNITS = {"orientation_coherence": "Δ", "boundary_dist_um": "um", "epithelium": "pp"}  # others: %
+SIGNATURE_CAPTION = (
+    "Prominent attributes of the eight stable concepts A{d}H: difference of medians (shares for epithelium) between "
+    "the 2,000 most strongly activated nuclei and inactive nuclei; test set. Each concept is compared with its own "
+    "inactive nuclei ({k} = 0). Only cells with |{D}| {ge} 15 are coloured and labelled (orientation coherence: "
+    "|{D}| {ge} 0.15); lighter colours 15{d}30, darker {ge} 30 (coherence 0.15{d}0.30, {ge} 0.30), orange higher and "
+    "blue lower than in inactive nuclei. Units: percent (relative difference of medians) for area, long and short "
+    "axis, circularity, contour irregularity, hematoxylin optical density (H-OD, normalised by the slide median), "
+    "8-NN distance and pleomorphism of neighbours; plain difference for orientation coherence of neighbours "
+    "(mean cos 2{D}{p}, 1 = all parallel, 0 = no preferred orientation); {mu}m for boundary distance (positive = in "
+    "stroma, away from the epithelium{d}stroma boundary; negative = inside epithelium); percentage points for the "
+    "epithelium share (benign + cancerous)."
+).format(d="\u2013", D="\u0394", ge="\u2265", k="\u03ba_j", p="\u03c8", mu="\u00b5")
 CONTEXT_RELATIVE = {"knn8_mean_dist_um": "%", "boundary_dist_um": "um", "epithelium": "pp"}
 CONTEXT_TITLES = {
     "knn8_mean_dist_um": "8-NN distance (mean distance to the 8 nearest nuclei), % difference",
@@ -453,6 +478,16 @@ def main(config: DictConfig) -> None:
             columns = list(table.columns)
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in columns], units, config.top_n, footnote(columns),
                                  subtitle(columns, units)), name, pathologist)
+        # the summary heatmap of prominent attributes (internal figures/)
+        signature_columns = [c for _, columns in SIGNATURE_GROUPS for c in columns]
+        signature = pd.concat([nucleus, neighbourhood], axis=1)[signature_columns]
+        signature.round(3).to_csv(out / "concept_signature.csv", index_label="concept")
+        save(signature_figure(signature, [SIGNATURE_NAMES[c] for c in signature_columns],
+                              [SIGNATURE_UNITS.get(c, "%") for c in signature_columns],
+                              [(label, len(columns)) for label, columns in SIGNATURE_GROUPS],
+                              "Prominent attributes of the eight stable concepts"), "concept_signature")
+        (out / "figures" / "concept_signature_caption.txt").write_text(SIGNATURE_CAPTION + "\n")
+
         panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
                    "band": name != "epithelium", "omit_small_bars": name == "epithelium"}
                   | ({"title_bars_hidden": EPITHELIUM_TITLE_BARS_HIDDEN} if name == "epithelium" else {})

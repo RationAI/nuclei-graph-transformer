@@ -489,6 +489,73 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     return fig
 
 
+def signature_figure(table: pd.DataFrame, titles: list[str], units: list[str],
+                     groups: list[tuple[str, int]], title: str) -> plt.Figure:
+    """Prominent differences only: concepts x attributes, grouped columns.
+
+    A cell is coloured and labelled if its displayed (rounded) value reaches the second class
+    limit (|d| >= 15, orientation coherence >= 0.15), else left white and empty; classes and
+    colours as in `heatmap_figure`. `groups`: (label, number of columns) in column order.
+    """
+    side = FIG_W_CM / 2.54
+    n_rows = table.shape[0]
+    gap = 0.35  # between groups, in cell widths
+    x, start = [], 0.0
+    spans = []
+    for label, n in groups:
+        spans.append((label, start, start + n - 1))
+        x += [start + k for k in range(n)]
+        start += n + gap
+    width_cells = start - gap
+    fig = plt.figure(figsize=(side, side * 0.62))
+    ax = fig.add_axes([0.07, 0.2, 0.92, 0.56])
+    for i, row in enumerate(table.to_numpy()):
+        for k, value in enumerate(row):
+            rounded = round(value, DISPLAY_DIGITS[units[k]])
+            level = int(np.searchsorted(CLASS_EDGES[units[k]], abs(rounded), side="right"))
+            prominent = level >= 2
+            colour, dark = delta_class(value, units[k]) if prominent else (NEUTRAL_COLOUR, False)
+            ax.add_patch(plt.Rectangle((x[k] - 0.5, i - 0.5), 1, 1, facecolor=colour, edgecolor=GRID_COLOUR,
+                                       lw=0.4))
+            if prominent:
+                ax.text(x[k], i, cell_text(value, units[k]), ha="center", va="center", fontsize=6.5,
+                        color="white" if dark else "black")
+    ax.set_xlim(-0.5, width_cells - 0.5)
+    ax.set_ylim(n_rows - 0.5, -0.5)
+    headers = [f"{name}\n{UNIT_HEADER[unit]}" for name, unit in zip(titles, units, strict=True)]
+    ax.set_xticks(x, headers, fontsize=5.8, linespacing=1.1)
+    ax.xaxis.tick_top()
+    ax.set_yticks(range(n_rows), table.index, fontsize=8)
+    ax.tick_params(length=0)
+    ax.set_ylabel("concept", fontsize=8)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    # group labels with a rule above the column headers
+    header_top = 1.2  # just above the (up to 4-line) column headers
+    for label, first, last in spans:
+        ax.plot([first - 0.45, last + 0.45], [header_top, header_top], transform=ax.get_xaxis_transform(),
+                color="black", lw=0.5, clip_on=False)
+        ax.text((first + last) / 2, header_top + 0.02, label, transform=ax.get_xaxis_transform(), ha="center",
+                va="bottom", fontsize=7.5)
+    fig.suptitle(title, fontsize=8.5, y=0.985)
+
+    legend = fig.add_axes([0.07, 0.02, 0.92, 0.12])
+    legend.set_xlim(0, 5)
+    legend.set_ylim(0, 1)
+    legend.axis("off")
+    _, b, c = (format(v, "g") for v in CLASS_EDGES["%"])
+    labels = [rf"below $-{c}$", rf"$-{c}$ to $-{b}$", rf"$|\Delta| < {b}$ (not shown)", rf"$+{b}$ to $+{c}$",
+              rf"above $+{c}$"]
+    colours = [LOWER_COLOURS[2], LOWER_COLOURS[1], NEUTRAL_COLOUR, HIGHER_COLOURS[1], HIGHER_COLOURS[2]]
+    for k, (label, colour) in enumerate(zip(labels, colours, strict=True)):
+        legend.add_patch(plt.Rectangle((k + 0.3, 0.62), 0.4, 0.26, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
+        legend.text(k + 0.5, 0.52, label, ha="center", va="top", fontsize=6)
+    limits = " / ".join(f"{v:.2f}" for v in CLASS_EDGES["Δ"][1:])
+    legend.text(2.5, -0.05, rf"class limits in %, percentage points, $\mu$m; for orientation coherence {limits} "
+                "(plain difference)", ha="center", va="bottom", fontsize=6)
+    return fig
+
+
 def counts_table(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[pd.DataFrame, str]:
     """N per group: polygon measures (all nuclei) and OD (random sample)."""
     rows = []
