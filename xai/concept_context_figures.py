@@ -8,7 +8,9 @@ weak / medium / strong, the top `top_n`; all nuclei) and, per attribute:
   neighbours, orientation coherence of neighbours; NaN excluded): median and quartiles, with
   `defined_share` (orientation coherence: nuclei with axis ratio > 1.2 and such neighbours);
 - shares (stroma, benign / cancerous / all epithelium at the centroid; carcinoma labels): the
-  share of the group's nuclei, with a 95 % Wilson interval.
+  share of the group's nuclei, with a 95 % percentile interval from a slide bootstrap
+  (`n_bootstrap` resamples of the slides, seed `seed`, as for rho; the Wilson interval is kept
+  in `wilson_low` / `wilson_high` for reference).
 
 Differences top vs. inactive: % for the 8-NN distance, irregularity and pleomorphism, um for
 the signed boundary distance (its median can be near or below 0), percentage points for
@@ -185,8 +187,8 @@ CONTEXT_CAPTION = (
     "negative = inside epithelium. Epithelium share: share of the group{a}s nuclei in benign or cancerous epithelium. "
     "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
     "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
-    "range on the same scale (a spread), for the epithelium share its 95 % confidence interval (binomial, Wilson; "
-    "{{ci}}). The grey band is the "
+    "range on the same scale (a spread), for the epithelium share its 95 % CI from a slide bootstrap "
+    "({{ci}}). The grey band is the "
     "interquartile range of the concept{a}s inactive nuclei, relative to their median."
 ).format(d="\u2013", a="\u2019", mu="\u00b5")
 SHAPE_CAPTION = (
@@ -224,31 +226,52 @@ def wilson(p: float, n: int, z: float = 1.96) -> tuple[float, float]:
     return centre - half, centre + half
 
 
-def stats_row(values: NDArray, kind: str) -> dict:
-    """`n`: nuclei with a defined value, `defined_share`: of the group's `n_total`."""
+def slide_draws(n_slides: int, n_bootstrap: int, seed: int) -> NDArray[np.int64]:
+    """How often each slide is drawn in each bootstrap resample (resamples x slides)."""
+    draws = np.random.default_rng(seed).integers(0, n_slides, size=(n_bootstrap, n_slides))
+    return np.stack([np.bincount(d, minlength=n_slides) for d in draws])
+
+
+def stats_row(values: NDArray, kind: str, slide: NDArray | None = None, draws: NDArray | None = None) -> dict:
+    """`n`: nuclei with a defined value, `defined_share`: of the group's `n_total`.
+
+    Shares: the 95 % percentile interval from a slide bootstrap (`draws`: how often each slide is
+    drawn per resample; `slide`: the slide of each value), and the binomial Wilson interval for
+    reference (`wilson_low`, `wilson_high`).
+    """
     counts = {"n_total": len(values)}
-    values = values[np.isfinite(values)]
+    defined = np.isfinite(values)
+    values = values[defined]
     counts |= {"n": len(values), "defined_share": len(values) / max(counts["n_total"], 1)}
     if kind == "share":
         p = float(values.mean())
-        low, high = wilson(p, len(values))
-        return counts | {"value": 100 * p, "low": 100 * low, "high": 100 * high}
+        wilson_low, wilson_high = wilson(p, len(values))
+        n_slides = draws.shape[1]
+        per_slide_n = np.bincount(slide[defined], minlength=n_slides)
+        per_slide_k = np.bincount(slide[defined], weights=values, minlength=n_slides)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            resampled = (draws @ per_slide_k) / (draws @ per_slide_n)
+        low, high = np.nanpercentile(resampled, [2.5, 97.5])
+        return counts | {"value": 100 * p, "low": 100 * low, "high": 100 * high,
+                         "wilson_low": 100 * wilson_low, "wilson_high": 100 * wilson_high}
     q25, q50, q75 = np.quantile(values, [0.25, 0.5, 0.75])
     return counts | {"value": q50, "low": q25, "high": q75}
 
 
 def group_stats(codes: NDArray, values: dict, concepts: list[tuple[int, str]], letters: list[str],
-                specs: dict, top_n: int) -> pd.DataFrame:
+                specs: dict, top_n: int, slide: NDArray, draws: NDArray) -> pd.DataFrame:
     index = {letter: j for j, letter in concepts}
     everyone = np.ones(len(codes), dtype=bool)
     rows = []
     for letter in letters:
         groups = groups_of(np.asarray(codes[:, index[letter]], dtype=np.float64), everyone, top_n)
         for name, (_, kind, _) in specs.items():
-            rows += [{"concept": letter, "attribute": name, "group": g, **stats_row(values[name][mask], kind)}
+            rows += [{"concept": letter, "attribute": name, "group": g,
+                      **stats_row(values[name][mask], kind, slide[mask], draws)}
                      for g, mask in groups.items()]
     for name, (_, kind, _) in specs.items():
-        rows.append({"concept": "all", "attribute": name, "group": "all", **stats_row(values[name], kind)})
+        rows.append({"concept": "all", "attribute": name, "group": "all",
+                     **stats_row(values[name], kind, slide, draws)})
     return pd.DataFrame(rows)
 
 
@@ -349,15 +372,18 @@ def ranges_for(values: dict, specs: dict, stats: pd.DataFrame) -> dict:
     return out
 
 
-def load(config: DictConfig, split: str) -> tuple[NDArray, dict]:
+def load(config: DictConfig, split: str) -> tuple[NDArray, dict, NDArray]:
     out = Path(config.morphometry_dir)
     codes = np.load(Path(config.concept_dir) / "codes_test.npy" if split == "test"
                     else out / f"codes_{split}.npy", mmap_mode="r")
     context = pd.read_parquet(out / f"context_{split}.parquet")
     labels = pq.read_table(Path(config.out_dir) / "activations" / split / "index.parquet",
                            columns=["label"]).column("label").to_numpy()
-    assert len(codes) == len(context) == len(labels)
-    return codes, attribute_values(context, labels)
+    slides = pd.read_parquet(config.slides)
+    slides = slides[slides["split"] == split].sort_values("offset")
+    slide = np.repeat(np.arange(len(slides)), slides["n_nuclei"].to_numpy())
+    assert len(codes) == len(context) == len(labels) == len(slide)
+    return codes, attribute_values(context, labels), slide
 
 
 @with_cli_args(["+xai=concept_morphometry"])
@@ -369,8 +395,9 @@ def main(config: DictConfig) -> None:
     specs_all = ATTRIBUTES | PATHOLOGIST_ATTRIBUTES | SHAPE_ATTRIBUTES | EXTRA_ATTRIBUTES | LABEL_ATTRIBUTES
     (out / "figures" / "pathologist").mkdir(parents=True, exist_ok=True)
 
-    codes, values = load(config, "test")
-    stats = group_stats(codes, values, concepts, letters, specs_all, config.top_n)
+    codes, values, slide = load(config, "test")
+    draws = slide_draws(int(slide.max()) + 1, config.n_bootstrap, config.seed)
+    stats = group_stats(codes, values, concepts, letters, specs_all, config.top_n, slide, draws)
     stats.to_csv(out / "context_stats.csv", index=False)
     ranges = ranges_for(values, specs_all, stats)
     with mpl.rc_context(THESIS_RC):
@@ -436,8 +463,7 @@ def main(config: DictConfig) -> None:
         epithelium = stats[(stats["attribute"] == "epithelium") & stats["concept"].isin(letters)]
         half_width = float(((epithelium["high"] - epithelium["low"]) / 2).max())
         hidden = bands[CONTEXT_TITLES["epithelium"]]["bars_hidden"]
-        ci = (f"95 % CIs {LEQ} {PLUS_MINUS}{np.ceil(half_width * 10) / 10:.1f} pp"
-              + (", smaller than the dots" if hidden else ""))
+        ci = f"{LEQ} {PLUS_MINUS}{np.ceil(half_width * 100) / 100:.2f} pp" + (", smaller than the dots" if hidden else "")
         (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION.replace("{ci}", ci) + "\n")
 
     # the morphometry relative figure of xai.concept_morphometry_figures, with its caption
@@ -465,8 +491,9 @@ def main(config: DictConfig) -> None:
     rho.to_csv(out / "context_spearman.csv", index=False)
 
     # validation check
-    codes_v, values_v = load(config, "validation")
-    stats_v = group_stats(codes_v, values_v, concepts, letters, specs_all, config.top_n)
+    codes_v, values_v, slide_v = load(config, "validation")
+    draws_v = slide_draws(int(slide_v.max()) + 1, config.n_bootstrap, config.seed)
+    stats_v = group_stats(codes_v, values_v, concepts, letters, specs_all, config.top_n, slide_v, draws_v)
     stats_v.to_csv(out / "context_stats_validation.csv", index=False)
     check = (top_vs_inactive(stats, specs_all, letters).stack().rename("top_minus_inactive_test").to_frame()
              .join(top_vs_inactive(stats_v, specs_all, letters).stack().rename("top_minus_inactive_validation")))
