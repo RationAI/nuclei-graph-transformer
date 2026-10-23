@@ -12,7 +12,7 @@ weak / medium / strong, the top `top_n`; all nuclei) and, per attribute:
 
 Differences top vs. inactive: % for the 8-NN distance, irregularity and pleomorphism, um for
 the signed boundary distance (its median can be near or below 0), percentage points for
-shares, index units ("Δ") for orientation coherence. Heatmaps in 7 classes with the unit in
+shares, a plain difference ("Δ") for orientation coherence. Heatmaps in 7 classes with the unit in
 each column header (limits 5 / 15 / 30, or 0.05 / 0.15 / 0.30 for Δ).
 
 Figures in `figures/`: `context_*` (benign / cancerous epithelium apart), `shape_groups*`,
@@ -76,7 +76,7 @@ PATHOLOGIST_ATTRIBUTES = {
     "stroma": ATTRIBUTES["stroma"],
 }
 # neighbourhood shape (xai.morphometry_context); also extra columns of the morphometry heatmap.
-# Orientation coherence is an index in [-1, 1]: differences in index units ("Δ"), not %
+# Orientation coherence is an index in [-1, 1]: plain differences ("Δ"), not %
 SHAPE_ATTRIBUTES = {
     "irregularity": ("contour irregularity", "continuous", "%"),
     "pleomorphism_cv": ("pleomorphism of neighbours (CV of area)", "continuous", "%"),
@@ -85,7 +85,7 @@ SHAPE_ATTRIBUTES = {
 SHAPE_TITLES = {
     "irregularity": r"Contour irregularity ($1 - A/A_\mathrm{hull}$), % difference",
     "pleomorphism_cv": "Pleomorphism of neighbours (CV of the area of the 8 nearest neighbours), % difference",
-    "orientation_coherence": r"Orientation coherence of neighbours (mean $\cos 2\Delta\psi$), $\Delta$ index",
+    "orientation_coherence": r"Orientation coherence of neighbours (mean $\cos 2\Delta\psi$), difference",
 }
 # in the statistics only: the earlier pleomorphism with the nucleus itself
 EXTRA_ATTRIBUTES = {"pleomorphism_incl_self": ("pleomorphism incl. the nucleus (CV)", "continuous", "%")}
@@ -97,28 +97,74 @@ HEAT_NAMES = {"area_um2": "area", "long_axis_um": "long axis", "short_axis_um": 
               "benign_epithelium": "benign\nepithelium", "cancer_epithelium": "cancerous\nepithelium",
               "epithelium": "epithelium\nshare", "carcinoma_label": "carcinoma-\nlabelled"}
 RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inactive ($\mu\mathrm{m}$)",
-                  "pp": r"$\Delta$ vs. inactive (pp)", "Δ": r"$\Delta$ vs. inactive (index)"}
+                  "pp": r"$\Delta$ vs. inactive (pp)", "Δ": "difference vs. inactive"}
 # the pathologist set
 NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]
 NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
                        "boundary_dist_um": "um", "epithelium": "pp"}
-NUCLEUS_DEFINITION = (
-    r"Long and short axis: $2\times$ the semi-axes of the moment ellipse." + "\n"
-    r"Circularity: $4\pi A/P^2$, where $A$ is the nuclear area and $P$ its perimeter; 1 = perfect circle, lower = "
-    "elongated or wavy outline." + "\n"
-    r"Contour irregularity: $1 - A/A_\mathrm{hull}$, where $A_\mathrm{hull}$ is the area of the convex hull (the "
-    "smallest convex outline enclosing the nucleus);" + "\n"
-    "0 = no indentations, higher = notched outline. H-OD: mean hematoxylin optical density, normalised by the "
-    "slide median."
-)
-NEIGHBOURHOOD_DEFINITION = (
-    "8-NN distance: mean distance to the 8 nearest nuclei; pleomorphism of neighbours: CV of the area of the 8 "
-    "nearest neighbours." + "\n"
-    r"Orientation coherence of neighbours: mean $\cos 2\Delta\psi$ between the long axes of a nucleus and its 8 "
-    r"nearest neighbours (axis ratio $>1.2$)." + "\n"
-    f"Boundary distance: positive = in stroma, away from the epithelium{EN_DASH}stroma boundary; negative = "
-    "inside epithelium. Epithelium share: benign + cancerous."
-)
+# heatmap footnotes: per attribute, its definition (one or more lines); short ones share a line
+DEFINITIONS = {
+    "long_axis_um": [r"Long and short axis: $2\times$ the semi-axes of the moment ellipse."],
+    "short_axis_um": [r"Long and short axis: $2\times$ the semi-axes of the moment ellipse."],
+    "circularity": [(r"Circularity: $4\pi A/P^2$, where $A$ is the nuclear area and $P$ its perimeter; 1 = perfect "
+                    "circle, lower = elongated or wavy outline.")],
+    "irregularity": [(r"Contour irregularity: $1 - A/A_\mathrm{hull}$, where $A_\mathrm{hull}$ is the area of the "
+                     "convex hull (the smallest convex outline enclosing the nucleus);"),
+                     "0 = no indentations, higher = notched outline."],
+    "h_od_mean_norm": ["H-OD: mean hematoxylin optical density, normalised by the slide median."],
+    "knn8_mean_dist_um": ["8-NN distance: mean distance to the 8 nearest nuclei."],
+    "pleomorphism_cv": ["Pleomorphism of neighbours: CV of the area of the 8 nearest neighbours."],
+    "orientation_coherence": [
+        (r"Orientation coherence of neighbours: mean $\cos 2\Delta\psi$ between the long axes of a nucleus and its 8 "
+        r"nearest neighbours (only nuclei with axis ratio $>1.2$);"),
+        (r"1 = all parallel, 0 = no preferred orientation, $-1$ = all perpendicular. The cell shows the plain "
+        r"difference (top $-$ inactive); e.g. $+0.29$ means $0.28 \rightarrow 0.57$.")],
+    "boundary_dist_um": [(f"Boundary distance: positive = in stroma, away from the epithelium{EN_DASH}stroma boundary; "
+                         "negative = inside epithelium.")],
+    "epithelium": ["Epithelium share: benign + cancerous."],
+    "stroma": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
+    "benign_epithelium": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
+    "cancer_epithelium": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
+    "carcinoma_label": ["Carcinoma-labelled: share of nuclei with the carcinoma label of the dense annotation."],
+}
+COMPARISON_LINE = r"Each concept is compared with its own inactive nuclei ($\kappa_j = 0$); test set."
+FOOTNOTE_WIDTH = 150  # characters of source text per packed line
+
+
+def footnote(columns: list[str]) -> str:
+    """The definitions of `columns` (short ones packed into shared lines) and the comparison line."""
+    lines, current, seen = [], "", set()
+    for column in columns:
+        parts = DEFINITIONS.get(column, [])
+        if not parts or parts[0] in seen:
+            continue
+        seen.add(parts[0])
+        if len(parts) == 1 and len(current) + len(parts[0]) + 1 <= FOOTNOTE_WIDTH:
+            current = f"{current} {parts[0]}".strip()
+            continue
+        if current:
+            lines.append(current)
+            current = ""
+        if len(parts) == 1:
+            current = parts[0]
+        else:
+            lines += parts
+    if current:
+        lines.append(current)
+    return "\n".join([*lines, COMPARISON_LINE])
+
+
+def subtitle(columns: list[str], units: list[str]) -> str:
+    shares = [c for c, u in zip(columns, units, strict=True) if u == "pp"]
+    if not shares:
+        return "difference of medians"
+    if len(shares) == len(columns):
+        return "difference of shares"
+    if shares == ["epithelium"]:
+        return "difference of medians; for epithelium share, difference of shares"
+    return "difference of medians; for shares, difference of shares"
+
+
 CONTEXT_RELATIVE = {"knn8_mean_dist_um": "%", "boundary_dist_um": "um", "epithelium": "pp"}
 CONTEXT_TITLES = {
     "knn8_mean_dist_um": "8-NN distance (mean distance to the 8 nearest nuclei), % difference",
@@ -146,7 +192,7 @@ SHAPE_CAPTION = (
     "long axes of a nucleus and its 8 nearest neighbours (1 = parallel, 0 = random, {m}1 = perpendicular), defined "
     "only for nuclei and neighbours with axis ratio > 1.2. Dots show the group median relative to the median of "
     "nuclei where the concept is inactive (as a percentage difference, or for orientation coherence as a difference "
-    "in index units); bars show the group{a}s interquartile range on the same scale. The grey band is the "
+    "as a plain difference); bars show the group{a}s interquartile range on the same scale. The grey band is the "
     "interquartile range of the inactive nuclei."
 ).format(d="\u2013", m="\u2212", D="\u0394", p="\u03c8", a="\u2019")
 
@@ -334,8 +380,9 @@ def main(config: DictConfig) -> None:
                 save(points_figure(stats, specs, letters, config.top_n, as_relative, ranges), f"{stem}_{suffix}")
             table = top_vs_inactive(stats, specs, letters)
             table.round(2).to_csv(out / f"{stem}_top_vs_inactive.csv", index_label="concept")
-            save(percent_heatmap(table, [HEAT_NAMES[c] for c in specs], [u for _, _, u in specs.values()],
-                                 config.top_n), f"{stem}_top_vs_inactive")
+            units = [u for _, _, u in specs.values()]
+            save(percent_heatmap(table, [HEAT_NAMES[c] for c in specs], units, config.top_n, footnote(list(specs)),
+                                 subtitle(list(specs), units)), f"{stem}_top_vs_inactive")
 
         # neighbourhood shape: absolute, and relative in the style of the morphometry figure
         save(points_figure(stats, SHAPE_ATTRIBUTES, letters, config.top_n, False, ranges), "shape_groups")
@@ -355,7 +402,8 @@ def main(config: DictConfig) -> None:
                          axis=1)
         heat.round(3).to_csv(out / "morphometry_top_vs_inactive.csv", index_label="concept")
         units = ["%"] * len(VIOLIN_MEASUREMENTS) + [u for _, _, u in SHAPE_ATTRIBUTES.values()]
-        save(percent_heatmap(heat, [HEAT_NAMES[c] for c in heat.columns], units, config.top_n),
+        save(percent_heatmap(heat, [HEAT_NAMES[c] for c in heat.columns], units, config.top_n,
+                             footnote(list(heat.columns)), subtitle(list(heat.columns), units)),
              "morphometry_top_vs_inactive")
 
         # the pathologist set: letters only, epithelium merged, no stroma, no label shares
@@ -367,13 +415,12 @@ def main(config: DictConfig) -> None:
         neighbourhood = pd.concat([top_vs_inactive(stats, ATTRIBUTES, letters), heat,
                                    top_vs_inactive(stats, PATHOLOGIST_ATTRIBUTES, letters)], axis=1)
         neighbourhood = neighbourhood.loc[:, ~neighbourhood.columns.duplicated()][list(NEIGHBOURHOOD_UNITS)]
-        for name, table, units, definition in (
-                ("nucleus_top_vs_inactive", nucleus, ["%"] * len(NUCLEUS_COLUMNS), NUCLEUS_DEFINITION),
-                ("neighbourhood_top_vs_inactive", neighbourhood, list(NEIGHBOURHOOD_UNITS.values()),
-                 NEIGHBOURHOOD_DEFINITION)):
+        for name, table, units in (("nucleus_top_vs_inactive", nucleus, ["%"] * len(NUCLEUS_COLUMNS)),
+                                   ("neighbourhood_top_vs_inactive", neighbourhood, list(NEIGHBOURHOOD_UNITS.values()))):
             table.round(3).to_csv(out / f"{name}.csv", index_label="concept")
-            save(percent_heatmap(table, [HEAT_NAMES[c] for c in table.columns], units, config.top_n, definition),
-                 name, pathologist)
+            columns = list(table.columns)
+            save(percent_heatmap(table, [HEAT_NAMES[c] for c in columns], units, config.top_n, footnote(columns),
+                                 subtitle(columns, units)), name, pathologist)
         panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
                    "band": name != "epithelium"} for name, unit in CONTEXT_RELATIVE.items()]
         fig, _ = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")

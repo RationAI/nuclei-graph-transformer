@@ -224,7 +224,7 @@ def points_figure(stats: pd.DataFrame, population: pd.DataFrame, letters: list[s
 # (blue) or higher (orange); thresholds per unit (%, percentage points, um: 5 / 15 / 30;
 # Delta of an index in [-1, 1]: 0.05 / 0.15 / 0.30)
 CLASS_EDGES = {"%": [5.0, 15.0, 30.0], "pp": [5.0, 15.0, 30.0], "um": [5.0, 15.0, 30.0], "Δ": [0.05, 0.15, 0.30]}
-UNIT_HEADER = {"%": "(%)", "pp": "(pp)", "um": r"($\mu\mathrm{m}$)", "Δ": r"($\Delta$ index)"}
+UNIT_HEADER = {"%": "(%)", "pp": "(pp)", "um": r"($\mu\mathrm{m}$)", "Δ": "(difference)"}
 LOWER_COLOURS = ["#c6dbef", "#6b9bd1", "#1F5FA8"]  # small, medium, large
 HIGHER_COLOURS = ["#fdd8b0", "#f3a35a", "#d46a10"]
 NEUTRAL_COLOUR = "#ffffff"
@@ -312,7 +312,7 @@ TICKS = {"%": percent_ticks, "Δ": delta_ticks, "um": unit_ticks(r"\mu\mathrm{m}
 def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: bool = True) -> dict:
     """One panel of active-group medians and IQRs relative to the inactive median.
 
-    As % (`unit` "%") or as a difference in index units ("Δ"), um or percentage points ("pp"),
+    As % (`unit` "%") or as a plain difference ("Δ", e.g. of an index), um or percentage points ("pp"),
     over the inactive nuclei's IQR band (`band`). `rows` is indexed by (concept, group) with
     median, q25, q75 (for a share: the share and its interval). The band is pooled over the concepts
     (median of their edges) if its edges vary by less than POOL_BAND_SPREAD of its width,
@@ -412,7 +412,7 @@ def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
 
 
 def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top_n: int,
-                   definition: str | None = None) -> plt.Figure:
+                   definition: str | None = None, subtitle: str = "difference of medians") -> plt.Figure:
     """Differences top vs. inactive (concepts x measures) in 7 classes, the value in each cell.
 
     `units` per column ("%", "pp", "um" or "Δ"), shown in the column header; vector cells, no
@@ -421,7 +421,10 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     side = FIG_W_CM / 2.54
     base = side * 0.66
     extra = 0.13 * (definition.count("\n") + 1) + 0.12 if definition else 0.0  # inches, for the definition
-    height = base + extra
+    headers = [f"{title}\n{UNIT_HEADER[unit]}" for title, unit in zip(titles, units, strict=True)]
+    header_lines = max(h.count("\n") + 1 for h in headers)
+    top = 0.15 + 0.11 * max(0, header_lines - 3)  # inches, for the subtitle and tall headers
+    height = base + extra + top
     fig = plt.figure(figsize=(side, height))
     ax = fig.add_axes([0.08, (0.22 * base + extra) / height, 0.9, 0.64 * base / height])
     n_rows, n_cols = table.shape
@@ -432,7 +435,6 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
                 color="white" if dark else "black")
     ax.set_xlim(-0.5, n_cols - 0.5)
     ax.set_ylim(n_rows - 0.5, -0.5)
-    headers = [f"{title}\n{UNIT_HEADER[unit]}" for title, unit in zip(titles, units, strict=True)]
     ax.set_xticks(range(n_cols), headers, fontsize=6.5)
     ax.xaxis.tick_top()
     ax.set_yticks(range(n_rows), table.index, fontsize=8)
@@ -440,8 +442,9 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     ax.set_ylabel("concept", fontsize=8)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    fig.suptitle(f"Median of the {top_n:,} most strongly activated nuclei relative to nuclei where the "
-                 "concept is inactive", fontsize=8, y=1 - 0.1 / height)
+    fig.suptitle(f"The {top_n:,} most strongly activated nuclei vs. nuclei where the concept is inactive",
+                 fontsize=8, y=1 - 0.1 / height)
+    fig.text(0.5, 1 - 0.3 / height, subtitle, ha="center", va="top", fontsize=7)
     if definition:
         fig.text(0.03, (extra - 0.06) / height, definition, ha="left", va="top", fontsize=6, linespacing=1.3)
 
@@ -468,7 +471,7 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     units_note = ", ".join({"%": "%", "pp": "percentage points", "um": r"$\mu$m"}[u] for u in used if u != "Δ")
     note = f"class limits in {units_note}" if units_note else ""
     if "Δ" in used:
-        note += ("; " if note else "") + r"in brackets: $\Delta$ index" if units_note else r"$\Delta$ index"
+        note += ("; in brackets: " if note else "") + "limits for orientation coherence (plain difference)"
     legend.text(3.5, -0.08, note, ha="center", va="bottom", fontsize=6)
     return fig
 
