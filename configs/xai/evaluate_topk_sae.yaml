@@ -27,7 +27,8 @@ comparisons: # [a, b]: a - b, flagged when within the seed spread
   - [topk_m4096_k16, topk_m1024_k16]
   - [topk_m4096_k32, topk_m1024_k32]
 ate_atol: 1e-4 # |ATE - FE|, as xai.evaluate_sae
-flip_margin: 1.0 # class flips also among |f| < flip_margin
+flip_margin: 1.0 # class flips also among |f| < flip_margin (nucleus level)
+slide_top_share: 0.01 # slide score: mean of the top 1 % of the nucleus logits (at least one)
 chunk_size: 32768 # dense codes per chunk (float64)
 limit_rows: null # debugging only: first rows of each split
 num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
@@ -42,5 +43,6 @@ metadata:
   hyperparams:
     ate_atol: ${ate_atol}
     flip_margin: ${flip_margin}
+    slide_top_share: ${slide_top_share}
     reference_sae_run_id: ${links.reference_sae_run_id}
     comparisons: ${comparisons}

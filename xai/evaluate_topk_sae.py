@@ -11,11 +11,13 @@ undo their input normalization in `decoder_weight` / `decoder_bias`. Added here:
   quantiles per model, every latent in `latent_frequency_test.csv`;
 - class flips: share of nuclei with sign(f) != sign(f_A), overall and among |f| <
   `flip_margin`;
-- slide level: the model's attention pooling F = Σ_i softmax(s_i) f_i over all nuclei of
-  a test slide (one slide = one sequence in the model's prediction), with the attention
-  head of `checkpoint`. F_A pools f_A with the attention scores of h (`slide_*`) or of ĥ
-  (`slide_attn_hat_*`); AUROC / AUPRC against the slide label (`is_carcinoma`) next to F,
-  the slide class-flip rate sign(F) != sign(F_A), slide FE and Spearman of F with F_A.
+- slide level, two fixed aggregators of the nucleus logits of each test slide: the mean
+  (`slide_mean_*`) and the mean of the top `slide_top_share` (1 %, at least one nucleus;
+  `slide_top1pct_*`), F from f and F_A from f_A (its own top nuclei). AUROC / AUPRC against
+  the slide label (`is_carcinoma`) of F and F_A, their differences F_A - F (`dAUROC`,
+  `dAUPRC`) and Spearman of F with F_A. No slide-level sign flips (no fixed threshold).
+- not reported: the model's attention pooling Σ_i softmax(s_i) f_i, with the attention
+  head of `checkpoint` and the scores of h or of ĥ, in `slide_attention_untrained.csv`.
   The nucleus-level model was trained on nucleus labels only, so its attention head never
   received a gradient (still at initialization; near-uniform weights).
 
@@ -93,12 +95,16 @@ SUMMARY_COLS = [
     "flip_rate_small_logit",
     "AUROC_fA",
     "AUPRC_fA",
-    "slide_AUROC_fA",
-    "slide_AUPRC_fA",
-    "slide_flip_rate",
-    "slide_FE",
-    "slide_attn_hat_AUROC_fA",
-    "slide_attn_hat_flip_rate",
+    "nucleus_dAUROC",
+    "nucleus_dAUPRC",
+    "slide_mean_AUROC_FA",
+    "slide_mean_dAUROC",
+    "slide_mean_dAUPRC",
+    "slide_mean_spearman_F_FA",
+    "slide_top1pct_AUROC_FA",
+    "slide_top1pct_dAUROC",
+    "slide_top1pct_dAUPRC",
+    "slide_top1pct_spearman_F_FA",
     "L0",
     "dead_fraction",
 ]
@@ -168,28 +174,50 @@ def slide_pool(
     return np.add.reduceat(weights * values, starts) / np.add.reduceat(weights, starts)
 
 
+def slide_top_mean(
+    values: NDArray, starts: NDArray[np.integer], share: float
+) -> NDArray[np.float64]:
+    """Mean of the top `share` (at least one) of the values of each slide."""
+    ends = np.append(starts[1:], len(values))
+    out = np.empty(len(starts))
+    for i, (start, end) in enumerate(zip(starts, ends, strict=True)):
+        n = end - start
+        top = max(1, int(np.ceil(share * n)))
+        out[i] = np.partition(values[start:end], n - top)[n - top :].mean()
+    return out
+
+
 def slide_metrics(
     f_slide: NDArray, f_a_slide: NDArray, labels: NDArray, prefix: str
 ) -> dict[str, float]:
-    return {
-        **{
-            f"{prefix}_{key}_fA": value
-            for key, value in classification_metrics(labels, f_a_slide).items()
-        },
-        f"{prefix}_flip_rate": float(((f_slide > 0) != (f_a_slide > 0)).mean()),
-        f"{prefix}_FE": rmse(f_slide, f_a_slide),
-        f"{prefix}_spearman_F_FA": float(spearmanr(f_slide, f_a_slide).statistic),
-    }
+    """AUROC / AUPRC of F and F_A, F_A - F, and Spearman of F with F_A."""
+    original = classification_metrics(labels, f_slide)
+    reconstructed = classification_metrics(labels, f_a_slide)
+    row = {}
+    for key in original:
+        row[f"{prefix}_{key}_F"] = original[key]
+        row[f"{prefix}_{key}_FA"] = reconstructed[key]
+        row[f"{prefix}_d{key}"] = reconstructed[key] - original[key]
+    row[f"{prefix}_spearman_F_FA"] = float(spearmanr(f_slide, f_a_slide).statistic)
+    row[f"{prefix}_FE"] = rmse(f_slide, f_a_slide)
+    return row
 
 
 @dataclass(frozen=True)
 class Slides:
-    """Test slides in index order: first rows, labels, F and the attention scores of h."""
+    """Test slides in index order: first rows, labels, the attention scores of h."""
 
     starts: NDArray[np.int64]
     labels: NDArray[np.int64]
-    f: NDArray[np.float64]
-    scores: NDArray[np.float64]
+    attention_scores: NDArray[np.float64]  # untrained head, not reported
+    top_share: float
+
+    def aggregate(self, f: NDArray) -> dict[str, NDArray[np.float64]]:
+        lengths = np.diff(np.append(self.starts, len(f)))
+        return {
+            "slide_mean": np.add.reduceat(f, self.starts) / lengths,
+            "slide_top1pct": slide_top_mean(f, self.starts, self.top_share),
+        }
 
 
 def sparse_codes(model: ConceptAutoencoder, h: NDArray) -> SparseCodes:
@@ -297,9 +325,21 @@ def evaluate_model(
             for s in data["test"].chunks(chunk_size)
         ]
     )
-    for prefix, scores in (("slide", slides.scores), ("slide_attn_hat", scores_hat)):
-        f_a_slide = slide_pool(f_a, scores, slides.starts)
-        row |= slide_metrics(slides.f, f_a_slide, slides.labels, prefix)
+    original, reconstructed = slides.aggregate(f["test"]), slides.aggregate(f_a)
+    for prefix in original:
+        row |= slide_metrics(
+            original[prefix], reconstructed[prefix], slides.labels, prefix
+        )
+    for prefix, scores in (
+        ("untrained_attn_h", slides.attention_scores),
+        ("untrained_attn_hhat", scores_hat),
+    ):
+        row |= slide_metrics(
+            slide_pool(f["test"], slides.attention_scores, slides.starts),
+            slide_pool(f_a, scores, slides.starts),
+            slides.labels,
+            prefix,
+        )
     row |= {
         f"{key}_fA": value
         for key, value in classification_metrics(data["test"].labels, f_a).items()
@@ -456,28 +496,35 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     slides = Slides(
         starts=starts,
         labels=is_carcinoma.loc[slide_ids[starts]].to_numpy(np.int64),
-        f=slide_pool(f["test"], scores, starts),
-        scores=scores,
+        attention_scores=scores,
+        top_share=config.slide_top_share,
     )
-    slide_model_metrics = classification_metrics(slides.labels, slides.f)
+    slide_model_metrics = {
+        f"{prefix}_{key}_F": value
+        for prefix, values in slides.aggregate(f["test"]).items()
+        for key, value in classification_metrics(slides.labels, values).items()
+    }
+    attention_pooled = slide_pool(f["test"], scores, starts)
     lengths = np.diff(np.append(starts, len(scores)))
     weights = np.exp(scores - np.repeat(np.maximum.reduceat(scores, starts), lengths))
     weights /= np.repeat(np.add.reduceat(weights, starts), lengths)
     effective = 1 / np.add.reduceat(weights**2, starts) / lengths
-    attention_stats = {
+    slide_stats = {
         "slides": len(starts),
         "carcinoma_slides": int(slides.labels.sum()),
-        "share_slides_F_positive": float((slides.f > 0).mean()),
+        **slide_model_metrics,
+    }
+    attention_stats = {  # untrained head, not reported
         "attention_effective_nuclei_share_median": float(np.median(effective)),
         "attention_effective_nuclei_share_min": float(effective.min()),
-        "F_minus_mean_logit_median": float(
-            np.median(slides.f - np.add.reduceat(f["test"], starts) / lengths)
+        "pooled_minus_mean_logit_median": float(
+            np.median(attention_pooled - np.add.reduceat(f["test"], starts) / lengths)
         ),
-        **{f"slide_{key}_F": value for key, value in slide_model_metrics.items()},
     }
-    print(attention_stats)
+    print(slide_stats, attention_stats)
+    logger.log_metrics({f"test/slides/{k}": v for k, v in slide_stats.items()})
     logger.log_metrics(
-        {f"test/slide_pooling/{k}": v for k, v in attention_stats.items()}
+        {f"test/untrained_attention/{k}": v for k, v in attention_stats.items()}
     )
     reference = reference_statistics(data, f, holdout)
     logger.log_metrics({f"reference/{key}": value for key, value in reference.items()})
@@ -525,10 +572,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 **info,
                 **row,
                 **{f"{key}_f": value for key, value in model_metrics.items()},
-                **{
-                    f"slide_{key}_F": value
-                    for key, value in slide_model_metrics.items()
-                },
+                **slide_model_metrics,
             }
         )
         frequencies[name] = frequency
@@ -549,6 +593,13 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         )
 
     df = add_checks(add_relative(pd.DataFrame(rows), reference), config.ate_atol)
+    df["nucleus_dAUROC"] = df["AUROC_fA"] - df["AUROC_f"]
+    df["nucleus_dAUPRC"] = df["AUPRC_fA"] - df["AUPRC_f"]
+    untrained = [c for c in df.columns if c.startswith("untrained_attn")]
+    df[["model", "method", "num_latents", "k", "seed", *untrained]].assign(
+        note="untrained head, not reported", **attention_stats
+    ).to_csv(topk_dir / "slide_attention_untrained.csv", index=False)
+    df = df.drop(columns=untrained)
     first = [
         "model",
         "method",
@@ -629,6 +680,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         config.output_path,
         topk_dir / "completeness_summary.csv",
         topk_dir / "comparisons.csv",
+        topk_dir / "slide_attention_untrained.csv",
         topk_dir / "latent_frequency_test.csv",
         topk_dir / "reference_check.json",
         topk_dir / "figures" / "latent_frequency_test.png",
