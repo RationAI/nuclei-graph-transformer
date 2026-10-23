@@ -8,7 +8,8 @@ test set is not touched except for the data check of the stored k = 16 codes.
 
 Grid: `grid.num_latents` x `grid.k` with `grid.seed`, the main configuration
 (`main`, fixed in advance) with `main.seeds`, and `controls` (m = 1024, K = 4: L0
-matched to the k = 16 SAE). The k = 16 SAE is only read (data check
+matched to the k = 16 SAE) and `undercomplete` (m = 16, K = 4: the k = 16 SAE's
+dictionary size, to separate it from the L1 vs. TopK objective). The k = 16 SAE is only read (data check
 and its holdout row of `training_grid.csv`).
 
 Outputs in `topk_dir`: `models/topk_m<m>_k<K>_seed<s>.pt`, `training_grid.csv` (holdout
@@ -214,12 +215,14 @@ def holdout_metrics(
 
 
 def runs(config: DictConfig) -> list[tuple[int, int, int]]:
-    """(m, K, seed): the main configuration's seeds, the rest of the grid, the controls."""
+    """(m, K, seed): main seeds, the rest of the grid, controls, undercomplete models."""
     main = [(config.main.num_latents, config.main.k, s) for s in config.main.seeds]
     grid = [
         (m, k, config.grid.seed) for m in config.grid.num_latents for k in config.grid.k
     ]
-    controls = [(c.num_latents, c.k, c.seed) for c in config.controls]
+    controls = [
+        (c.num_latents, c.k, c.seed) for c in [*config.controls, *config.undercomplete]
+    ]
     return main + [r for r in sorted(grid) + controls if r not in main]
 
 

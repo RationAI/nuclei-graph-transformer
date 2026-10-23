@@ -21,6 +21,10 @@ main:
 controls: # part of the grid; K = 4 matches the L0 of the k = 16 SAE (3.5): dictionary
   # size (K = 4 vs. the k = 16 SAE) apart from more active latents (K = 4 vs. K = 16)
   - {num_latents: 1024, k: 4, seed: 0}
+undercomplete: # TopK with the k = 16 SAE's dictionary size: L1 vs. TopK objective at m = 16
+  - {num_latents: 16, k: 4, seed: 0}
+  - {num_latents: 16, k: 4, seed: 1}
+  - {num_latents: 16, k: 4, seed: 2}
 reuse_existing: true # models already in topk_dir/models (same m, K, seed) are kept
 
 training:
@@ -50,6 +54,7 @@ metadata:
     grid: ${grid}
     main: ${main}
     controls: ${controls}
+    undercomplete: ${undercomplete}
     holdout_size: ${holdout_size}
     max_slide_share: ${sampler.max_slide_share}
     lr: ${training.lr}
