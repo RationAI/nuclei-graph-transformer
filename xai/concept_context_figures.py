@@ -79,16 +79,16 @@ PATHOLOGIST_ATTRIBUTES = {
 # Orientation coherence is an index in [-1, 1]: plain differences ("Δ"), not %
 SHAPE_ATTRIBUTES = {
     "irregularity": ("contour irregularity", "continuous", "%"),
-    "pleomorphism_cv": ("pleomorphism of neighbours (CV of area)", "continuous", "%"),
+    "pleomorphism_cv": ("pleomorphism of neighbours\n(coefficient of variation of area)", "continuous", "%"),
     "orientation_coherence": ("orientation coherence of neighbours", "continuous", "Δ"),
 }
 SHAPE_TITLES = {
     "irregularity": r"Contour irregularity ($1 - A/A_\mathrm{hull}$), % difference",
-    "pleomorphism_cv": "Pleomorphism of neighbours (CV of the area of the 8 nearest neighbours), % difference",
+    "pleomorphism_cv": "Pleomorphism of neighbours (coefficient of variation of the area of the 8 nearest neighbours), % difference",
     "orientation_coherence": r"Orientation coherence of neighbours (mean $\cos 2\Delta\psi$), difference",
 }
 # in the statistics only: the earlier pleomorphism with the nucleus itself
-EXTRA_ATTRIBUTES = {"pleomorphism_incl_self": ("pleomorphism incl. the nucleus (CV)", "continuous", "%")}
+EXTRA_ATTRIBUTES = {"pleomorphism_incl_self": ("pleomorphism incl. the nucleus (coefficient of variation of area)", "continuous", "%")}
 HEAT_NAMES = {"area_um2": "area", "long_axis_um": "long axis", "short_axis_um": "short axis",
               "circularity": "circularity", "h_od_mean_norm": "H-OD", "irregularity": "contour\nirregularity",
               "pleomorphism_cv": "pleomorphism\nof neighbours",
@@ -113,7 +113,7 @@ DEFINITIONS = {
                      "0 = no indentations, higher = notched outline."],
     "h_od_mean_norm": ["H-OD: mean hematoxylin optical density, normalised by the slide median."],
     "knn8_mean_dist_um": ["8-NN distance: mean distance to the 8 nearest nuclei."],
-    "pleomorphism_cv": ["Pleomorphism of neighbours: CV of the area of the 8 nearest neighbours."],
+    "pleomorphism_cv": ["Pleomorphism of neighbours: coefficient of variation of the area of the 8 nearest neighbours."],
     "orientation_coherence": [
         (r"Orientation coherence of neighbours: mean $\cos 2\Delta\psi$ between the long axes of a nucleus and its 8 "
         r"nearest neighbours (only nuclei with axis ratio $>1.2$);"),
