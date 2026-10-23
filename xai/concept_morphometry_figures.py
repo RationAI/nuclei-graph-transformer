@@ -309,7 +309,11 @@ def unit_ticks(suffix: str):
 TICKS = {"%": percent_ticks, "Δ": delta_ticks, "um": unit_ticks(r"\mu\mathrm{m}"), "pp": unit_ticks(r"\mathrm{pp}")}
 
 
-def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: bool = True) -> dict:
+MARKER_PT = 3.5  # dot diameter in the relative panels
+
+
+def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: bool = True,
+                   bars_on_top: bool = False) -> dict:
     """One panel of active-group medians and IQRs relative to the inactive median.
 
     As % (`unit` "%") or as a plain difference ("Δ", e.g. of an index), um or percentage points ("pp"),
@@ -317,8 +321,9 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     median, q25, q75 (for a share: the share and its interval). The band is drawn per concept
     column: that concept's inactive IQR relative to its own inactive median. The y scale is
     symmetric around 0 unless one side is under a third of the other. Returns, for reference,
-    the pooled band (median of the concepts' edges) and the largest distance of a concept's
-    edge from it.
+    the pooled band (median of the concepts' edges), the largest distance of a concept's edge
+    from it, and whether the longest bar is shorter than a dot (`bars_hidden`). With
+    `bars_on_top` the bars are drawn above the dots, thin and white.
     """
     def rel(q: float, base: float) -> float:
         return 100 * (q / base - 1) if unit == "%" else q - base
@@ -334,14 +339,18 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
             ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0, zorder=0)
     ax.axhline(0, color="black", lw=0.6, zorder=1)
     spans = [*low_edge, *high_edge] if band else []
+    bar_lengths = []
     for i, letter in enumerate(letters):
         base = rows.loc[(letter, "inactive"), "median"]
         for offset, group in zip(offsets, groups, strict=True):
             q25, q50, q75 = (rel(q, base) for q in rows.loc[(letter, group), ["q25", "median", "q75"]])
             colour = GROUPS[group][1]
             spans += [q25, q75]
-            ax.plot([i + offset] * 2, [q25, q75], color=colour, lw=0.9, solid_capstyle="butt", zorder=3)
-            ax.plot(i + offset, q50, "o", color=colour, ms=3.5, mec="none", zorder=4)
+            bar_lengths.append(q75 - q25)
+            # on top of the dots the bar is drawn thin and white, so a bar shorter than a dot shows
+            ax.plot([i + offset] * 2, [q25, q75], color="white" if bars_on_top else colour,
+                    lw=0.6 if bars_on_top else 0.9, solid_capstyle="butt", zorder=5 if bars_on_top else 3)
+            ax.plot(i + offset, q50, "o", color=colour, ms=MARKER_PT, mec="none", zorder=4)
     low, high = min(spans), max(spans)
     limit = max(abs(low), abs(high))
     if min(abs(low), abs(high)) >= limit / 3:
@@ -360,7 +369,12 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     for spine in ax.spines.values():
         spine.set_linewidth(0.4)
     deviation = pd.concat([(low_edge - pooled_low).abs(), (high_edge - pooled_high).abs()])
-    return {"band": band, "pooled_low": round(pooled_low, 3), "pooled_high": round(pooled_high, 3),
+    # the dot's diameter in data units: points -> axes height in points -> y range
+    axes_height_pt = ax.get_position().height * ax.figure.get_size_inches()[1] * 72
+    marker_data = MARKER_PT / axes_height_pt * (high - low + 2 * pad)
+    return {"band": band, "bars_hidden": bool(max(bar_lengths) < marker_data),
+            "longest_bar": round(float(max(bar_lengths)), 3), "marker_size": round(float(marker_data), 3),
+            "pooled_low": round(pooled_low, 3), "pooled_high": round(pooled_high, 3),
             "max_deviation_from_pooled": round(float(deviation.max()), 3),
             "max_deviation_concept": str(deviation.idxmax()),
             "per_concept": {letter: [round(float(low_edge[letter]), 3), round(float(high_edge[letter]), 3)]
@@ -376,8 +390,10 @@ def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, y
     axes = axes[:, 0]
     bands = {}
     for ax, panel in zip(axes, panels, strict=True):
-        bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"], panel.get("band", True))
-        ax.set_title(panel["title"], fontsize=8, pad=3, loc="left")
+        bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"], panel.get("band", True),
+                                               panel.get("bars_on_top", False))
+        hidden = bands[panel["title"]]["bars_hidden"] and "title_bars_hidden" in panel
+        ax.set_title(panel["title_bars_hidden"] if hidden else panel["title"], fontsize=8, pad=3, loc="left")
         if panel.get("note"):
             ax.text(1.0, 1.02, panel["note"], transform=ax.transAxes, ha="right", va="bottom", fontsize=6.5)
     axes[-1].set_xticks(range(len(letters)), letters, fontsize=8)

@@ -102,6 +102,8 @@ RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inacti
 NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]
 NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
                        "boundary_dist_um": "um", "epithelium": "pp"}
+LEQ, PLUS_MINUS = "\u2264", "\u00b1"  # plain-text caption characters
+
 # heatmap footnotes: per attribute, its definition (one or more lines); short ones share a line
 DEFINITIONS = {
     "long_axis_um": [r"Long and short axis: $2\times$ the semi-axes of the moment ellipse."],
@@ -172,6 +174,9 @@ CONTEXT_TITLES = {
                          r"difference in $\mu$m"),
     "epithelium": "Epithelium share (benign + cancerous), difference in percentage points; bars: 95 % CI",
 }
+# used instead when the longest interval is shorter than a dot
+EPITHELIUM_TITLE_BARS_HIDDEN = ("Epithelium share (benign + cancerous), difference in percentage points; 95 % CI "
+                                "smaller than the dots")
 CONTEXT_CAPTION = (
     "Tissue context for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure (weak, "
     "medium and strong activation tertiles of the active nuclei; the 2,000 most strongly activated). 8-NN distance: "
@@ -180,7 +185,8 @@ CONTEXT_CAPTION = (
     "negative = inside epithelium. Epithelium share: share of the group{a}s nuclei in benign or cancerous epithelium. "
     "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
     "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
-    "range on the same scale (a spread), for the epithelium share its 95 % confidence interval. The grey band is the "
+    "range on the same scale (a spread), for the epithelium share its 95 % confidence interval (binomial, Wilson; "
+    "{{ci}}). The grey band is the "
     "interquartile range of the concept{a}s inactive nuclei, relative to their median."
 ).format(d="\u2013", a="\u2019", mu="\u00b5")
 SHAPE_CAPTION = (
@@ -422,10 +428,17 @@ def main(config: DictConfig) -> None:
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in columns], units, config.top_n, footnote(columns),
                                  subtitle(columns, units)), name, pathologist)
         panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
-                   "band": name != "epithelium"} for name, unit in CONTEXT_RELATIVE.items()]
-        fig, _ = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")
+                   "band": name != "epithelium", "bars_on_top": name == "epithelium"}
+                  | ({"title_bars_hidden": EPITHELIUM_TITLE_BARS_HIDDEN} if name == "epithelium" else {})
+                  for name, unit in CONTEXT_RELATIVE.items()]
+        fig, bands = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")
         save(fig, "context_groups_relative", pathologist)
-        (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION + "\n")
+        epithelium = stats[(stats["attribute"] == "epithelium") & stats["concept"].isin(letters)]
+        half_width = float(((epithelium["high"] - epithelium["low"]) / 2).max())
+        hidden = bands[CONTEXT_TITLES["epithelium"]]["bars_hidden"]
+        ci = (f"95 % CIs {LEQ} {PLUS_MINUS}{np.ceil(half_width * 10) / 10:.1f} pp"
+              + (", smaller than the dots" if hidden else ""))
+        (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION.replace("{ci}", ci) + "\n")
 
     # the morphometry relative figure of xai.concept_morphometry_figures, with its caption
     for name in ("morphometry_groups_relative.pdf", "morphometry_groups_relative.png",
