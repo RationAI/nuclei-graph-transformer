@@ -235,12 +235,34 @@ EN_DASH = "{"
 
 
 def delta_class(value: float, unit: str) -> tuple[str, bool]:
-    """Fill colour of a difference and whether its text should be white."""
+    """Fill colour of a difference and whether its text should be white.
+
+    Classified on the displayed (rounded) value, so equal numbers get equal colours:
+    |d| < a no difference, a <= |d| < b, b <= |d| < c, |d| >= c (CLASS_EDGES a, b, c).
+    """
+    value = round(value, DISPLAY_DIGITS[unit])
     level = int(np.searchsorted(CLASS_EDGES[unit], abs(value), side="right"))  # 0: no difference
     if level == 0:
         return NEUTRAL_COLOUR, False
     colours = HIGHER_COLOURS if value > 0 else LOWER_COLOURS
     return colours[level - 1], level == 3
+
+
+DISPLAY_DIGITS = {"%": 0, "pp": 0, "um": 0, "Δ": 2}
+
+
+def class_labels(edges: list[float], bracket_edges: list[float] | None = None) -> list[str]:
+    """Signed ranges, in patch order (lower: below -c, -b to -c, -a to -b; -a to +a; higher)."""
+    def ranges(e: list[float], fmt: str) -> list[str]:
+        a, b, c = (format(v, fmt) for v in e)
+        return [rf"below $-{c}$", rf"$-{b}$ to $-{c}$", rf"$-{a}$ to $-{b}$", rf"$-{a}$ to $+{a}$",
+                rf"$+{a}$ to $+{b}$", rf"$+{b}$ to $+{c}$", rf"above $+{c}$"]
+
+    labels = ranges(edges, "g")
+    if bracket_edges is not None:
+        labels = [f"{label}\n({bracket})" for label, bracket in zip(labels, ranges(bracket_edges, ".2f"), strict=True)]
+    labels[3] += "\n(no difference)" if bracket_edges is None else "\nno difference"
+    return labels
 
 
 def cell_text(value: float, unit: str) -> str:
@@ -428,15 +450,12 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     legend.set_ylim(0, 1)
     legend.axis("off")
     used = [u for u in CLASS_EDGES if u in units]
-    if used == ["Δ"] or all(u != "Δ" for u in used):
-        a, b, c = CLASS_EDGES[used[0]]
-        labels = [rf"$>{c:g}$", f"{b:g}{EN_DASH}{c:g}", f"{a:g}{EN_DASH}{b:g}", rf"$<{a:g}$ (no difference)",
-                  f"{a:g}{EN_DASH}{b:g}", f"{b:g}{EN_DASH}{c:g}", rf"$>{c:g}$"]
-    else:  # % / pp / um and Delta index together
-        labels = [r"$>30$" + "\n" + r"($>0.30$)", f"15{EN_DASH}30\n(0.15{EN_DASH}0.30)",
-                  f"5{EN_DASH}15\n(0.05{EN_DASH}0.15)", r"$<5$ ($<0.05$)" + "\nno difference",
-                  f"5{EN_DASH}15\n(0.05{EN_DASH}0.15)", f"15{EN_DASH}30\n(0.15{EN_DASH}0.30)",
-                  r"$>30$" + "\n" + r"($>0.30$)"]
+    if used == ["Δ"]:
+        labels = class_labels(CLASS_EDGES["Δ"])
+    elif "Δ" not in used:
+        labels = class_labels(CLASS_EDGES[used[0]])
+    else:  # % / pp / um and Delta index together: Delta index in brackets
+        labels = class_labels(CLASS_EDGES["%"], CLASS_EDGES["Δ"])
     colours = [*LOWER_COLOURS[::-1], NEUTRAL_COLOUR, *HIGHER_COLOURS]
     for x, (label, colour) in enumerate(zip(labels, colours, strict=True)):
         legend.add_patch(plt.Rectangle((x + 0.3, 0.6), 0.4, 0.18, facecolor=colour, edgecolor=GRID_COLOUR, lw=0.4))
