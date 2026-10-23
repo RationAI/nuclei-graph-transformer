@@ -12,15 +12,18 @@ is matched to the nearest inactive nucleus (kappa_j = 0) of the same slide, with
   harmonic, left out), Euclidean on the first principal components covering >= PCA_VARIANCE
   of the sample's variance; globally: among the inactive nuclei of that random sample.
 
-For the top and the matched nuclei: the share in epithelium (benign + cancerous, mask >= 2),
-the median 8-NN distance and the median signed boundary distance; differences top - matched
+For the top and the matched nuclei: the share in stroma (mask = 1) and in epithelium (benign +
+cancerous, mask >= 2), the median 8-NN distance and the median signed boundary distance
+(positive = in stroma, negative = inside epithelium); differences top - matched
 and top - all inactive with 95 % percentile intervals from `n_bootstrap` resamples of the top
 nuclei's slides (a pair stays together; the median of all inactive nuclei is kept fixed).
 
 Writes `context_shape_matched.csv` (with `match_on`), `context_shape_matched_balance.csv`
 (per matching: SMD of the four morphometric features, top vs. matched and vs. all inactive,
 and the largest |SMD| over the non-constant model inputs), `context_shape_matched_pca.json`
-and `figures/context_shape_matched.pdf/png`. Concepts by letter only.
+and `figures/context_shape_matched.pdf/png` (stroma share, 8-NN and boundary distance, with
+the definitions of the heatmaps as a footnote; the epithelium share is in the CSV only).
+Concepts by letter only.
 """
 
 import json
@@ -43,6 +46,7 @@ from rationai.mlkit import with_cli_args
 from scipy.spatial import cKDTree
 
 from nuclei_graph.data.datasets.nuclei_features import NucleiFeatureExtractor
+from xai.concept_context_figures import DEFINITIONS
 from xai.concept_morphometry import FIG_W_CM, THESIS_RC, concept_letters
 from xai.prepare_nuclei import ids_checksum
 
@@ -54,9 +58,10 @@ PCA_VARIANCE = 0.95
 N_JOBS = 8
 # name -> (axis label, unit, kind)
 OUTCOMES = {
-    "epithelium": ("epithelium (benign + cancerous)", "pp", "share"),
+    "stroma": ("stroma share", "pp", "share"),
+    "epithelium": ("epithelium share (benign + cancerous)", "pp", "share"),
     "knn8_mean_dist_um": ("8-NN distance", "um", "median"),
-    "boundary_dist_um": ("boundary distance", "um", "median"),
+    "boundary_dist_um": (r"boundary distance ($\mu$m; + stroma, $-$ epithelium)", "um", "median"),
 }
 REFERENCES = {  # column -> (legend label, colour)
     "inactive": ("all inactive nuclei", "#9a9a9a"),
@@ -130,11 +135,19 @@ def smd(a: NDArray, b: NDArray) -> NDArray:
     return (a.mean(axis=0) - b.mean(axis=0)) / np.sqrt((a.var(axis=0) + b.var(axis=0)) / 2)
 
 
+FIGURE_OUTCOMES = ["stroma", "knn8_mean_dist_um", "boundary_dist_um"]  # the epithelium share: CSV only
+FOOTNOTE = "\n".join([*DEFINITIONS["boundary_dist_um"], *DEFINITIONS["stroma"]])
+
+
 def figure(table: pd.DataFrame, letters: list[str], top_n: int) -> plt.Figure:
     side = FIG_W_CM / 2.54
-    fig, axes = plt.subplots(len(OUTCOMES), 1, figsize=(side, side * 0.7), sharex=True)
+    base = side * 0.7
+    extra = 0.13 * (FOOTNOTE.count("\n") + 1) + 0.1  # inches, for the footnote
+    height = base + extra
+    fig, axes = plt.subplots(len(FIGURE_OUTCOMES), 1, figsize=(side, height), sharex=True)
     offsets = dict(zip(REFERENCES, (-0.2, 0.0, 0.2), strict=True))
-    for ax, (name, (label, unit, _)) in zip(axes, OUTCOMES.items(), strict=True):
+    for ax, name in zip(axes, FIGURE_OUTCOMES, strict=True):
+        label, unit, _ = OUTCOMES[name]
         t = table[table["outcome"] == name]
         for ref, (_, colour) in REFERENCES.items():
             if ref == "inactive":
@@ -163,7 +176,9 @@ def figure(table: pd.DataFrame, letters: list[str], top_n: int) -> plt.Figure:
     handles = [mpl.lines.Line2D([], [], color=c, marker="o", ms=3, lw=0.8) for _, c in REFERENCES.values()]
     fig.legend(handles, [label for label, _ in REFERENCES.values()], loc="upper center", ncols=3, fontsize=7,
                frameon=False, borderaxespad=0.2)
-    fig.subplots_adjust(left=0.07, right=0.99, bottom=0.06, top=0.9, hspace=0.35)
+    fig.subplots_adjust(left=0.07, right=0.99, bottom=(0.06 * base + extra) / height, top=1 - 0.1 * base / height,
+                        hspace=0.35)
+    fig.text(0.03, (extra - 0.04) / height, FOOTNOTE, ha="left", va="top", fontsize=6, linespacing=1.3)
     return fig
 
 
@@ -205,7 +220,8 @@ def main(config: DictConfig) -> None:
 
     features = morphometry.to_numpy(dtype=np.float64)
     z = (features - features.mean(axis=0)) / features.std(axis=0)
-    outcomes = {"epithelium": (context["compartment"].to_numpy() >= 2).astype(np.float64),
+    outcomes = {"stroma": (context["compartment"].to_numpy() == 1).astype(np.float64),
+                "epithelium": (context["compartment"].to_numpy() >= 2).astype(np.float64),
                 "knn8_mean_dist_um": context["knn8_mean_dist_um"].to_numpy(dtype=np.float64),
                 "boundary_dist_um": context["boundary_dist_um"].to_numpy(dtype=np.float64)}
     kappa = {letter: np.asarray(codes[:, concepts[letter]], dtype=np.float64) for letter in letters}
