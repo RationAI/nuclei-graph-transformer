@@ -1,0 +1,20 @@
+# @package _global_
+
+# data and models as the comparison (reference SAE, deck key, undercomplete and main TopK)
+defaults:
+  - compare_topk_concepts
+  - _self_
+
+merge_concepts: [2, 4, 6, 1, 0] # SAE indices: G, H, F, then B, A for comparison
+merge_sums: [[2, 4], [2, 4, 6]] # also Pearson of φ_l with Σ φ_j over these (G+H, G+H+F)
+figure:
+  seed: 0 # main seed of the latent material
+  top_latents: 10 # columns, by rank (mean |φ|)
+  width_cm: 16.0
+  path: ${topk_dir}/figures/k16_vs_topk_matching # .pdf and .png
+
+metadata:
+  run_name: "XAI: Overcomplete SAE Training"
+  hyperparams:
+    merging/merge_concepts: ${merge_concepts}
+    merging/figure_top_latents: ${figure.top_latents}
