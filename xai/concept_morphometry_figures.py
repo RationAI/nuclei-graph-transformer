@@ -287,8 +287,9 @@ RELATIVE_CAPTION = (
     "activated. Dots show the group median as a percentage difference from the median of nuclei where the concept "
     "is inactive; bars show the group{a}s interquartile range on the same scale (a spread, not a confidence "
     "interval). The grey band is the interquartile range of the inactive nuclei. +100 % means twice the inactive "
-    "median."
-).format(d="\u2013", a="\u2019")
+    "median. Circularity: 4{pi}A/P{sq}, where A is the nuclear area and P its perimeter; 1 = perfect circle, lower = "
+    "elongated or wavy outline."
+).format(d="\u2013", a="\u2019", pi="\u03c0", sq="\u00b2")
 
 
 def percent_ticks(value: float, _: int) -> str:

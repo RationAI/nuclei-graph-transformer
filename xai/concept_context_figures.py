@@ -103,9 +103,13 @@ NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "
 NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
                        "boundary_dist_um": "um", "epithelium": "pp"}
 NUCLEUS_DEFINITION = (
-    r"Long and short axis: $2\times$ the semi-axes of the moment ellipse; circularity: $4\pi A/P^2$; contour "
-    r"irregularity: $1 - A/A_\mathrm{hull}$." + "\n"
-    "H-OD: mean hematoxylin optical density, normalised by the slide median."
+    r"Long and short axis: $2\times$ the semi-axes of the moment ellipse." + "\n"
+    r"Circularity: $4\pi A/P^2$, where $A$ is the nuclear area and $P$ its perimeter; 1 = perfect circle, lower = "
+    "elongated or wavy outline." + "\n"
+    r"Contour irregularity: $1 - A/A_\mathrm{hull}$, where $A_\mathrm{hull}$ is the area of the convex hull (the "
+    "smallest convex outline enclosing the nucleus);" + "\n"
+    "0 = no indentations, higher = notched outline. H-OD: mean hematoxylin optical density, normalised by the "
+    "slide median."
 )
 NEIGHBOURHOOD_DEFINITION = (
     "8-NN distance: mean distance to the 8 nearest nuclei; pleomorphism of neighbours: CV of the area of the 8 "
@@ -136,7 +140,8 @@ CONTEXT_CAPTION = (
 SHAPE_CAPTION = (
     "Neighbourhood shape for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure "
     "(weak, medium and strong activation tertiles of the active nuclei; the 2,000 most strongly activated). Contour "
-    "irregularity is 1 {m} area / convex-hull area; pleomorphism of neighbours is the coefficient of variation of "
+    "irregularity: 1 {m} A/A_hull, where A_hull is the area of the convex hull (the smallest convex outline "
+    "enclosing the nucleus); 0 = no indentations, higher = notched outline. Pleomorphism of neighbours is the coefficient of variation of "
     "the area of the 8 nearest neighbours; orientation coherence of neighbours is the mean cos 2{D}{p} between the "
     "long axes of a nucleus and its 8 nearest neighbours (1 = parallel, 0 = random, {m}1 = perpendicular), defined "
     "only for nuclei and neighbours with axis ratio > 1.2. Dots show the group median relative to the median of "
