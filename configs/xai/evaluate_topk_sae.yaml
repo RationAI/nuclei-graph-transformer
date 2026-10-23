@@ -1,14 +1,31 @@
 # @package _global_
 
 activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
 sae_dir: ${out_dir}/sae
 topk_dir: ${out_dir}/concepts/topk
 output_path: ${topk_dir}/completeness.csv
-reference_model: ${sae_dir}/sae_k16_seed1_l13.pt # the k = 16 SAE (only read)
-reference_completeness: ${out_dir}/completeness.csv # its row from xai.evaluate_sae (GPU, TF32)
+reference_models: # the k = 16 SAE, all selected seeds (only read); seed 1 is the analysed one
+  0: ${sae_dir}/sae_k16_seed0_l13.pt
+  1: ${sae_dir}/sae_k16_seed1_l13.pt
+  2: ${sae_dir}/sae_k16_seed2_l13.pt
+reference_completeness: ${out_dir}/completeness.csv # their rows from xai.evaluate_sae (GPU, TF32)
+# the model's attention head (slide pooling), as in the activation extraction
+checkpoint: mlflow-artifacts:/37/${parent_run_id}/artifacts/checkpoints/epoch=179-step=39240/checkpoint.ckpt
 main: # codes_test are stored for this configuration (all seeds)
   num_latents: 1024
   k: 16
+comparisons: # [a, b]: a - b, flagged when within the seed spread
+  - [topk_m1024_k4, sae_l1_m16] # dictionary size at matched sparsity
+  - [topk_m16_k4, sae_l1_m16] # L1 vs. TopK objective at the same dictionary size
+  - [topk_m1024_k4, topk_m16_k4] # dictionary size, TopK, K = 4
+  - [topk_m1024_k16, topk_m1024_k4] # more active latents
+  - [topk_m1024_k16, sae_l1_m16] # main configuration vs. the k = 16 SAE
+  - [topk_m1024_k8, topk_m1024_k16]
+  - [topk_m1024_k32, topk_m1024_k16]
+  - [topk_m4096_k8, topk_m1024_k8] # m = 4096 vs. 1024 at the same K
+  - [topk_m4096_k16, topk_m1024_k16]
+  - [topk_m4096_k32, topk_m1024_k32]
 ate_atol: 1e-4 # |ATE - FE|, as xai.evaluate_sae
 flip_margin: 1.0 # class flips also among |f| < flip_margin
 chunk_size: 32768 # dense codes per chunk (float64)
@@ -16,13 +33,14 @@ limit_rows: null # debugging only: first rows of each split
 num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
 
 links:
-  training_run_id: ??? # "XAI: Overcomplete SAE Training"
+  training_run_id: 2f44723c96734627a182b731348ac424 # "XAI: Overcomplete SAE Training"
   reference_sae_run_id: 4cf1db8f2cff4fef844426e57a387b99
+mlflow_run_id: ${links.training_run_id} # step 3 is logged to the TopK run
 
 metadata:
-  run_name: "XAI: Overcomplete SAE Comparison" # step 4 attaches to this run (mlflow_run_id)
+  run_name: "XAI: Overcomplete SAE Training"
   hyperparams:
     ate_atol: ${ate_atol}
     flip_margin: ${flip_margin}
-    training_run_id: ${links.training_run_id}
     reference_sae_run_id: ${links.reference_sae_run_id}
+    comparisons: ${comparisons}

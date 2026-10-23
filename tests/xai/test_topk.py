@@ -99,3 +99,22 @@ def test_sparse_ols_head_equals_fit_ols() -> None:
     dense = fit_ols(dense_codes(indices, values, M), f)
     codes = dense_codes(indices, values, M)
     np.testing.assert_allclose(sparse.predict(codes), dense.predict(codes), atol=1e-8)
+
+
+def test_slide_pool_equals_model_pooling() -> None:
+    from nuclei_graph.modeling.models.transformer import Transformer
+    from xai.evaluate_topk_sae import slide_pool
+
+    rng = np.random.default_rng(0)
+    lengths = [5, 1, 12]
+    values, scores = rng.normal(size=(2, sum(lengths)))
+    pooled, _ = Transformer.pool(
+        None,  # pool does not use the module's state
+        torch.from_numpy(values)[:, None],
+        torch.from_numpy(scores)[:, None],
+        lengths,
+    )
+    starts = np.cumsum([0, *lengths[:-1]])
+    np.testing.assert_allclose(
+        slide_pool(values, scores, starts), pooled.numpy().ravel(), atol=1e-12
+    )

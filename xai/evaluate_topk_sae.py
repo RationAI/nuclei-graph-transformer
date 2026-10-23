@@ -10,7 +10,14 @@ undo their input normalization in `decoder_weight` / `decoder_bias`. Added here:
 - latent frequencies on test (share of nuclei where a latent is active, z_l > 0):
   quantiles per model, every latent in `latent_frequency_test.csv`;
 - class flips: share of nuclei with sign(f) != sign(f_A), overall and among |f| <
-  `flip_margin`.
+  `flip_margin`;
+- slide level: the model's attention pooling F = Σ_i softmax(s_i) f_i over all nuclei of
+  a test slide (one slide = one sequence in the model's prediction), with the attention
+  head of `checkpoint`. F_A pools f_A with the attention scores of h (`slide_*`) or of ĥ
+  (`slide_attn_hat_*`); AUROC / AUPRC against the slide label (`is_carcinoma`) next to F,
+  the slide class-flip rate sign(F) != sign(F_A), slide FE and Spearman of F with F_A.
+  The nucleus-level model was trained on nucleus labels only, so its attention head never
+  received a gradient (still at initialization; near-uniform weights).
 
 The OLS head is fitted from sparse sufficient statistics (`RidgeStatistics` with
 alpha = 0, as `metrics.fit_ols`); the ridge head of `xai.evaluate_sae` is left out.
@@ -21,13 +28,21 @@ CPU (fp32) and compared with its row of `completeness.csv` (GPU, TF32).
 Codes of the main configuration are stored sparsely (latent indices and values of
 the K active latents per nucleus, rows = `activations/test/index.parquet`) in
 `codes/<model>/codes_test_{indices,values}.npy`.
+
+Seeds: `completeness_summary.csv` gives mean, min, max and range over seeds per
+configuration; `comparisons.csv` the differences of `comparisons` with `within_spread`
+= |difference| ≤ the larger seed range of the two (single-seed pairs: the main
+configuration's range).
 """
 
 import json
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import hydra
 import matplotlib
+import mlflow
 
 
 matplotlib.use("Agg")
@@ -38,9 +53,10 @@ import pandas as pd
 import scipy.sparse
 import torch
 from numpy.typing import NDArray
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
+from scipy.stats import spearmanr
 
 from nuclei_graph.mlflow_utils import tag_parent_run
 from nuclei_graph.xai.activations import Activations, load_activations
@@ -51,6 +67,7 @@ from nuclei_graph.xai.metrics import (
     RidgeStatistics,
     classification_metrics,
     logit_agreement,
+    rmse,
 )
 from nuclei_graph.xai.runtime import setup_precision
 from nuclei_graph.xai.sae import ConceptAutoencoder, encode, load_autoencoder
@@ -63,6 +80,28 @@ type SparseCodes = tuple[NDArray[np.int16], NDArray[np.float32]]
 
 CHECKS = ["check_MCE_le_FE", "check_FE_le_L_g_RE", "check_ATE_eq_FE"]
 FREQUENCY_QUANTILES = (0.0, 0.01, 0.1, 0.5, 0.9, 0.99, 1.0)
+SUMMARY_COLS = [
+    "RE",
+    "explained_variance_test",
+    "FE",
+    "FE_over_std_f",
+    "MCE",
+    "L_g_RE",
+    "R2_FE",
+    "spearman_f_fA",
+    "flip_rate",
+    "flip_rate_small_logit",
+    "AUROC_fA",
+    "AUPRC_fA",
+    "slide_AUROC_fA",
+    "slide_AUPRC_fA",
+    "slide_flip_rate",
+    "slide_FE",
+    "slide_attn_hat_AUROC_fA",
+    "slide_attn_hat_flip_rate",
+    "L0",
+    "dead_fraction",
+]
 REFERENCE_COLS = [
     "RE",
     "FE",
@@ -73,6 +112,84 @@ REFERENCE_COLS = [
     "AUPRC_fA",
     "std_ratio_fA_f",
 ]
+
+
+@dataclass(frozen=True)
+class AttentionHead:
+    """The model's `attn_head`: s(h) = W_2 tanh(W_1 h + b_1) + b_2."""
+
+    w1: NDArray[np.float32]
+    b1: NDArray[np.float32]
+    w2: NDArray[np.float32]
+    b2: float
+
+    def __call__(self, h: NDArray, chunk_size: int = 262144) -> NDArray[np.float64]:
+        return np.concatenate(
+            [
+                np.tanh(
+                    np.asarray(h[i : i + chunk_size], np.float32) @ self.w1.T + self.b1
+                )
+                @ self.w2
+                + self.b2
+                for i in range(0, len(h), chunk_size)
+            ]
+        ).astype(np.float64)
+
+    @classmethod
+    def from_checkpoint(cls, uri: str, head: LinearHead) -> "AttentionHead":
+        """Downloads the checkpoint; asserts that its class head is `head`."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = mlflow.artifacts.download_artifacts(artifact_uri=uri, dst_path=tmp)
+            state = torch.load(path, map_location="cpu", weights_only=False)[
+                "state_dict"
+            ]
+        np.testing.assert_allclose(
+            state["net.class_head.weight"].double().numpy().ravel(), head.w, atol=1e-6
+        )
+        weights = {
+            k: state[f"net.attn_head.{k}"].float().numpy()
+            for k in ("0.weight", "0.bias", "2.weight", "2.bias")
+        }
+        return cls(
+            weights["0.weight"],
+            weights["0.bias"],
+            weights["2.weight"].ravel(),
+            float(weights["2.bias"][0]),
+        )
+
+
+def slide_pool(
+    values: NDArray, scores: NDArray, starts: NDArray[np.integer]
+) -> NDArray[np.float64]:
+    """Σ softmax(scores) · values per slide; slides are contiguous from `starts`."""
+    lengths = np.diff(np.append(starts, len(values)))
+    scores = scores - np.repeat(np.maximum.reduceat(scores, starts), lengths)
+    weights = np.exp(scores)
+    return np.add.reduceat(weights * values, starts) / np.add.reduceat(weights, starts)
+
+
+def slide_metrics(
+    f_slide: NDArray, f_a_slide: NDArray, labels: NDArray, prefix: str
+) -> dict[str, float]:
+    return {
+        **{
+            f"{prefix}_{key}_fA": value
+            for key, value in classification_metrics(labels, f_a_slide).items()
+        },
+        f"{prefix}_flip_rate": float(((f_slide > 0) != (f_a_slide > 0)).mean()),
+        f"{prefix}_FE": rmse(f_slide, f_a_slide),
+        f"{prefix}_spearman_F_FA": float(spearmanr(f_slide, f_a_slide).statistic),
+    }
+
+
+@dataclass(frozen=True)
+class Slides:
+    """Test slides in index order: first rows, labels, F and the attention scores of h."""
+
+    starts: NDArray[np.int64]
+    labels: NDArray[np.int64]
+    f: NDArray[np.float64]
+    scores: NDArray[np.float64]
 
 
 def sparse_codes(model: ConceptAutoencoder, h: NDArray) -> SparseCodes:
@@ -145,6 +262,8 @@ def evaluate_model(
     holdout: NDArray[np.bool_],
     chunk_size: int,
     flip_margin: float,
+    attention: AttentionHead,
+    slides: Slides,
 ) -> tuple[dict[str, float], dict[str, SparseCodes], NDArray[np.float64]]:
     U = model.decoder_weight.detach().double().numpy()
     b_d = model.decoder_bias.detach().double().numpy()
@@ -168,6 +287,19 @@ def evaluate_model(
         validation.reconstructed, f["validation"], f_a, f["test"], row["FE"]
     )
     row["RE_holdout"] = holdout_re
+
+    U32, b_d32 = U.astype(np.float32), b_d.astype(np.float32)
+    scores_hat = np.concatenate(
+        [
+            attention(
+                dense_codes(*(c[s] for c in codes["test"]), num_latents) @ U32 + b_d32
+            )
+            for s in data["test"].chunks(chunk_size)
+        ]
+    )
+    for prefix, scores in (("slide", slides.scores), ("slide_attn_hat", scores_hat)):
+        f_a_slide = slide_pool(f_a, scores, slides.starts)
+        row |= slide_metrics(slides.f, f_a_slide, slides.labels, prefix)
     row |= {
         f"{key}_fA": value
         for key, value in classification_metrics(data["test"].labels, f_a).items()
@@ -206,6 +338,57 @@ def add_checks(df: pd.DataFrame, ate_atol: float) -> pd.DataFrame:
     df["check_FE_le_L_g_RE"] = df["FE"] <= df["L_g_RE"]
     df["check_ATE_eq_FE"] = (df["ATE"] - df["FE"]).abs() < ate_atol
     return df
+
+
+def group_name(row: pd.Series) -> str:
+    if row["method"] == "sae_l1":
+        return f"sae_l1_m{row['num_latents']}"
+    return f"topk_m{row['num_latents']}_k{int(row['k'])}"
+
+
+def seed_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Mean, min, max and range over seeds per configuration."""
+    grouped = df.groupby("group", sort=False)[SUMMARY_COLS]
+    summary = pd.concat(
+        {stat: grouped.agg(stat) for stat in ("mean", "min", "max")}, axis=1
+    )
+    summary.columns = [f"{col}_{stat}" for stat, col in summary.columns]
+    for col in SUMMARY_COLS:
+        summary[f"{col}_range"] = summary[f"{col}_max"] - summary[f"{col}_min"]
+    summary["seeds"] = df.groupby("group", sort=False).size()
+    return summary.reset_index()
+
+
+def comparisons(
+    summary: pd.DataFrame, pairs: list[list[str]], main_group: str
+) -> pd.DataFrame:
+    """Differences of configuration means and whether they are within the seed spread.
+
+    Within: |difference| ≤ the larger seed range of the two configurations, or the main
+    configuration's range if both have a single seed.
+    """
+    summary = summary.set_index("group")
+    rows = []
+    for (a, b), col in ((pair, col) for pair in pairs for col in SUMMARY_COLS):
+        if a not in summary.index or b not in summary.index:
+            continue
+        spread = max(summary.loc[a, f"{col}_range"], summary.loc[b, f"{col}_range"])
+        if max(summary.loc[a, "seeds"], summary.loc[b, "seeds"]) == 1:
+            spread = summary.loc[main_group, f"{col}_range"]
+        diff = summary.loc[a, f"{col}_mean"] - summary.loc[b, f"{col}_mean"]
+        rows.append(
+            {
+                "a": a,
+                "b": b,
+                "metric": col,
+                "mean_a": summary.loc[a, f"{col}_mean"],
+                "mean_b": summary.loc[b, f"{col}_mean"],
+                "difference": diff,
+                "seed_spread": spread,
+                "within_spread": abs(diff) <= spread,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def plot_frequencies(frequencies: dict[str, NDArray], path: Path) -> None:
@@ -263,18 +446,53 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         data["validation"].index["slide_id"].astype(str).isin(holdout_ids).to_numpy()
     )
     model_metrics = classification_metrics(data["test"].labels, f["test"])
+
+    attention = AttentionHead.from_checkpoint(config.checkpoint, head)
+    slide_ids = data["test"].index["slide_id"].astype(str).to_numpy()
+    starts = np.flatnonzero(np.r_[True, slide_ids[1:] != slide_ids[:-1]])
+    assert len(np.unique(slide_ids)) == len(starts), "test slides are not contiguous"
+    is_carcinoma = pd.read_parquet(config.slides).set_index("slide_id")["is_carcinoma"]
+    scores = attention(data["test"].h)
+    slides = Slides(
+        starts=starts,
+        labels=is_carcinoma.loc[slide_ids[starts]].to_numpy(np.int64),
+        f=slide_pool(f["test"], scores, starts),
+        scores=scores,
+    )
+    slide_model_metrics = classification_metrics(slides.labels, slides.f)
+    lengths = np.diff(np.append(starts, len(scores)))
+    weights = np.exp(scores - np.repeat(np.maximum.reduceat(scores, starts), lengths))
+    weights /= np.repeat(np.add.reduceat(weights, starts), lengths)
+    effective = 1 / np.add.reduceat(weights**2, starts) / lengths
+    attention_stats = {
+        "slides": len(starts),
+        "carcinoma_slides": int(slides.labels.sum()),
+        "share_slides_F_positive": float((slides.f > 0).mean()),
+        "attention_effective_nuclei_share_median": float(np.median(effective)),
+        "attention_effective_nuclei_share_min": float(effective.min()),
+        "F_minus_mean_logit_median": float(
+            np.median(slides.f - np.add.reduceat(f["test"], starts) / lengths)
+        ),
+        **{f"slide_{key}_F": value for key, value in slide_model_metrics.items()},
+    }
+    print(attention_stats)
+    logger.log_metrics(
+        {f"test/slide_pooling/{k}": v for k, v in attention_stats.items()}
+    )
     reference = reference_statistics(data, f, holdout)
     logger.log_metrics({f"reference/{key}": value for key, value in reference.items()})
 
     grid = pd.read_csv(topk_dir / "training_grid.csv")
-    entries = [("k16_l1_reference", config.reference_model)]
+    entries = [
+        (f"k16_l1_seed{seed}", path) for seed, path in config.reference_models.items()
+    ]
     entries += [
         (row.model, str(topk_dir / row.path))
         for row in grid[grid["method"] == "topk"].itertuples(index=False)
     ]
     rows, frequencies = [], {}
     for name, path in entries:
-        if name == "k16_l1_reference":
+        if name.startswith("k16_l1_"):
             model, meta = load_autoencoder(path)
             info = {
                 "method": "sae_l1",
@@ -291,7 +509,15 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 "seed": meta["seed"],
             }
         row, codes, frequency = evaluate_model(
-            model, head, data, f, holdout, config.chunk_size, config.flip_margin
+            model,
+            head,
+            data,
+            f,
+            holdout,
+            config.chunk_size,
+            config.flip_margin,
+            attention,
+            slides,
         )
         rows.append(
             {
@@ -299,6 +525,10 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 **info,
                 **row,
                 **{f"{key}_f": value for key, value in model_metrics.items()},
+                **{
+                    f"slide_{key}_F": value
+                    for key, value in slide_model_metrics.items()
+                },
             }
         )
         frequencies[name] = frequency
@@ -345,7 +575,13 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "flip_rate_small_logit",
     ]
     df = df[first + [c for c in df.columns if c not in first]]
+    df.insert(1, "group", df.apply(group_name, axis=1))
     df.to_csv(config.output_path, index=False)
+    summary = seed_summary(df)
+    summary.to_csv(topk_dir / "completeness_summary.csv", index=False)
+    main_group = f"topk_m{config.main.num_latents}_k{config.main.k}"
+    pairs = comparisons(summary, OmegaConf.to_container(config.comparisons), main_group)
+    pairs.to_csv(topk_dir / "comparisons.csv", index=False)
     pd.DataFrame(
         [
             {"model": name, "latent": j, "frequency": value}
@@ -357,13 +593,23 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
 
     # the k = 16 SAE: this CPU evaluation against xai.evaluate_sae (GPU, TF32)
     stored = pd.read_csv(config.reference_completeness)
-    stored = stored[
-        (stored["method"] == "sae")
-        & (stored["k"] == 16)
-        & (stored["seed"] == df.loc[0, "seed"])
-    ].iloc[0]
+    stored = stored[(stored["method"] == "sae") & (stored["k"] == 16)].set_index("seed")
+    recomputed = df[df["method"] == "sae_l1"].set_index("seed")
     check = {
-        col: {"stored": float(stored[col]), "recomputed": float(df.loc[0, col])}
+        f"seed{seed}": {
+            col: {
+                "stored": float(stored.loc[seed, col]),
+                "recomputed": float(recomputed.loc[seed, col]),
+            }
+            for col in REFERENCE_COLS
+        }
+        for seed in recomputed.index
+    }
+    check["mean_over_seeds"] = {
+        col: {
+            "stored": float(stored.loc[recomputed.index, col].mean()),
+            "recomputed": float(recomputed[col].mean()),
+        }
         for col in REFERENCE_COLS
     }
     (topk_dir / "reference_check.json").write_text(json.dumps(check, indent=2))
@@ -374,13 +620,15 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     for row in df.to_dict("records"):
         logger.log_metrics(
             {
-                f"{row['model']}/{key}": float(value)
+                f"test/{row['model']}/{key}": float(value)
                 for key, value in row.items()
-                if key not in ("model", "method") and np.isfinite(float(value))
+                if key not in ("model", "group", "method") and np.isfinite(float(value))
             }
         )
     for name in (
         config.output_path,
+        topk_dir / "completeness_summary.csv",
+        topk_dir / "comparisons.csv",
         topk_dir / "latent_frequency_test.csv",
         topk_dir / "reference_check.json",
         topk_dir / "figures" / "latent_frequency_test.png",
