@@ -1,0 +1,51 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+sae_dir: ${out_dir}/sae
+topk_dir: ${out_dir}/concepts/topk
+output_dir: ${topk_dir} # matching.csv, importance.csv, undercomplete_*.csv, morphometry/, figures/
+reference_models: # the k = 16 SAE (only read); seed 1 is the analysed one (letters)
+  0: ${sae_dir}/sae_k16_seed0_l13.pt
+  1: ${sae_dir}/sae_k16_seed1_l13.pt
+  2: ${sae_dir}/sae_k16_seed2_l13.pt
+reference_seed: 1
+reference_codes: ${out_dir}/concepts/k16_seed1/codes_test.npy # stored test codes of seed 1
+deck_key: ${out_dir}/session/key.csv # letter <-> SAE index (read only)
+stable_concepts: [0, 1, 2, 3, 4, 6, 8, 12] # SAE indices of the k = 16 seed-1 concepts stable across seeds
+
+undercomplete: {num_latents: 16, k: 4, seeds: [0, 1, 2]}
+main: {num_latents: 1024, k: 16, seeds: [0, 1, 2]}
+stability_thresholds: [0.7, 0.8, 0.9] # matched cosine to both other seeds; 0.8 as for k = 16
+
+subsample: 2000000 # fixed random test nuclei (seed: `seed`) for correlations and containment
+match_cosine: 0.8 # close match: decoder cosine above, or
+match_correlation: 0.7 # activation correlation above
+containment: 0.8 # P(kappa_j > 0 | z_l > 0) at least: the latent lives inside the concept
+min_active: 100 # latents active on fewer subsample nuclei get no containment
+top_latents: 20 # by mean |phi|
+new_cosine: 0.5 # new pattern: cosine below and
+new_correlation: 0.3 # correlation below for every concept
+
+morphometry: # as xai.concept_morphometry, for the top latents of every main seed
+  features_dir: ${out_dir}/concepts/k16_seed1/morphometry # morphometry_{test,validation}.parquet (read only)
+  n_bins: 10
+  top_n: 2000
+  n_bootstrap: 1000
+  validation: true
+
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
+mlflow_run_id: 2f44723c96734627a182b731348ac424 # the TopK run
+
+metadata:
+  run_name: "XAI: Overcomplete SAE Training"
+  hyperparams:
+    comparison/subsample: ${subsample}
+    comparison/match_cosine: ${match_cosine}
+    comparison/match_correlation: ${match_correlation}
+    comparison/containment: ${containment}
+    comparison/min_active: ${min_active}
+    comparison/top_latents: ${top_latents}
+    comparison/new_cosine: ${new_cosine}
+    comparison/new_correlation: ${new_correlation}
+    comparison/stability_thresholds: ${stability_thresholds}

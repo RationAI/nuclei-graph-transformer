@@ -1,0 +1,21 @@
+# @package _global_
+
+# galleries and concept maps exactly as for the review material (regions, tissue, gallery)
+defaults:
+  - concept_material
+  - _self_
+
+topk_dir: ${out_dir}/concepts/topk
+main: {num_latents: 1024, k: 16, seeds: [0, 1, 2]}
+latent_seed: null # null = the main seed with the lowest holdout RE (as the k = 16 SAE was chosen)
+top_latents: 20 # by mean |phi| on test
+output_dir: ${topk_dir}/latent_material
+
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
+mlflow_run_id: 2f44723c96734627a182b731348ac424 # the TopK run
+
+metadata:
+  run_name: "XAI: Overcomplete SAE Training"
+  hyperparams:
+    latent_material/top_latents: ${top_latents}
+    latent_material/latent_seed: ${latent_seed}
