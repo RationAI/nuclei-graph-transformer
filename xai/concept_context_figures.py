@@ -181,7 +181,7 @@ CONTEXT_CAPTION = (
     "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
     "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
     "range on the same scale (a spread), for the epithelium share its 95 % confidence interval. The grey band is the "
-    "interquartile range of the inactive nuclei."
+    "interquartile range of the concept{a}s inactive nuclei, relative to their median."
 ).format(d="\u2013", a="\u2019", mu="\u00b5")
 SHAPE_CAPTION = (
     "Neighbourhood shape for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure "
@@ -193,7 +193,7 @@ SHAPE_CAPTION = (
     "only for nuclei and neighbours with axis ratio > 1.2. Dots show the group median relative to the median of "
     "nuclei where the concept is inactive (as a percentage difference, or for orientation coherence as a difference "
     "as a plain difference); bars show the group{a}s interquartile range on the same scale. The grey band is the "
-    "interquartile range of the inactive nuclei."
+    "interquartile range of the concept{a}s inactive nuclei, relative to their median."
 ).format(d="\u2013", m="\u2212", D="\u0394", p="\u03c8", a="\u2019")
 
 

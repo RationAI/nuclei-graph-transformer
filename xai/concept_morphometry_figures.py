@@ -280,13 +280,13 @@ RELATIVE_TITLES = {
     "circularity": r"Circularity ($4\pi A/P^2$)",
     "h_od_mean_norm": "Hematoxylin OD (slide-normalised)",
 }
-POOL_BAND_SPREAD = 0.15  # pool the inactive IQR band if its edges vary < this share of its width
 RELATIVE_CAPTION = (
     "Nuclear morphometry for the eight stable concepts A{d}H (test set). For each concept, the nuclei are "
     "grouped by activation: weak, medium and strong (tertiles of the active nuclei) and the 2,000 most strongly "
     "activated. Dots show the group median as a percentage difference from the median of nuclei where the concept "
     "is inactive; bars show the group{a}s interquartile range on the same scale (a spread, not a confidence "
-    "interval). The grey band is the interquartile range of the inactive nuclei. +100 % means twice the inactive "
+    "interval). The grey band is the interquartile range of the concept{a}s inactive nuclei, relative to their "
+    "median. +100 % means twice the inactive "
     "median. Circularity: 4{pi}A/P{sq}, where A is the nuclear area and P its perimeter; 1 = perfect circle, lower = "
     "elongated or wavy outline."
 ).format(d="\u2013", a="\u2019", pi="\u03c0", sq="\u00b2")
@@ -314,10 +314,11 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
 
     As % (`unit` "%") or as a plain difference ("Δ", e.g. of an index), um or percentage points ("pp"),
     over the inactive nuclei's IQR band (`band`). `rows` is indexed by (concept, group) with
-    median, q25, q75 (for a share: the share and its interval). The band is pooled over the concepts
-    (median of their edges) if its edges vary by less than POOL_BAND_SPREAD of its width,
-    otherwise drawn per concept column. The y scale is symmetric around 0 unless one side is
-    under a third of the other.
+    median, q25, q75 (for a share: the share and its interval). The band is drawn per concept
+    column: that concept's inactive IQR relative to its own inactive median. The y scale is
+    symmetric around 0 unless one side is under a third of the other. Returns, for reference,
+    the pooled band (median of the concepts' edges) and the largest distance of a concept's
+    edge from it.
     """
     def rel(q: float, base: float) -> float:
         return 100 * (q / base - 1) if unit == "%" else q - base
@@ -327,13 +328,8 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     inactive = rows.xs("inactive", level="group").loc[letters]
     low_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q25"], inactive["median"], strict=True)], letters)
     high_edge = pd.Series([rel(q, b) for q, b in zip(inactive["q75"], inactive["median"], strict=True)], letters)
-    spread = max(np.ptp(low_edge), np.ptp(high_edge)) / max(float((high_edge - low_edge).mean()), 1e-12)
-    pooled = spread < POOL_BAND_SPREAD
-    if not band:
-        pass
-    elif pooled:
-        ax.axhspan(low_edge.median(), high_edge.median(), color="#e3e3e3", lw=0, zorder=0)
-    else:
+    pooled_low, pooled_high = float(low_edge.median()), float(high_edge.median())
+    if band:
         for i, letter in enumerate(letters):
             ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0, zorder=0)
     ax.axhline(0, color="black", lw=0.6, zorder=1)
@@ -363,8 +359,12 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     ax.tick_params(axis="x", length=0)
     for spine in ax.spines.values():
         spine.set_linewidth(0.4)
-    return {"band": band, "pooled": bool(pooled), "edge_spread_share": round(float(spread), 3),
-            "low": round(float(low_edge.median()), 3), "high": round(float(high_edge.median()), 3)}
+    deviation = pd.concat([(low_edge - pooled_low).abs(), (high_edge - pooled_high).abs()])
+    return {"band": band, "pooled_low": round(pooled_low, 3), "pooled_high": round(pooled_high, 3),
+            "max_deviation_from_pooled": round(float(deviation.max()), 3),
+            "max_deviation_concept": str(deviation.idxmax()),
+            "per_concept": {letter: [round(float(low_edge[letter]), 3), round(float(high_edge[letter]), 3)]
+                            for letter in letters}}
 
 
 def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, ylabel: str,
