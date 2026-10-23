@@ -775,6 +775,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "undercomplete_matching.csv",
         "undercomplete_stability.csv",
         "undercomplete_shares.csv",
+        "undercomplete_stable_eight.csv",
         "importance.csv",
         "concentration.csv",
         "matching.csv",
