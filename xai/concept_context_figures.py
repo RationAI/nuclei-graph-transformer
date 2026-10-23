@@ -174,7 +174,7 @@ CONTEXT_TITLES = {
     "knn8_mean_dist_um": "8-NN distance (mean distance to the 8 nearest nuclei), % difference",
     "boundary_dist_um": (r"Boundary distance ($\mu$m; positive = in stroma, negative = inside epithelium), "
                          r"difference in $\mu$m"),
-    "epithelium": "Epithelium share (benign + cancerous), difference in percentage points; bars: 95 % CI",
+    "epithelium": "Epithelium share (benign + cancerous), difference in percentage points; bars: 95 % CI (slide bootstrap)",
 }
 # used instead when the longest interval is shorter than a dot
 EPITHELIUM_TITLE_BARS_HIDDEN = ("Epithelium share (benign + cancerous), difference in percentage points; 95 % CI "
@@ -187,8 +187,7 @@ CONTEXT_CAPTION = (
     "negative = inside epithelium. Epithelium share: share of the group{a}s nuclei in benign or cancerous epithelium. "
     "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
     "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
-    "range on the same scale (a spread), for the epithelium share its 95 % CI from a slide bootstrap "
-    "({{ci}}). The grey band is the "
+    "range on the same scale (a spread){{ci}}. The grey band is the "
     "interquartile range of the concept{a}s inactive nuclei, relative to their median."
 ).format(d="\u2013", a="\u2019", mu="\u00b5")
 SHAPE_CAPTION = (
@@ -455,7 +454,7 @@ def main(config: DictConfig) -> None:
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in columns], units, config.top_n, footnote(columns),
                                  subtitle(columns, units)), name, pathologist)
         panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
-                   "band": name != "epithelium", "bars_on_top": name == "epithelium"}
+                   "band": name != "epithelium", "omit_small_bars": name == "epithelium"}
                   | ({"title_bars_hidden": EPITHELIUM_TITLE_BARS_HIDDEN} if name == "epithelium" else {})
                   for name, unit in CONTEXT_RELATIVE.items()]
         fig, bands = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")
@@ -463,7 +462,9 @@ def main(config: DictConfig) -> None:
         epithelium = stats[(stats["attribute"] == "epithelium") & stats["concept"].isin(letters)]
         half_width = float(((epithelium["high"] - epithelium["low"]) / 2).max())
         hidden = bands[CONTEXT_TITLES["epithelium"]]["bars_hidden"]
-        ci = f"{LEQ} {PLUS_MINUS}{np.ceil(half_width * 100) / 100:.2f} pp" + (", smaller than the dots" if hidden else "")
+        bound = f"{LEQ} {PLUS_MINUS}{np.ceil(half_width * 100) / 100:.2f} pp"
+        ci = (f"; the 95 % CI of the epithelium share (slide bootstrap, {bound}) is smaller than the dots and not "
+              "drawn" if hidden else f", for the epithelium share its 95 % CI from a slide bootstrap ({bound})")
         (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION.replace("{ci}", ci) + "\n")
 
     # the morphometry relative figure of xai.concept_morphometry_figures, with its caption

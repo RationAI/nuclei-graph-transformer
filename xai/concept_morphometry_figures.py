@@ -255,13 +255,17 @@ def class_labels(edges: list[float], bracket_edges: list[float] | None = None) -
     """Signed ranges, in patch order (lower: below -c, -b to -c, -a to -b; -a to +a; higher)."""
     def ranges(e: list[float], fmt: str) -> list[str]:
         a, b, c = (format(v, fmt) for v in e)
-        return [rf"below $-{c}$", rf"$-{b}$ to $-{c}$", rf"$-{a}$ to $-{b}$", rf"$-{a}$ to $+{a}$",
+        return [rf"below $-{c}$", rf"$-{b}$ to $-{c}$", rf"$-{a}$ to $-{b}$", rf"$|\Delta| < {a}$",
                 rf"$+{a}$ to $+{b}$", rf"$+{b}$ to $+{c}$", rf"above $+{c}$"]
 
     labels = ranges(edges, "g")
     if bracket_edges is not None:
         labels = [f"{label}\n({bracket})" for label, bracket in zip(labels, ranges(bracket_edges, ".2f"), strict=True)]
-    labels[3] += "\n(no difference)" if bracket_edges is None else "\nno difference"
+    if bracket_edges is None:
+        labels[3] += "\n(no difference)"
+    else:  # "|Δ| < 5 (no difference)" with the coherence limit in brackets below
+        main, bracket = labels[3].split("\n")
+        labels[3] = f"{main} (no difference)\n{bracket}"
     return labels
 
 
@@ -313,7 +317,7 @@ MARKER_PT = 3.5  # dot diameter in the relative panels
 
 
 def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: bool = True,
-                   bars_on_top: bool = False) -> dict:
+                   omit_small_bars: bool = False) -> dict:
     """One panel of active-group medians and IQRs relative to the inactive median.
 
     As % (`unit` "%") or as a plain difference ("Δ", e.g. of an index), um or percentage points ("pp"),
@@ -322,8 +326,9 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     column: that concept's inactive IQR relative to its own inactive median. The y scale is
     symmetric around 0 unless one side is under a third of the other. Returns, for reference,
     the pooled band (median of the concepts' edges), the largest distance of a concept's edge
-    from it, and whether the longest bar is shorter than a dot (`bars_hidden`). With
-    `bars_on_top` the bars are drawn above the dots, thin and white.
+    from it, and whether the longest bar is shorter than a dot (`bars_hidden`). Bars are drawn
+    behind the dots in the group colour; with `omit_small_bars` none are drawn if even the
+    longest is shorter than a dot.
     """
     def rel(q: float, base: float) -> float:
         return 100 * (q / base - 1) if unit == "%" else q - base
@@ -339,24 +344,28 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
             ax.fill_between([i - 0.5, i + 0.5], low_edge[letter], high_edge[letter], color="#e3e3e3", lw=0, zorder=0)
     ax.axhline(0, color="black", lw=0.6, zorder=1)
     spans = [*low_edge, *high_edge] if band else []
-    bar_lengths = []
+    points = []  # x, q25, median, q75, colour
     for i, letter in enumerate(letters):
         base = rows.loc[(letter, "inactive"), "median"]
         for offset, group in zip(offsets, groups, strict=True):
             q25, q50, q75 = (rel(q, base) for q in rows.loc[(letter, group), ["q25", "median", "q75"]])
-            colour = GROUPS[group][1]
+            points.append((i + offset, q25, q50, q75, GROUPS[group][1]))
             spans += [q25, q75]
-            bar_lengths.append(q75 - q25)
-            # on top of the dots the bar is drawn thin and white, so a bar shorter than a dot shows
-            ax.plot([i + offset] * 2, [q25, q75], color="white" if bars_on_top else colour,
-                    lw=0.6 if bars_on_top else 0.9, solid_capstyle="butt", zorder=5 if bars_on_top else 3)
-            ax.plot(i + offset, q50, "o", color=colour, ms=MARKER_PT, mec="none", zorder=4)
     low, high = min(spans), max(spans)
     limit = max(abs(low), abs(high))
     if min(abs(low), abs(high)) >= limit / 3:
         low, high = -limit, limit
     pad = 0.06 * (high - low)
     ax.set_ylim(low - pad, high + pad)
+    # the dot's diameter in data units: points -> axes height in points -> y range
+    axes_height_pt = ax.get_position().height * ax.figure.get_size_inches()[1] * 72
+    marker_data = MARKER_PT / axes_height_pt * (high - low + 2 * pad)
+    bar_lengths = [q75 - q25 for _, q25, _, q75, _ in points]
+    hidden = max(bar_lengths) < marker_data
+    for x, q25, q50, q75, colour in points:
+        if not (omit_small_bars and hidden):
+            ax.plot([x, x], [q25, q75], color=colour, lw=0.9, solid_capstyle="butt", zorder=3)
+        ax.plot(x, q50, "o", color=colour, ms=MARKER_PT, mec="none", zorder=4)
     ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, symmetric=low == -high, steps=[1, 2, 2.5, 5, 10]))
     ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(TICKS[unit]))
     ax.grid(axis="y", color="#ececec", lw=0.4, zorder=0)
@@ -369,10 +378,7 @@ def relative_panel(ax, rows: pd.DataFrame, letters: list[str], unit: str, band: 
     for spine in ax.spines.values():
         spine.set_linewidth(0.4)
     deviation = pd.concat([(low_edge - pooled_low).abs(), (high_edge - pooled_high).abs()])
-    # the dot's diameter in data units: points -> axes height in points -> y range
-    axes_height_pt = ax.get_position().height * ax.figure.get_size_inches()[1] * 72
-    marker_data = MARKER_PT / axes_height_pt * (high - low + 2 * pad)
-    return {"band": band, "bars_hidden": bool(max(bar_lengths) < marker_data),
+    return {"band": band, "bars_hidden": bool(hidden), "bars_drawn": not (omit_small_bars and hidden),
             "longest_bar": round(float(max(bar_lengths)), 3), "marker_size": round(float(marker_data), 3),
             "pooled_low": round(pooled_low, 3), "pooled_high": round(pooled_high, 3),
             "max_deviation_from_pooled": round(float(deviation.max()), 3),
@@ -391,7 +397,7 @@ def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, y
     bands = {}
     for ax, panel in zip(axes, panels, strict=True):
         bands[panel["title"]] = relative_panel(ax, panel["rows"], letters, panel["unit"], panel.get("band", True),
-                                               panel.get("bars_on_top", False))
+                                               panel.get("omit_small_bars", False))
         hidden = bands[panel["title"]]["bars_hidden"] and "title_bars_hidden" in panel
         ax.set_title(panel["title_bars_hidden"] if hidden else panel["title"], fontsize=8, pad=3, loc="left")
         if panel.get("note"):
