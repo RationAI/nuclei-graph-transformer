@@ -423,7 +423,8 @@ def percent_table(stats: pd.DataFrame, letters: list[str]) -> pd.DataFrame:
 
 
 def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top_n: int,
-                   definition: str | None = None, subtitle: str = "difference of medians") -> plt.Figure:
+                   definition: str | None = None, subtitle: str = "difference of medians",
+                   headers: list[str | None] | None = None) -> plt.Figure:
     """Differences top vs. inactive (concepts x measures) in 7 classes, the value in each cell.
 
     `units` per column ("%", "pp", "um" or "Δ"), shown in the column header; vector cells, no
@@ -432,7 +433,8 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
     side = FIG_W_CM / 2.54
     base = side * 0.66
     extra = 0.13 * (definition.count("\n") + 1) + 0.12 if definition else 0.0  # inches, for the definition
-    headers = [f"{title}\n{UNIT_HEADER[unit]}" for title, unit in zip(titles, units, strict=True)]
+    headers = [override or f"{title}\n{UNIT_HEADER[unit]}"  # an override replaces name and unit
+               for title, unit, override in zip(titles, units, headers or [None] * len(titles), strict=True)]
     header_lines = max(h.count("\n") + 1 for h in headers)
     top = 0.15 + 0.11 * max(0, header_lines - 3)  # inches, for the subtitle and tall headers
     height = base + extra + top
@@ -490,7 +492,8 @@ def heatmap_figure(table: pd.DataFrame, titles: list[str], units: list[str], top
 
 
 def signature_figure(table: pd.DataFrame, titles: list[str], units: list[str],
-                     groups: list[tuple[str, int]], title: str) -> plt.Figure:
+                     groups: list[tuple[str, int]], title: str, definition: str | None = None,
+                     headers: list[str | None] | None = None) -> plt.Figure:
     """Prominent differences only: concepts x attributes, grouped columns.
 
     A cell is coloured and labelled if its displayed (rounded) value reaches the second class
@@ -507,8 +510,11 @@ def signature_figure(table: pd.DataFrame, titles: list[str], units: list[str],
         x += [start + k for k in range(n)]
         start += n + gap
     width_cells = start - gap
-    fig = plt.figure(figsize=(side, side * 0.62))
-    ax = fig.add_axes([0.07, 0.2, 0.92, 0.56])
+    base = side * 0.62
+    extra = 0.13 * (definition.count("\n") + 1) + 0.1 if definition else 0.0  # inches, for the footnote
+    height = base + extra
+    fig = plt.figure(figsize=(side, height))
+    ax = fig.add_axes([0.07, (0.2 * base + extra) / height, 0.92, 0.56 * base / height])
     for i, row in enumerate(table.to_numpy()):
         for k, value in enumerate(row):
             rounded = round(value, DISPLAY_DIGITS[units[k]])
@@ -522,7 +528,8 @@ def signature_figure(table: pd.DataFrame, titles: list[str], units: list[str],
                         color="white" if dark else "black")
     ax.set_xlim(-0.5, width_cells - 0.5)
     ax.set_ylim(n_rows - 0.5, -0.5)
-    headers = [f"{name}\n{UNIT_HEADER[unit]}" for name, unit in zip(titles, units, strict=True)]
+    headers = [override or f"{name}\n{UNIT_HEADER[unit]}"
+               for name, unit, override in zip(titles, units, headers or [None] * len(titles), strict=True)]
     ax.set_xticks(x, headers, fontsize=5.8, linespacing=1.1)
     ax.xaxis.tick_top()
     ax.set_yticks(range(n_rows), table.index, fontsize=8)
@@ -537,9 +544,11 @@ def signature_figure(table: pd.DataFrame, titles: list[str], units: list[str],
                 color="black", lw=0.5, clip_on=False)
         ax.text((first + last) / 2, header_top + 0.02, label, transform=ax.get_xaxis_transform(), ha="center",
                 va="bottom", fontsize=7.5)
-    fig.suptitle(title, fontsize=8.5, y=0.985)
+    fig.suptitle(title, fontsize=8.5, y=1 - 0.06 / height)
+    if definition:
+        fig.text(0.03, (extra - 0.04) / height, definition, ha="left", va="top", fontsize=6, linespacing=1.3)
 
-    legend = fig.add_axes([0.07, 0.02, 0.92, 0.12])
+    legend = fig.add_axes([0.07, (0.02 * base + extra) / height, 0.92, 0.12 * base / height])
     legend.set_xlim(0, 5)
     legend.set_ylim(0, 1)
     legend.axis("off")

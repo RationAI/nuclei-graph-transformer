@@ -65,7 +65,7 @@ from xai.concept_morphometry_figures import heatmap_figure as percent_heatmap
 # name -> (label, kind, relative unit): kind "continuous" or "share"
 ATTRIBUTES = {
     "knn8_mean_dist_um": (r"8-NN distance ($\mu\mathrm{m}$)", "continuous", "%"),
-    "boundary_dist_um": (r"boundary distance ($\mu\mathrm{m}$)", "continuous", "um"),
+    "boundary_dist_um": ("boundary distance\n" + r"($\mu$m; + stroma, $-$ epithelium)", "continuous", "um"),
     "stroma": ("stroma (%)", "share", "pp"),
     "benign_epithelium": ("benign epithelium (%)", "share", "pp"),
     "cancer_epithelium": ("cancerous epithelium (%)", "share", "pp"),
@@ -96,7 +96,7 @@ HEAT_NAMES = {"area_um2": "area", "long_axis_um": "long axis", "short_axis_um": 
               "circularity": "circularity", "h_od_mean_norm": "H-OD", "irregularity": "contour\nirregularity",
               "pleomorphism_cv": "pleomorphism\nof neighbours",
               "orientation_coherence": "orientation\ncoherence of\nneighbours",
-              "knn8_mean_dist_um": "8-NN distance", "boundary_dist_um": "boundary distance", "stroma": "stroma",
+              "knn8_mean_dist_um": "8-NN distance", "boundary_dist_um": "boundary distance", "stroma": "stroma share",
               "benign_epithelium": "benign\nepithelium", "cancer_epithelium": "cancerous\nepithelium",
               "epithelium": "epithelium\nshare", "carcinoma_label": "carcinoma-\nlabelled"}
 RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inactive ($\mu\mathrm{m}$)",
@@ -104,7 +104,10 @@ RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inacti
 # the pathologist set
 NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]
 NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
-                       "boundary_dist_um": "um", "epithelium": "pp"}
+                       "boundary_dist_um": "um", "stroma": "pp"}
+# the boundary distance's header explains its sign (heatmaps; the signature heatmap wraps the name)
+BOUNDARY_HEADER = "boundary distance\n" + r"($\mu$m; + stroma," + "\n" + r"$-$ epithelium)"
+SIGNATURE_BOUNDARY_HEADER = "boundary\ndistance\n" + r"($\mu$m; + stroma," + "\n" + r"$-$ epithelium)"
 LEQ, PLUS_MINUS = "\u2264", "\u00b1"  # plain-text caption characters
 
 # heatmap footnotes: per attribute, its definition (one or more lines); short ones share a line
@@ -124,15 +127,25 @@ DEFINITIONS = {
         r"nearest neighbours (only nuclei with axis ratio $>1.2$);"),
         (r"1 = all parallel, 0 = no preferred orientation, $-1$ = all perpendicular. The cell shows the plain "
         r"difference (top $-$ inactive); e.g. $+0.29$ means $0.28 \rightarrow 0.57$.")],
-    "boundary_dist_um": [(f"Boundary distance: positive = in stroma, away from the epithelium{EN_DASH}stroma boundary; "
-                         "negative = inside epithelium.")],
+    "boundary_dist_um": [
+        (f"Boundary distance: distance from the nucleus centroid to the nearest epithelium{EN_DASH}stroma border in the "
+        "PANDA mask;"),
+        ("positive = in stroma, negative = inside epithelium. A positive difference means the nuclei lie farther out in "
+         "the stroma than the"),
+        "inactive nuclei; a negative difference means farther into the epithelium."],
     "epithelium": ["Epithelium share: benign + cancerous."],
-    "stroma": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
+    "stroma": [("Stroma share: fraction of nuclei whose centroid lies in stroma; shares of stroma, epithelium (benign + "
+               "cancerous) and unlabelled tissue sum to 100 %.")],
     "benign_epithelium": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
     "cancer_epithelium": ["Compartment at the centroid from the annotation: stroma, benign or cancerous epithelium."],
     "carcinoma_label": ["Carcinoma-labelled: share of nuclei with the carcinoma label of the dense annotation."],
 }
 COMPARISON_LINE = r"Each concept is compared with its own inactive nuclei ($\kappa_j = 0$); test set."
+HEADERS = {"boundary_dist_um": BOUNDARY_HEADER}  # column header overrides in the heatmaps
+SIGNATURE_FOOTNOTE = "\n".join([
+    *DEFINITIONS["boundary_dist_um"], *DEFINITIONS["stroma"],
+    ("Each cell: the 2,000 most strongly activated nuclei vs. nuclei where the concept is inactive (test set); "
+    "difference of medians, or of shares for the stroma share.")])
 FOOTNOTE_WIDTH = 150  # characters of source text per packed line
 
 
@@ -165,8 +178,8 @@ def subtitle(columns: list[str], units: list[str]) -> str:
         return "difference of medians"
     if len(shares) == len(columns):
         return "difference of shares"
-    if shares == ["epithelium"]:
-        return "difference of medians; for epithelium share, difference of shares"
+    if len(shares) == 1:
+        return f"difference of medians; for {HEAT_NAMES[shares[0]].replace(chr(10), ' ')}, difference of shares"
     return "difference of medians; for shares, difference of shares"
 
 
@@ -174,43 +187,44 @@ def subtitle(columns: list[str], units: list[str]) -> str:
 SIGNATURE_GROUPS = [
     ("Nucleus", ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]),
     ("Neighbourhood", ["knn8_mean_dist_um", "pleomorphism_cv", "orientation_coherence"]),
-    ("Location", ["boundary_dist_um", "epithelium"]),
+    ("Location", ["boundary_dist_um", "stroma"]),
 ]
 SIGNATURE_NAMES = {"area_um2": "area", "long_axis_um": "long\naxis", "short_axis_um": "short\naxis",
                    "circularity": "circularity", "irregularity": "contour\nirregularity", "h_od_mean_norm": "H-OD",
                    "knn8_mean_dist_um": "8-NN\ndistance", "pleomorphism_cv": "pleomorphism\nof neighbours",
                    "orientation_coherence": "orientation\ncoherence of\nneighbours",
-                   "boundary_dist_um": "boundary\ndistance", "epithelium": "epithelium\nshare"}
-SIGNATURE_UNITS = {"orientation_coherence": "Δ", "boundary_dist_um": "um", "epithelium": "pp"}  # others: %
+                   "boundary_dist_um": "boundary\ndistance", "stroma": "stroma\nshare"}
+SIGNATURE_UNITS = {"orientation_coherence": "Δ", "boundary_dist_um": "um", "stroma": "pp"}  # others: %
 SIGNATURE_CAPTION = (
-    "Prominent attributes of the eight stable concepts A{d}H: difference of medians (shares for epithelium) between "
+    "Prominent attributes of the eight stable concepts A{d}H: difference of medians (shares for stroma) between "
     "the 2,000 most strongly activated nuclei and inactive nuclei; test set. Each concept is compared with its own "
     "inactive nuclei ({k} = 0). Only cells with |{D}| {ge} 15 are coloured and labelled (orientation coherence: "
     "|{D}| {ge} 0.15); lighter colours 15{d}30, darker {ge} 30 (coherence 0.15{d}0.30, {ge} 0.30), orange higher and "
     "blue lower than in inactive nuclei. Units: percent (relative difference of medians) for area, long and short "
     "axis, circularity, contour irregularity, hematoxylin optical density (H-OD, normalised by the slide median), "
     "8-NN distance and pleomorphism of neighbours; plain difference for orientation coherence of neighbours "
-    "(mean cos 2{D}{p}, 1 = all parallel, 0 = no preferred orientation); {mu}m for boundary distance (positive = in "
-    "stroma, away from the epithelium{d}stroma boundary; negative = inside epithelium); percentage points for the "
-    "epithelium share (benign + cancerous)."
+    "(mean cos 2{D}{p}, 1 = all parallel, 0 = no preferred orientation); {mu}m for boundary distance (distance to "
+    "the nearest epithelium{d}stroma border; positive = in stroma, negative = inside epithelium); percentage points "
+    "for the stroma share (fraction of nuclei whose centroid lies in stroma). In both Location columns orange means "
+    "more stromal."
 ).format(d="\u2013", D="\u0394", ge="\u2265", k="\u03ba_j", p="\u03c8", mu="\u00b5")
-CONTEXT_RELATIVE = {"knn8_mean_dist_um": "%", "boundary_dist_um": "um", "epithelium": "pp"}
+CONTEXT_RELATIVE = {"knn8_mean_dist_um": "%", "boundary_dist_um": "um", "stroma": "pp"}
 CONTEXT_TITLES = {
     "knn8_mean_dist_um": "8-NN distance (mean distance to the 8 nearest nuclei), % difference",
     "boundary_dist_um": (r"Boundary distance ($\mu$m; positive = in stroma, negative = inside epithelium), "
                          r"difference in $\mu$m"),
-    "epithelium": "Epithelium share (benign + cancerous), difference in percentage points; bars: 95 % CI (slide bootstrap)",
+    "stroma": "Stroma share, difference in percentage points; bars: 95 % CI (slide bootstrap)",
 }
 # used instead when the longest interval is shorter than a dot
-EPITHELIUM_TITLE_BARS_HIDDEN = ("Epithelium share (benign + cancerous), difference in percentage points; 95 % CI "
-                                "smaller than the dots")
+STROMA_TITLE_BARS_HIDDEN = "Stroma share, difference in percentage points; 95 % CI smaller than the dots"
 CONTEXT_CAPTION = (
     "Tissue context for the eight stable concepts A{d}H (test set), grouped as in the morphometry figure (weak, "
     "medium and strong activation tertiles of the active nuclei; the 2,000 most strongly activated). 8-NN distance: "
     "mean distance to the 8 nearest nuclei of the same slide. Boundary distance: signed distance to the "
     "epithelium{d}stroma boundary of the annotation, positive = in stroma, away from the epithelium{d}stroma boundary; "
-    "negative = inside epithelium. Epithelium share: share of the group{a}s nuclei in benign or cancerous epithelium. "
-    "Dots show the group median (8-NN and boundary distance) or share (epithelium) as a difference from nuclei where "
+    "negative = inside epithelium. Stroma share: fraction of the group{a}s nuclei whose centroid lies in stroma; "
+    "shares of stroma, epithelium (benign + cancerous) and unlabelled tissue sum to 100 %. "
+    "Dots show the group median (8-NN and boundary distance) or share (stroma) as a difference from nuclei where "
     "the concept is inactive: in percent, in {mu}m and in percentage points. Bars show the group{a}s interquartile "
     "range on the same scale (a spread){{ci}}. The grey band is the "
     "interquartile range of the concept{a}s inactive nuclei, relative to their median."
@@ -439,7 +453,8 @@ def main(config: DictConfig) -> None:
             table.round(2).to_csv(out / f"{stem}_top_vs_inactive.csv", index_label="concept")
             units = [u for _, _, u in specs.values()]
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in specs], units, config.top_n, footnote(list(specs)),
-                                 subtitle(list(specs), units)), f"{stem}_top_vs_inactive")
+                                 subtitle(list(specs), units), [HEADERS.get(c) for c in specs]),
+                 f"{stem}_top_vs_inactive")
 
         # neighbourhood shape: absolute, and relative in the style of the morphometry figure
         save(points_figure(stats, SHAPE_ATTRIBUTES, letters, config.top_n, False, ranges), "shape_groups")
@@ -463,7 +478,7 @@ def main(config: DictConfig) -> None:
                              footnote(list(heat.columns)), subtitle(list(heat.columns), units)),
              "morphometry_top_vs_inactive")
 
-        # the pathologist set: letters only, epithelium merged, no stroma, no label shares
+        # the pathologist set: letters only, stroma share (epithelium only in the CSVs), no label shares
         folder = out / "figures" / "pathologist"
         for old in folder.glob("*"):
             old.unlink()
@@ -474,32 +489,37 @@ def main(config: DictConfig) -> None:
         neighbourhood = neighbourhood.loc[:, ~neighbourhood.columns.duplicated()][list(NEIGHBOURHOOD_UNITS)]
         for name, table, units in (("nucleus_top_vs_inactive", nucleus, ["%"] * len(NUCLEUS_COLUMNS)),
                                    ("neighbourhood_top_vs_inactive", neighbourhood, list(NEIGHBOURHOOD_UNITS.values()))):
-            table.round(3).to_csv(out / f"{name}.csv", index_label="concept")
+            csv = table if name.startswith("nucleus") else table.join(top_vs_inactive(stats, {"epithelium": (
+                "epithelium (%)", "share", "pp")}, letters))
+            csv.round(3).to_csv(out / f"{name}.csv", index_label="concept")
             columns = list(table.columns)
             save(percent_heatmap(table, [HEAT_NAMES[c] for c in columns], units, config.top_n, footnote(columns),
-                                 subtitle(columns, units)), name, pathologist)
+                                 subtitle(columns, units), [HEADERS.get(c) for c in columns]), name, pathologist)
         # the summary heatmap of prominent attributes (internal figures/)
         signature_columns = [c for _, columns in SIGNATURE_GROUPS for c in columns]
         signature = pd.concat([nucleus, neighbourhood], axis=1)[signature_columns]
-        signature.round(3).to_csv(out / "concept_signature.csv", index_label="concept")
+        signature.join(top_vs_inactive(stats, {"epithelium": ("epithelium (%)", "share", "pp")}, letters)).round(
+            3).to_csv(out / "concept_signature.csv", index_label="concept")
         save(signature_figure(signature, [SIGNATURE_NAMES[c] for c in signature_columns],
                               [SIGNATURE_UNITS.get(c, "%") for c in signature_columns],
                               [(label, len(columns)) for label, columns in SIGNATURE_GROUPS],
-                              "Prominent attributes of the eight stable concepts"), "concept_signature")
+                              "Prominent attributes of the eight stable concepts", SIGNATURE_FOOTNOTE,
+                              [SIGNATURE_BOUNDARY_HEADER if c == "boundary_dist_um" else None
+                               for c in signature_columns]), "concept_signature")
         (out / "figures" / "concept_signature_caption.txt").write_text(SIGNATURE_CAPTION + "\n")
 
         panels = [{"title": CONTEXT_TITLES[name], "unit": unit, "rows": panel_rows(stats, name),
-                   "band": name != "epithelium", "omit_small_bars": name == "epithelium"}
-                  | ({"title_bars_hidden": EPITHELIUM_TITLE_BARS_HIDDEN} if name == "epithelium" else {})
+                   "band": name != "stroma", "omit_small_bars": name == "stroma"}
+                  | ({"title_bars_hidden": STROMA_TITLE_BARS_HIDDEN} if name == "stroma" else {})
                   for name, unit in CONTEXT_RELATIVE.items()]
         fig, bands = relative_panels_figure(panels, letters, config.top_n, "difference from inactive nuclei")
         save(fig, "context_groups_relative", pathologist)
-        epithelium = stats[(stats["attribute"] == "epithelium") & stats["concept"].isin(letters)]
-        half_width = float(((epithelium["high"] - epithelium["low"]) / 2).max())
-        hidden = bands[CONTEXT_TITLES["epithelium"]]["bars_hidden"]
+        stroma = stats[(stats["attribute"] == "stroma") & stats["concept"].isin(letters)]
+        half_width = float(((stroma["high"] - stroma["low"]) / 2).max())
+        hidden = bands[CONTEXT_TITLES["stroma"]]["bars_hidden"]
         bound = f"{LEQ} {PLUS_MINUS}{np.ceil(half_width * 100) / 100:.2f} pp"
-        ci = (f"; the 95 % CI of the epithelium share (slide bootstrap, {bound}) is smaller than the dots and not "
-              "drawn" if hidden else f", for the epithelium share its 95 % CI from a slide bootstrap ({bound})")
+        ci = (f"; the 95 % CI of the stroma share (slide bootstrap, {bound}) is smaller than the dots and not "
+              "drawn" if hidden else f", for the stroma share its 95 % CI from a slide bootstrap ({bound})")
         (folder / "context_relative_caption.txt").write_text(CONTEXT_CAPTION.replace("{ci}", ci) + "\n")
 
     # the morphometry relative figure of xai.concept_morphometry_figures, with its caption
