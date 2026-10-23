@@ -31,6 +31,7 @@ morphometry: # as xai.concept_morphometry, for the top latents of every main see
   features_dir: ${out_dir}/concepts/k16_seed1/morphometry # morphometry_{test,validation}.parquet (read only)
   n_bins: 10
   top_n: 2000
+  min_od_top_n: 50 # OD top point (random-sample members of the top nuclei): fewer = unreliable, blank in figures
   n_bootstrap: 1000
   validation: true
 

@@ -28,11 +28,15 @@ Main configuration (m = 1024, K = 16), every seed:
 - `matching_latents.csv`, latents -> concepts: for the `top_latents` latents by mean
   |φ| the best concept by cosine, by correlation and by containment; `new_pattern`
   if cosine < `new_cosine` and correlation < `new_correlation` for every concept;
+- `undercomplete_stable_eight.csv`: the matched latent and cosine of each of the
+  stable eight concepts (seed 1) for every m = 16 seed, with mean and minimum;
 - `morphometry/<model>/`: activation curves, Spearman rho with slide bootstrap and
   medians of the top latents in the format of `xai.concept_morphometry` (polygon
   features of all test nuclei; hematoxylin OD only where measured: the random
   per-slide sample, so the `top` point uses the random-sample members of the latent's
-  `top_n` most active nuclei), and the validation check (polygon features).
+  `top_n` most active nuclei; their number is in `od_top_n.csv`, and points with fewer
+  than `min_od_top_n` are marked `reliable = False` and left blank in the figures), and
+  the validation check (polygon features).
 """
 
 import json
@@ -330,6 +334,8 @@ def latent_morphometry(
                         "q75": np.nan,
                     }
                 )
+            # OD of the top point: the random-sample members of the top nuclei only
+            rows[-1]["reliable"] = not od or len(top_measured) >= m.min_od_top_n
             curves += [{"latent": name, "measurement": column, **r} for r in rows]
             spearman.append(
                 {
@@ -377,7 +383,12 @@ def grid_figure(
         squeeze=False,
     )
     for ax, name in zip(axes.flat, names, strict=False):  # empty panels hidden below
-        draw_panel(ax, c[c["latent"] == name], m[m["latent"] == name].iloc[0], n_bins)
+        curve = c[c["latent"] == name].copy()
+        unreliable = curve["reliable"].eq(
+            False
+        )  # OD top point with too few nuclei: blank
+        curve.loc[unreliable, ["median", "q25", "q75"]] = np.nan
+        draw_panel(ax, curve, m[m["latent"] == name].iloc[0], n_bins)
         rho = s[s["latent"] == name].iloc[0]["rho"]
         ax.set_title(rf"{name}: $\rho = {rho:.2f}$", fontsize=7, pad=2)
     for ax in axes.flat[len(names) :]:
@@ -512,6 +523,26 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
                 )
     uc_matching = pd.DataFrame(rows)
     uc_matching.to_csv(out / "undercomplete_matching.csv", index=False)
+    # the decision table: the stable eight of the analysed k = 16 seed, every m = 16 seed
+    stable_eight = uc_matching[
+        (uc_matching["k16_seed"] == config.reference_seed) & uc_matching["stable_k16"]
+    ].pivot(
+        index=["letter", "k16_concept"],
+        columns="m16_seed",
+        values=["cosine", "m16_latent"],
+    )
+    stable_eight.columns = [f"{v}_m16_seed{seed}" for v, seed in stable_eight.columns]
+    latent_columns = stable_eight.filter(like="m16_latent_").columns
+    stable_eight[latent_columns] = stable_eight[latent_columns].astype(int)
+    cosines = stable_eight.filter(like="cosine_")
+    stable_eight["cosine_mean"] = cosines.mean(axis=1)
+    stable_eight["cosine_min"] = cosines.min(axis=1)
+    stable_eight = stable_eight.reset_index().rename(
+        columns={"k16_concept": "sae_index"}
+    )
+    stable_eight = stable_eight.sort_values("letter")
+    stable_eight.to_csv(out / "undercomplete_stable_eight.csv", index=False)
+    print(stable_eight.round(3).to_string(index=False))
 
     stability = pd.concat(
         [
@@ -670,6 +701,18 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             codes, names, test_morph, test_slide, list(MEASUREMENTS), config
         )
         curves.to_csv(morph_dir / "activation_curves.csv", index=False)
+        od_top = curves[
+            (curves["bin"] == "top")
+            & curves["measurement"].isin(
+                [col for col, (_, od, _) in MEASUREMENTS.items() if od]
+            )
+        ][["latent", "measurement", "n", "reliable"]]
+        od_top.to_csv(morph_dir / "od_top_n.csv", index=False)
+        print(
+            name,
+            "OD top n:",
+            od_top.drop_duplicates("latent").set_index("latent")["n"].to_dict(),
+        )
         spearman.to_csv(morph_dir / "spearman.csv", index=False)
         medians.to_csv(morph_dir / "medians.csv", index=False)
         with mpl.rc_context(THESIS_RC):
