@@ -10,14 +10,14 @@ defaults:
   - /callbacks/plot_curves@trainer.callbacks.thresholds: crop
   - _self_
 
-checkpoint: mlflow-artifacts:/97/da7bcdbdd708430a94747ab48774a005/artifacts/checkpoints/epoch=127-step=5632/checkpoint.ckpt
-mlflow_run_id: 47a33916e12642bab8d2bb352d326314
-mlflow_parent_run_id: da7bcdbdd708430a94747ab48774a005
+checkpoint: mlflow-artifacts:/97/ea7b8192e2724586ad7968466ff2aa0a/artifacts/checkpoints/epoch=167-step=7560/checkpoint.ckpt
+mlflow_run_id: 9ae92cb08a674e6e9b87d2fb8e2378df
+mlflow_parent_run_id: ea7b8192e2724586ad7968466ff2aa0a
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 1
-  k: 20
+  k: 44
   split_stratify_col: is_carcinoma
   split_group_col: patient_id
   split_size: 0.1
@@ -40,6 +40,7 @@ model:
       num_heads: 4
       num_layers: 4
       drop_path_rate: 0.25
+      attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
