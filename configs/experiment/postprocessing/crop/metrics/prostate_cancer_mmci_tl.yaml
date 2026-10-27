@@ -5,14 +5,14 @@ defaults:
   - _self_
 
 metadata_uri: ${dataset.mlflow_uris.metadata.test}
-predictions_uri: mlflow-artifacts:/97/ea7b8192e2724586ad7968466ff2aa0a/artifacts/predictions
+predictions_uri: mlflow-artifacts:/97/34ddbea0d532473bb86b71c1fec3643c/artifacts/predictions
 supervision_dir: ${dataset.paths.supervision.annotation} # ${dataset.paths.supervision.annotation} ${dataset.paths.supervision.model_prediction.virchow2}
 label_column: annot_label # annot_label pred_label
-graph_threshold: 0.6278
-nuclei_threshold: 0.0119
+graph_threshold: 0.4448
+nuclei_threshold: 0.00126
 
-mlflow_run_id: 9ae92cb08a674e6e9b87d2fb8e2378df
-mlflow_parent_run_id: ea7b8192e2724586ad7968466ff2aa0a
+mlflow_run_id: 34ddbea0d532473bb86b71c1fec3643c
+mlflow_parent_run_id: b0651483385b4ef28d92c0126c2b47f2
 
 metadata:
   run_name: "MMCI: Evaluation"
