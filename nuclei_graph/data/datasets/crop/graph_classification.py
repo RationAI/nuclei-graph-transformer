@@ -26,6 +26,7 @@ class GraphClassificationDataset(BaseCropDataset):
         efd_order: int = 16,
         full_slide: bool = False,
         patch_size: int | None = None,
+        patches_path: str | None = None,
         augmentations: Callable[..., dict[str, NDArray[np.float32]]] | None = None,
     ) -> None:
         super().__init__(
@@ -37,6 +38,7 @@ class GraphClassificationDataset(BaseCropDataset):
             efd_order=efd_order,
             full_slide=full_slide,
             patch_size=patch_size,
+            patches_path=patches_path,
             embedding_mode=embedding_mode,
             augmentations=augmentations,
         )

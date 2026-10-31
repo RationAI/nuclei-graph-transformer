@@ -9,6 +9,12 @@ output_path: ${dataset.paths.nuclei_seg}
 metadata_uris: ???
 # Subfolder of `output_path` the nuclei are written to.
 batch_name: null
+# Scales each slide's RGB channels so its glass maps to grey `glass_target` before
+# segmentation; LSP-DETR misses faint nuclei on pale, tinted slides. null = raw tiles.
+#   glass_target: 240
+#   glass_min_value: 200  # pixels whose max channel is above this are glass candidates
+#   max_side: 4000  # px, longest side of the level the glass colour is read from
+white_balance: null
 
 metadata:
   run_name: "Nuclei Segmentation: ${dataset.name}"
@@ -17,3 +23,4 @@ metadata:
     tile_extent: ${tile_extent}
     overlap: ${overlap}
     batch_size: ${batch_size}
+    white_balance: ${white_balance}

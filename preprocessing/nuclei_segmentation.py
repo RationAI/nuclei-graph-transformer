@@ -4,9 +4,10 @@ import hashlib
 from collections.abc import Iterator
 from math import ceil, floor
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 from urllib.parse import urlparse
 
+import cv2
 import hydra
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ import ray
 import torch
 from mlflow.artifacts import download_artifacts
 from numpy.typing import NDArray
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 from ratiopath.openslide import OpenSlide
@@ -52,6 +53,7 @@ class TileRecord(TypedDict):
     tile_extent_x: int
     tile_extent_y: int
     level: int
+    wb_scale: NotRequired[list[float]]
 
 
 class NucleusRecord(TypedDict):
@@ -93,10 +95,13 @@ class Model:
                 - "tile_x" (int): X-coordinate of the tile.
                 - "tile_y" (int): Y-coordinate of the tile.
                 - "tile" (PIL.Image or np.ndarray): Tile image.
+                - "wb_scale" (np.ndarray, optional): Per-channel white balance factors.
         """
-        inputs = self.processor(
-            batch["tile"].copy(), device=self.device, return_tensors="pt"
-        )
+        tiles = batch["tile"]
+        if "wb_scale" in batch:
+            scale = np.stack(batch["wb_scale"]).astype(np.float32)[:, None, None, :]
+            tiles = np.clip(tiles * scale, 0, 255).astype(np.uint8)
+        inputs = self.processor(tiles.copy(), device=self.device, return_tensors="pt")
         outputs = self.model(**inputs)
         results = self.processor.post_process(outputs)
 
@@ -108,12 +113,57 @@ class Model:
         }
 
 
-def tiling(slide_record: SlideRecord) -> Iterator[TileRecord]:
+def glass_rgb(
+    slide_path: str, glass_min_value: int, max_side: int
+) -> NDArray[np.float64]:
+    """Glass colour of a slide, read from its largest level no wider than `max_side`.
+
+    The median of the bright pixels (max channel above `glass_min_value`) at their most
+    common saturation; pure-white padding outside the scanned area is ignored. The same
+    estimate as `correct_glass_tint` in `preprocessing/tissue_masks/icaird_cervix.py`,
+    so tinted glass is found too.
+    """
+    with OpenSlide(slide_path) as slide:
+        level = next(
+            (
+                level
+                for level, (w, h) in enumerate(slide.level_dimensions)
+                if max(w, h) <= max_side
+            ),
+            slide.level_count - 1,
+        )
+        region = slide.read_region((0, 0), level, slide.level_dimensions[level])
+    pixels = np.asarray(region.convert("RGB")).reshape(-1, 3)
+    pixels = pixels[(pixels.max(axis=1) > glass_min_value) & (pixels.min(axis=1) < 250)]
+    if len(pixels) == 0:
+        raise ValueError(f"{slide_path}: no glass pixels to white balance against")
+
+    saturation = cv2.cvtColor(pixels[None], cv2.COLOR_RGB2HSV)[0, :, 1]
+    glass_saturation = np.bincount(saturation).argmax()
+    return np.median(pixels[saturation == glass_saturation], axis=0)
+
+
+def tiling(
+    slide_record: SlideRecord, white_balance: dict[str, Any] | None = None
+) -> Iterator[TileRecord]:
     """Yields metadata for unprocessed tiles of a slide.
+
+    With `white_balance`, every tile carries the per-channel factors that map the
+    slide's glass colour to the grey `glass_target`, applied to the tile before
+    segmentation.
 
     Note: The tiling step is not separated as per usual, as tiles are only used within
           this pipeline and persisting them would not have an additional benefit.
     """
+    extra: dict[str, Any] = {}
+    if white_balance is not None:
+        glass = glass_rgb(
+            slide_record["path"],
+            white_balance["glass_min_value"],
+            white_balance["max_side"],
+        )
+        extra["wb_scale"] = (white_balance["glass_target"] / glass).tolist()
+
     for x, y in grid_tiles(
         slide_extent=(slide_record["extent_x"], slide_record["extent_y"]),
         tile_extent=(slide_record["tile_extent_x"], slide_record["tile_extent_y"]),
@@ -132,6 +182,7 @@ def tiling(slide_record: SlideRecord) -> Iterator[TileRecord]:
             "tile_extent_x": slide_record["tile_extent_x"],
             "tile_extent_y": slide_record["tile_extent_y"],
             "level": slide_record["level"],
+            **extra,
         }
 
 
@@ -219,7 +270,8 @@ def run_segmentation(
     The pipeline proceeds in these steps:
         1) Slide Metadata Preparation: get slide metadata needed for processing.
         2) Tiling: split slides into tiles and filter out non-tissue tiles using binary masks.
-        3) Nucleus Detection: segment nuclei in each tile and extract polygons.
+        3) Nucleus Detection: segment nuclei in each tile (white balanced first, if
+           `config.white_balance` is set) and extract polygons.
         4) Duplicate Removal: discard nuclei near tile edges to prevent duplicates.
         5) Saving: store results as partitioned Parquet files organized by `slide_id`.
     """
@@ -230,9 +282,17 @@ def run_segmentation(
         stride=config.tile_extent - config.overlap,
     )
 
-    tiles = slides.flat_map(tiling, num_cpus=0.1, memory=128 * 1024**2).repartition(
-        target_num_rows_per_block=128
+    white_balance = (
+        OmegaConf.to_container(config.white_balance)
+        if config.white_balance is not None
+        else None
     )
+    tiles = slides.flat_map(
+        tiling,
+        fn_kwargs={"white_balance": white_balance},
+        num_cpus=0.1,
+        memory=1 * 1024**3,  # the white balance reads a low-resolution level
+    ).repartition(target_num_rows_per_block=128)
     tissue_tiles = (
         tiles.filter(
             TissueTileFilter,

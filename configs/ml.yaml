@@ -19,7 +19,7 @@ data:
   _target_: ???
   batch_size: ???
   num_workers: 10
-  eval_num_workers: 2
+  eval_num_workers: 4
   metadata: ???
   dataset: ???
   supervision:

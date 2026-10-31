@@ -35,7 +35,7 @@ data:
     crop_size_max: 8192
     alpha: 0.8
     efd_order: 16
-    patch_size: 48
+    patch_size: 40
     embedding_mode: blank # efd, bbox, blank
 
   supervision:

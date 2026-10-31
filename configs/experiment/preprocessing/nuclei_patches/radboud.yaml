@@ -1,0 +1,13 @@
+# @package _global_
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uris:
+  - ${dataset.providers.radboud.metadata.train}
+  - ${dataset.providers.radboud.metadata.test}
+output_path: ${dataset.paths.nuclei.patches}
+
+metadata:
+  run_name: "🧩 Nuclei Texture Patches: ${dataset.name}/Radboud"

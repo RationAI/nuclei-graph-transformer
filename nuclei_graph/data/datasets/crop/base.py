@@ -38,6 +38,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         efd_order: int = 16,
         full_slide: bool = False,
         patch_size: int | None = None,
+        patches_path: str | None = None,
         augmentations: Callable[..., dict[str, NDArray[np.float32]]] | None = None,
     ) -> None:
         self.metadata = metadata
@@ -54,6 +55,11 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         assert self.embedding_mode in EMBEDDING_MODES, (
             f"Invalid embedding_mode: {self.embedding_mode}"
         )
+
+        # precomputed patches (preprocessing/nuclei_patches.py), only used by `bbox`
+        self.patches_path = patches_path if embedding_mode == "bbox" else None
+        if self.patches_path is not None:
+            self.check_patches_params()
 
     def __len__(self) -> int:
         return len(self.metadata)
@@ -165,7 +171,8 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         real slide geometry of `crop_indices` from `nuclei`, since the WSI pixels
         themselves are never transformed by the geometric augmentations. Its patches are
         orientation-normalized, so the (augmented) orientations of `polygons` are
-        returned alongside them as features.
+        returned alongside them as features. With `patches_path`, the patches are read
+        from the precomputed ones instead of being extracted from the WSI.
         """
         geom_features, bboxes = None, None
 
@@ -178,6 +185,12 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             geom_features = self.get_orientation_features(
                 polygons, slide.mpp_x, slide.mpp_y
             )
+            if self.patches_path is not None:
+                bboxes = self.read_nuclei_bboxes(
+                    slide.slide_id, crop_indices, len(nuclei)
+                )
+                return geom_features, bboxes
+
             true_polygons = np.array(nuclei["polygon"].iloc[crop_indices].tolist())
             true_polygons = rearrange(true_polygons, "n (v c) -> n v c", c=2)
             true_centroids = np.stack(nuclei["centroid"].iloc[crop_indices].tolist())

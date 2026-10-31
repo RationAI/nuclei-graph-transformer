@@ -35,7 +35,7 @@ data:
     paths: ${dataset.providers.radboud.supervision}
     train_strategy: null
 
-patch_size: 48
+patch_size: 40
 
 model:
   lr: 1e-4

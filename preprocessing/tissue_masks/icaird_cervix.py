@@ -5,11 +5,13 @@ of the image. Otsu thresholding of the saturation channel (`rationai.masks.tissu
 fails on both: the artifact has very high saturation and dominates the threshold, and
 strongly stained tissue pulls it above the saturation of the pale tissue. The mask here is
 therefore made with a fixed threshold instead:
-1. Pixels that are nearly black (HSV value up to `dark_threshold`) are set to zero
+1. A few slides are scanned with lavender glass (saturation ~16), which would otherwise
+   all be tissue. Their colours are rescaled so that the glass has the usual colour.
+2. Pixels that are nearly black (HSV value up to `dark_threshold`) are set to zero
    saturation, so artifacts are never tissue.
-2. The saturation channel is blurred and thresholded at `saturation_threshold` (glass is
+3. The saturation channel is blurred and thresholded at `saturation_threshold` (glass is
    ~3-9, pale tissue ~15-35).
-3. The mask is refined with a closing (fills gaps), a filling of small holes and an opening
+4. The mask is refined with a closing (fills gaps), a filling of small holes and an opening
    (removes noise).
 """
 
@@ -19,6 +21,7 @@ from typing import Any, cast
 
 import cv2
 import hydra
+import numpy as np
 import pandas as pd
 import pyvips
 import ray
@@ -31,9 +34,41 @@ from rationai.mlkit import autolog, with_cli_args
 from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 
+def correct_glass_tint(
+    rgb: pyvips.Image,
+    glass_min_value: int,
+    glass_reference_rgb: list[int],
+    saturation_threshold: int,
+) -> pyvips.Image:
+    """Rescales the RGB channels of a slide with tinted glass to the usual glass colour.
+
+    The glass colour is the median of the bright pixels (max channel above
+    `glass_min_value`) at their most common saturation; pure-white padding outside
+    the scanned area is ignored. Only slides whose glass saturation is above
+    `saturation_threshold` (whose glass would be all tissue) are changed: the tint
+    shares the hue of pale tissue, so a full white balance of every slide would also
+    lose pale tissue on slides with ordinary glass.
+    """
+    pixels = rgb.numpy().reshape(-1, 3)
+    pixels = pixels[(pixels.max(axis=1) > glass_min_value) & (pixels.min(axis=1) < 250)]
+    if len(pixels) == 0:
+        return rgb
+
+    saturation = cv2.cvtColor(pixels[None], cv2.COLOR_RGB2HSV)[0, :, 1]
+    glass_saturation = np.bincount(saturation).argmax()
+    if glass_saturation <= saturation_threshold:
+        return rgb
+
+    glass = np.median(pixels[saturation == glass_saturation], axis=0)
+    scale = np.asarray(glass_reference_rgb) / glass
+    return rgb.linear(scale.tolist(), [0, 0, 0]).cast("uchar").copy(interpretation="srgb")
+
+
 def tissue_mask(
     slide: pyvips.Image,
     mpp: float,
+    glass_min_value: int,
+    glass_reference_rgb: list[int],
     dark_threshold: int,
     saturation_threshold: int,
     blur_size: int,
@@ -45,6 +80,9 @@ def tissue_mask(
     Args:
         slide: whole-slide image (WSI) at the level to be masked.
         mpp: resolution of `slide` in µm/px.
+        glass_min_value: pixels whose max channel (0-255) is above this are glass
+            candidates for the tint correction.
+        glass_reference_rgb: the usual glass colour that tinted glass is rescaled to.
         dark_threshold: pixels whose HSV value (0-255) is not above this are not tissue.
         saturation_threshold: blurred saturation (0-255) above which a pixel is tissue.
         blur_size: odd size in px of the Gaussian kernel the saturation is blurred with.
@@ -54,7 +92,13 @@ def tissue_mask(
     Returns:
         The tissue mask (0/255, single band) with the same size as `slide`.
     """
-    _, saturation, value, *_ = slide.extract_band(0, n=3).sRGB2HSV().bandsplit()
+    rgb = correct_glass_tint(
+        slide.extract_band(0, n=3),
+        glass_min_value,
+        glass_reference_rgb,
+        saturation_threshold,
+    )
+    _, saturation, value, *_ = rgb.sRGB2HSV().bandsplit()
     saturation = (value > dark_threshold).ifthenelse(saturation, 0).numpy()
     saturation = saturation.reshape(saturation.shape[:2])  # drop a trailing band axis
 

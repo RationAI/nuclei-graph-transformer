@@ -25,6 +25,9 @@ dataset:
       raw: /mnt/projects/nuclei_foundation_model/nuclei/PANDA/dataset=PANDA
       # preprocessing/nuclei_standardization.py
       standardized: ${project_path}/nuclei_segmentation/PANDA
+      # preprocessing/nuclei_patches.py (texture patches of embedding_mode=bbox)
+      # (geometry in its params.json; nuclei_patches/PANDA holds the older 0°, 20 µm, 48 px)
+      patches: ${project_path}/nuclei_patches/PANDA_45deg_18um_40px
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks

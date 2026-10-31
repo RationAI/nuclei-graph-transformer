@@ -127,56 +127,23 @@ def create_ragged_block_quantized_knn_mask(
     adj_matrix = torch.zeros((num_blocks, num_blocks), dtype=torch.bool, device=device)
     adj_matrix[q_block_ids[valid_conn], kv_block_ids[valid_conn]] = True
 
-    kv_num_blocks = adj_matrix.sum(dim=-1, dtype=torch.int32)
-
-    # === 3. Compress to Dense KV Indices ===
-    col_indices = (
-        torch.arange(num_blocks, dtype=torch.int32, device=device)
-        .unsqueeze(0)
-        .expand(num_blocks, num_blocks)
-    )
-
-    # Push invalid connections to the back (value: num_blocks + 1) and sort them out
-    masked_col_indices = torch.where(adj_matrix, col_indices, num_blocks + 1)
-    sorted_indices, _ = masked_col_indices.sort(dim=-1)
-
-    kv_indices = torch.where(
-        sorted_indices > num_blocks,
-        torch.tensor(-1, dtype=torch.int32, device=device),
-        sorted_indices.to(torch.int32),
-    )
-
-    # === 4. Optimize Fast Path (Pure vs Mixed Blocks) ===
+    # === 3. Optimize Fast Path (Pure vs Mixed Blocks) ===
+    # Documents are contiguous and padding only trails them, so a block whose first
+    # and last token share a document holds only that document (or only padding)
     block_starts = torch.arange(num_blocks, device=device) * block_size
     block_ends = torch.clamp(block_starts + block_size - 1, max=total_seq_len - 1)
 
     is_pure_block = doc_ids[block_starts] == doc_ids[block_ends]
 
-    valid_kv_mask = kv_indices >= 0
-    safe_kv_indices = torch.where(valid_kv_mask, kv_indices, 0)
+    # Boundary-crossing blocks take the slow (mask_mod) path. flex_attention visits
+    # the partial and the full block lists separately, so a block pair must be in
+    # exactly one of them; in both, its keys would be counted twice in the softmax
+    full_adj = adj_matrix & is_pure_block.unsqueeze(1) & is_pure_block.unsqueeze(0)
+    partial_adj = adj_matrix & ~full_adj
 
-    is_kv_pure = is_pure_block[safe_kv_indices]
-
-    mixed_q_mask = ~is_pure_block
-    mixed_kv_mask = valid_kv_mask & (~is_kv_pure)
-
-    full_kv_indices = kv_indices.clone()
-
-    # Demote boundary-crossing blocks to the slow path (-1)
-    full_kv_indices.masked_fill_(mixed_q_mask.unsqueeze(-1), -1)
-    full_kv_indices.masked_fill_(mixed_kv_mask, -1)
-
-    sort_keys = torch.where(full_kv_indices == -1, num_blocks + 1, full_kv_indices)
-    sorted_full_indices, _ = sort_keys.sort(dim=-1)
-
-    # Push the -1 "holes" to the back so valid indices are contiguous
-    full_kv_indices = torch.where(
-        sorted_full_indices > num_blocks,
-        torch.tensor(-1, dtype=torch.int32, device=device),
-        sorted_full_indices.to(torch.int32),
-    )
-
-    full_kv_num_blocks = (full_kv_indices != -1).sum(dim=-1, dtype=torch.int32)
+    # === 4. Compress to Dense KV Indices ===
+    kv_num_blocks, kv_indices = _compress_kv_blocks(partial_adj)
+    full_kv_num_blocks, full_kv_indices = _compress_kv_blocks(full_adj)
 
     # === 5. Reshape for BlockMask (Batch=1, Heads=1) ===
     return BlockMask.from_kv_blocks(
@@ -188,6 +155,30 @@ def create_ragged_block_quantized_knn_mask(
         mask_mod=_MaskMod(doc_ids),
         seq_lengths=(total_seq_len, total_seq_len),
     )
+
+
+def _compress_kv_blocks(adj_matrix: Tensor) -> tuple[Tensor, Tensor]:
+    """(num_blocks, num_blocks) block adjacency -> (kv_num_blocks, kv_indices).
+
+    Each row of `kv_indices` lists the adjacent kv blocks first, then -1s.
+    """
+    num_blocks = adj_matrix.shape[0]
+    col_indices = (
+        torch.arange(num_blocks, dtype=torch.int32, device=adj_matrix.device)
+        .unsqueeze(0)
+        .expand(num_blocks, num_blocks)
+    )
+
+    # Push non-adjacent blocks to the back (value: num_blocks + 1) and sort them out
+    masked_col_indices = torch.where(adj_matrix, col_indices, num_blocks + 1)
+    sorted_indices, _ = masked_col_indices.sort(dim=-1)
+
+    kv_indices = torch.where(
+        sorted_indices > num_blocks,
+        torch.tensor(-1, dtype=torch.int32, device=adj_matrix.device),
+        sorted_indices.to(torch.int32),
+    )
+    return adj_matrix.sum(dim=-1, dtype=torch.int32), kv_indices
 
 
 def create_dense_document_mask(
@@ -251,49 +242,22 @@ def create_dense_document_mask(
     ).unsqueeze(0)
     adj_matrix = adj_matrix & valid_blocks
 
-    kv_num_blocks = adj_matrix.sum(dim=-1, dtype=torch.int32)
+    # === 3. Optimize Fast Path (Pure vs Mixed Blocks) ===
+    # A block is pure if it contains exactly one document (min == max) AND no padding;
+    # padding trails the last document, so its last block is usually partly padding,
+    # which only the mask_mod (not a full block) keeps its tokens from attending to
+    has_padding = (doc_ids_blocks == -1).any(dim=-1)
+    is_pure_block = (start_docs == end_docs) & ~has_padding
 
-    # === 3. Compress to Dense KV Indices ===
-    col_indices = (
-        torch.arange(num_blocks, dtype=torch.int32, device=device)
-        .unsqueeze(0)
-        .expand(num_blocks, num_blocks)
-    )
+    # flex_attention visits the partial (mask_mod) and the full block lists
+    # separately, so a block pair must be in exactly one of them; in both, its
+    # keys would be counted twice in the softmax
+    full_adj = adj_matrix & is_pure_block.unsqueeze(1) & is_pure_block.unsqueeze(0)
+    partial_adj = adj_matrix & ~full_adj
 
-    masked_col_indices = torch.where(adj_matrix, col_indices, num_blocks + 1)
-    sorted_indices, _ = masked_col_indices.sort(dim=-1)
-
-    kv_indices = torch.where(
-        sorted_indices > num_blocks,
-        torch.tensor(-1, dtype=torch.int32, device=device),
-        sorted_indices.to(torch.int32),
-    )
-
-    # === 4. Optimize Fast Path (Pure vs Mixed Blocks) ===
-    # A block is pure if it contains exactly one document (min == max) AND is not padding
-    is_pure_block = (start_docs == end_docs) & (start_docs != 999999)
-
-    valid_kv_mask = kv_indices >= 0
-    safe_kv_indices = torch.where(valid_kv_mask, kv_indices, 0)
-    is_kv_pure = is_pure_block[safe_kv_indices]
-
-    mixed_q_mask = ~is_pure_block
-    mixed_kv_mask = valid_kv_mask & (~is_kv_pure)
-
-    full_kv_indices = kv_indices.clone()
-    full_kv_indices.masked_fill_(mixed_q_mask.unsqueeze(-1), -1)
-    full_kv_indices.masked_fill_(mixed_kv_mask, -1)
-
-    sort_keys = torch.where(full_kv_indices == -1, num_blocks + 1, full_kv_indices)
-    sorted_full_indices, _ = sort_keys.sort(dim=-1)
-
-    full_kv_indices = torch.where(
-        sorted_full_indices > num_blocks,
-        torch.tensor(-1, dtype=torch.int32, device=device),
-        sorted_full_indices.to(torch.int32),
-    )
-
-    full_kv_num_blocks = (full_kv_indices != -1).sum(dim=-1, dtype=torch.int32)
+    # === 4. Compress to Dense KV Indices ===
+    kv_num_blocks, kv_indices = _compress_kv_blocks(partial_adj)
+    full_kv_num_blocks, full_kv_indices = _compress_kv_blocks(full_adj)
 
     # === 5. Return the highly optimized BlockMask ===
     return BlockMask.from_kv_blocks(

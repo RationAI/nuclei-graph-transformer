@@ -4,3 +4,4 @@ _target_: nuclei_graph.data.datasets.crop.nuclei_classification.NucleiClassifica
 efd_order: ???
 embedding_mode: ???
 patch_size: null
+patches_path: null # preprocessing/nuclei_patches.py output, read instead of the WSI when embedding_mode=bbox

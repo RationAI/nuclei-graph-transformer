@@ -23,7 +23,7 @@ data:
   metadata: ${dataset.mlflow_uris.metadata}
   dataset:
     efd_order: 16
-    patch_size: 48
+    patch_size: 40
     embedding_mode: efd # efd, bbox, blank
   supervision:
     paths: ${dataset.paths.supervision}

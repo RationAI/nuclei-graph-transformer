@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import cv2
 import numpy as np
 import torch
@@ -12,6 +15,7 @@ from nuclei_graph.data.efd import (
 )
 from nuclei_graph.nuclei_graph_typing import (
     BBOX_MASK_MARGIN_UM,
+    BBOX_ROTATION_DEG,
     MAX_CROP_PATCH_SIDE,
     TARGET_BBOX_CONTEXT_UM,
     Box,
@@ -20,11 +24,60 @@ from nuclei_graph.nuclei_graph_typing import (
 )
 
 
+# layout of the patches precomputed by `preprocessing/nuclei_patches.py`
+PATCHES_FILE = "patches.npy"
+ROWS_FILE = "rows.npy"
+PARAMS_FILE = "params.json"
+
+
+def patches_params(patch_size: int) -> dict[str, float]:
+    """The patch geometry that the precomputed patches must have been extracted with."""
+    return {
+        "patch_size": patch_size,
+        "target_bbox_context_um": TARGET_BBOX_CONTEXT_UM,
+        "bbox_mask_margin_um": BBOX_MASK_MARGIN_UM,
+        "bbox_rotation_deg": BBOX_ROTATION_DEG,
+    }
+
+
 class NucleiFeatureExtractor:
     """Shared spatial, geometric, and CNN patch extraction methods for Nuclei Datasets."""
 
     efd_order: int
     patch_size: int | None
+    patches_path: str | None = None
+
+    def check_patches_params(self) -> None:
+        """Asserts that the precomputed patches match the current patch geometry."""
+        assert self.patches_path is not None and self.patch_size is not None
+        params_path = Path(self.patches_path) / PARAMS_FILE
+        stored = json.loads(params_path.read_text())
+        expected = patches_params(self.patch_size)
+        assert stored == expected, (
+            f"Patches in {self.patches_path} were extracted with {stored}, "
+            f"not {expected}; rerun `preprocessing/nuclei_patches.py`."
+        )
+
+    def read_nuclei_bboxes(
+        self, slide_id: str, indices: NDArray[np.int64], n_nuclei: int
+    ) -> torch.Tensor:
+        """Reads the precomputed patches of the nuclei at `indices` (`get_nuclei` order).
+
+        The rows are read in their stored (spatial) order, so a spatially contiguous
+        crop reads mostly contiguous parts of the file.
+        """
+        assert self.patches_path is not None
+        slide_dir = Path(self.patches_path) / f"slide_id={slide_id}"
+        rows = np.load(slide_dir / ROWS_FILE)
+        assert len(rows) == n_nuclei, (
+            f"{slide_dir} holds {len(rows)} nuclei, the slide has {n_nuclei}."
+        )
+        rows = rows[indices]
+        order = np.argsort(rows)
+        patches = np.load(slide_dir / PATCHES_FILE, mmap_mode="r")
+        bboxes = np.empty((len(rows), *patches.shape[1:]), dtype=patches.dtype)
+        bboxes[order] = patches[rows[order]]
+        return torch.from_numpy(bboxes)
 
     def get_efd_features(
         self, polygons: NDArray[np.float32], mpp_x: float, mpp_y: float
@@ -113,10 +166,10 @@ class NucleiFeatureExtractor:
         """Masks the nucleus in its read `window` and maps it to a `patch_size` patch.
 
         Pixels farther than `BBOX_MASK_MARGIN_UM` from the nucleus polygon are set to
-        white (as outside the slide). One affine warp then rotates the nucleus by -ψ
-        (first EFD harmonic along the x-axis), centre-crops `TARGET_BBOX_CONTEXT_UM`
-        around the centroid, and resamples to `patch_size`, so the image is only
-        interpolated once.
+        white (as outside the slide). One affine warp then rotates the nucleus by
+        `BBOX_ROTATION_DEG` - ψ (first EFD harmonic along the patch diagonal),
+        centre-crops `TARGET_BBOX_CONTEXT_UM` around the centroid, and resamples to
+        `patch_size`, so the image is only interpolated once.
         """
         assert self.patch_size is not None
         origin = np.array([box.lx, box.ly], dtype=np.float32)
@@ -130,9 +183,11 @@ class NucleiFeatureExtractor:
         )
         mask = cv2.dilate(mask, kernel)
 
-        # window px -> µm (D) -> rotated by -ψ (R) -> patch px, centroid to patch centre
-        cos_psi, sin_psi = np.cos(psi), np.sin(psi)
-        rotation = np.array([[cos_psi, sin_psi], [-sin_psi, cos_psi]])
+        # window px -> µm (D) -> rotated by -(ψ - BBOX_ROTATION_DEG) (R) -> patch px,
+        # centroid to patch centre
+        angle = psi - np.deg2rad(BBOX_ROTATION_DEG)
+        cos_a, sin_a = np.cos(angle), np.sin(angle)
+        rotation = np.array([[cos_a, sin_a], [-sin_a, cos_a]])
         linear = (
             (self.patch_size / TARGET_BBOX_CONTEXT_UM)
             * rotation

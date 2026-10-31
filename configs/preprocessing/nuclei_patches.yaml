@@ -1,0 +1,12 @@
+# @package _global_
+
+metadata_uris: ???
+patch_size: 40
+leaf_size: 64 # nuclei per leaf of the spatial order of the stored patches
+max_concurrent: 16
+output_path: ???
+
+metadata:
+  run_name: ???
+  hyperparams:
+    patch_size: ${patch_size}

@@ -36,7 +36,8 @@ data:
     crop_pos_thr: 0.75
     alpha: 0.8
     efd_order: 16
-    patch_size: 48
+    patch_size: 40
+    patches_path: ${dataset.paths.nuclei.patches}
     embedding_mode: efd # efd, bbox, blank
 
   supervision:

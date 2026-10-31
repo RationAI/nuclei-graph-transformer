@@ -14,6 +14,7 @@ class PredictionDataset(BaseCropDataset):
         alpha: float = 0.8,
         efd_order: int = 16,
         patch_size: int | None = None,
+        patches_path: str | None = None,
     ) -> None:
         super().__init__(
             metadata=metadata,
@@ -21,6 +22,7 @@ class PredictionDataset(BaseCropDataset):
             efd_order=efd_order,
             full_slide=True,
             patch_size=patch_size,
+            patches_path=patches_path,
             embedding_mode=embedding_mode,
         )
 

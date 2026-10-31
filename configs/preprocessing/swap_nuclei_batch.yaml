@@ -1,0 +1,16 @@
+# @package _global_
+
+nuclei_path: ${dataset.paths.nuclei_seg}
+metadata_uri: ??? # CSV with `slide_id`: the slides whose nuclei are replaced
+source_batch: ??? # re-segmented nuclei, moved into `target_batch`
+target_batch: ??? # the batch the rest of the pipeline reads
+backup_batch: ??? # the replaced nuclei are moved here
+dry_run: true
+
+metadata:
+  run_name: "Nuclei Batch Swap: ${dataset.name}"
+  hyperparams:
+    source_batch: ${source_batch}
+    target_batch: ${target_batch}
+    backup_batch: ${backup_batch}
+    dry_run: ${dry_run}
