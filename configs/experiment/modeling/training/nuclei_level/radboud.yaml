@@ -16,15 +16,15 @@ monitor: validation/loss
 checkpoint_mode: min
 
 trainer:
-  max_epochs: 500
+  max_epochs: 300
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
   batch_size: 16
-  k: 32 # unused by the model when context={none, dense}
-  context: dense # none, dense, knn
+  k: 24 # unused by the model when context={none, dense}
+  context: knn # none, dense, knn
 
   split_stratify_col: gleason_score
   split_group_col: null
@@ -38,7 +38,7 @@ data:
     efd_order: 16
     patch_size: 40
     patches_path: ${dataset.paths.nuclei.patches}
-    embedding_mode: efd # efd, bbox, blank
+    embedding_mode: bbox # efd, bbox, blank
 
   supervision:
     paths: ${dataset.providers.radboud.supervision}
@@ -56,10 +56,10 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      use_rope: false
-      attention_variant: standard # vrope, standard, rel_value
+      use_rope: true
+      attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud: Polygons + Dense Attn"
+  run_name: "Radboud, k=24: Bboxes + RoVE + k-NN Attn"
   description: ""
