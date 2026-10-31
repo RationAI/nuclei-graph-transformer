@@ -56,10 +56,10 @@ model:
       num_heads: 8
       num_layers: 8
       drop_path_rate: 0.25
-      use_rope: true
+      use_rope: false
       attention_variant: vrope # vrope, standard, rel_value
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "Radboud, k=24: Bboxes + RoVE + k-NN Attn"
+  run_name: "Radboud, k=24: Bboxes + k-NN Attn"
   description: ""
