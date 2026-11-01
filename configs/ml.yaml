@@ -18,8 +18,8 @@ trainer:
 data:
   _target_: ???
   batch_size: ???
-  num_workers: 10
-  eval_num_workers: 4
+  num_workers: 16
+  eval_num_workers: 8
   metadata: ???
   dataset: ???
   supervision:
