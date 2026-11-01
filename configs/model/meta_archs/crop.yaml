@@ -1,2 +1,5 @@
 # @package _global_
 _target_: nuclei_graph.meta_archs.crop.CropModelMetaArch
+neg_instance_weight: 0.0 # λ × mean BCE(nucleus logits, 0) on slides labelled 0
+pseudo_pos_weight: 0.0 # μ × mean BCE(pseudo-positive nucleus logits, 1)
+selection_metric: loss # loss, AUROC (which validation metric's best epoch is logged as best/)

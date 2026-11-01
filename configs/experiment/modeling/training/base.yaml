@@ -69,3 +69,12 @@ metadata:
     context: ${oc.select:model.net.config.context,knn}
     use_rope: ${oc.select:model.net.config.use_rope,true}
     attention_variant: ${oc.select:model.net.config.attention_variant,standard}
+    pooling: ${oc.select:model.net.config.pooling,attention}
+    topk_frac: ${oc.select:model.net.config.topk_frac,null}
+    topk_min: ${oc.select:model.net.config.topk_min,null}
+    neg_instance_weight: ${oc.select:model.neg_instance_weight,null}
+    pseudo_pos_weight: ${oc.select:model.pseudo_pos_weight,null}
+    neg_crop_prob: ${oc.select:data.dataset.neg_crop_prob,null}
+    neg_crop_frac_range: ${oc.select:data.dataset.neg_crop_frac_range,null}
+    pseudo_labels: ${oc.select:data.dataset.pseudo_labels,null}
+    full_slide: ${oc.select:data.dataset.full_slide,null}

@@ -4,4 +4,8 @@ _target_: nuclei_graph.data.datasets.crop.graph_classification.GraphClassificati
 efd_order: ???
 embedding_mode: ???
 patch_size: null
+full_slide: false # true: whole slides; false: crops (positive crops are sampled with nucleus labels)
+neg_crop_prob: 0.0 # with full_slide, a negative slide is replaced by a random crop with this probability
+neg_crop_frac_range: [0.3, 1.0] # the crop holds a uniform fraction of the slide's nuclei from this range
+pseudo_labels: null # parquet of pseudo-positive nuclei (slide_id, id), see postprocessing/crop/pseudo_labels.py
 patches_path: null # preprocessing/nuclei_patches.py output, read instead of the WSI when embedding_mode=bbox

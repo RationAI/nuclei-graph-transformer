@@ -1,7 +1,8 @@
 from collections.abc import Callable
-from random import choice
+from random import choice, uniform
 
 import numpy as np
+import pandas as pd
 import torch
 from numpy.typing import NDArray
 from pandas import DataFrame
@@ -10,7 +11,7 @@ from torch import Tensor
 
 from nuclei_graph.data.datasets.crop.base import BaseCropDataset
 from nuclei_graph.data.supervision import DatasetSupervision
-from nuclei_graph.nuclei_graph_typing import Sample
+from nuclei_graph.nuclei_graph_typing import Sample, Targets
 
 
 class GraphClassificationDataset(BaseCropDataset):
@@ -25,6 +26,9 @@ class GraphClassificationDataset(BaseCropDataset):
         alpha: float = 0.8,
         efd_order: int = 16,
         full_slide: bool = False,
+        neg_crop_prob: float = 0.0,
+        neg_crop_frac_range: tuple[float, float] = (0.3, 1.0),
+        pseudo_labels: str | None = None,
         patch_size: int | None = None,
         patches_path: str | None = None,
         augmentations: Callable[..., dict[str, NDArray[np.float32]]] | None = None,
@@ -43,6 +47,18 @@ class GraphClassificationDataset(BaseCropDataset):
             augmentations=augmentations,
         )
         self.crop_pos_thr = crop_pos_thr
+        # with `full_slide`, a negative slide is replaced with this probability by a
+        # random crop holding a uniform fraction (from `neg_crop_frac_range`) of its nuclei
+        self.neg_crop_prob = neg_crop_prob
+        self.neg_crop_frac_range = neg_crop_frac_range
+        # parquet of pseudo-positive nuclei ("slide_id", "id") of positive slides
+        self.pseudo_pos_ids: dict[str, NDArray] | None = None
+        if pseudo_labels is not None:
+            pseudo_df = pd.read_parquet(pseudo_labels, columns=["slide_id", "id"])
+            self.pseudo_pos_ids = {
+                str(slide_id): group["id"].to_numpy()
+                for slide_id, group in pseudo_df.groupby("slide_id")
+            }
         self.pos_slide_indices = np.where(self.metadata["is_carcinoma"])[0].tolist()
 
     def sample_positive_crop(
@@ -84,7 +100,16 @@ class GraphClassificationDataset(BaseCropDataset):
         nuclei_sup = self.get_nuclei_sup(slide.slide_id)
 
         # Crop Generation
-        if not self.full_slide:
+        if (
+            self.full_slide
+            and not slide.is_carcinoma
+            and torch.rand(1).item() < self.neg_crop_prob
+        ):
+            # no nucleus labels: the seed is any nucleus of the slide
+            frac = uniform(*self.neg_crop_frac_range)
+            target_size = max(1, round(frac * len(nuclei)))
+            crop_indices = self.grow_crop(centroids, [], target_size)
+        elif not self.full_slide:
             target_size = self.get_crop_size(len(nuclei))
 
             if not slide.is_carcinoma:
@@ -118,6 +143,13 @@ class GraphClassificationDataset(BaseCropDataset):
         crop_graph_label = torch.tensor(
             [float(slide.is_carcinoma)], dtype=torch.float32
         )
+        labels = Targets({"nuclei": crop_nuclei_labels, "graph": crop_graph_label})
+        if self.pseudo_pos_ids is not None:
+            pseudo = np.zeros(len(nuclei), dtype=bool)
+            if slide.is_carcinoma and slide.slide_id in self.pseudo_pos_ids:
+                pseudo = nuclei["id"].isin(self.pseudo_pos_ids[slide.slide_id])
+                pseudo = pseudo.to_numpy()
+            labels["pseudo"] = torch.from_numpy(pseudo[crop_indices])
 
         # Geometry & Augmentations
         crop_polygons, crop_pos, crop_pos_centered = self.process_geometry(
@@ -135,7 +167,7 @@ class GraphClassificationDataset(BaseCropDataset):
                 if crop_geom_features is not None
                 else None,
                 "bboxes": crop_bboxes,
-                "labels": {"nuclei": crop_nuclei_labels, "graph": crop_graph_label},
+                "labels": labels,
                 "pos": torch.as_tensor(crop_pos_centered, dtype=torch.float32),
                 "sup_mask": nuclei_sup.get_sup_mask(len(nuclei))[crop_indices_t],
                 "seq_len": torch.tensor(len(crop_indices), dtype=torch.int32),

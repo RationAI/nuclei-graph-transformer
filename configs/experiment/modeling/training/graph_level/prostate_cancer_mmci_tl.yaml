@@ -12,13 +12,24 @@ defaults:
   - /data/supervision@data.supervision.eval_strategy: annotation_sparse
   - _self_
 
-monitor: validation/graph/loss
-checkpoint_mode: min
+monitor: validation/graph/AUROC
+checkpoint_mode: max
 
 trainer:
-  max_epochs: 200
+  max_epochs: 200 # fixed budget
   gradient_clip_val: 0.7
   #accumulate_grad_batches: 2
+  callbacks:
+    # last.ckpt (the final EMA weights) is the primary checkpoint; the best one by
+    # validation AUROC is kept as well
+    - _target_: nuclei_graph.callbacks.FinalModelCheckpoint
+      save_top_k: 1
+      save_last: true
+      monitor: ${monitor}
+      mode: ${checkpoint_mode}
+    # validation and checkpoints use the EMA weights
+    - _target_: lightning.pytorch.callbacks.EMAWeightAveraging
+      decay: 0.999
 
 data:
   _target_: nuclei_graph.data.datamodules.crop.CropDataModule
@@ -30,6 +41,10 @@ data:
   metadata: ${dataset.mlflow_uris.metadata}
 
   dataset:
+    full_slide: true
+    neg_crop_prob: 0.0
+    neg_crop_frac_range: [0.3, 1.0]
+    pseudo_labels: null # postprocessing/crop/pseudo_labels.py output
     crop_size_min: null
     crop_size_max: null
     crop_pos_thr: null
@@ -51,8 +66,12 @@ data:
 model:
   lr: 1e-4
   warmup_epochs: 8
+  neg_instance_weight: 0.0 # λ
+  pseudo_pos_weight: 0.0 # μ (requires data.dataset.pseudo_labels)
+  selection_metric: AUROC
   net:
     config:
+      pooling: attention # attention, topk, lse
       dim: 128
       hidden_dim: 512
       num_heads: 4

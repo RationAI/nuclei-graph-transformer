@@ -1,0 +1,24 @@
+# @package _global_
+
+metadata_uri: ??? # training slides metadata (training and validation splits)
+predictions_uri: ??? # crop predictions of a trained model on these slides
+output_path: ???
+# the threshold is a quantile of the nucleus logits over all nuclei of the negative
+# slides of the validation (default quantile 0.999) or train (0.9999) split
+threshold_slides: validation # validation, train
+quantile: null # null: the default of threshold_slides
+
+# must match the training split
+split_size: 0.1
+split_stratify_col: is_carcinoma
+split_group_col: patient_id
+
+mlflow_run_id: null
+mlflow_parent_run_id: null
+
+metadata:
+  run_name: Pseudo-Labels
+  hyperparams:
+    threshold_slides: ${threshold_slides}
+    quantile: ${quantile}
+    predictions_uri: ${predictions_uri}

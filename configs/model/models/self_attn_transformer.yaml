@@ -14,3 +14,6 @@ config:
   embedding_mode: efd # efd, bbox, blank
   context: ${oc.select:data.context,knn} # none, dense, knn (must match the collator's mask)
   use_rope: true
+  pooling: attention # attention, topk, lse (nuclei-to-graph)
+  topk_frac: 0.01 # topk: k = max(topk_min, ceil(topk_frac * n))
+  topk_min: 50

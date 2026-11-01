@@ -1,4 +1,5 @@
 from nuclei_graph.callbacks.activations import ActivationsCallback
+from nuclei_graph.callbacks.final_checkpoint import FinalModelCheckpoint
 from nuclei_graph.callbacks.masks import (
     AttentionMasksCallback,
     NucleiPredictionMasksCallback,
@@ -22,6 +23,7 @@ __all__ = [
     "AttentionMasksCallback",
     "CropCurvesCallback",
     "CropPredictionCallback",
+    "FinalModelCheckpoint",
     "NucleiCurvesCallback",
     "NucleiPredictionCallback",
     "NucleiPredictionMasksCallback",

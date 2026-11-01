@@ -127,7 +127,8 @@ class CropPredictionCallback(BasePredictionsCallback):
         nuclei_ids = metadata["nuclei_ids"][0]
         slide_id = metadata["slide_id"][0]
 
-        nuclei_preds = torch.sigmoid(outputs["nuclei"].squeeze(-1))
+        nuclei_logits = outputs["nuclei"].squeeze(-1)
+        nuclei_preds = torch.sigmoid(nuclei_logits)
         attn_scores = outputs["attn_weights"].squeeze(-1)
         graph_pred = torch.sigmoid(outputs["graph"].view(-1)[0])
 
@@ -135,6 +136,8 @@ class CropPredictionCallback(BasePredictionsCallback):
             {
                 "id": nuclei_ids,  # batch size is 1
                 "nuclei_prediction": nuclei_preds.cpu().numpy().flatten(),
+                # the probabilities saturate at 1 in float32 above logit ~17
+                "nuclei_logit": nuclei_logits.float().cpu().numpy().flatten(),
                 "attention_score": attn_scores.cpu().numpy().flatten(),
                 "graph_prediction": graph_pred.item(),
             }

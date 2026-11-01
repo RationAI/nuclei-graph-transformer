@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.metadata.train}
+predictions_uri: ??? # mlflow-artifacts:/97/<prediction run on the training slides>/artifacts/predictions
+output_path: ${project_path}/nuclei_supervision/MMCI-TL-Data/pseudo_labels/${mlflow_parent_run_id}.parquet
+
+mlflow_parent_run_id: ??? # the training run whose last.ckpt made the predictions
+
+metadata:
+  run_name: "MMCI: SL Pseudo-Labels"

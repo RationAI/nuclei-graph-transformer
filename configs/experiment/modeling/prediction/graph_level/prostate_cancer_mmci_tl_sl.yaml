@@ -1,0 +1,46 @@
+# @package _global_
+
+# Predictions of a slide-level-supervised training run (graph_level training config):
+# test slides by default; data.metadata.predict=${dataset.mlflow_uris.metadata.train}
+# predicts the training slides (validation scores and pseudo-labels).
+
+defaults:
+  - /experiment/modeling/prediction/base@_here_
+  - /data/sources/prostate_cancer_mmci_tl
+  - /model/meta_archs@model: crop
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/predictions@trainer.callbacks.predictions: crop
+  - _self_
+
+checkpoint: ??? # mlflow-artifacts:/97/<training run>/artifacts/checkpoints/last/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: ??? # the training run
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  k: 44
+  metadata:
+    predict: ${dataset.mlflow_uris.metadata.test}
+  dataset:
+    efd_order: 16
+    patch_size: 40
+    embedding_mode: efd # efd, bbox, blank
+  supervision:
+    paths: ${dataset.paths.supervision}
+
+model:
+  net:
+    config:
+      dim: 128
+      hidden_dim: 512
+      num_heads: 4
+      num_layers: 4
+      drop_path_rate: 0.25
+      attention_variant: vrope # vrope, standard, rel_value
+      pooling: ??? # attention, topk, lse (must match the checkpoint)
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "MMCI: SL Predictions"

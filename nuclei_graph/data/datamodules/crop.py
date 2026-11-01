@@ -58,6 +58,11 @@ class CropDataModule(BaseDataModule):
 
         return df[mask_keep].reset_index(drop=True)
 
+    def eval_dataset_overrides(self) -> dict[str, float | None]:
+        """Disables the training-only negative crops and pseudo-labels for evaluation."""
+        overrides = {"neg_crop_prob": 0.0, "pseudo_labels": None}
+        return {k: v for k, v in overrides.items() if k in self.dataset_cfg}
+
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
         slides_uri = self.metadata_uris_cfg[mode]
@@ -103,6 +108,7 @@ class CropDataModule(BaseDataModule):
                     supervision=validation_sup,
                     augmentations=None,
                     full_slide=True,
+                    **self.eval_dataset_overrides(),
                 )
             case "test":
                 slides_df = self.load_df(
@@ -122,6 +128,7 @@ class CropDataModule(BaseDataModule):
                     supervision=sup,
                     augmentations=None,
                     full_slide=True,
+                    **self.eval_dataset_overrides(),
                 )
             case "predict":
                 slides_df = self.load_df(slides_uri, cols=METADATA_COLS_EVAL)

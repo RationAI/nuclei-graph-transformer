@@ -1,4 +1,7 @@
+import math
+
 import torch
+import torch.nn.functional as F
 from timm.layers.drop import DropPath
 from torch import Tensor, nn
 from torch.nn.attention.flex_attention import BlockMask
@@ -7,7 +10,12 @@ from torch.utils.checkpoint import checkpoint
 from nuclei_graph.configuration import Config
 from nuclei_graph.modeling.layers import GeGLU, RotarySparseAttention
 from nuclei_graph.modeling.layers.attention import RelativePositionValueAttention
-from nuclei_graph.nuclei_graph_typing import CONTEXT_MODES, EMBEDDING_MODES, Outputs
+from nuclei_graph.nuclei_graph_typing import (
+    CONTEXT_MODES,
+    EMBEDDING_MODES,
+    GRAPH_POOLING_MODES,
+    Outputs,
+)
 
 
 class CNN(nn.Module):
@@ -135,11 +143,20 @@ class Transformer(nn.Module):
         self.final_norm = nn.RMSNorm(config.dim)
         self.class_head = nn.Linear(config.dim, config.num_classes)
 
-        self.attn_head = nn.Sequential(
-            nn.Linear(config.dim, config.dim // 2),
-            nn.Tanh(),
-            nn.Linear(config.dim // 2, 1),
-        )
+        self.pooling = config.get("pooling", "attention")
+        assert self.pooling in GRAPH_POOLING_MODES, f"Invalid pooling: {self.pooling}"
+        if self.pooling == "attention":
+            self.attn_head = nn.Sequential(
+                nn.Linear(config.dim, config.dim // 2),
+                nn.Tanh(),
+                nn.Linear(config.dim // 2, 1),
+            )
+        elif self.pooling == "topk":
+            self.topk_frac = config.get("topk_frac", 0.01)
+            self.topk_min = config.get("topk_min", 50)
+        elif self.pooling == "lse":
+            # r = softplus(rho) > 0, initialized at r = 1
+            self.lse_rho = nn.Parameter(torch.tensor(math.log(math.expm1(1.0))))
 
     def embed_efd(self, x: Tensor, real_seq_len: int) -> Tensor:
         norm_dim = self.batch_norm.num_features
@@ -207,6 +224,50 @@ class Transformer(nn.Module):
 
         return torch.stack(pooled_list), torch.cat(attn_weights_list)
 
+    def pool_topk(
+        self, logits: Tensor, seq_lens_list: list[int]
+    ) -> tuple[Tensor, Tensor]:
+        """Pools nuclei logits into the graph logit as the mean of the top-k logits.
+
+        k = max(`topk_min`, ceil(`topk_frac` * n)), capped at n. The returned weights
+        are 1/k for the selected nuclei and 0 elsewhere.
+        """
+        pooled_list = []
+        weights_list = []
+
+        for _x in torch.split(logits, seq_lens_list):
+            n = _x.shape[0]
+            k = min(n, max(self.topk_min, math.ceil(self.topk_frac * n)))
+            top_idx = torch.topk(_x, k, dim=0).indices
+            weights = torch.zeros_like(_x).scatter_(0, top_idx, 1.0 / k)
+            pooled_list.append(torch.sum(weights * _x, dim=0))
+            weights_list.append(weights)
+
+        return torch.stack(pooled_list), torch.cat(weights_list)
+
+    @property
+    def lse_r(self) -> Tensor:
+        return F.softplus(self.lse_rho)
+
+    def pool_lse(
+        self, logits: Tensor, seq_lens_list: list[int]
+    ) -> tuple[Tensor, Tensor]:
+        """Pools nuclei logits into the graph logit by LogSumExp with a learnable r.
+
+        z = 1/r * log(1/n * sum_i exp(r * z_i)), which goes from the mean (r -> 0) to the
+        max (r -> inf). The returned weights softmax(r * z_i) are dz/dz_i.
+        """
+        r = self.lse_r
+        pooled_list = []
+        weights_list = []
+
+        for _x in torch.split(logits, seq_lens_list):
+            n = _x.shape[0]
+            pooled_list.append((torch.logsumexp(r * _x, dim=0) - math.log(n)) / r)
+            weights_list.append(torch.softmax(r * _x, dim=0))
+
+        return torch.stack(pooled_list), torch.cat(weights_list)
+
     def forward(
         self,
         x: Tensor,
@@ -237,17 +298,19 @@ class Transformer(nn.Module):
         x = self.final_norm(x)
         x = x.squeeze(0)
 
-        nuclei_logits = self.class_head(x)
-        attn_scores = self.attn_head(x)
-
-        nuclei_logits = nuclei_logits[:real_seq_len]
-        attn_scores = attn_scores[:real_seq_len]
+        nuclei_logits = self.class_head(x)[:real_seq_len]
         x = x[:real_seq_len]
 
         seq_lens_list = seq_lens.tolist()
-        graph_logits, attn_weights = self.pool(
-            nuclei_logits, attn_scores, seq_lens_list
-        )
+        if self.pooling == "attention":
+            attn_scores = self.attn_head(x)
+            graph_logits, attn_weights = self.pool(
+                nuclei_logits, attn_scores, seq_lens_list
+            )
+        elif self.pooling == "topk":
+            graph_logits, attn_weights = self.pool_topk(nuclei_logits, seq_lens_list)
+        else:
+            graph_logits, attn_weights = self.pool_lse(nuclei_logits, seq_lens_list)
 
         return Outputs(
             graph=graph_logits,

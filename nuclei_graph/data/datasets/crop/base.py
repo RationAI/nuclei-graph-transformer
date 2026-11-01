@@ -100,10 +100,15 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         self, centroids: Coords, valid_seeds: list[int], target_size: int
     ) -> NDArray[np.int64]:
         """Selects nuclei indices for a crop by growing a connected component on the spatial graph."""
-        n = len(centroids)
         if self.full_slide:
-            return np.arange(n, dtype=int)
+            return np.arange(len(centroids), dtype=int)
+        return self.grow_crop(centroids, valid_seeds, target_size)
 
+    def grow_crop(
+        self, centroids: Coords, valid_seeds: list[int], target_size: int
+    ) -> NDArray[np.int64]:
+        """Grows a crop of `target_size` nuclei around a random valid seed (any nucleus if none)."""
+        n = len(centroids)
         center_idx = choice(valid_seeds) if valid_seeds else randrange(n)
         center_coords = centroids[center_idx]
         keep_indices = np.arange(len(centroids))

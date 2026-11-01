@@ -84,6 +84,7 @@ class GraphCollator:
         all_pos, all_features, all_knns = [], [], []
         all_labels_nuclei: list[Tensor] = []
         all_labels_graph: list[Tensor] = []
+        all_labels_pseudo: list[Tensor] = []
         all_sup_masks: list[Tensor] = []
         all_bboxes: list[Tensor] = []
         all_sort_indices: list[np.ndarray] = []
@@ -132,6 +133,10 @@ class GraphCollator:
                     assert b["labels"]["graph"] is not None
                     all_labels_graph.append(b["labels"]["graph"])
 
+                pseudo = b["labels"].get("pseudo")
+                if pseudo is not None:
+                    all_labels_pseudo.append(pseudo[sort_indices])
+
             current_global_idx += len(sorted_pos)
 
         target_seq_len = self._pick_bucket(current_global_idx)
@@ -140,6 +145,11 @@ class GraphCollator:
         if not self.predict:
             targets["nuclei"] = self._pad(torch.cat(all_labels_nuclei), target_seq_len)
             targets["graph"] = torch.cat(all_labels_graph) if all_labels_graph else None
+            if all_labels_pseudo:
+                assert len(all_labels_pseudo) == len(batch)
+                targets["pseudo"] = self._pad(
+                    torch.cat(all_labels_pseudo), target_seq_len, value=False
+                )
 
         block_mask: BlockMask | None = None
         if self.context == "knn":

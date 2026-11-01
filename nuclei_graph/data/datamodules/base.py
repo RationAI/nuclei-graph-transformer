@@ -14,6 +14,23 @@ from nuclei_graph.data.supervision import (
 )
 
 
+def split_train_val(
+    slides_df: pd.DataFrame,
+    split_size: float,
+    stratify_col: str | None,
+    group_col: str | None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The fixed (random_state=42) train/validation split of the training slides."""
+    train_df, validation_df = train_test_split(
+        slides_df,
+        test_size=split_size,
+        random_state=42,
+        stratify=slides_df[stratify_col] if stratify_col else None,
+        groups=slides_df[group_col] if group_col else None,
+    )
+    return train_df.reset_index(drop=True), validation_df.reset_index(drop=True)
+
+
 METADATA_COLS_EVAL = [
     "slide_id",
     "slide_nuclei_path",
@@ -99,16 +116,10 @@ class BaseDataModule(LightningDataModule):
     def get_train_val_dfs(
         self, slides_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        train_df, validation_df = train_test_split(
-            slides_df,
-            test_size=self.split_size,
-            random_state=42,
-            stratify=slides_df[self.split_stratify_col]
-            if self.split_stratify_col
-            else None,
-            groups=slides_df[self.split_group_col] if self.split_group_col else None,
+        assert self.split_size is not None
+        return split_train_val(
+            slides_df, self.split_size, self.split_stratify_col, self.split_group_col
         )
-        return train_df.reset_index(drop=True), validation_df.reset_index(drop=True)
 
     @abstractmethod
     def setup(self, stage: str) -> None:

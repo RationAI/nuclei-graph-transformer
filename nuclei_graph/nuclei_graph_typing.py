@@ -13,6 +13,7 @@ EMBEDDING_MODES = (
 )
 CONTEXT_MODES = ("none", "dense", "knn")  # which nuclei each nucleus attends to
 POOLING_MODES = ("max", "mean", "top_k")  # nuclei-to-tile pooling
+GRAPH_POOLING_MODES = ("attention", "topk", "lse")  # nuclei-to-graph pooling
 
 MAX_CROP_PATCH_SIDE = 8192
 
@@ -67,6 +68,7 @@ class Metadata(TypedDict):
 class Targets(TypedDict):
     nuclei: Tensor | None
     graph: Tensor | None
+    pseudo: NotRequired[Tensor | None]  # pseudo-positive nuclei (training only)
 
 
 class Sample(TypedDict):
