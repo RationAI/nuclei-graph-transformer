@@ -33,6 +33,7 @@ dependencies = [
     "mlflow==2.22.0",
     "pyisyntax>=0.1.6",
     "report-fast[all]",
+    "cellpose>=4.2.1",
 ]
 
 [tool.uv.sources]

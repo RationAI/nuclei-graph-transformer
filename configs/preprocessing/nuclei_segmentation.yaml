@@ -15,6 +15,21 @@ batch_name: null
 #   glass_min_value: 200  # pixels whose max channel is above this are glass candidates
 #   max_side: 4000  # px, longest side of the level the glass colour is read from
 white_balance: null
+# Segmentation model: lsp_detr (RationAI/LSP-DETR) or cellpose (Cellpose 4, cpsam).
+model: lsp_detr
+# Vertices each Cellpose outline is resampled to, spaced evenly along it; LSP-DETR
+# polygons have 64.
+num_vertices: 64
+# Drops nuclei whose centroid lies outside the tissue mask (tiles are always filtered);
+# Cellpose outlines noise on empty glass.
+tissue_filter_nuclei: false
+# GPUs the model runs on, and model workers per GPU; Cellpose traces outlines on the
+# CPU, so two workers per GPU keep it busy.
+gpus: 1
+workers_per_gpu: 1
+# Slides segmented per chunk; a rerun skips the slides of finished chunks and redoes
+# the rest (see `segment_resumably`).
+slides_per_chunk: 20
 
 metadata:
   run_name: "Nuclei Segmentation: ${dataset.name}"
@@ -24,3 +39,9 @@ metadata:
     overlap: ${overlap}
     batch_size: ${batch_size}
     white_balance: ${white_balance}
+    model: ${model}
+    num_vertices: ${num_vertices}
+    tissue_filter_nuclei: ${tissue_filter_nuclei}
+    gpus: ${gpus}
+    workers_per_gpu: ${workers_per_gpu}
+    slides_per_chunk: ${slides_per_chunk}
