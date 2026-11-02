@@ -1,0 +1,38 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+concept_dir: ${out_dir}/concepts/k16_seed1
+sae_model: ${out_dir}/sae/sae_k16_seed1_l13.pt # the fixed SAE (k = 16, seed 1), only read
+stored_codes: # only read: the refit's support must match the stored codes
+  validation: ${concept_dir}/morphometry/codes_validation.npy
+  test: ${concept_dir}/codes_test.npy
+refit_dir: ${concept_dir}/refit_nnls # κ̃ and the outputs
+deck_key: ${out_dir}/session/key.csv
+stable_concepts: [A, B, C, D, E, F, G, H]
+topk_completeness: ${out_dir}/concepts/topk/completeness.csv
+topk_group: topk_m16_k4
+
+top_n: 2000 # overlap of the top nuclei by κ and by κ̃ (test)
+max_per_slide: 3 # the gallery selection (xai.concept_material)
+flip_margin: 1.0 # as xai.evaluate_topk_sae
+kkt_tol: 1e-9 # relative to max |U r| of the nucleus
+check_n: 20000 # nuclei per split checked against scipy.optimize.nnls
+chunk_size: 524288
+seed: 42
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
+
+links: # recorded as tags
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99 # selected the SAE (models.csv)
+  concept_morphometry_run_id: 55437ce413794dd6a762129be275aeef
+
+metadata:
+  run_name: "XAI: SAE magnitude refit (NNLS)"
+  hyperparams:
+    sae_model: ${sae_model}
+    topk_group: ${topk_group}
+    top_n: ${top_n}
+    max_per_slide: ${max_per_slide}
+    flip_margin: ${flip_margin}
+    kkt_tol: ${kkt_tol}
+    check_n: ${check_n}
+    seed: ${seed}
