@@ -102,7 +102,7 @@ HEAT_NAMES = {"area_um2": "area", "long_axis_um": "long axis", "short_axis_um": 
 RELATIVE_LABEL = {"%": r"$\Delta$ vs. inactive (%)", "um": r"$\Delta$ vs. inactive ($\mu\mathrm{m}$)",
                   "pp": r"$\Delta$ vs. inactive (pp)", "Δ": "difference vs. inactive"}
 # the pathologist set
-NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]
+NUCLEUS_COLUMNS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity"]  # geometry only
 NEIGHBOURHOOD_UNITS = {"knn8_mean_dist_um": "%", "pleomorphism_cv": "%", "orientation_coherence": "Δ",
                        "boundary_dist_um": "um", "stroma": "pp"}
 # the boundary distance's header explains its sign (heatmaps; the signature heatmap wraps the name)
@@ -185,12 +185,12 @@ def subtitle(columns: list[str], units: list[str]) -> str:
 
 # the summary ("signature") heatmap: column groups
 SIGNATURE_GROUPS = [
-    ("Nucleus", ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity", "h_od_mean_norm"]),
+    ("Nucleus", ["area_um2", "long_axis_um", "short_axis_um", "circularity", "irregularity"]),
     ("Neighbourhood", ["knn8_mean_dist_um", "pleomorphism_cv", "orientation_coherence"]),
     ("Location", ["boundary_dist_um", "stroma"]),
 ]
 SIGNATURE_NAMES = {"area_um2": "area", "long_axis_um": "long\naxis", "short_axis_um": "short\naxis",
-                   "circularity": "circularity", "irregularity": "contour\nirregularity", "h_od_mean_norm": "H-OD",
+                   "circularity": "circularity", "irregularity": "contour\nirregularity",
                    "knn8_mean_dist_um": "8-NN\ndistance", "pleomorphism_cv": "pleomorphism\nof neighbours",
                    "orientation_coherence": "orientation\ncoherence of\nneighbours",
                    "boundary_dist_um": "boundary\ndistance", "stroma": "stroma\nshare"}
@@ -201,7 +201,7 @@ SIGNATURE_CAPTION = (
     "inactive nuclei ({k} = 0). Only cells with |{D}| {ge} 15 are coloured and labelled (orientation coherence: "
     "|{D}| {ge} 0.15); lighter colours 15{d}30, darker {ge} 30 (coherence 0.15{d}0.30, {ge} 0.30), orange higher and "
     "blue lower than in inactive nuclei. Units: percent (relative difference of medians) for area, long and short "
-    "axis, circularity, contour irregularity, hematoxylin optical density (H-OD, normalised by the slide median), "
+    "axis, circularity, contour irregularity, "
     "8-NN distance and pleomorphism of neighbours; plain difference for orientation coherence of neighbours "
     "(mean cos 2{D}{p}, 1 = all parallel, 0 = no preferred orientation); {mu}m for boundary distance (distance to "
     "the nearest epithelium{d}stroma border; positive = in stroma, negative = inside epithelium); percentage points "

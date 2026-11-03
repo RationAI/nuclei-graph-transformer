@@ -24,7 +24,7 @@ num_vertices: 64
 # Cellpose outlines noise on empty glass.
 tissue_filter_nuclei: false
 # GPUs the model runs on, and model workers per GPU; Cellpose traces outlines on the
-# CPU, so two workers per GPU keep it busy.
+# CPU, so several workers per GPU keep it busy.
 gpus: 1
 workers_per_gpu: 1
 # Slides segmented per chunk; a rerun skips the slides of finished chunks and redoes

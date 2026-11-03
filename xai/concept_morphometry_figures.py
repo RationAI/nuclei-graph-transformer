@@ -49,6 +49,8 @@ from xai.concept_morphometry import (
 
 
 VIOLIN_MEASUREMENTS = ["area_um2", "long_axis_um", "short_axis_um", "circularity", "h_od_mean_norm"]
+# the relative figure: geometry only (the model sees no stain, so no H-OD)
+RELATIVE_MEASUREMENTS = ["area_um2", "long_axis_um", "short_axis_um", "circularity"]
 GROUPS = {  # name -> (legend label, colour)
     "inactive": (r"inactive ($\kappa_j = 0$)", "#b4b4b4"),
     "weak": ("weak", "#a9c6ec"),
@@ -271,7 +273,6 @@ RELATIVE_TITLES = {
     "long_axis_um": r"Long axis ($\mu\mathrm{m}$)",
     "short_axis_um": r"Short axis ($\mu\mathrm{m}$)",
     "circularity": r"Circularity ($4\pi A/P^2$)",
-    "h_od_mean_norm": "Hematoxylin OD (slide-normalised)",
 }
 RELATIVE_CAPTION = (
     "Nuclear morphometry for the eight stable concepts A{d}H (test set). For each concept, the nuclei are "
@@ -408,10 +409,10 @@ def relative_panels_figure(panels: list[dict], letters: list[str], top_n: int, y
 
 
 def relative_figure(stats: pd.DataFrame, letters: list[str], top_n: int) -> tuple[plt.Figure, dict]:
-    """The 5 morphometric measures as % difference from the inactive median."""
+    """The 4 shape measures as % difference from the inactive median."""
     panels = [{"title": RELATIVE_TITLES[c], "unit": "%",
                "rows": stats[stats["measurement"] == c].set_index(["concept", "group"])}
-              for c in VIOLIN_MEASUREMENTS]
+              for c in RELATIVE_MEASUREMENTS]
     return relative_panels_figure(panels, letters, top_n, "difference from inactive nuclei (median, %)")
 
 
