@@ -1,0 +1,36 @@
+# @package _global_
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet # needed by Faithfulness only; no slide-level metrics are reported
+concept_dir: ${out_dir}/concepts/k16_seed1
+sae_model: ${out_dir}/sae/sae_k16_seed1_l13.pt # the fixed SAE (k = 16, seed 1), only read
+codes: # only read
+  l1: # the stored encoder codes κ (GPU encoding, as all concept analyses)
+    validation: ${concept_dir}/morphometry/codes_validation.npy
+    test: ${concept_dir}/codes_test.npy
+  refit: # κ̃ of xai.refit_magnitudes
+    validation: ${concept_dir}/refit_nnls/codes_refit_validation.npy
+    test: ${concept_dir}/refit_nnls/codes_refit_test.npy
+refit_metrics: ${concept_dir}/refit_nnls/metrics.csv # check: all-16 logit probe = MCE
+subsets_table: ${concept_dir}/subsets/subsets.csv # check: shared subsets of xai.concept_subsets
+out_bottleneck_dir: ${concept_dir}/bottleneck
+deck_key: ${out_dir}/session/key.csv
+stable_concepts: [A, B, C, D, E, F, G, H]
+stable_indices: [0, 1, 2, 3, 4, 6, 8, 12] # asserted against the deck key
+
+ranking_variant: l1 # drop order: least important stable concept first (its validation shares)
+flip_margin: 1.0 # as xai.evaluate_topk_sae
+device: ${oc.decode:${oc.env:XAI_DEVICE,cuda}}
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
+
+links: # recorded as tags
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  refit_magnitudes_run_id: 6532785defde40c7a9669fa4ff6c5774 # "XAI: SAE magnitude refit (NNLS)"
+  concept_subsets_run_id: 571ede3adf42451a9d83e8ef27eab307 # "XAI: SAE concept subsets"
+
+metadata:
+  run_name: "XAI: SAE concept bottleneck"
+  hyperparams:
+    sae_model: ${sae_model}
+    ranking_variant: ${ranking_variant}
+    flip_margin: ${flip_margin}
