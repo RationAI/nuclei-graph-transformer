@@ -8,6 +8,7 @@ metadata_uris:
 model: cellpose
 tissue_filter_nuclei: true
 workers_per_gpu: 4
+read_block_tiles: 8
 
 white_balance:
   glass_target: 240

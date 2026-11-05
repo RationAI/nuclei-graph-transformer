@@ -5,9 +5,9 @@ submit_job(
     job_name="nuclei-graph-icaird-cervix-nuclei-segmentation-cellpose",
     username=...,
     image="cerit.io/rationai/base:2.0.6",
-    cpu=20,
-    memory="80Gi",
-    gpu="H100",
+    cpu=40,
+    memory="100Gi",
+    gpu="A100",
     public=True,
     script=[
         "git clone https://github.com/RationAI/nuclei-graph-transformer.git workdir",

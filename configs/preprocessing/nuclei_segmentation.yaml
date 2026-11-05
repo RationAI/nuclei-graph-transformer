@@ -4,6 +4,10 @@ mpp: ${dataset.mpp}
 tile_extent: 2048
 overlap: 64
 batch_size: 8
+# Tiles per block read from the slides and handed to the model. A 2048 px tile is
+# 12 MiB, so 128 tiles make 1.6 GB blocks; Ray Data stalls the pipeline when a
+# block outgrows a stage's share of the object store.
+read_block_tiles: 128
 tissue_masks_uri: ${dataset.mlflow_uris.masks.tissue}
 output_path: ${dataset.paths.nuclei_seg}
 metadata_uris: ???
@@ -38,6 +42,7 @@ metadata:
     tile_extent: ${tile_extent}
     overlap: ${overlap}
     batch_size: ${batch_size}
+    read_block_tiles: ${read_block_tiles}
     white_balance: ${white_balance}
     model: ${model}
     num_vertices: ${num_vertices}

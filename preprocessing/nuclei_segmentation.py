@@ -427,7 +427,7 @@ def run_segmentation(
             memory=1 * 1024**3,
             concurrency=(2, 16),
         )
-        .repartition(target_num_rows_per_block=config.batch_size * 16)
+        .repartition(target_num_rows_per_block=config.read_block_tiles)
         .with_column(
             "tile",
             read_slide_tiles(
@@ -439,7 +439,8 @@ def run_segmentation(
                 col("level"),
             ),
             num_cpus=1,
-            memory=5 * 1024**3,
+            # 1 GiB plus 32 MiB per 2048 px RGB tile (12 MiB) and its decoding copies.
+            memory=1 * 1024**3 + config.read_block_tiles * 32 * 1024**2,
         )
     )
 
