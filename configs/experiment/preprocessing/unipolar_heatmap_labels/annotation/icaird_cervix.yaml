@@ -13,7 +13,7 @@ overlap_threshold: 1.0 # nucleus fully inside the annotation (sparse positives)
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
 nuclei_path: ${dataset.paths.nuclei_seg}
-nuclei_batch_name: cervix # slides live in `slides/`, nuclei in `nuclei_seg/cervix/`
+nuclei_batch_name: ${dataset.nuclei_batch} # slides live in `slides/`, not in a batch folder
 output_path: ${dataset.paths.supervision.annotation}
 
 metadata:

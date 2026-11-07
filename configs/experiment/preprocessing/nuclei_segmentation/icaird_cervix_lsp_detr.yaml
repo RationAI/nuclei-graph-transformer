@@ -1,0 +1,17 @@
+# @package _global_
+
+batch_name: cervix_lsp-detr
+
+metadata_uris:
+  - ${dataset.mlflow_uris.exploration}
+
+model: lsp_detr
+
+# LSP-DETR misses faint nuclei on pale, tinted slides unless their glass is made grey.
+white_balance:
+  glass_target: 240
+  glass_min_value: 200
+  max_side: 4000
+
+metadata:
+  run_name: "Nuclei Segmentation (LSP-DETR): ${dataset.name}"

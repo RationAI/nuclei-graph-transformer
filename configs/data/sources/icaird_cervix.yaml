@@ -4,6 +4,10 @@ dataset:
   name: iCAIRD Cervix
   mpp: 0.25
 
+  # Subfolder of `paths.nuclei_seg` the rest of the pipeline reads nuclei from:
+  # cervix_cellpose (Cellpose) or cervix_lsp-detr (LSP-DETR).
+  nuclei_batch: cervix_cellpose
+
   mask_tile_width: 512
   mask_tile_height: 512
 
@@ -17,7 +21,7 @@ dataset:
 
     annotations: ${data_path}/Public/Public/cervix/iCAIRD/annotations
 
-    # preprocessing/nuclei_segmentation.py
+    # preprocessing/nuclei_segmentation.py; one subfolder per segmentation batch
     nuclei_seg: ${project_path}/nuclei_segmentation/iCAIRD
 
     supervision:
@@ -27,10 +31,6 @@ dataset:
   mlflow_uris:
     # preprocessing/exploration/icaird_cervix/save_metadataset.py
     exploration: ${mlflow_project_pc}/93f193ea5d9a4e3fb5e94c8b5df4bbd0/artifacts/icaird_cervix/slides_metadata.csv
-
-    # slides whose faint nuclei LSP-DETR missed, re-segmented with white balance
-    # (selection in the run's README.md)
-    resegmentation_white_balance: ${mlflow_project_pc}/6b600c2adb9d4d1ba00572f628e362df/artifacts/resegmentation_slides.csv
 
     masks:
       annotation:

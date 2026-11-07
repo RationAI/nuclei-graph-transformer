@@ -16,7 +16,7 @@ cam_labels_dir: null
 predictions_uri: null
 pred_thr: null
 metadata_uris: ???  # metadata parquet(s) with `slide_path` and `slide_nuclei_path`
-nuclei_path: ${dataset.paths.nuclei_seg}/cervix
+nuclei_path: ${dataset.paths.nuclei_seg}/${dataset.nuclei_batch}
 mlflow_artifact_path: nuclei_masks
 
 metadata:

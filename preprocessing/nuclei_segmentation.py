@@ -79,6 +79,8 @@ class TilePolygonRecord(TypedDict):
 
 # Ids of the slides whose nuclei are fully written, one per line, in the output folder.
 COMPLETED_FILE = "_completed_slides.txt"
+# Completion files of all jobs writing a batch: `COMPLETED_FILE`, and one per shard.
+COMPLETED_GLOB = "_completed_slides*.txt"
 
 TILE_METADATA = (
     "slide_id",
@@ -485,12 +487,21 @@ def segment_resumably(
 
     A slide's nuclei are written in several files, so a slide whose chunk was
     interrupted may be only partly written. The ids of the slides of each finished
-    chunk are appended to `COMPLETED_FILE`; a rerun skips them and deletes what the
-    other slides left behind before segmenting them again.
+    chunk are appended to the job's completion file; a rerun skips the slides listed
+    in any completion file of the batch and deletes what the other slides left
+    behind before segmenting them again.
+
+    With `config.shard_count` > 1, several jobs share the batch, each with its own
+    slides (see `main`) and its own completion file, so they never append to the
+    same file at once.
     """
-    completed_path = output_dir / COMPLETED_FILE
-    if completed_path.exists():
-        completed = set(completed_path.read_text().split())
+    completed_files = sorted(output_dir.glob(COMPLETED_GLOB))
+    if completed_files:
+        completed = {
+            slide_id
+            for path in completed_files
+            for slide_id in path.read_text().split()
+        }
     elif output_dir.exists() and any(output_dir.iterdir()):
         raise ValueError(
             f"{output_dir} holds nuclei but no {COMPLETED_FILE}, so it was not written "
@@ -499,6 +510,12 @@ def segment_resumably(
         )
     else:
         completed = set()
+
+    completed_path = output_dir / (
+        COMPLETED_FILE
+        if config.shard_count == 1
+        else f"_completed_slides_shard{config.shard_index}of{config.shard_count}.txt"
+    )
 
     todo = [path for path in slide_paths if Path(path).stem not in completed]
     for start in range(0, len(todo), config.slides_per_chunk):
@@ -532,6 +549,10 @@ def output_batch_name(metadata_uri: str, batch_name: str | None) -> str:
 @hydra.main(config_path="../configs", config_name="preprocessing", version_base=None)
 @autolog
 def main(config: DictConfig, _: MLFlowLogger) -> None:
+    if not 0 <= config.shard_index < config.shard_count:
+        raise ValueError(
+            f"shard_index {config.shard_index} is not in [0, {config.shard_count})."
+        )
     batch_names = [
         output_batch_name(metadata_uri, config.batch_name)
         for metadata_uri in config.metadata_uris
@@ -540,8 +561,13 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
 
     for metadata_uri, batch_name in zip(config.metadata_uris, batch_names, strict=True):
         slides = pd.read_csv(download_artifacts(metadata_uri))
+        # Every `shard_count`-th slide of the whole metadata, so the shards stay
+        # disjoint however many slides are already finished when each job starts.
+        slide_paths = slides["slide_path"].tolist()[
+            config.shard_index :: config.shard_count
+        ]
         segment_resumably(
-            slide_paths=slides["slide_path"].tolist(),
+            slide_paths=slide_paths,
             output_dir=Path(config.output_path, batch_name),
             tissue_masks_dir=tissue_masks_dir,
             config=config,

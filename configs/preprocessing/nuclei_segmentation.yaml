@@ -34,6 +34,11 @@ workers_per_gpu: 1
 # Slides segmented per chunk; a rerun skips the slides of finished chunks and redoes
 # the rest (see `segment_resumably`).
 slides_per_chunk: 20
+# Splits the slides between `shard_count` jobs writing the same batch at once: job
+# `shard_index` (0-based) segments every `shard_count`-th slide of the metadata,
+# starting at `shard_index`, and keeps its own completion file. Run one job per index.
+shard_count: 1
+shard_index: 0
 
 metadata:
   run_name: "Nuclei Segmentation: ${dataset.name}"
@@ -50,3 +55,5 @@ metadata:
     gpus: ${gpus}
     workers_per_gpu: ${workers_per_gpu}
     slides_per_chunk: ${slides_per_chunk}
+    shard_count: ${shard_count}
+    shard_index: ${shard_index}

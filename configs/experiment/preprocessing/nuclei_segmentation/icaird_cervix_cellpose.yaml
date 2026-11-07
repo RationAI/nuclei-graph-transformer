@@ -16,4 +16,4 @@ white_balance:
   max_side: 4000
 
 metadata:
-  run_name: "Nuclei Segmentation (Cellpose): ${dataset.name}"
+  run_name: "Nuclei Segmentation (Cellpose): ${dataset.name} (shard ${shard_index} of ${shard_count})"
