@@ -1,0 +1,101 @@
+# @package _global_
+
+# Q2: shape vs texture vs position-only, nucleus level, PANDA Radboud test set.
+# Paired slide-level bootstrap over the stored test predictions of the evaluation runs
+# (postprocessing.bootstrap_sources). No training, no inference.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label # as postprocessing/crop/metrics (configs/experiment/postprocessing/crop/metrics/radboud.yaml)
+predictions_artifact: predictions
+
+# Evaluation runs (experiment 37) holding the test predictions; three seeds each, k = 24.
+configurations:
+  shape_self:
+    label: Shape, self-only
+    source: Shape
+    context: self-only
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+  shape_knn:
+    label: Shape, k-NN + RoVE
+    source: Shape
+    context: k-NN + RoVE
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_self:
+    label: Texture, self-only
+    source: Texture
+    context: self-only
+    eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+  texture_knn:
+    label: Texture, k-NN + RoVE
+    source: Texture
+    context: k-NN + RoVE
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+  position_knn:
+    label: Position only, k-NN + RoVE
+    source: Position only
+    context: k-NN + RoVE
+    eval_runs: [c8f6f4503b054a418fb3d2c1c044b662, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+
+# Paired differences: sum of weight × seed-averaged metric, within each replicate.
+comparisons:
+  - name: shape_vs_texture_self
+    label: Shape − texture, self-only
+    weights: {shape_self: 1, texture_self: -1}
+  - name: shape_vs_texture_knn
+    label: Shape − texture, k-NN + RoVE
+    weights: {shape_knn: 1, texture_knn: -1}
+  - name: shape_vs_position_knn
+    label: Shape − position only, k-NN + RoVE
+    weights: {shape_knn: 1, position_knn: -1}
+  - name: texture_vs_position_knn
+    label: Texture − position only, k-NN + RoVE
+    weights: {texture_knn: 1, position_knn: -1}
+  - name: context_gain_shape
+    label: Context gain, shape
+    weights: {shape_knn: 1, shape_self: -1}
+  - name: context_gain_texture
+    label: Context gain, texture
+    weights: {texture_knn: 1, texture_self: -1}
+  - name: interaction
+    label: Context gain, texture − shape
+    weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}
+  - name: position_knn_vs_shape_self
+    label: Position only (k-NN + RoVE) − shape self-only
+    weights: {position_knn: 1, shape_self: -1}
+
+bootstrap:
+  n_resamples: 2000
+  seed: 20261108
+  ci_level: 0.95
+  alpha: 0.05 # Holm, across the comparisons, per metric
+histogram:
+  n_bins: 20000 # uniform over the logit range of all runs; doubled until the check passes
+  max_bins: 160000
+  tolerance: 1.0e-4 # |histogram − exact| for every run's full-test-set AUROC and AUPRC
+
+# c8f2685… (shape, k-NN + RoVE, third seed) is the model explained in the XAI chapter; its
+# test logits there were extracted on 2026-10-15, before the block-mask fix (2026-10-30).
+reference_logits:
+  eval_run: 777fb4134250483bab02ba57ce484ea4
+  model_run: c8f268536be8416f9fe395eea95c458e
+  index: ${project_path}/xai/c8f268536be8416f9fe395eea95c458e/activations/test/index.parquet
+  logits: ${project_path}/xai/c8f268536be8416f9fe395eea95c458e/activations/test/logits.npy
+  quoted: {AUPRC: 0.9077, AUROC: 0.9445}
+
+cache_dir: ${project_path}/evaluation/radboud_test/predictions # aligned predictions, one parquet per run
+out_dir: ${project_path}/evaluation/radboud_test/q2_sources_bootstrap
+resamples_file: bootstrap_resamples_radboud_test.npz # reused by later analyses (context ladder)
+
+metadata:
+  run_name: "Q2 bootstrap: shape vs texture vs position only (Radboud test)"
+  hyperparams:
+    n_resamples: ${bootstrap.n_resamples}
+    bootstrap_seed: ${bootstrap.seed}
+    ci_level: ${bootstrap.ci_level}
+    alpha: ${bootstrap.alpha}
+    histogram_tolerance: ${histogram.tolerance}
