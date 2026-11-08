@@ -191,13 +191,16 @@ class Cellpose:
     have the fixed size the rest of the pipeline expects from LSP-DETR.
     """
 
-    def __init__(self, num_vertices: int) -> None:
+    def __init__(self, num_vertices: int, batch_size: int) -> None:
         self.model = CellposeModel(gpu=True)
         self.num_vertices = num_vertices
+        self.batch_size = batch_size
 
     def __call__(self, batch: dict[str, Any]) -> TilePolygonRecord:
         """Segments nuclei in a batch of tiles (see `Model.__call__`)."""
-        masks = self.model.eval(list(white_balanced_tiles(batch)))[0]
+        masks = self.model.eval(
+            list(white_balanced_tiles(batch)), batch_size=self.batch_size
+        )[0]
 
         polygons = [
             np.array(
@@ -448,7 +451,13 @@ def run_segmentation(
 
     models = {
         "lsp_detr": (Model, {}),
-        "cellpose": (Cellpose, {"num_vertices": config.num_vertices}),
+        "cellpose": (
+            Cellpose,
+            {
+                "num_vertices": config.num_vertices,
+                "batch_size": config.cellpose_batch_size,
+            },
+        ),
     }
     model, model_kwargs = models[config.model]
     nuclei = tissue_tiles.map_batches(
