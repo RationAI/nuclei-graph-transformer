@@ -1,8 +1,9 @@
-r"""Q2 (information sources): final figure and table, plus preliminary Q3 comparisons.
+r"""Q2 (information sources) and Q3 (context, positions): comparisons, figure and table.
 
 PANDA Radboud test set, nucleus level. Inference outputs only: the test predictions stored in
 the evaluation runs (`<run>/artifacts/predictions/<slide_id>.parquet`) of the configurations
-in the config, three seeds each. No training, no inference; the evaluation code is not changed.
+in the config, three seeds each. A configuration with fewer than `bootstrap.min_seeds` evaluation
+runs is not used at all. No training, no inference; the evaluation code is not changed.
 
 Everything follows `postprocessing.bootstrap_sources` (the Q2 run) and reuses its helpers: the
 same labels, nucleus keys and metrics, the slide resamples read from the Q2 run's file (not
@@ -11,15 +12,22 @@ so that the shared configurations reproduce the Q2 run exactly. Replicates avera
 a configuration within each resample; the point estimate is the seed-averaged exact metric.
 
 Comparisons: weighted sums of seed-averaged metrics within each replicate, p = 2 x the smaller
-fraction of replicates on either side of 0. Holm per metric within a family with `holm: true`.
-The preliminary families have no Holm correction yet: p_holm is empty, and `significant` says so.
+fraction of replicates on either side of 0. Each family with `holm: true` gets Holm on its
+AUPRC comparisons only (the primary metric). AUROC rows are supporting evidence (`status`
+"supporting"): CI and raw p, with p_holm and `significant` empty. Holm needs the whole family: while
+a comparison waits for a configuration ("not computed"), the family's other AUPRC rows are
+"preliminary", with p_holm empty and `significant` saying the family is incomplete.
 
 Checks, per evaluation run (`checks.csv`): the nuclei covered; test AUROC/AUPRC recomputed from
 the predictions and compared with the logged ones, where logged; and the checkpoint used,
 compared with the best epoch of the metric the training run's ModelCheckpoint monitored
 (`monitor`, `checkpoint_mode` of its resolved config). Old evaluation configs do not record the
 checkpoint; the training run's only checkpoint artifact (`save_top_k: 1`) is then taken as it,
-and `checkpoint_source` says so.
+and `checkpoint_source` says so. Also per training run, across its chain of resumes
+(`config.checkpoint`): `max_epochs` of each run and the scheduler's T_max stored in each
+checkpoint. `schedule_check` is "flagged" if either changes along the chain or if a T_max differs
+from the one its run's `max_epochs` implies (a resume restores the old T_max, and cosine annealing
+past T_max raises the learning rate again), "unknown" if a checkpoint could not be read.
 
 Precision-recall curves: from each run's full-test-set logit histogram, one operating point per
 bin with nuclei (nuclei in a bin are tied); per distinct recall the last operating point is
@@ -28,7 +36,7 @@ seed mean and shades the seeds' min-max.
 
 Outputs in `out_dir`: `configurations.csv`, `comparisons.csv`, `checks.csv`, `counts.csv`,
 `checks.json`, `pr_curves.npz`, `replicates.npz`, `tab_res_sources.tex` and
-`figures/res_sources.{pdf,png}`. All are logged to one MLflow run, with the code and the
+`figures/res_sources_{a,b}.{pdf,png}`. All are logged to one MLflow run, with the code and the
 resolved config.
 """
 
@@ -40,16 +48,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import hydra
-import matplotlib
-
-
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 import yaml
-from matplotlib.gridspec import GridSpec
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
@@ -62,7 +64,6 @@ from tqdm import tqdm
 from postprocessing.bootstrap_sources import (
     LOGGED_KEYS,
     METRICS,
-    THESIS_RC,
     bin_logits,
     bootstrap_p,
     exact_metrics,
@@ -76,10 +77,12 @@ from postprocessing.bootstrap_sources import (
     slide_histograms,
     to_logits,
 )
+from visualization.thesis_results_figures import save_sources_figures
 
 
-MUTED = "#8a8a8a"
 CHECKPOINT = re.compile(r"epoch=(\d+)-step=(\d+)")
+RESUME = re.compile(r"/\d+/([0-9a-f]{32})/artifacts/checkpoints/(epoch=\d+-step=\d+)")
+PRIMARY_METRIC = "AUPRC"
 
 
 # --------------------------------------------------------------------------
@@ -164,6 +167,77 @@ def checkpoint_check(client: MlflowClient, run_id: str, fix_date: str) -> dict:
     }
 
 
+def scheduler_state(run_id: str, artifact: str) -> dict | None:
+    """T_max, warmup steps and steps per epoch stored in a training checkpoint."""
+    with TemporaryDirectory() as tmp:
+        try:
+            path = download_artifacts(
+                run_id=run_id,
+                artifact_path=f"checkpoints/{artifact}/checkpoint.ckpt",
+                dst_path=tmp,
+            )
+        except MlflowException:
+            return None
+        state = torch.load(path, map_location="cpu", weights_only=False)
+    schedulers = state.get("lr_schedulers")
+    if not schedulers or "_schedulers" not in schedulers[0]:
+        return None
+    return {
+        "t_max": int(schedulers[0]["_schedulers"][-1]["T_max"]),
+        "warmup_steps": int(schedulers[0]["_milestones"][0]),
+        "steps_per_epoch": state["global_step"] / (state["epoch"] + 1),
+    }
+
+
+def training_schedule_check(client: MlflowClient, training_run: str) -> dict:
+    """`max_epochs` and the scheduler's T_max along a training run's chain of resumes."""
+    artifacts = [a.path for a in client.list_artifacts(training_run, "checkpoints")]
+    run_id: str | None = training_run
+    artifact = CHECKPOINT.search(artifacts[0])[0] if len(artifacts) == 1 else None  # type: ignore[index]
+    links = []
+    while run_id:
+        config = resolved_config(run_id)
+        state = scheduler_state(run_id, artifact) if artifact else None
+        max_epochs = (config.get("trainer") or {}).get("max_epochs")
+        links.append(
+            {
+                "run": run_id[:8],
+                "max_epochs": max_epochs,
+                "t_max": state["t_max"] if state else None,
+                "t_max_implied": round(
+                    max_epochs * state["steps_per_epoch"] - state["warmup_steps"]
+                )
+                if state and max_epochs
+                else None,
+            }
+        )
+        resume = RESUME.search(str(config.get("checkpoint")))
+        run_id, artifact = (resume[1], resume[2]) if resume else (None, None)
+
+    def chain(key: str) -> str:
+        return " <- ".join(str(link[key]) for link in links)
+
+    max_epochs_changed = len({link["max_epochs"] for link in links}) > 1
+    t_max_changed = len({link["t_max"] for link in links}) > 1
+    t_max_mismatch = any(link["t_max"] != link["t_max_implied"] for link in links)
+    unknown = any(link["t_max"] is None or link["max_epochs"] is None for link in links)
+    if max_epochs_changed or (not unknown and (t_max_changed or t_max_mismatch)):
+        verdict = "flagged"
+    else:
+        verdict = "unknown" if unknown else "ok"
+    return {
+        "resumes": len(links) - 1,
+        "resume_chain": chain("run"),
+        "max_epochs_chain": chain("max_epochs"),
+        "scheduler_t_max_chain": chain("t_max"),
+        "scheduler_t_max_implied_chain": chain("t_max_implied"),
+        "max_epochs_changed_across_resume": max_epochs_changed,
+        "scheduler_t_max_changed_across_resume": t_max_changed,
+        "scheduler_t_max_differs_from_max_epochs": t_max_mismatch,
+        "schedule_check": verdict,
+    }
+
+
 # --------------------------------------------------------------------------
 # Figure
 # --------------------------------------------------------------------------
@@ -180,101 +254,6 @@ def pr_curve(pos: NDArray, neg: NDArray, grid: NDArray) -> NDArray:
     if recall[0] > 0:
         recall, precision = np.r_[0.0, recall], np.r_[precision[0], precision]
     return np.interp(grid, recall, precision)
-
-
-def sources_figure(
-    config: DictConfig,
-    conf: pd.DataFrame,
-    curves: dict[str, NDArray],
-    grid: NDArray,
-    prevalence: float,
-) -> plt.Figure:
-    f = config.figure
-    names = list(f.configurations)
-    sources = [config.configurations[n].source for n in names]
-    colors = [f.colors[s] for s in sources]
-    labels = [s.lower() for s in sources]
-    rows = conf[conf["metric"] == "AUPRC"].set_index("configuration")
-    ylim = (prevalence - 0.05, 1.005)
-
-    with plt.rc_context({**THESIS_RC, "font.size": f.font_size}):
-        fig = plt.figure(figsize=(f.width_in, f.height_in))
-        gs = GridSpec(
-            1,
-            2,
-            figure=fig,
-            width_ratios=[1.0, 1.25],
-            wspace=0.26,
-            left=0.075,
-            right=0.975,
-            bottom=0.17,
-            top=0.93,
-        )
-        ax_a, ax_b = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
-
-        for x, (name, color) in enumerate(zip(names, colors, strict=True)):
-            r = rows.loc[name]
-            ax_a.errorbar(
-                x,
-                r["point"],
-                yerr=[[r["point"] - r["ci_lo"]], [r["ci_hi"] - r["point"]]],
-                fmt="o",
-                ms=3.0,
-                color=color,
-                mfc=color,
-                mew=0.6,
-                elinewidth=0.9,
-                capsize=2.2,
-                capthick=0.9,
-                zorder=3,
-            )
-            seeds = [r[f"seed_{k + 1}"] for k in range(int(r["n_seeds"]))]
-            ax_a.plot(
-                x + 0.2 + 0.08 * np.arange(len(seeds)),
-                seeds,
-                "o",
-                ms=2.6,
-                mfc="white",
-                mec=color,
-                mew=0.7,
-                ls="none",
-                zorder=3,
-            )
-        ax_a.axhline(prevalence, color=MUTED, lw=0.8, ls=(0, (4, 2)), zorder=1)
-        ax_a.text(
-            0.98,
-            prevalence + 0.006,
-            "random",
-            transform=ax_a.get_yaxis_transform(),
-            ha="right",
-            va="bottom",
-            color=MUTED,
-            fontsize=f.font_size - 1,
-        )
-        ax_a.set_xticks(range(len(names)), labels)
-        ax_a.tick_params(axis="x", length=0)
-        ax_a.set_xlim(-0.5, len(names) - 0.3)
-        ax_a.set_ylabel("AUPRC")
-
-        for name, label, color in zip(names, labels, colors, strict=True):
-            c = curves[name]
-            ax_b.fill_between(grid, c.min(0), c.max(0), color=color, alpha=0.25, lw=0)
-            ax_b.plot(grid, c.mean(0), color=color, lw=1.1, label=label)
-        ax_b.set_xlim(0, 1)
-        ax_b.set_xlabel("Recall")
-        ax_b.set_ylabel("Precision")
-        ax_b.legend(
-            loc="lower left", frameon=False, fontsize=f.font_size - 1, handlelength=2.0
-        )
-
-        for ax, tag in ((ax_a, "(a)"), (ax_b, "(b)")):
-            ax.set_ylim(*ylim)
-            ax.grid(axis="y", color="#e6e6e6", lw=0.5, zorder=0)
-            ax.set_axisbelow(True)
-            for side in ("top", "right"):
-                ax.spines[side].set_visible(False)
-            ax.text(0.0, 1.02, tag, transform=ax.transAxes, ha="left", va="bottom")
-    return fig
 
 
 # --------------------------------------------------------------------------
@@ -366,7 +345,13 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict]:
     labels = load_labels(slides, Path(config.supervision_dir), config.label_column)
     carcinoma = slides["is_carcinoma"].to_numpy(bool)
 
-    names = list(config.configurations)
+    # A configuration without all its seeds is not used at all.
+    incomplete = {
+        n: len(c.eval_runs)
+        for n, c in config.configurations.items()
+        if len(c.eval_runs) < b.min_seeds
+    }
+    names = [n for n in config.configurations if n not in incomplete]
     runs = [
         (n, i, r)
         for n in names
@@ -398,6 +383,7 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict]:
                 "configuration": name,
                 "seed": seed_i + 1,
                 **check,
+                **training_schedule_check(client, check["training_run"]),
                 **info,
                 "same_nuclei_as_first_run": same,
                 "carcinoma_slide_nuclei_without_supervision_row": missing,
@@ -521,41 +507,73 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict]:
     # 5. paired comparisons -----------------------------------------------------
     comp_rows = []
     for family, spec in config.families.items():
+        waiting = sorted(
+            {n for c in spec.comparisons for n in c.weights if n in incomplete}
+        )
         for m in METRICS:
             rows = []
             for c in spec.comparisons:
+                row = {
+                    "family": family,
+                    "metric": m,
+                    "comparison": c.name,
+                    "label": c.label,
+                    "weights": json.dumps(dict(c.weights)),
+                }
+                absent = [n for n in c.weights if n in incomplete]
+                if absent:
+                    row["status"] = f"not computed: waiting for {', '.join(absent)}"
+                    rows.append(row)
+                    continue
                 diff = sum(w * avg_rep[m][n] for n, w in c.weights.items())
                 point = sum(w * avg_point[m][n] for n, w in c.weights.items())
                 lo_ci, hi_ci = np.percentile(diff, [alpha_ci, 100 - alpha_ci])
-                rows.append(
-                    {
-                        "family": family,
-                        "status": "final" if spec.holm else "preliminary",
-                        "metric": m,
-                        "comparison": c.name,
-                        "label": c.label,
-                        "weights": json.dumps(dict(c.weights)),
-                        "difference": float(point),
-                        "ci_lo": float(lo_ci),
-                        "ci_hi": float(hi_ci),
-                        "ci_excludes_zero": bool(lo_ci > 0 or hi_ci < 0),
-                        "replicate_mean": float(diff.mean()),
-                        "p": bootstrap_p(diff),
-                    }
-                )
-            p = np.array([r["p"] for r in rows])
-            adjusted = holm(p) if spec.holm else np.full(len(p), np.nan)
-            for r, a in zip(rows, adjusted, strict=True):
-                r["p_holm"] = float(a)
-                r["significant"] = (
-                    ("yes" if a < b.alpha else "no")
-                    if spec.holm
-                    else "not tested: Holm pending"
-                )
-                r["p_display"] = fmt_p(r["p"], n_resamples)
-                r["p_holm_display"] = fmt_p(float(a), n_resamples) if spec.holm else ""
+                p = bootstrap_p(diff)
+                row |= {
+                    "status": "supporting"
+                    if m != PRIMARY_METRIC
+                    else "preliminary"
+                    if waiting or not spec.holm
+                    else "final",
+                    "difference": float(point),
+                    "ci_lo": float(lo_ci),
+                    "ci_hi": float(hi_ci),
+                    "ci_excludes_zero": bool(lo_ci > 0 or hi_ci < 0),
+                    "replicate_mean": float(diff.mean()),
+                    "p": p,
+                    "p_display": fmt_p(p, n_resamples),
+                }
+                if row["status"] == "preliminary":
+                    row["significant"] = "not tested: family incomplete"
+                rows.append(row)
+            final = [r for r in rows if r["status"] == "final"]
+            if final:
+                adjusted = holm(np.array([r["p"] for r in final]))
+                for r, a in zip(final, adjusted, strict=True):
+                    r["p_holm"] = float(a)
+                    r["significant"] = "yes" if a < b.alpha else "no"
+                    r["p_holm_display"] = fmt_p(float(a), n_resamples)
             comp_rows += rows
-    comp = pd.DataFrame(comp_rows)
+    comp = pd.DataFrame(comp_rows)[
+        [
+            "family",
+            "status",
+            "metric",
+            "comparison",
+            "label",
+            "weights",
+            "difference",
+            "ci_lo",
+            "ci_hi",
+            "ci_excludes_zero",
+            "replicate_mean",
+            "p",
+            "p_holm",
+            "significant",
+            "p_display",
+            "p_holm_display",
+        ]
+    ]
     comp.to_csv(out / "comparisons.csv", index=False)
 
     # 6. outputs ----------------------------------------------------------------
@@ -563,12 +581,9 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict]:
     checks_df = pd.DataFrame(run_rows)
     checks_df.to_csv(out / "checks.csv", index=False)
     (out / "tab_res_sources.tex").write_text(sources_table(conf, comp, config))
-    # Fonts are resolved when drawing, so saving needs the same rc as building.
-    with plt.rc_context({**THESIS_RC, "font.size": config.figure.font_size}):
-        fig = sources_figure(config, conf, curve_arrays, grid, counts["prevalence"])
-        fig.savefig(out / "figures/res_sources.pdf")
-        fig.savefig(out / "figures/res_sources.png", dpi=300)
-    plt.close(fig)
+    save_sources_figures(
+        conf, curve_arrays, grid, counts["prevalence"], out / "figures"
+    )
 
     # 7. checks summary ---------------------------------------------------------
     previous = pd.read_csv(q2_dir / "configurations.csv")
@@ -616,6 +631,15 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict]:
                 ["eval_run", "training_run", "checkpoint_epoch", "last_logged_epoch"],
             ].to_dict("records"),
         },
+        "training_schedule": {
+            status: sorted(
+                set(
+                    checks_df.loc[checks_df["schedule_check"] == status, "training_run"]
+                )
+            )
+            for status in ("flagged", "unknown")
+        },
+        "incomplete_configurations": incomplete,
         "evaluated_before_block_mask_fix": checks_df.loc[
             checks_df["evaluated_before_block_mask_fix"], "eval_run"
         ].tolist(),
@@ -701,11 +725,11 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         for key in ("point", "ci_lo", "ci_hi", "seed_sd"):
             metrics[f"test/{r.configuration}/{r.metric}_{key}"] = getattr(r, key)
     for r in comp.itertuples():
-        keys = ("difference", "ci_lo", "ci_hi", "p")
-        for key in (*keys, "p_holm") if r.status == "final" else keys:
-            metrics[f"diff/{r.family}/{r.comparison}/{r.metric}_{key}"] = getattr(
-                r, key
-            )
+        for key in ("difference", "ci_lo", "ci_hi", "p", "p_holm"):
+            if pd.notna(getattr(r, key)):
+                metrics[f"diff/{r.family}/{r.comparison}/{r.metric}_{key}"] = getattr(
+                    r, key
+                )
     logger.log_metrics(metrics)
 
     for name in (
@@ -716,7 +740,12 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "pr_curves.npz",
     ):
         logger.log_artifact(str(out / name))
-    for name in ("res_sources.pdf", "res_sources.png"):
+    for name in (
+        "res_sources_a.pdf",
+        "res_sources_a.png",
+        "res_sources_b.pdf",
+        "res_sources_b.png",
+    ):
         logger.log_artifact(str(out / "figures" / name), "figures")
     for source in (
         __file__,

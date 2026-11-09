@@ -279,7 +279,8 @@ def holm(p: NDArray) -> NDArray:
 
 
 def fmt_p(p: float, n_resamples: int) -> str:
-    return f"<{1 / n_resamples:.4f}" if p == 0 else f"{p:.4f}"
+    """P = 0 is shown below the smallest non-zero two-sided p, 2 / n_resamples."""
+    return f"<{2 / n_resamples:.3f}" if p == 0 else f"{p:.4f}"
 
 
 def forest_figure(comp: pd.DataFrame, ci_level: float) -> plt.Figure:
