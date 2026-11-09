@@ -1,0 +1,132 @@
+# @package _global_
+
+# Q2 (information sources), final figure and table, plus preliminary Q3 comparisons:
+# nucleus level, PANDA Radboud test set. Paired slide-level bootstrap over the stored test
+# predictions of the evaluation runs (postprocessing.results_sources), reusing the resamples
+# saved by the Q2 run (postprocessing.bootstrap_sources). No training, no inference.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label # as postprocessing/crop/metrics (configs/experiment/postprocessing/crop/metrics/radboud.yaml)
+predictions_artifact: predictions
+
+# Saved by the Q2 run (MLflow run 205c2bea1a104839b258ac89a93cef2d); not redrawn.
+q2_dir: ${project_path}/evaluation/radboud_test/q2_sources_bootstrap
+resamples: ${q2_dir}/bootstrap_resamples_radboud_test.npz
+
+# Evaluation runs (experiment 37) holding the test predictions; k = 24, three seeds each.
+configurations:
+  shape_self:
+    label: Shape, self-only
+    source: Shape
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+  shape_knn:
+    label: Shape, k-NN, rotated values (model)
+    source: Shape
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_self:
+    label: Texture, self-only
+    source: Texture
+    eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+  texture_knn:
+    label: Texture, k-NN, rotated values
+    source: Texture
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+  position_knn:
+    label: Position only, k-NN, rotated values
+    source: Position only
+    eval_runs: [c8f6f4503b054a418fb3d2c1c044b662, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+  shape_knn_rope: # preliminary
+    label: Shape, k-NN, RoPE
+    source: Shape
+    eval_runs: [76fc240c8da748ae8f96dc95991950ab, d4b470306d134c2f9af7f61098f84e87, ba19f8dff0474f87ab94fb0b23051e44]
+  shape_knn_relpos: # preliminary
+    label: Shape, exact k-NN, relative-position values
+    source: Shape
+    eval_runs: [4dda120e5f154736866cb6c7d8cbf5b6, e72e2d6e84074c2ebc78f50caba82dcf, 27960cda928943eb95256d6f5b40844f]
+  shape_dense_nopos: # preliminary
+    label: Shape, dense, no positions
+    source: Shape
+    eval_runs: [9363c68f37da442f89c940d80efa49d5, df298e11a4c543dbaf57a378baab98e6, ba58d016ece74741a93b409d49526e5a]
+
+# Paired differences: sum of weight x seed-averaged metric, within each resample. Holm per
+# metric within a family with `holm: true`; the preliminary families get theirs once their
+# comparisons involving k-NN without positions exist.
+families:
+  sources:
+    holm: true
+    comparisons:
+      - name: shape_vs_texture_self
+        label: Shape − texture, self-only
+        weights: {shape_self: 1, texture_self: -1}
+      - name: shape_vs_texture_knn
+        label: Shape − texture, k-NN + rotated values
+        weights: {shape_knn: 1, texture_knn: -1}
+      - name: shape_vs_position_knn
+        label: Shape − position only, k-NN + rotated values
+        weights: {shape_knn: 1, position_knn: -1}
+      - name: texture_vs_position_knn
+        label: Texture − position only, k-NN + rotated values
+        weights: {texture_knn: 1, position_knn: -1}
+      - name: context_gain_shape
+        label: Context gain, shape
+        weights: {shape_knn: 1, shape_self: -1}
+      - name: context_gain_texture
+        label: Context gain, texture
+        weights: {texture_knn: 1, texture_self: -1}
+      - name: interaction
+        label: Context gain, texture − shape
+        weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}
+      - name: position_knn_vs_shape_self
+        label: Position only (k-NN + rotated values) − shape self-only
+        weights: {position_knn: 1, shape_self: -1}
+  positions:
+    holm: false
+    comparisons:
+      - name: rotated_vs_rope
+        label: Rotated values − RoPE (k-NN)
+        weights: {shape_knn: 1, shape_knn_rope: -1}
+      - name: relpos_vs_rotated
+        label: Relative-position values − rotated values (k-NN)
+        weights: {shape_knn_relpos: 1, shape_knn: -1}
+  context:
+    holm: false
+    comparisons:
+      - name: dense_vs_self
+        label: Whole slide (dense) − shape self-only (no positions)
+        weights: {shape_dense_nopos: 1, shape_self: -1}
+
+bootstrap:
+  ci_level: 0.95
+  alpha: 0.05 # Holm, within a family, per metric
+histogram:
+  tolerance: 1.0e-4 # |histogram − exact| for every run's full-test-set AUROC and AUPRC; the grid is the Q2 run's
+  max_bins: 160000
+
+figure:
+  width_in: 6.3
+  height_in: 2.4
+  font_size: 8
+  recall_grid: 1001
+  configurations: [shape_knn, texture_knn, position_knn]
+  colors:
+    Shape: "#2C6E9B"
+    Texture: "#B5651D"
+    Position only: "#5E8C61"
+
+block_mask_fix_date: "2026-10-30" # knn/dense flex BlockMask double count fixed
+
+cache_dir: ${project_path}/evaluation/radboud_test/predictions # aligned predictions, one parquet per run
+out_dir: ${project_path}/evaluation/radboud_test/q2_results
+
+metadata:
+  run_name: "Q2 results: sources figure and table, preliminary Q3 comparisons (Radboud test)"
+  hyperparams:
+    resamples: ${resamples}
+    ci_level: ${bootstrap.ci_level}
+    alpha: ${bootstrap.alpha}
+    histogram_tolerance: ${histogram.tolerance}
