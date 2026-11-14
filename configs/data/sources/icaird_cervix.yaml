@@ -32,6 +32,10 @@ dataset:
     # preprocessing/exploration/icaird_cervix/save_metadataset.py
     exploration: ${mlflow_project_pc}/93f193ea5d9a4e3fb5e94c8b5df4bbd0/artifacts/icaird_cervix/slides_metadata.csv
 
+    # scripts/preprocessing/quality_control/blur_exclusion_icaird_cervix.py: slides with
+    # median blur coverage >= 0.2 (rule of PANDA - Radboud); 23 slides, none re-annotated
+    qc_exclusion: ${mlflow_project_pc}/59ed1027e0f14a139d54dac6715d20e1/artifacts/qc_exclusion/to_exclude_based_on_qc.csv
+
     masks:
       annotation:
         # preprocessing/annotation_masks/icaird_cervix_per_class.py
