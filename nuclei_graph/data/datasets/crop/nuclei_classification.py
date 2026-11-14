@@ -12,7 +12,7 @@ class NucleiClassificationDataset(BaseCropDataset):
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
         crop_indices = np.arange(len(nuclei), dtype=int)
-        nuclei_sup = self.get_nuclei_sup(slide.slide_id)
+        nuclei_sup = self.get_nuclei_sup(slide.slide_id, nuclei["id"].to_numpy())
 
         # Crop Generation
         if not self.full_slide:

@@ -27,7 +27,22 @@ from nuclei_graph.nuclei_graph_typing import (
 # layout of the patches precomputed by `preprocessing/nuclei_patches.py`
 PATCHES_FILE = "patches.npy"
 ROWS_FILE = "rows.npy"
+IDS_FILE = "ids.npy"
 PARAMS_FILE = "params.json"
+
+
+def check_ids(stored: NDArray[np.generic], ids: NDArray[np.generic], what: str) -> None:
+    """Asserts that `stored` (ids saved with `what`) equal `ids`, the slide's nuclei ids.
+
+    `ids` are in `get_nuclei` order (sorted by `id`), the order that `what` is indexed in.
+    """
+    assert len(stored) == len(ids), (
+        f"{what}: {len(stored)} nuclei, the slide has {len(ids)}."
+    )
+    assert np.array_equal(stored.astype(str), ids.astype(str)), (
+        f"{what}: the nuclei ids differ from the slide's; "
+        "regenerate from the current nuclei."
+    )
 
 
 def patches_params(patch_size: int) -> dict[str, float]:
@@ -59,19 +74,25 @@ class NucleiFeatureExtractor:
         )
 
     def read_nuclei_bboxes(
-        self, slide_id: str, indices: NDArray[np.int64], n_nuclei: int
+        self, slide_id: str, indices: NDArray[np.int64], ids: NDArray[np.generic]
     ) -> torch.Tensor:
         """Reads the precomputed patches of the nuclei at `indices` (`get_nuclei` order).
 
+        `ids` are the slide's nuclei ids in `get_nuclei` order. The ids saved with the
+        patches must equal them; this is checked once per slide and dataset instance.
         The rows are read in their stored (spatial) order, so a spatially contiguous
         crop reads mostly contiguous parts of the file.
         """
         assert self.patches_path is not None
         slide_dir = Path(self.patches_path) / f"slide_id={slide_id}"
         rows = np.load(slide_dir / ROWS_FILE)
-        assert len(rows) == n_nuclei, (
-            f"{slide_dir} holds {len(rows)} nuclei, the slide has {n_nuclei}."
+        assert len(rows) == len(ids), (
+            f"{slide_dir} holds {len(rows)} nuclei, the slide has {len(ids)}."
         )
+        checked = self.__dict__.setdefault("_patch_ids_checked", set())
+        if slide_id not in checked:
+            check_ids(np.load(slide_dir / IDS_FILE), ids, f"{slide_dir / IDS_FILE}")
+            checked.add(slide_id)
         rows = rows[indices]
         order = np.argsort(rows)
         patches = np.load(slide_dir / PATCHES_FILE, mmap_mode="r")
