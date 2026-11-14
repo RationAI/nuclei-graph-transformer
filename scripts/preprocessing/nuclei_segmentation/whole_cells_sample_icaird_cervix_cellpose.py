@@ -1,7 +1,7 @@
 """How often Cellpose outlines a whole cell around a nucleus, on 800 random iCAIRD cervix tiles.
 
 The cleaned batch keeps whole cells that hold a nucleus: the empty-cell clean-up
-(clean_empty_cells_icaird_cervix_cellpose.py) removes only outlines without hematoxylin.
+(step 3 of clean_icaird_cervix_cellpose.py) removes only outlines without hematoxylin.
 This script measures how many remain, using LSP-DETR as a referee only (its nuclei are
 never added to the batch). The sample is 800 random 2,048 px tiles, 2 from each of 400
 slides with at least 30 objects (icaird_cervix_review/wholecell_sample/tiles.csv). Each
@@ -10,9 +10,9 @@ the LSP-DETR centroids inside its outline:
     nucleus                  the largest has at least MATCH_RATIO x the object's area;
     whole_cell_with_nucleus  there are some, but all are smaller;
     no_lsp                   there are none.
-The objects are those of the batch after the blood clean-up: the current batch (stain
+The objects are those of the batch after the blood steps: the current batch (stain
 features aligned by align_stain_features_icaird_cervix_cellpose.py) plus the rows the
-empty-cell clean-up removed (`empty_removed`). The slide diagnosis comes from the
+empty-cell step removed (`empty_removed`). The slide diagnosis comes from the
 iCAIRD index. `lesion` is the class of the annotation polygon holding the centroid
 ("" outside every annotation); the annotations mark lesions only, not tissue types.
 
@@ -32,6 +32,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from matplotlib.path import Path as Outline
 from scipy.spatial import cKDTree
@@ -39,14 +40,10 @@ from scipy.spatial import cKDTree
 from scripts.preprocessing.nuclei_segmentation.align_stain_features_icaird_cervix_cellpose import (
     OUT as ALIGNED,
 )
-from scripts.preprocessing.nuclei_segmentation.clean_blood_icaird_cervix_cellpose import (
+from scripts.preprocessing.nuclei_segmentation.clean_icaird_cervix_cellpose import (
+    FEATURES,
+    REMOVED,
     column,
-)
-from scripts.preprocessing.nuclei_segmentation.clean_empty_cells_icaird_cervix_cellpose import (
-    REMOVED as EMPTY_REMOVED,
-)
-from scripts.preprocessing.nuclei_segmentation.restore_large_objects_icaird_cervix_cellpose import (
-    all_features,
 )
 from scripts.preprocessing.nuclei_segmentation.review_overlays_icaird_cervix_cellpose import (
     OUT as REVIEW,
@@ -84,27 +81,25 @@ def lesions(slide_id: str) -> list[tuple[str, Outline]]:
 
 
 def objects(slide_id: str) -> pd.DataFrame:
-    """Objects after the blood clean-up: current batch rows plus removed empty cells."""
+    """Objects after the blood steps of the clean-up: the batch rows plus the removed empty cells."""
     aligned = np.load(ALIGNED / f"{slide_id}.npz")
     files = sorted((SEG / f"slide_id={slide_id}").glob("*.parquet"))
     polys = [column(pq.ParquetFile(f).read(columns=["polygon"]), "polygon", (64, 2)) for f in files]
     current = pd.DataFrame({"obj": aligned["obj"], "area": aligned["area_um2"], "empty_removed": False})
     current["polygon"] = list(np.concatenate(polys))
 
-    feats = all_features(slide_id)  # `obj` of the aligned features indexes these
-    measures = np.load(EMPTY_REMOVED / "_measures" / f"{slide_id}.npz")
-    gone = measures["obj"][measures["removed"]]
-    gone = gone[np.lexsort((gone, feats["file_index"][gone]))]  # removed-file order
-    removed_files = sorted((EMPTY_REMOVED / f"slide_id={slide_id}").glob("*.parquet"))
-    rp = [column(pq.ParquetFile(f).read(columns=["polygon"]), "polygon", (64, 2)) for f in removed_files]
-    rp = np.concatenate(rp) if rp else np.zeros((0, 64, 2), np.float32)
-    if len(rp) != len(gone):
-        raise RuntimeError(f"{slide_id}: {len(rp)} removed rows, the measures list {len(gone)}")
-    removed = pd.DataFrame({"obj": gone, "area": feats["area_um2"][gone], "empty_removed": True})
-    removed["polygon"] = list(rp)
-    if len(gone) and not np.allclose(rp.mean(1), feats["centroid"][gone], atol=0.5):
-        raise RuntimeError(f"{slide_id}: removed rows differ from the measures")
-    out = pd.concat([current, removed], ignore_index=True)
+    feats = np.load(FEATURES / f"{slide_id}.npz")  # `obj` of the aligned features indexes these
+    removed = [pq.ParquetFile(f).read(columns=["id", "polygon", "reason"])
+               for f in sorted((REMOVED / f"slide_id={slide_id}").glob("*.parquet"))]
+    removed = [t.filter(pc.equal(t.column("reason"), "empty_cell")) for t in removed]
+    ids = np.concatenate([np.asarray(t.column("id").to_pylist(), str) for t in removed]) if removed else np.zeros(0, str)
+    rp = np.concatenate([column(t, "polygon", (64, 2)) for t in removed]) if removed else np.zeros((0, 64, 2), np.float32)
+    gone = pd.Index(feats["id"]).get_indexer(ids)
+    if (gone < 0).any():
+        raise RuntimeError(f"{slide_id}: removed empty cells that are not original objects")
+    gone_df = pd.DataFrame({"obj": gone, "area": feats["area_um2"][gone], "empty_removed": True})
+    gone_df["polygon"] = list(rp)
+    out = pd.concat([current, gone_df], ignore_index=True)
     out["centroid"] = list(feats["centroid"][out.obj])
     return out
 

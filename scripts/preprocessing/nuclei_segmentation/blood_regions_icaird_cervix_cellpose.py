@@ -15,6 +15,10 @@ Regions under MIN_CELLS cells are dropped and the rest grown by one cell. Inside
 regions Cellpose finds mostly RBCs and misses or garbles the nuclei between them; blood
 that Cellpose left empty is not a region (there is nothing to clean there).
 
+The regions are computed from every original Cellpose object (STAIN/objects_original, see
+reconstruct_original_icaird_cervix_cellpose.py); clean_icaird_cervix_cellpose.py computes the
+same regions for its step 2 and keeps them in its _measures. This script writes them as masks.
+
 Writes to OUT:
     masks/<slide_id>.tiff   the region mask (255 = blood) at 5 µm/px (each 25 µm grid
                             cell is 5 x 5 px), only for slides with blood regions; each
@@ -104,7 +108,7 @@ def process(slide_id: str) -> dict:
     with OpenSlide(str(SLIDES / f"{slide_id}.tiff")) as slide:
         width, height = slide.level_dimensions[0]
         mpp = float(slide.properties["openslide.mpp-x"])
-    features = np.load(STAIN / "objects" / f"{slide_id}.npz")
+    features = np.load(STAIN / "objects_original" / f"{slide_id}.npz")
     rbc = red_blood_cells(features)
     grid_shape = (-(-height // CELL_PX), -(-width // CELL_PX))
     regions = blood_regions(features["centroid"], rbc, grid_shape)

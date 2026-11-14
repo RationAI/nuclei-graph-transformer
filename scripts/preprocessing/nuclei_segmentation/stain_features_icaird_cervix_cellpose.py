@@ -13,6 +13,11 @@ files and their rows:
     centroid        polygon centroid, level-0 px.
 `OUT/slides.csv` holds per-slide summaries.
 
+It ran on 2026-11-12 on the batch after the (since dropped) area filter; the objects over
+250 µm² were measured with `polygon_features` when they were restored. Both sets, in the
+order of the original segmentation and with ids, are in OUT/objects_original
+(reconstruct_original_icaird_cervix_cellpose.py), which the clean-up uses.
+
 Usage:
     uv run python -m scripts.preprocessing.nuclei_segmentation.stain_features_icaird_cervix_cellpose \
         [--workers 14] [--slides ID ...]
