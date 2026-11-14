@@ -8,7 +8,8 @@ falling inside the thresholded heatmap (intensity > `positive_threshold`)
 is ≥ `overlap_threshold`, otherwise 0.
 
 The labels are stored only for slides that have a heatmap (optionally restricted
-to the `splits` given by the metadata's `split` column).
+to the `splits` given by the metadata's `split` column and the `categories` given by
+its `category` column).
 """
 
 from pathlib import Path
@@ -83,6 +84,8 @@ def main(config: DictConfig, _: MLFlowLogger) -> None:
     slides = uris2df(config.metadata_uris)
     if config.splits is not None:
         slides = slides[slides["split"].isin(config.splits)]
+    if config.get("categories") is not None:
+        slides = slides[slides["category"].isin(config.categories)]
     exclude_slides = uris2df(config.exclude_slides_uris)
     heatmap_stems = {p.stem for p in Path(heatmaps_dir).glob("*.tiff")}
     valid_mask = slides["slide_path"].map(lambda p: Path(p).stem in heatmap_stems) & (

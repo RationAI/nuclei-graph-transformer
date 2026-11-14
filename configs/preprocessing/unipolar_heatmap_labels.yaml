@@ -4,6 +4,7 @@ heatmap_uri: ???
 metadata_uris: ???
 exclude_slides_uris: null
 splits: null # restrict to these values of the metadata `split` column (null = all)
+categories: null # restrict to these values of the metadata `category` column (null = all)
 overlap_threshold: ???
 positive_threshold: ??? # in [0, 1]
 label_column: ???

@@ -1,0 +1,29 @@
+# @package _global_
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.exploration}
+exclude_slides_uris:
+  - ${dataset.mlflow_uris.qc_exclusion}
+categories: ${dataset.categories} # low grade is left out of the experiments
+# The test set: the slides re-annotated by a pathologist, plus every test slide of `test_slides.categories`.
+test_slides:
+  slides_uri: ${dataset.mlflow_uris.reannotated_test_slides}
+  categories: [normal_inflammation]
+nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_batch_name: ${dataset.nuclei_batch}
+
+metadata:
+  run_name: "📁 Metadataset Mapping: ${dataset.name}"
+  description: |
+    Slides of the train, valid and test splits mapped to their nuclei in the
+    `${dataset.nuclei_batch}` batch (cleaned Cellpose segmentation, see its `_cleanup.json`).
+    Low-grade slides, slides excluded for blur (QC, rule of PANDA - Radboud) and slides
+    with no nuclei are left out; the test set is the 60 slides re-annotated by a
+    pathologist plus the normal / inflammation test slides. See
+    `icaird_cervix/excluded_slides.csv`.
+  hyperparams:
+    categories: ${categories}
+    test_slides: ${test_slides}
