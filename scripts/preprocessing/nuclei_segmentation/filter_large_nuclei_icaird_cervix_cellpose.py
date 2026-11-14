@@ -1,4 +1,10 @@
-"""Removes objects larger than 250 µm² from the iCAIRD cervix Cellpose batch.
+"""NOT APPLIED: removed objects larger than 250 µm² from the iCAIRD cervix Cellpose batch.
+
+This filter is not part of the pipeline. It ran once (2026-11-12, 75,460 objects removed)
+and was reverted on 2026-11-14 by restore_large_objects_icaird_cervix_cellpose.py: in
+malignant lesions about 10 of 24 random removed objects were real, enlarged tumour nuclei.
+Its removed rows and summary are archived in _archive/cervix_cellpose_removed_area_gt250um2
+next to the batch. The script is kept for the record and refuses to run.
 
 Above 250 µm² (equivalent diameter ~18 µm) about 9 in 10 Cellpose objects are not nuclei
 but whole cells outlined along their membranes, spaces between membranes, clusters of
@@ -82,6 +88,7 @@ def filter_slide(slide_id: str) -> dict:
 
 
 def main() -> None:
+    raise SystemExit("The 250 µm² area filter is not part of the pipeline (reverted 2026-11-14); see the docstring.")
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--workers", type=int, default=14)
     args = parser.parse_args()

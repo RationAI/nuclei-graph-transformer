@@ -55,6 +55,15 @@ def object_features(slide: OpenSlide, slide_id: str, mpp: float) -> dict[str, np
         file_idx.append(np.full(len(p), i, np.uint16))
         rows.append(np.arange(len(p), dtype=np.uint32))
     polys = np.concatenate(polys) if polys else np.zeros((0, 64, 2), np.float32)
+    return {
+        "file_index": np.concatenate(file_idx) if file_idx else np.zeros(0, np.uint16),
+        "row": np.concatenate(rows) if rows else np.zeros(0, np.uint32),
+        **polygon_features(slide, polys, mpp),
+    }
+
+
+def polygon_features(slide: OpenSlide, polys: np.ndarray, mpp: float) -> dict[str, np.ndarray]:
+    """Colour features of `polys` (n, 64, 2), level-0 px; the keys of `object_features` but the file and row."""
     n = len(polys)
     sums = np.zeros((n, 5), np.float64)  # h, e, r, g, b
     npx = np.zeros(n, np.int64)
@@ -86,8 +95,6 @@ def object_features(slide: OpenSlide, slide_id: str, mpp: float) -> dict[str, np
     means = sums / np.maximum(npx, 1)[:, None]
     means[npx == 0] = np.nan
     return {
-        "file_index": np.concatenate(file_idx) if file_idx else np.zeros(0, np.uint16),
-        "row": np.concatenate(rows) if rows else np.zeros(0, np.uint32),
         "area_um2": areas_um2(polys, mpp).astype(np.float32),
         "h": means[:, 0].astype(np.float32),
         "e": means[:, 1].astype(np.float32),

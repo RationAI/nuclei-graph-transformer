@@ -45,15 +45,15 @@ from scripts.preprocessing.nuclei_segmentation.clean_blood_icaird_cervix_cellpos
 from scripts.preprocessing.nuclei_segmentation.clean_empty_cells_icaird_cervix_cellpose import (
     REMOVED as EMPTY_REMOVED,
 )
+from scripts.preprocessing.nuclei_segmentation.restore_large_objects_icaird_cervix_cellpose import (
+    all_features,
+)
 from scripts.preprocessing.nuclei_segmentation.review_overlays_icaird_cervix_cellpose import (
     OUT as REVIEW,
 )
 from scripts.preprocessing.nuclei_segmentation.review_overlays_icaird_cervix_cellpose import (
     SEG,
     SLIDES,
-)
-from scripts.preprocessing.nuclei_segmentation.stain_features_icaird_cervix_cellpose import (
-    OUT as STAIN,
 )
 
 
@@ -91,7 +91,7 @@ def objects(slide_id: str) -> pd.DataFrame:
     current = pd.DataFrame({"obj": aligned["obj"], "area": aligned["area_um2"], "empty_removed": False})
     current["polygon"] = list(np.concatenate(polys))
 
-    feats = np.load(STAIN / "objects" / f"{slide_id}.npz")
+    feats = all_features(slide_id)  # `obj` of the aligned features indexes these
     measures = np.load(EMPTY_REMOVED / "_measures" / f"{slide_id}.npz")
     gone = measures["obj"][measures["removed"]]
     gone = gone[np.lexsort((gone, feats["file_index"][gone]))]  # removed-file order

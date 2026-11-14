@@ -13,7 +13,8 @@ _archive/lsp_detr_blood_regions_added (next to the batch).
 
 The objects are matched to the colour features by file and row; before a file is
 changed its row count and centroids are checked against the features, which were
-measured after the area filter. As in filter_large_nuclei_icaird_cervix_cellpose.py the
+measured after the area filter (since dropped: restore_large_objects_icaird_cervix_cellpose.py
+put its objects back and ran this clean-up's rules on them). As in the area filter, the
 removed rows (with a `reason` column) are saved first to REMOVED/slide_id=<slide>/<file>,
 and each filtered file is written as a hidden temporary file, read back, checked and
 moved over the original. A slide is listed in REMOVED/_done.txt once finished, with its
@@ -68,7 +69,7 @@ def column(table: pa.Table, name: str, shape: tuple[int, ...]) -> np.ndarray:
     return np.asarray(col.flatten()).reshape(-1, *shape)
 
 
-def regions_of(slide_id: str, feats: np.lib.npyio.NpzFile, rbc: np.ndarray) -> np.ndarray | None:
+def regions_of(slide_id: str, feats: np.lib.npyio.NpzFile | dict[str, np.ndarray], rbc: np.ndarray) -> np.ndarray | None:
     """The slide's blood regions, recomputed from the colour features.
 
     They are computed exactly as in blood_regions_icaird_cervix_cellpose.py, not read
