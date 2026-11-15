@@ -74,6 +74,7 @@ from postprocessing.bootstrap_sources import (
     label_predictions,
     load_labels,
     load_run,
+    nucleus_keys,
     replicate_metrics,
     slide_histograms,
     to_logits,
@@ -95,6 +96,7 @@ REPO = Path(__file__).parents[1]
 CODE = (
     "postprocessing/nucleus_results_mmci.py",
     "configs/postprocessing/nucleus_results_mmci.yaml",
+    "configs/experiment/postprocessing/nucleus_results_mmci/ignore_another_pathology.yaml",
 )
 
 
@@ -453,6 +455,29 @@ def region_counts(config: DictConfig, meta: pd.DataFrame) -> dict:
 # --------------------------------------------------------------------------
 
 
+def load_ignore(slides: pd.DataFrame, ignore_dir: Path) -> pd.DataFrame:
+    """(slide, key, ignore) of the nuclei with ignore_label = 1 in the pipeline's ignore files."""
+    frames = []
+    for s, row in enumerate(slides.itertuples()):
+        path = ignore_dir / f"{row.slide_id}.parquet"
+        if not path.exists():
+            continue
+        d = pd.read_parquet(path, columns=["id", "ignore_label"])
+        assert set(d["ignore_label"].unique()) <= {0, 1}
+        d = d[d["ignore_label"] == 1]
+        frames.append(
+            pd.DataFrame(
+                {
+                    "slide": np.full(len(d), s, np.int16),
+                    "key": nucleus_keys(d["id"]),
+                    "ignore": True,
+                }
+            )
+        )
+    assert frames, "no ignore files for the test slides"
+    return pd.concat(frames, ignore_index=True)
+
+
 def exact_metrics(y: NDArray, p: NDArray) -> dict[str, float]:
     preds, target = (
         torch.from_numpy(p.astype(np.float32)),
@@ -515,6 +540,29 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     tiles = tile_check(config, client, meta, pred_dirs)
     regions = region_counts(config, meta)
 
+    # Another pathology nuclei: labelled 0 (pipeline default) or ignored (pipeline ignore files)
+    ignore = np.zeros(len(y), bool)
+    ignore_info = {"rule": "none: Another pathology nuclei labelled 0"}
+    if config.ignore_another_pathology:
+        ign = load_ignore(slides, Path(config.another_pathology_dir))
+        merged = ref.merge(ign, on=["slide", "key"], how="left", validate="1:1")
+        ignore = merged["ignore"].eq(True).to_numpy()
+        assert int(ignore.sum()) == len(ign), (
+            "ignore rows without a predicted test nucleus"
+        )
+        ignore_info = {
+            "rule": "Another pathology nuclei (ignore_label = 1 in the pipeline's ignore files) "
+            "removed from the test labels; Exclude nuclei stay labelled 0",
+            "ignore_files": int(ign["slide"].nunique()),
+            "ignored": int(ignore.sum()),
+            "ignored_labelled_1_before": int((y[ignore] == 1).sum()),
+            "ignored_per_slide_max": int(
+                np.bincount(slide[ignore], minlength=n_slides).max()
+            ),
+        }
+        keep = ~ignore
+        y, slide, probs = y[keep], slide[keep], probs[:, keep]
+
     positives_per_slide = np.bincount(slide, weights=(y == 1), minlength=n_slides)
     positive = positives_per_slide > 0
     counts = {
@@ -526,7 +574,7 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
         "labeled_nuclei": len(y),
         "positive_nuclei": int((y == 1).sum()),
         "negative_nuclei": int((y == 0).sum()),
-        "ignored_nuclei": 0,  # pipeline rule: Exclude / Another pathology nuclei are labelled 0
+        "ignored_nuclei": int(ignore.sum()),
         "prevalence": float(np.mean(y == 1)),
         "carcinoma_slide_nuclei_without_supervision_row": unmatched,
     }
@@ -674,7 +722,8 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
         "counts": counts,
         "labels": "annot_label left-joined on (slide_id, id), missing -> 0, is_carcinoma = False -> 0 "
         "(postprocessing/crop/metrics); carcinoma annotation = Carcinoma minus (Exclude ∪ Another "
-        "pathology), so their nuclei are 0; no nucleus ignored",
+        "pathology), so their nuclei are 0",
+        "ignore": ignore_info,
         "regions": regions,
         "metrics": "torchmetrics binary_average_precision / binary_auroc (thresholds=None), exact, "
         "per seed over all labelled test nuclei pooled; seed mean and SD (ddof=1)",
@@ -776,16 +825,23 @@ def report(
         (
             "Dense annotation labels as the existing MMCI evaluation (`postprocessing/crop/metrics`): `annot_label` "
             "left-joined on (slide, nucleus), missing → 0, all nuclei of benign slides → 0. The carcinoma annotation "
-            "is Carcinoma minus (Exclude ∪ Another pathology), so nuclei in Exclude and Another pathology regions are "
-            "**labelled negative, not ignored**; the Another pathology ignore labels are used by the training "
-            "supervision only."
+            "is Carcinoma minus (Exclude ∪ Another pathology). "
+            + (
+                "Nuclei in Another pathology regions are **ignored** (removed from the test labels, using the "
+                f"pipeline's ignore files: {checks['ignore']['ignored']:,} nuclei on "
+                f"{checks['ignore']['ignore_files']} slides, {checks['ignore']['ignored_labelled_1_before']} of them "
+                "labelled 1 before); nuclei in Exclude regions stay **labelled negative**."
+                if config.ignore_another_pathology
+                else "Nuclei in Exclude and Another pathology regions are **labelled negative, not ignored**; the "
+                "Another pathology ignore labels are used by the training supervision only."
+            )
         ),
         "",
         "| Test slides | Patients | Labelled nuclei | Positive nuclei | Ignored nuclei | Prevalence |",
         "| --- | --- | --- | --- | --- | --- |",
         (
             f"| {counts['test_slides']} | {counts['patients']} | {counts['labeled_nuclei']:,} | "
-            f"{counts['positive_nuclei']:,} | {counts['ignored_nuclei']} | {counts['prevalence']:.4f} |"
+            f"{counts['positive_nuclei']:,} | {counts['ignored_nuclei']:,} | {counts['prevalence']:.4f} |"
         ),
         "",
         f"Carcinoma slides {counts['carcinoma_slides']}; slides with ≥ 1 positive nucleus {counts['positive_slides']}.",
@@ -832,7 +888,12 @@ def report(
         lines.append(
             f"The existing evaluation logged seed {r0['seed']}'s AUPRC/AUROC as "
             f"{r0['AUPRC_logged_by_evaluation']:.4f} / {r0['AUROC_logged_by_evaluation']:.4f}; recomputed: "
-            f"{r0['AUPRC_exact']:.4f} / {r0['AUROC_exact']:.4f}."
+            f"{r0['AUPRC_exact']:.4f} / {r0['AUROC_exact']:.4f}"
+            + (
+                " (the evaluation labelled Another pathology nuclei 0; here they are ignored)."
+                if config.ignore_another_pathology
+                else "."
+            )
         )
     lines += [
         "",
@@ -889,7 +950,10 @@ def main(config: DictConfig) -> None:
         "n_eval_runs": len(runs),
         "reference_run": "6aa01c0448ec42a49ae5137ceaf4f12e (public MLflow, exp 37)",
         "reference_code_commit": "cb07dc8c5f15e57658081e8e53d236a2fd7ee869",
+        "ignore_another_pathology": bool(config.ignore_another_pathology),
     }
+    if config.get("previous_run"):
+        params["previous_run"] = config.previous_run
     for r in runs.itertuples():
         params |= {
             f"eval_run_{r.seed}": r.eval_run,

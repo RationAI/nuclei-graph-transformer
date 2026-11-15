@@ -1,0 +1,17 @@
+# @package _global_
+
+# tab:res-nucleus, MMCI row with the thesis label mapping: Another pathology nuclei ignored at test
+# (pipeline ignore files), Exclude nuclei labelled negative. Same predictions, resamples and
+# histogram check as run 19c2ef40 (Another pathology labelled negative).
+
+ignore_another_pathology: true
+previous_run: 19c2ef40fafd4c1d8c861fd39122b69e
+
+out_dir: ${project_path}/evaluation/mmci_test/nucleus_results_ignore_another_pathology
+
+metadata:
+  run_name: "tab:res-nucleus: shape, k-NN + rotated values (MMCI test, Another pathology ignored)"
+  description: >-
+    NB-A-65. As run 19c2ef40, but nuclei in Another pathology regions are ignored at test (pipeline
+    ignore files), consistent with the thesis label mapping; Exclude nuclei stay negative. Same
+    predictions, patient resamples (run e97db5a5) and histogram check.
