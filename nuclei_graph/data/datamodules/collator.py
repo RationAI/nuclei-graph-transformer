@@ -44,7 +44,7 @@ class GraphCollator:
                 return b
         return math.ceil(seq_len / self.block_size) * self.block_size
 
-    def _pad(self, x: Tensor, total_seq_len: int, value: float | int = 0) -> Tensor:
+    def _pad(self, x: Tensor, total_seq_len: int, value: float = 0) -> Tensor:
         pad_len = total_seq_len - x.shape[0]
         if pad_len <= 0:
             return x
