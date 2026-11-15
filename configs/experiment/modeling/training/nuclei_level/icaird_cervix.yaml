@@ -15,8 +15,14 @@ defaults:
 monitor: validation/loss
 checkpoint_mode: min
 
+# Training length matches Radboud in optimizer steps, not epochs (batch 16, drop_last):
+#   Radboud: 3,501 train slides -> 218 steps/epoch x 300 epochs = 65,400 steps,
+#            warmup 8 epochs = 1,744 steps, validation every 218 steps
+#   iCAIRD:    792 train slides ->  49 steps/epoch x 1,335 epochs = 65,415 steps,
+#            warmup 36 epochs = 1,764 steps, validation every 4 epochs = 196 steps
 trainer:
-  max_epochs: 300
+  max_epochs: 1335
+  check_val_every_n_epoch: 4
   gradient_clip_val: 0.7
 
 data:
@@ -47,7 +53,7 @@ data:
 
 model:
   lr: 1e-4
-  warmup_epochs: 8
+  warmup_epochs: 36 # = Radboud's 8 epochs in steps (see trainer)
   net:
     config:
       dim: 256
