@@ -6,8 +6,10 @@ each slide, it stores in `output_path/slide_id=<id>/`:
 
 - `patches.npy`: (n, 3, patch_size, patch_size) uint8 patches, in a spatial
   (k-d tree) order, so a spatially contiguous crop reads mostly contiguous rows,
-- `rows.npy`: (n,) int32 row in `patches.npy` of each nucleus, in the order of
-  `BaseCropDataset.get_nuclei` (sorted by `id`).
+- `ids.npy`: (n,) nuclei ids in the order of `BaseCropDataset.get_nuclei` (sorted
+  by `id`); the datasets check them against the slide's current nuclei,
+- `rows.npy`: (n,) int32 row in `patches.npy` of each nucleus, in that same order;
+  written last, it marks the slide as done.
 
 The patch geometry is written to `output_path/params.json`, which the datasets
 check against their own when reading the patches.
@@ -31,6 +33,7 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 
 from nuclei_graph.data.block_mask import block_spatial_sort
 from nuclei_graph.data.datasets.nuclei_features import (
+    IDS_FILE,
     PARAMS_FILE,
     PATCHES_FILE,
     ROWS_FILE,
@@ -70,7 +73,13 @@ def extract_patches(
     rows[order] = np.arange(len(order), dtype=np.int32)
 
     slide_dir.mkdir(parents=True, exist_ok=True)
-    for name, array in ((PATCHES_FILE, patches.numpy()[order]), (ROWS_FILE, rows)):
+    ids = nuclei["id"].to_numpy().astype(str)
+    arrays = (
+        (PATCHES_FILE, patches.numpy()[order]),
+        (IDS_FILE, ids),
+        (ROWS_FILE, rows),
+    )
+    for name, array in arrays:  # rows last: it marks the slide as done
         tmp_path = slide_dir / f".{name}.tmp"
         with open(tmp_path, "wb") as f:
             np.save(f, array)

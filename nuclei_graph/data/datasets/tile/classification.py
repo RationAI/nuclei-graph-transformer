@@ -46,11 +46,15 @@ class TileClassificationDataset(BaseTileDataset):
 
         # Nuclei Data
         nuclei_path = self.slide_props[tile["stem"]]["slide_nuclei_path"]
-        polygons, centroids, centroid_tree, _ = get_slide_data(nuclei_path)
+        polygons, centroids, centroid_tree, ids = get_slide_data(nuclei_path)
         tile_indices = self.get_tile_indices(scaled_props, centroids, centroid_tree)
 
         # Supervision
         nuclei_sup = self.supervision.supervision_map[tile["stem"]].nuclei_supervision
+        checked = self.__dict__.setdefault("_label_ids_checked", set())
+        if tile["stem"] not in checked:
+            nuclei_sup.check_ids(ids)
+            checked.add(tile["stem"])
         tile_sup_mask = nuclei_sup.get_sup_mask(len(centroids))[tile_indices]
         tile_nuclei_labels = nuclei_sup.get_targets(len(centroids))[tile_indices]
 

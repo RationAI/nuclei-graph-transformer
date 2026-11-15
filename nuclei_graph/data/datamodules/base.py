@@ -113,6 +113,25 @@ class BaseDataModule(LightningDataModule):
             sup_dfs={k: self.filter_df(v, ids) for k, v in sup_dfs.items()},
         )
 
+    def load_train_val_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """The training and validation slides.
+
+        With a `valid` metadata table and `split_size: null`, the dataset's own validation
+        split is used as is (e.g. iCAIRD); otherwise validation is the fixed split of the
+        `train` table (`get_train_val_dfs`).
+        """
+        valid_uri = self.metadata_uris_cfg.get("valid")
+        if valid_uri is not None and self.split_size is None:
+            train_df = self.load_df(self.metadata_uris_cfg["train"])
+            validation_df = self.load_df(valid_uri)
+            overlap = set(train_df["slide_id"]) & set(validation_df["slide_id"])
+            assert not overlap, f"{len(overlap)} slides in both train and valid"
+            return train_df, validation_df
+        assert self.split_size is not None, (
+            "split_size is required unless a `valid` metadata table is given"
+        )
+        return self.get_train_val_dfs(self.load_df(self.metadata_uris_cfg["train"]))
+
     def get_train_val_dfs(
         self, slides_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:

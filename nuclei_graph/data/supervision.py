@@ -3,10 +3,14 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import ClassVar
 
+import numpy as np
 import pandas as pd
 import torch
+from numpy.typing import NDArray
 from torch import Tensor
 from tqdm import tqdm
+
+from nuclei_graph.data.datasets.nuclei_features import check_ids
 
 
 IGNORE_KEY = "ignore_dir"
@@ -16,12 +20,24 @@ class NucleiSupervision(ABC):
     """Base nuclei supervision.
 
     `ignore` optionally marks nuclei (e.g., "Another pathology" regions) that are
-    excluded from supervision regardless of the slide label.
+    excluded from supervision regardless of the slide label. `ids` and `ignore_ids`
+    are the nuclei ids (sorted) that the labels and `ignore` were read for; the
+    datasets check them against the slide's nuclei with `check_ids`.
     """
+
+    ids: NDArray[np.str_] | None = None
+    ignore_ids: NDArray[np.str_] | None = None
 
     def __init__(self, is_carcinoma: bool, ignore: Tensor | None = None):
         self.is_carcinoma = is_carcinoma
         self.ignore = ignore
+
+    def check_ids(self, ids: NDArray[np.generic]) -> None:
+        """Asserts that the labels belong to `ids`, the slide's nuclei sorted by id."""
+        if self.ids is not None:
+            check_ids(self.ids, ids, "the nuclei labels")
+        if self.ignore_ids is not None:
+            check_ids(self.ignore_ids, ids, "the ignore labels")
 
     @abstractmethod
     def _get_sup_mask(self) -> Tensor:
@@ -213,7 +229,12 @@ class SupervisionStrategy:
             raise ValueError(f"Unknown mode: {mode}")
 
     def create(
-        self, is_carcinoma: bool, ignore: Tensor | None = None, **all_labels: Tensor
+        self,
+        is_carcinoma: bool,
+        ignore: Tensor | None = None,
+        ids: NDArray[np.str_] | None = None,
+        ignore_ids: NDArray[np.str_] | None = None,
+        **all_labels: Tensor,
     ) -> NucleiSupervision:
         sup_class, required_keys = self.STRATEGY_MAP[self.mode]
         filtered_labels = {k: all_labels[k] for k in required_keys}
@@ -222,7 +243,9 @@ class SupervisionStrategy:
             for k, v in filtered_labels.items():
                 assert len(v) > 0, f"Missing required label {k} for slide"
 
-        return sup_class(is_carcinoma, ignore=ignore, **filtered_labels)
+        sup = sup_class(is_carcinoma, ignore=ignore, **filtered_labels)
+        sup.ids, sup.ignore_ids = ids, ignore_ids
+        return sup
 
 
 def build_supervision(
@@ -264,18 +287,23 @@ def build_supervision(
     ):
         labels = dict.fromkeys(required_cols, empty_t)
 
+        ids = None
         if is_carcinoma:
             group = sup_groups.get_group(slide_id)
+            ids = group["id"].to_numpy().astype(str)
             for col in required_cols:
                 if col in group.columns:
                     labels[col] = torch.from_numpy(group[col].values).float()
 
-        ignore = None
+        ignore, ignore_ids = None, None
         if ignore_groups is not None and slide_id in ignore_groups.groups:
             group = ignore_groups.get_group(slide_id)
             ignore = torch.from_numpy(group["ignore_label"].values == 1)
+            ignore_ids = group["id"].to_numpy().astype(str)
 
-        nuclei_sup = strategy.create(is_carcinoma, ignore=ignore, **labels)
+        nuclei_sup = strategy.create(
+            is_carcinoma, ignore=ignore, ids=ids, ignore_ids=ignore_ids, **labels
+        )
         sup_map[slide_id] = SlideSupervision(int(is_carcinoma), nuclei_sup)
 
     return DatasetSupervision(sup_map)

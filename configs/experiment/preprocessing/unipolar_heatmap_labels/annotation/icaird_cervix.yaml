@@ -7,8 +7,10 @@ defaults:
 heatmap_uri: ${dataset.mlflow_uris.masks.annotation.merged.carcinoma}
 metadata_uris:
   - ${dataset.mlflow_uris.exploration}
-exclude_slides_uris: null
+exclude_slides_uris:
+  - ${dataset.mlflow_uris.qc_exclusion}
 splits: [train, valid]
+categories: ${dataset.categories} # low grade is left out of the experiments
 overlap_threshold: 1.0 # nucleus fully inside the annotation (sparse positives)
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
@@ -24,3 +26,4 @@ metadata:
     supervision in positive slides (`data/supervision=annotation_sparse`).
   hyperparams:
     splits: ${splits}
+    categories: ${categories}

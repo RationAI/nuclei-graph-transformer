@@ -192,7 +192,7 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
             )
             if self.patches_path is not None:
                 bboxes = self.read_nuclei_bboxes(
-                    slide.slide_id, crop_indices, len(nuclei)
+                    slide.slide_id, crop_indices, nuclei["id"].to_numpy()
                 )
                 return geom_features, bboxes
 
@@ -219,9 +219,21 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         mpps = np.array([mpp_x, mpp_y], dtype=np.float32)
         return np.stack(nuclei["centroid"].tolist()) * mpps
 
-    def get_nuclei_sup(self, slide_id: str) -> NucleiSupervision:
+    def get_nuclei_sup(
+        self, slide_id: str, ids: NDArray[np.generic] | None = None
+    ) -> NucleiSupervision:
+        """The slide's nuclei supervision.
+
+        With `ids` (the slide's nuclei ids in `get_nuclei` order), asserts that the
+        labels were read for exactly these nuclei, once per slide and dataset instance.
+        """
         assert self.supervision is not None
-        return self.supervision.supervision_map[slide_id].nuclei_supervision
+        sup = self.supervision.supervision_map[slide_id].nuclei_supervision
+        checked = self.__dict__.setdefault("_label_ids_checked", set())
+        if ids is not None and slide_id not in checked:
+            sup.check_ids(ids)
+            checked.add(slide_id)
+        return sup
 
     def get_crop_size(self, n: int) -> int:
         assert self.crop_size_min is not None and self.crop_size_max is not None

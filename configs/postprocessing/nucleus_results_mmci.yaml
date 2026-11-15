@@ -1,0 +1,88 @@
+# @package _global_
+
+# tab:res-nucleus, MMCI row: nucleus-level test results of the model (shape embedding, rotated
+# values, k-NN attention, k = 44, agreement supervision) on the MMCI TL test set
+# (postprocessing.nucleus_results_mmci; method of postprocessing/nucleus_results.py at cb07dc8c,
+# Radboud row, run 6aa01c04 on the public MLflow). Stored test predictions; no training, no inference.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+dataset_label: MMCI TL
+metadata_uri: ${dataset.mlflow_uris.metadata.test} # slide_id, patient_id, is_carcinoma, slide_path, slide_nuclei_path
+supervision_dir: ${dataset.paths.supervision.annotation}
+another_pathology_dir: ${dataset.paths.supervision.another_pathology} # ignore_label; training supervision only
+label_column: annot_label # as postprocessing/crop/metrics (configs/experiment/postprocessing/crop/metrics/prostate_cancer_mmci_tl.yaml)
+predictions_artifact: predictions
+# Another pathology nuclei at test: false = labelled 0 (pipeline default, run 19c2ef40);
+# true = ignored via the pipeline's ignore files (thesis label mapping). Exclude stays 0 either way.
+ignore_another_pathology: false
+previous_run: null # an earlier tab:res-nucleus MMCI run this one supersedes or varies
+
+# NB-A-65 evaluation runs (experiment 97) holding the per-nucleus test predictions;
+# the training run of each is its mlflow.parentRunId.
+eval_runs:
+  - 69d2eaeeacaa4942b074edf2bea5d3fd
+  - 778e0c2b4daf457a9cea637b7c6d70ca
+  - bfea483039a04d53b2b6020b4edd80b0
+expected_training_runs:
+  - 683f7f695aeb4be7ab8de7c5838e8ece
+  - 1d9b8a0c7cc74000832ff935e0d475d0
+  - fc47d8d1949547bd8498765b4d0542a0
+expected_config:
+  embedding_mode: efd
+  context: knn
+  k: "44"
+  use_rope: "True"
+  attention_variant: vrope # rotated values
+expected_supervision: agreement # train and validation (data.supervision.*.mode)
+checkpoint_monitor: validation/loss
+block_mask_fix_date: "2026-10-30"
+# Evaluations whose saved config lost the checkpoint (overwritten by a later postprocessing step):
+# the checkpoint is inferred when the training run holds a single checkpoint and the evaluation's
+# re-validation metrics are closest to that checkpoint's epoch in the training history.
+revalidation_metrics: [validation/loss, validation/AUPRC, validation/AUROC, validation/precision, validation/recall]
+
+# NB-A-64 (tile-level) evaluation runs of the same training runs: their pooled test tile scores must
+# equal the NB-A-65 predictions pooled with each seed's validation-selected pooling.
+tile_check:
+  eval_runs:
+    - a325a7e95a0b4f759cca4804ec7efb5c
+    - 1c925c4bef854cb2ba31d8eb2c1f9315
+    - 2ebbe656d5c6478da80f2ac8fd7be1bd
+  aligned_tiles_run: e97db5a51cf4470e8febbf6805938894 # aligned_tiles.parquet (shape_seed1..3)
+  tile_size: 224
+  margin: 56
+  tolerance: 1.0e-6
+  workers: 16
+
+# Patient resamples of the tile-level bootstrap (B = 2,000), reused unchanged. They hold real
+# patient ids, so they are referenced by run id and checksum and never re-logged.
+resamples_run: e97db5a51cf4470e8febbf6805938894
+resamples_artifact: bootstrap_resamples.npz
+resamples_seed: 20261114
+ci_level: 0.95
+
+histogram:
+  n_bins: 100000
+  max_bins: 400000
+  tolerance: 1.0e-4
+
+# P1-P10 as the tile-level per-patient breakdown (private; read only, never logged)
+patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv
+# Annotation XMLs next to the slides (for the Exclude / Another pathology nucleus counts)
+annotation_suffix: .xml
+
+cache_dir: ${project_path}/evaluation/mmci_test/predictions
+out_dir: ${project_path}/evaluation/mmci_test/nucleus_results
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "tab:res-nucleus: shape, k-NN + rotated values (MMCI test)"
+  description: >-
+    NB-A-65. Nucleus-level AUPRC/AUROC of Shape + RoVE + k-NN attention (k = 44, agreement
+    supervision, 3 seeds) on the MMCI TL test set, with patient-bootstrap CIs (resamples of the
+    tile-level run e97db5a5); method of the Radboud row (run 6aa01c04, nucleus_results.py at cb07dc8c).
