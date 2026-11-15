@@ -1,4 +1,6 @@
+import hashlib
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import reduce
 from typing import ClassVar
@@ -10,10 +12,37 @@ from numpy.typing import NDArray
 from torch import Tensor
 from tqdm import tqdm
 
-from nuclei_graph.data.datasets.nuclei_features import check_ids
-
 
 IGNORE_KEY = "ignore_dir"
+
+
+@dataclass(frozen=True)
+class IdsDigest:
+    """The count and SHA-256 of a sequence of nuclei ids, compared as `str`.
+
+    Stands in for the ids themselves (64-character hashes: ~8 GB for the 131M iCAIRD
+    training nuclei) in the check that labels belong to a slide's nuclei.
+    """
+
+    count: int
+    sha256: str
+
+    @classmethod
+    def of(cls, ids: Iterable[object]) -> "IdsDigest":
+        ids_str = [str(i) for i in ids]
+        return cls(
+            len(ids_str), hashlib.sha256("\0".join(ids_str).encode()).hexdigest()
+        )
+
+    def check(self, ids: NDArray[np.generic], what: str) -> None:
+        """As `nuclei_features.check_ids`: the stored ids equal `ids`, the slide's."""
+        assert self.count == len(ids), (
+            f"{what}: {self.count} nuclei, the slide has {len(ids)}."
+        )
+        assert self == IdsDigest.of(ids.tolist()), (
+            f"{what}: the nuclei ids differ from the slide's; "
+            "regenerate from the current nuclei."
+        )
 
 
 class NucleiSupervision(ABC):
@@ -21,12 +50,12 @@ class NucleiSupervision(ABC):
 
     `ignore` optionally marks nuclei (e.g., "Another pathology" regions) that are
     excluded from supervision regardless of the slide label. `ids` and `ignore_ids`
-    are the nuclei ids (sorted) that the labels and `ignore` were read for; the
-    datasets check them against the slide's nuclei with `check_ids`.
+    are digests of the nuclei ids (sorted) that the labels and `ignore` were read for;
+    the datasets check them against the slide's nuclei with `check_ids`.
     """
 
-    ids: NDArray[np.str_] | None = None
-    ignore_ids: NDArray[np.str_] | None = None
+    ids: IdsDigest | None = None
+    ignore_ids: IdsDigest | None = None
 
     def __init__(self, is_carcinoma: bool, ignore: Tensor | None = None):
         self.is_carcinoma = is_carcinoma
@@ -35,9 +64,9 @@ class NucleiSupervision(ABC):
     def check_ids(self, ids: NDArray[np.generic]) -> None:
         """Asserts that the labels belong to `ids`, the slide's nuclei sorted by id."""
         if self.ids is not None:
-            check_ids(self.ids, ids, "the nuclei labels")
+            self.ids.check(ids, "the nuclei labels")
         if self.ignore_ids is not None:
-            check_ids(self.ignore_ids, ids, "the ignore labels")
+            self.ignore_ids.check(ids, "the ignore labels")
 
     @abstractmethod
     def _get_sup_mask(self) -> Tensor:
@@ -232,8 +261,8 @@ class SupervisionStrategy:
         self,
         is_carcinoma: bool,
         ignore: Tensor | None = None,
-        ids: NDArray[np.str_] | None = None,
-        ignore_ids: NDArray[np.str_] | None = None,
+        ids: IdsDigest | None = None,
+        ignore_ids: IdsDigest | None = None,
         **all_labels: Tensor,
     ) -> NucleiSupervision:
         sup_class, required_keys = self.STRATEGY_MAP[self.mode]
@@ -246,6 +275,45 @@ class SupervisionStrategy:
         sup = sup_class(is_carcinoma, ignore=ignore, **filtered_labels)
         sup.ids, sup.ignore_ids = ids, ignore_ids
         return sup
+
+
+def sorted_by_id(df: pd.DataFrame) -> pd.DataFrame:
+    """A slide's supervision rows in `get_nuclei` order (sorted by nucleus id)."""
+    return df.sort_values("id")
+
+
+def take_rows(df: pd.DataFrame, rows: NDArray[np.intp]) -> pd.DataFrame:
+    """`df.iloc[rows]` for the (ascending) row positions of one slide.
+
+    Contiguous rows (a slide's rows from its own file) are sliced, which does not copy
+    the Arrow-backed columns; selecting rows of a multi-chunk Arrow column concatenates
+    the whole column first.
+    """
+    if len(rows) > 0 and rows[-1] - rows[0] + 1 == len(rows):
+        return df.iloc[rows[0] : rows[-1] + 1]
+    return df.iloc[rows]
+
+
+def slide_supervision(
+    sources: list[pd.DataFrame],
+    source_rows: list[dict[str, NDArray[np.intp]]],
+    slide_id: str,
+) -> pd.DataFrame:
+    """The slide's rows of all the `sources`, inner-joined on the nucleus id and sorted by it.
+
+    Raises `KeyError` if a source has no rows of the slide.
+    """
+    return sorted_by_id(
+        reduce(
+            lambda left, right: pd.merge(
+                left, right, on=["slide_id", "id"], how="inner", validate="1:1"
+            ),
+            [
+                take_rows(df, rows[slide_id])
+                for df, rows in zip(sources, source_rows, strict=True)
+            ],
+        )
+    )
 
 
 def build_supervision(
@@ -261,21 +329,16 @@ def build_supervision(
     ignore_df = sup_dfs.get(IGNORE_KEY)
     sources = [df for k, df in sup_dfs.items() if k != IGNORE_KEY and df is not None]
     assert sources
-    ignore_groups = (
-        ignore_df.sort_values(["slide_id", "id"]).groupby("slide_id")
-        if ignore_df is not None
-        else None
-    )
 
-    sup_groups = (
-        reduce(
-            lambda left, right: pd.merge(
-                left, right, on=["slide_id", "id"], how="inner", validate="1:1"
-            ),
-            sources,
-        )
-        .sort_values(["slide_id", "id"])
-        .groupby("slide_id")
+    # Row positions of each slide (no copies of the dataframes); a slide's rows are
+    # merged across the sources and sorted by id only when its supervision is built,
+    # since a sorted copy of all the slides' rows does not fit in memory on large
+    # datasets (e.g. iCAIRD: 131M training nuclei; the old code peaked at ~84 GB).
+    source_rows = [df.groupby("slide_id", sort=False).indices for df in sources]
+    ignore_rows = (
+        ignore_df.groupby("slide_id", sort=False).indices
+        if ignore_df is not None
+        else {}
     )
 
     sup_map = {}
@@ -289,17 +352,18 @@ def build_supervision(
 
         ids = None
         if is_carcinoma:
-            group = sup_groups.get_group(slide_id)
-            ids = group["id"].to_numpy().astype(str)
+            group = slide_supervision(sources, source_rows, slide_id)
+            ids = IdsDigest.of(group["id"].tolist())
             for col in required_cols:
                 if col in group.columns:
-                    labels[col] = torch.from_numpy(group[col].values).float()
+                    labels[col] = torch.from_numpy(group[col].to_numpy()).float()
 
         ignore, ignore_ids = None, None
-        if ignore_groups is not None and slide_id in ignore_groups.groups:
-            group = ignore_groups.get_group(slide_id)
-            ignore = torch.from_numpy(group["ignore_label"].values == 1)
-            ignore_ids = group["id"].to_numpy().astype(str)
+        if slide_id in ignore_rows:
+            assert ignore_df is not None
+            group = sorted_by_id(take_rows(ignore_df, ignore_rows[slide_id]))
+            ignore = torch.from_numpy(group["ignore_label"].to_numpy() == 1)
+            ignore_ids = IdsDigest.of(group["id"].tolist())
 
         nuclei_sup = strategy.create(
             is_carcinoma, ignore=ignore, ids=ids, ignore_ids=ignore_ids, **labels

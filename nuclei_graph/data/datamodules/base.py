@@ -1,6 +1,9 @@
 from abc import abstractmethod
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from hydra.utils import instantiate
 from lightning import LightningDataModule
 from mlflow.artifacts import download_artifacts
@@ -29,6 +32,35 @@ def split_train_val(
         groups=slides_df[group_col] if group_col else None,
     )
     return train_df.reset_index(drop=True), validation_df.reset_index(drop=True)
+
+
+def read_supervision(path: str, slide_ids: set[str]) -> pd.DataFrame:
+    """The supervision rows of `slide_ids` from the parquet file or directory `path`.
+
+    Only the rows of these slides are read (the per-slide files of the other slides are
+    skipped), and string columns stay Arrow-backed, which takes ~3x less memory than
+    Python strings (the nuclei ids are 64-character hashes). They are read as
+    `large_string`: selecting rows that are not contiguous concatenates a column's
+    chunks (`build_supervision.take_rows`), and the 32-bit offsets of `string`
+    overflow beyond 2 GB of text (~33M ids). The read is single-threaded so that
+    `release_unused` (which frees the calling thread's memory) returns it to the OS.
+    """
+    dataset = ds.dataset(path, format="parquet", partitioning="hive")
+    schema = pa.schema(
+        [
+            f.with_type(pa.large_string()) if pa.types.is_string(f.type) else f
+            for f in dataset.schema
+        ],
+        metadata=dataset.schema.metadata,
+    )
+    dataset = ds.dataset(path, schema=schema, format="parquet", partitioning="hive")
+    value_set = pa.array(sorted(slide_ids), type=schema.field("slide_id").type)
+    table = dataset.to_table(
+        filter=pc.field("slide_id").isin(value_set), use_threads=False
+    )
+    return table.to_pandas(
+        types_mapper=lambda t: pd.ArrowDtype(t) if pa.types.is_large_string(t) else None
+    )
 
 
 METADATA_COLS_EVAL = [
@@ -104,14 +136,18 @@ class BaseDataModule(LightningDataModule):
     ) -> DatasetSupervision:
         ids = set(slides_df["slide_id"])
         sup_dfs = {
-            sup: pd.read_parquet(path) if path is not None else None
+            sup: read_supervision(path, ids) if path is not None else None
             for sup, path in sup_paths.items()
         }
-        return build_supervision(
+        supervision = build_supervision(
             strategy=strategy,
             carcinoma_map=self.get_carcinoma_map(slides_df),
-            sup_dfs={k: self.filter_df(v, ids) for k, v in sup_dfs.items()},
+            sup_dfs=sup_dfs,
         )
+        # Arrow's allocator keeps the freed tables (iCAIRD training: ~17 GB vs ~2 GB)
+        del sup_dfs
+        pa.default_memory_pool().release_unused()
+        return supervision
 
     def load_train_val_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """The training and validation slides.
