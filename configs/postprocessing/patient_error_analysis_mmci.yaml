@@ -1,0 +1,60 @@
+# @package _global_
+
+# Per-patient error analysis of the nucleus-level shape model (Shape + RoVE + k-NN, k = 44, agreement
+# supervision, 3 seeds) on the MMCI TL test set (postprocessing.patient_error_analysis_mmci).
+# Builds on run dc419c48 (tab:res-nucleus MMCI row, Another pathology ignored at test): same
+# predictions, labels, P1-P10 labels and per-seed-then-mean metrics.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+dataset_label: MMCI TL
+
+# tab:res-nucleus MMCI run with Another pathology ignored (experiment 97): its eval/training runs,
+# labels and per-patient table are the reference here.
+results_run: dc419c48ca8d4b0697f37235ae9020cc
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+supervision_dir: ${dataset.paths.supervision.annotation}
+another_pathology_dir: ${dataset.paths.supervision.another_pathology}
+label_column: annot_label
+predictions_artifact: predictions
+test_cache_dir: ${project_path}/evaluation/mmci_test/predictions # cache of nucleus_results_mmci.py
+patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv
+
+# Calibrated AUPRC (Siblini et al., IDA 2020, arXiv 1909.02827): precision with the patient's
+# prevalence pi re-weighted to the reference prevalence pi0.
+pi0: [0.275, 0.5] # 0.275 = pooled test prevalence (run dc419c48: 0.2749)
+calibration_check_tolerance: 1.0e-6 # c = 1 must give the torchmetrics AUPRC
+
+# Operating point: threshold with recall >= target on the validation nuclei, seed-mean probabilities.
+# Validation = the fixed split of the training slides (split_train_val, random_state = 42) of
+# the training runs; labels by the test rule (annot_label, missing -> 0, benign slides -> 0,
+# Another pathology ignored).
+target_recall: 0.90
+# No run stores validation predictions: they are predicted here (pre-fix block mask and TF32 matmuls,
+# as the stored GPU test predictions), and so is the whole test set, to measure the reproduction.
+# <inference_cache_dir>/<device>/<training run>_{validation,test}.parquet; private, never logged.
+inference_cache_dir: ${project_path}/evaluation/mmci_inference_predictions
+inference:
+  device: cuda # cpu works too (~10x slower; scores differ from GPU by mean |dp| ~ 0.001)
+  threads: 20
+
+# Diagnostics, computed for every patient (per seed, then mean) and interpreted for patients whose
+# calibrated AUPRC (pi0 = 0.275) is more than `clearly_below_margin` below the median of the others.
+clearly_below_margin: 0.10
+fn_median_margin: 0.05 # carcinoma median below the others' by more -> tendency to false negatives
+fp_share_factor: 2.0 # benign share above the others' 99th percentile > factor x 1% -> false positives
+
+out_dir: ${project_path}/evaluation/mmci_test/patient_error_analysis
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "Per-patient error analysis: shape, k-NN + rotated values (MMCI test)"
+  description: >-
+    Per-patient calibrated AUPRC (Siblini et al. 2020; pi0 = 0.275 and 0.5), the recall-0.90
+    validation operating point and false-negative / false-positive diagnostics of Shape + RoVE + k-NN
+    (k = 44, 3 seeds) on the MMCI TL test set, Another pathology ignored. Predictions, labels and P1-P10
+    of run dc419c48.
