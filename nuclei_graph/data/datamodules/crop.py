@@ -65,15 +65,13 @@ class CropDataModule(BaseDataModule):
 
     def setup(self, stage: str) -> None:
         mode = "train" if stage in {"fit", "validate"} else stage
-        slides_uri = self.metadata_uris_cfg[mode]
+        slides_uri = self.metadata_uris_cfg.get(mode)
 
         match stage:
             case "fit" | "validate":
-                assert self.split_size is not None
                 assert self.eval_strategy is not None
 
-                slides_df = self.load_df(slides_uri)
-                train_df, validation_df = self.get_train_val_dfs(slides_df)
+                train_df, validation_df = self.load_train_val_dfs()
 
                 if stage == "fit":
                     assert self.train_strategy is not None
@@ -100,7 +98,9 @@ class CropDataModule(BaseDataModule):
                     )
 
                 validation_sup = self.prepare_supervision(
-                    validation_df, self.eval_strategy.paths, self.eval_strategy,
+                    validation_df,
+                    self.eval_strategy.paths,
+                    self.eval_strategy,
                 )
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,

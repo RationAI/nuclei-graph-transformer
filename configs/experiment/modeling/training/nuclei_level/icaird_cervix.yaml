@@ -1,0 +1,83 @@
+# @package _global_
+
+# iCAIRD cervix, nucleus level: shape embedding (EFD polygons), rotated values (RoVE, vrope) and
+# k-NN attention with k = 24, as the Radboud tab:res-nucleus row ("Radboud, k=24: Polygons + RoVE
+# + k-NN Attn"); only the data and the supervision differ.
+#
+# Data (configs/data/sources/icaird_cervix.yaml): the slide tables of
+# preprocessing/metadata_mapping/icaird_cervix.py (public MLflow run ad481111; cleaned Cellpose
+# batch; low grade and blur-excluded slides left out). Training uses the 792 train slides and is
+# validated on the dataset's own 392 valid slides (`metadata.valid` with `split_size: null`).
+# Labels: preprocessing/unipolar_heatmap_labels.py (run 96d62a20): annot_label = 1 when a nucleus
+# lies fully inside the merged high grade + malignant annotation. The annotations are not
+# exhaustive, so supervision is sparse: in positive slides only annot_label = 1 nuclei are
+# supervised (as positives); every nucleus of a normal / inflammation slide is a negative.
+#
+# The metadata URIs are on the public MLflow (experiment 37) and the nuclei / labels on
+# /mnt/projects: run with the public MLFLOW_TRACKING_URI where /mnt/projects is mounted.
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/icaird_cervix
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/augmentations@data.dataset.augmentations: base
+  - /data/supervision@data.supervision.train_strategy: annotation_sparse
+  - /data/supervision@data.supervision.eval_strategy: annotation_sparse
+  - _self_
+
+monitor: validation/loss
+checkpoint_mode: min
+
+trainer:
+  max_epochs: 300
+  gradient_clip_val: 0.7
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 16
+  k: 24
+  context: knn # none, dense, knn
+
+  # the dataset's own validation split (CropDataModule.load_train_val_dfs), no carving
+  metadata: ${dataset.mlflow_uris.metadata} # train, valid, test
+  split_size: null
+  split_stratify_col: null
+  split_group_col: null
+
+  dataset:
+    crop_size_min: 512
+    crop_size_max: 8192
+    alpha: 0.8
+    efd_order: 16
+    patch_size: 40 # unused with efd
+    embedding_mode: efd # efd, bbox, blank
+
+  supervision:
+    paths: ${dataset.paths.supervision} # annotation
+  sampler:
+    positivity_thr: 0.05
+    pos_slide_ratio: 0.75
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      use_rope: true
+      attention_variant: vrope # rotated values (RoVE)
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "iCAIRD, k=24: Polygons + RoVE + k-NN Attn"
+  description: >-
+    iCAIRD cervix (high grade + malignant vs normal / inflammation; low grade left out), sparse
+    annotation supervision, the dataset's validation split; shape embedding, RoVE, k-NN attention,
+    k = 24.
