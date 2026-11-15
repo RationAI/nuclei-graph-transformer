@@ -1,0 +1,76 @@
+# @package _global_
+
+# Per-slide error analysis of the nucleus-level shape model on PANDA Radboud test
+# (postprocessing.slide_error_analysis_radboud): does the score shift with the amount of carcinoma
+# seen per patient on MMCI also appear per slide on Radboud, and within grade groups?
+# Model, test predictions and labels of run 6aa01c04 (tab:res-nucleus Radboud row, experiment 37):
+# shape embedding (efd), rotated values, k-NN attention, k = 24, three seeds.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+# public MLflow (experiment 37); MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD from the environment
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz
+dataset_label: PANDA Radboud
+
+results_run: 6aa01c0448ec42a49ae5137ceaf4f12e # tab:res-nucleus Radboud (postprocessing.nucleus_results)
+# seed order of the results run (runs.csv); asserted against its artifacts
+training_runs:
+  - 5401eebe1212414d99b19e903a22db31
+  - 084da1a0f82748049381c84d87b74462
+  - c8f268536be8416f9fe395eea95c458e
+eval_runs:
+  - a5ee0cd9d08f4e3e92e5e55d71a1d9a7
+  - 98fc505c09ed41348e5b5b200afd465c
+  - 777fb4134250483bab02ba57ce484ea4
+
+# The public cluster's project folder (/mnt/projects/nuclei_based_wsi_analysis there, as in the
+# slide tables and run configs) is mounted here; paths under `remote_project_path` are remapped.
+remote_project_path: /mnt/projects/nuclei_based_wsi_analysis
+local_project_path: /mnt/public_projects/nuclei_based_wsi_analysis
+# The mount above is read-only here (only read: test predictions, labels, nuclei); the outputs, the
+# inference cache and the temporary downloads (checkpoints, git worktree) go to the writable project folder.
+write_path: ${project_path}/evaluation/radboud_test
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${local_project_path}/nuclei_supervision/PANDA/Radboud/annotation
+label_column: annot_label # as 6aa01c04: missing -> 0, is_carcinoma = False -> 0; dense, nothing ignored
+predictions_artifact: predictions
+test_cache_dir: ${local_project_path}/evaluation/radboud_test/predictions # cache of 6aa01c04 (same files)
+panda_labels_csv: ${dataset.paths.wsi_data.metadata} # public PANDA train.csv: isup_grade, gleason_score
+
+# Validation = the training runs' fixed split of the training metadata (split_train_val, random_state = 42).
+# Stored validation predictions are reused if a child run of each training run holds predictions of
+# every validation slide; otherwise they are predicted with the evaluation runs' commit (git worktree).
+inference:
+  device: cuda
+  rerun_test: true # also re-predict the test set and compare it with the stored predictions
+inference_cache_dir: ${write_path}/inference_predictions # <commit>/<training run>_{validation,test}.parquet
+
+pi0: [0.385, 0.275] # 0.385 = pooled Radboud test prevalence (6aa01c04: 0.3852); 0.275 = MMCI
+calibration_check_tolerance: 1.0e-6 # c = 1 must give the torchmetrics AUPRC
+target_recall: 0.90
+min_carcinoma_nuclei: 50 # fewer: AUPRC values marked unreliable (recall / FPR still reported)
+
+# lower edge inclusive: [0, 1 %), [1, 5 %), [5, 20 %), [20, 50 %), [50, 100 %]
+prevalence_bins: [0.0, 0.01, 0.05, 0.20, 0.50, 1.0]
+prevalence_bin_labels: ["<1%", "1-5%", "5-20%", "20-50%", ">50%"]
+quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]
+
+bootstrap:
+  n_resamples: 2000
+  seed: 20261115
+  ci_level: 0.95
+
+out_dir: ${write_path}/slide_error_analysis
+log_mlflow: true
+
+metadata:
+  experiment_id: "37"
+  run_name: "Per-slide error analysis: shape, k-NN + rotated values (Radboud test)"
+  description: >-
+    Per-slide AUPRC, calibrated AUPRC (Siblini et al. 2020; pi0 = 0.385 and 0.275), AUROC, and recall /
+    FPR at the Youden and recall-0.90 validation thresholds of Shape + RoVE + k-NN (k = 24, 3 seeds) on
+    PANDA Radboud test; prevalence bins, Spearman correlations with bootstrap CIs, score quantiles per
+    bin, overall and within ISUP 1 / ISUP >= 2. Predictions and labels of run 6aa01c04.
