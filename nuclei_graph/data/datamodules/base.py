@@ -10,6 +10,7 @@ from mlflow.artifacts import download_artifacts
 from omegaconf import DictConfig
 from ratiopath.model_selection import train_test_split
 
+from nuclei_graph.data.memory import check_system_allocator, release_memory
 from nuclei_graph.data.supervision import (
     DatasetSupervision,
     SupervisionStrategy,
@@ -43,7 +44,7 @@ def read_supervision(path: str, slide_ids: set[str]) -> pd.DataFrame:
     `large_string`: selecting rows that are not contiguous concatenates a column's
     chunks (`build_supervision.take_rows`), and the 32-bit offsets of `string`
     overflow beyond 2 GB of text (~33M ids). The read is single-threaded so that
-    `release_unused` (which frees the calling thread's memory) returns it to the OS.
+    `release_memory` (which frees the calling thread's memory) returns it to the OS.
     """
     dataset = ds.dataset(path, format="parquet", partitioning="hive")
     schema = pa.schema(
@@ -90,6 +91,7 @@ class BaseDataModule(LightningDataModule):
         context: str = "knn",
     ) -> None:
         super().__init__()
+        check_system_allocator()  # see `ReleaseMemory`
         self.context = context
         self.batch_size = batch_size
         self.block_size = block_size
@@ -144,9 +146,9 @@ class BaseDataModule(LightningDataModule):
             carcinoma_map=self.get_carcinoma_map(slides_df),
             sup_dfs=sup_dfs,
         )
-        # Arrow's allocator keeps the freed tables (iCAIRD training: ~17 GB vs ~2 GB)
+        # the allocators keep the freed tables (iCAIRD training: ~17 GB vs ~2 GB)
         del sup_dfs
-        pa.default_memory_pool().release_unused()
+        release_memory()
         return supervision
 
     def load_train_val_dfs(self) -> tuple[pd.DataFrame, pd.DataFrame]:

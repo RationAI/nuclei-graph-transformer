@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 
 from nuclei_graph.data.datamodules.base import METADATA_COLS_EVAL, BaseDataModule
 from nuclei_graph.data.datamodules.collator import GraphCollator
+from nuclei_graph.data.memory import ReleaseMemory
 from nuclei_graph.data.supervision import IGNORE_KEY
 from nuclei_graph.nuclei_graph_typing import Batch
 
@@ -75,12 +76,14 @@ class TileDataModule(BaseDataModule):
             batch_size=self.batch_size,
             sampler=sampler,
             shuffle=False,
-            collate_fn=GraphCollator(
-                block_size=self.block_size,
-                k=self.k,
-                predict=False,
-                context=self.context,
-                build_block_mask=False,  # built on the GPU (ensure_block_mask)
+            collate_fn=ReleaseMemory(
+                GraphCollator(
+                    block_size=self.block_size,
+                    k=self.k,
+                    predict=False,
+                    context=self.context,
+                    build_block_mask=False,  # built on the GPU (ensure_block_mask)
+                )
             ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
@@ -97,12 +100,14 @@ class TileDataModule(BaseDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=GraphCollator(
-                block_size=self.block_size,
-                k=self.k,
-                predict=False,
-                context=self.context,
-                build_block_mask=False,  # built on the GPU (ensure_block_mask)
+            collate_fn=ReleaseMemory(
+                GraphCollator(
+                    block_size=self.block_size,
+                    k=self.k,
+                    predict=False,
+                    context=self.context,
+                    build_block_mask=False,  # built on the GPU (ensure_block_mask)
+                )
             ),
             pin_memory=True,
         )
@@ -115,12 +120,14 @@ class TileDataModule(BaseDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=GraphCollator(
-                block_size=self.block_size,
-                k=self.k,
-                predict=False,
-                context=self.context,
-                build_block_mask=False,  # built on the GPU (ensure_block_mask)
+            collate_fn=ReleaseMemory(
+                GraphCollator(
+                    block_size=self.block_size,
+                    k=self.k,
+                    predict=False,
+                    context=self.context,
+                    build_block_mask=False,  # built on the GPU (ensure_block_mask)
+                )
             ),
             pin_memory=True,
         )
@@ -133,12 +140,14 @@ class TileDataModule(BaseDataModule):
             num_workers=self.eval_num_workers,
             persistent_workers=self.eval_num_workers > 0,
             prefetch_factor=2 if self.eval_num_workers > 0 else None,
-            collate_fn=GraphCollator(
-                block_size=self.block_size,
-                k=self.k,
-                predict=True,
-                context=self.context,
-                build_block_mask=False,  # built on the GPU (ensure_block_mask)
+            collate_fn=ReleaseMemory(
+                GraphCollator(
+                    block_size=self.block_size,
+                    k=self.k,
+                    predict=True,
+                    context=self.context,
+                    build_block_mask=False,  # built on the GPU (ensure_block_mask)
+                )
             ),
             pin_memory=True,
         )
