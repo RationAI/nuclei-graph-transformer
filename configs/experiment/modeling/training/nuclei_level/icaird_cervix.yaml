@@ -16,7 +16,7 @@ monitor: validation/loss
 checkpoint_mode: min
 
 trainer: 
-  max_epochs: 2300 # 1335 2300
+  max_epochs: 1335 # 1335 2300
   check_val_every_n_epoch: 4
   gradient_clip_val: 0.7
 
@@ -38,7 +38,7 @@ data:
     alpha: 0.8
     efd_order: 16
     patch_size: 40 # unused with efd
-    embedding_mode: blank # efd, bbox, blank
+    embedding_mode: efd # efd, bbox, blank
 
   supervision:
     paths: ${dataset.paths.supervision} # annotation
@@ -61,5 +61,5 @@ model:
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:
-  run_name: "iCAIRD, k=24: Blank Token + RoVE + k-NN Attn"
+  run_name: "iCAIRD, k=24: Polygons + RoVE + k-NN Attn"
   description: ""
