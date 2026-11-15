@@ -43,7 +43,7 @@ data:
   supervision:
     paths: ${dataset.paths.supervision} # annotation
   sampler:
-    positivity_thr: 0.05
+    positivity_thr: 0.0
     pos_slide_ratio: 0.75
 
 model:

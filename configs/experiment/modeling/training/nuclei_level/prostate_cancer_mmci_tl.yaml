@@ -45,7 +45,7 @@ data:
     eval_strategy:
       ignore_dir: ${data.supervision.paths.another_pathology}
   sampler:
-    positivity_thr: 0.05
+    positivity_thr: 0.0
     pos_slide_ratio: 0.75
 
 model:
