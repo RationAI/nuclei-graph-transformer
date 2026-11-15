@@ -1,0 +1,29 @@
+# @package _global_
+
+# Per-patient score quantiles and operating points of the nucleus-level shape model on the MMCI TL test
+# set (postprocessing.patient_score_quantiles_mmci). Same model, predictions, labels and P1-P10 as the
+# per-patient error analysis (run d73e1fe0, a child run of which is logged here), Another pathology
+# ignored, seed-mean probabilities. Nothing is re-predicted: the test scores are the stored predictions
+# of run dc419c48's evaluation runs, the validation scores the GPU predictions run d73e1fe0 cached
+# (its 0.90-recall threshold is reproduced exactly as a check).
+
+defaults:
+  - /postprocessing/patient_error_analysis_mmci@_here_
+  - _self_
+
+parent_run: d73e1fe0a9294b779b024c5c16704a70 # per-patient error analysis (experiment 97)
+inference_device: cuda # cached validation predictions: <inference_cache_dir>/<device>/<training run>_validation.parquet
+
+quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]
+target_recall: 0.90
+
+out_dir: ${project_path}/evaluation/mmci_test/patient_score_quantiles
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "Per-patient score quantiles and Youden / recall-0.90 thresholds (MMCI test)"
+  description: >-
+    Per patient (P1-P10) and class (carcinoma / benign): n, prevalence and the 5/25/50/75/95th percentiles
+    of the seed-mean test score (stored predictions of run dc419c48, Another pathology ignored); the
+    recall-0.90 and Youden (max TPR - FPR) thresholds on the seed-mean validation scores cached by run
+    d73e1fe0, with per-patient recall and FPR at both.
