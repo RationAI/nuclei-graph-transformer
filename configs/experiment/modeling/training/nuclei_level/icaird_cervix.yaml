@@ -1,21 +1,5 @@
 # @package _global_
 
-# iCAIRD cervix, nucleus level: shape embedding (EFD polygons), rotated values (RoVE, vrope) and
-# k-NN attention with k = 24, as the Radboud tab:res-nucleus row ("Radboud, k=24: Polygons + RoVE
-# + k-NN Attn"); only the data and the supervision differ.
-#
-# Data (configs/data/sources/icaird_cervix.yaml): the slide tables of
-# preprocessing/metadata_mapping/icaird_cervix.py (public MLflow run ad481111; cleaned Cellpose
-# batch; low grade and blur-excluded slides left out). Training uses the 792 train slides and is
-# validated on the dataset's own 392 valid slides (`metadata.valid` with `split_size: null`).
-# Labels: preprocessing/unipolar_heatmap_labels.py (run 96d62a20): annot_label = 1 when a nucleus
-# lies fully inside the merged high grade + malignant annotation. The annotations are not
-# exhaustive, so supervision is sparse: in positive slides only annot_label = 1 nuclei are
-# supervised (as positives); every nucleus of a normal / inflammation slide is a negative.
-#
-# The metadata URIs are on the public MLflow (experiment 37) and the nuclei / labels on
-# /mnt/projects: run with the public MLFLOW_TRACKING_URI where /mnt/projects is mounted.
-
 defaults:
   - /experiment/modeling/training/base@_here_
   - /data/sources/icaird_cervix
@@ -41,7 +25,7 @@ data:
   k: 24
   context: knn # none, dense, knn
 
-  # the dataset's own validation split (CropDataModule.load_train_val_dfs), no carving
+  # the dataset's own validation split (CropDataModule.load_train_val_dfs)
   metadata: ${dataset.mlflow_uris.metadata} # train, valid, test
   split_size: null
   split_stratify_col: null
@@ -77,7 +61,4 @@ model:
 
 metadata:
   run_name: "iCAIRD, k=24: Polygons + RoVE + k-NN Attn"
-  description: >-
-    iCAIRD cervix (high grade + malignant vs normal / inflammation; low grade left out), sparse
-    annotation supervision, the dataset's validation split; shape embedding, RoVE, k-NN attention,
-    k = 24.
+  description: ""
