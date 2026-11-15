@@ -80,6 +80,7 @@ class TileDataModule(BaseDataModule):
                 k=self.k,
                 predict=False,
                 context=self.context,
+                build_block_mask=False,  # built on the GPU (ensure_block_mask)
             ),
             drop_last=True,
             prefetch_factor=2 if self.num_workers > 0 else None,
@@ -101,6 +102,7 @@ class TileDataModule(BaseDataModule):
                 k=self.k,
                 predict=False,
                 context=self.context,
+                build_block_mask=False,  # built on the GPU (ensure_block_mask)
             ),
             pin_memory=True,
         )
@@ -118,6 +120,7 @@ class TileDataModule(BaseDataModule):
                 k=self.k,
                 predict=False,
                 context=self.context,
+                build_block_mask=False,  # built on the GPU (ensure_block_mask)
             ),
             pin_memory=True,
         )
@@ -135,6 +138,7 @@ class TileDataModule(BaseDataModule):
                 k=self.k,
                 predict=True,
                 context=self.context,
+                build_block_mask=False,  # built on the GPU (ensure_block_mask)
             ),
             pin_memory=True,
         )

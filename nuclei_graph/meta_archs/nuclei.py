@@ -14,6 +14,7 @@ from torchmetrics.classification import (
     BinaryRecall,
 )
 
+from nuclei_graph.data.datamodules.collator import ensure_block_mask
 from nuclei_graph.nuclei_graph_typing import Batch, Outputs
 
 
@@ -40,6 +41,7 @@ class NucleiModelMetaArch(LightningModule):
         self.val_step_sizes: list[int] = []
 
     def forward(self, inputs: Batch) -> Outputs:
+        ensure_block_mask(inputs)
         return self.net(
             x=inputs["features"],
             pos=inputs["pos"],

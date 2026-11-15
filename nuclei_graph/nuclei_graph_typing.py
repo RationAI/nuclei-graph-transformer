@@ -102,7 +102,8 @@ class Batch(TypedDict):
     all_knns: list[Tensor]
     global_neighbor_idx: Tensor
     block_size: int
-    block_mask: BlockMask | None
+    block_mask: BlockMask | None  # None: built on device by `ensure_block_mask`
+    context: NotRequired[str]
     pos: Tensor
     features: Tensor | None
     sup_mask: Tensor

@@ -31,12 +31,27 @@ class GraphCollator:
         k: int = 16,
         predict: bool = True,
         context: str = "knn",
+        build_block_mask: bool = True,
     ):
+        """Initializes the collator.
+
+        Args:
+            block_size: Block size of the attention block mask.
+            k: Number of nearest neighbors of each nucleus.
+            predict: Leave out the labels.
+            context: Attention context: "knn", "dense" or "none".
+            build_block_mask: Build the attention block mask here. Otherwise the batch
+                leaves it `None` and `ensure_block_mask` builds it later, on the device
+                of the batch: whole slides can have millions of nuclei, and a mask
+                built in a dataloader worker is held in host memory by every worker
+                and passed through shared memory.
+        """
         assert context in CONTEXT_MODES, f"Invalid context: {context}"
         self.block_size = block_size
         self.k = k
         self.predict = predict
         self.context = context
+        self.build_block_mask = build_block_mask
 
     def _pick_bucket(self, seq_len: int) -> int:
         for b in self.BUCKETS:
@@ -151,18 +166,11 @@ class GraphCollator:
                     torch.cat(all_labels_pseudo), target_seq_len, value=False
                 )
 
-        block_mask: BlockMask | None = None
-        if self.context == "knn":
-            block_mask = create_ragged_block_quantized_knn_mask(
-                all_knns, self.block_size, total_seq_len=target_seq_len
-            )
-        elif self.context == "dense":
-            block_mask = create_dense_document_mask(
-                [len(pos) for pos in all_pos],
-                self.block_size,
-                device=all_pos[0].device,
-                total_seq_len=target_seq_len,
-            )
+        block_mask = (
+            build_block_mask(all_knns, self.block_size, self.context, target_seq_len)
+            if self.build_block_mask
+            else None
+        )
 
         global_neighbor_idx = pack_and_shift_knn_indices(all_knns, target_seq_len)
 
@@ -172,6 +180,7 @@ class GraphCollator:
                 "global_neighbor_idx": global_neighbor_idx,  # (target_seq_len, k), -1 = invalid
                 "block_size": self.block_size,
                 "block_mask": block_mask,
+                "context": self.context,
                 "pos": self._pad(torch.cat(all_pos), target_seq_len),
                 "features": self._pad(torch.cat(all_features), target_seq_len)
                 if has_features
@@ -187,3 +196,42 @@ class GraphCollator:
                 "metadata": self._aggregate_metadata(batch, all_sort_indices),
             }
         )
+
+
+def build_block_mask(
+    all_knns: list[Tensor], block_size: int, context: str, total_seq_len: int
+) -> BlockMask | None:
+    """The attention block mask of the packed samples (`None` for context "none").
+
+    Built on the device of `all_knns`, the per-sample k-NN indices (one row per
+    nucleus).
+    """
+    if context == "knn":
+        return create_ragged_block_quantized_knn_mask(
+            all_knns, block_size, total_seq_len=total_seq_len
+        )
+    if context == "dense":
+        return create_dense_document_mask(
+            [len(knn) for knn in all_knns],
+            block_size,
+            device=all_knns[0].device,
+            total_seq_len=total_seq_len,
+        )
+    return None
+
+
+def ensure_block_mask(batch: Batch) -> Batch:
+    """Builds the block mask of a batch whose collator left it out, in place.
+
+    The mask is built on the device the batch is on (see `GraphCollator`), once:
+    later calls with the same batch reuse it.
+    """
+    context = batch.get("context")
+    if batch["block_mask"] is None and context in ("knn", "dense"):
+        batch["block_mask"] = build_block_mask(
+            batch["all_knns"],
+            batch["block_size"],
+            context,
+            total_seq_len=len(batch["global_neighbor_idx"]),
+        )
+    return batch

@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn.attention.flex_attention
 from torch import Tensor
+from torch.nn.attention.flex_attention import _ordered_to_dense
 from torch.utils._pytree import tree_map_only
 
 
@@ -25,6 +26,21 @@ class _MaskMod:
 
 
 class BlockMask(torch.nn.attention.flex_attention.BlockMask):
+    def to_dense(self) -> Tensor:
+        """The (B, H, q_blocks, kv_blocks) block mask.
+
+        The index lists may be narrower than the number of KV blocks (see
+        `_index_width`), which torch's `to_dense` takes for the column count.
+        """
+        num_cols = math.ceil(self.seq_lengths[1] / self.BLOCK_SIZE[1])
+        dense = _ordered_to_dense(self.kv_num_blocks, self.kv_indices, num_cols)
+        if self.full_kv_num_blocks is not None:
+            assert self.full_kv_indices is not None
+            dense = dense | _ordered_to_dense(
+                self.full_kv_num_blocks, self.full_kv_indices, num_cols
+            )
+        return dense
+
     def to(self, device: torch.device | str) -> "BlockMask":
         mapped_tensors = tree_map_only(
             torch.Tensor,
@@ -87,7 +103,6 @@ def create_ragged_block_quantized_knn_mask(
     device = neighbor_indices_list[0].device
 
     N_real = sum(neighbors.shape[0] for neighbors in neighbor_indices_list)
-    K = neighbor_indices_list[0].shape[1]
 
     if total_seq_len is None:
         total_seq_len = N_real
@@ -113,19 +128,19 @@ def create_ragged_block_quantized_knn_mask(
 
     num_blocks = math.ceil(total_seq_len / block_size)
 
-    # === 2. Build Global Adjacency Matrix (2D) ===
-    # Map token-level connections to block-level connections. Padding rows
-    # (>= N_real) are all -1 in packed_neighbors, so valid_conn filters them
-    # out below — including them here vs. stopping at N_real is equivalent.
-    q_idx = torch.arange(total_seq_len, device=device)
-    q_block_ids = (q_idx // block_size).unsqueeze(1).expand(total_seq_len, K)
-    kv_block_ids = packed_neighbors // block_size
-
+    # === 2. Block Pairs Holding a k-NN Edge ===
+    # Map token-level connections to block-level connections, as the sorted, unique
+    # keys q_block * num_blocks + kv_block. Padding rows (>= N_real) are all -1 in
+    # packed_neighbors, so valid_conn filters them out. The pairs are kept sparse:
+    # a (num_blocks, num_blocks) matrix grows with the square of the sequence length
+    # (5 GB of indices for a slide of 2.3M nuclei, besides the build).
     valid_conn = packed_neighbors >= 0
-
-    # We keep this 2D until the end to save memory and avoid broad casting overhead
-    adj_matrix = torch.zeros((num_blocks, num_blocks), dtype=torch.bool, device=device)
-    adj_matrix[q_block_ids[valid_conn], kv_block_ids[valid_conn]] = True
+    q_block_ids = torch.arange(total_seq_len, device=device) // block_size
+    q_block_ids = q_block_ids.unsqueeze(1).expand_as(packed_neighbors)[valid_conn]
+    kv_block_ids = packed_neighbors[valid_conn].long() // block_size
+    pair_keys = torch.unique(q_block_ids * num_blocks + kv_block_ids)
+    del q_block_ids, kv_block_ids, valid_conn
+    pair_q, pair_kv = pair_keys // num_blocks, pair_keys % num_blocks
 
     # === 3. Optimize Fast Path (Pure vs Mixed Blocks) ===
     # Documents are contiguous and padding only trails them, so a block whose first
@@ -138,23 +153,72 @@ def create_ragged_block_quantized_knn_mask(
     # Boundary-crossing blocks take the slow (mask_mod) path. flex_attention visits
     # the partial and the full block lists separately, so a block pair must be in
     # exactly one of them; in both, its keys would be counted twice in the softmax
-    full_adj = adj_matrix & is_pure_block.unsqueeze(1) & is_pure_block.unsqueeze(0)
-    partial_adj = adj_matrix & ~full_adj
+    is_full = is_pure_block[pair_q] & is_pure_block[pair_kv]
 
-    # === 4. Compress to Dense KV Indices ===
-    kv_num_blocks, kv_indices = _compress_kv_blocks(partial_adj)
-    full_kv_num_blocks, full_kv_indices = _compress_kv_blocks(full_adj)
+    # === 4. Compress to KV (forward) and Q (backward) Block Lists ===
+    lists = {
+        "kv": (pair_q[~is_full], pair_kv[~is_full]),
+        "full_kv": (pair_q[is_full], pair_kv[is_full]),
+        "q": (pair_kv[~is_full], pair_q[~is_full]),
+        "full_q": (pair_kv[is_full], pair_q[is_full]),
+    }
+    counts = {
+        name: torch.bincount(rows, minlength=num_blocks).to(torch.int32)
+        for name, (rows, _) in lists.items()
+    }
+    width = _index_width(max(int(c.max().item()) for c in counts.values()), num_blocks)
+    kv_indices, full_kv_indices, q_indices, full_q_indices = (
+        _ordered_indices(rows, cols, counts[name], width)
+        for name, (rows, cols) in lists.items()
+    )
+    kv_num_blocks, full_kv_num_blocks = counts["kv"], counts["full_kv"]
+    q_num_blocks, full_q_num_blocks = counts["q"], counts["full_q"]
 
     # === 5. Reshape for BlockMask (Batch=1, Heads=1) ===
-    return BlockMask.from_kv_blocks(
-        kv_num_blocks=kv_num_blocks.view(1, 1, num_blocks),
-        kv_indices=kv_indices.view(1, 1, num_blocks, num_blocks),
-        full_kv_num_blocks=full_kv_num_blocks.view(1, 1, num_blocks),
-        full_kv_indices=full_kv_indices.view(1, 1, num_blocks, num_blocks),
+    # Built directly rather than by `from_kv_blocks`, whose Q lists go through a
+    # dense (num_blocks, num_blocks) transpose
+    return BlockMask(
+        seq_lengths=(total_seq_len, total_seq_len),
+        kv_num_blocks=kv_num_blocks[None, None],
+        kv_indices=kv_indices[None, None],
+        full_kv_num_blocks=full_kv_num_blocks[None, None],
+        full_kv_indices=full_kv_indices[None, None],
+        q_num_blocks=q_num_blocks[None, None],
+        q_indices=q_indices[None, None],
+        full_q_num_blocks=full_q_num_blocks[None, None],
+        full_q_indices=full_q_indices[None, None],
         BLOCK_SIZE=(block_size, block_size),
         mask_mod=_MaskMod(doc_ids),
-        seq_lengths=(total_seq_len, total_seq_len),
     )
+
+
+def _index_width(max_count: int, num_blocks: int) -> int:
+    """The width of the block index lists: `num_blocks`, or less when they are sparse.
+
+    flex_attention reads a row only up to its count, so the lists need not be
+    `num_blocks` wide. The width is shared by the four lists and rounded up to 64,
+    or else `num_blocks`, since the compiled flex_attention (`dynamic=True`) guards on
+    which of its input sizes are equal ("duck sizing") and on sizes of 0 or 1:
+    independent widths would recompile it for every new pattern of equal sizes.
+    """
+    return min(num_blocks, max(64, math.ceil(max_count / 64) * 64))
+
+
+def _ordered_indices(rows: Tensor, cols: Tensor, counts: Tensor, width: int) -> Tensor:
+    """Block pairs (rows[i], cols[i]) -> col_indices, (num_blocks, width).
+
+    Each row lists its `counts[row]` columns in ascending order, then -1s.
+    """
+    num_blocks = len(counts)
+    order = torch.argsort(rows * num_blocks + cols)
+    rows, cols = rows[order], cols[order]
+    starts = torch.cumsum(counts, dim=0) - counts
+    slots = torch.arange(len(rows), device=rows.device) - starts[rows]
+    col_indices = torch.full(
+        (num_blocks, width), -1, dtype=torch.int32, device=rows.device
+    )
+    col_indices[rows, slots] = cols.to(torch.int32)
+    return col_indices
 
 
 def _compress_kv_blocks(adj_matrix: Tensor) -> tuple[Tensor, Tensor]:

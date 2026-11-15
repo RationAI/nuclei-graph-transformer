@@ -209,9 +209,24 @@ class BaseCropDataset(NucleiFeatureExtractor, Dataset[Sample], ABC):
         assert geom_features is not None or bboxes is not None
         return geom_features, bboxes
 
-    def get_nuclei(self, nuclei_path: str) -> pd.DataFrame:
-        nuclei = pd.read_parquet(nuclei_path)
+    def get_nuclei(
+        self, nuclei_path: str, columns: list[str] | None = None
+    ) -> pd.DataFrame:
+        """The slide's nuclei sorted by id, with all columns or only `columns`."""
+        nuclei = pd.read_parquet(nuclei_path, columns=columns)
         return nuclei.sort_values("id").reset_index(drop=True)
+
+    @property
+    def nuclei_columns(self) -> list[str]:
+        """The nuclei columns `__getitem__` reads.
+
+        The polygons (most of a slide's nuclei table) are needed only by the
+        augmentations and by the `efd` and `bbox` embeddings.
+        """
+        columns = ["id", "centroid"]
+        if self.augmentations is not None or self.embedding_mode in ["efd", "bbox"]:
+            columns.append("polygon")
+        return columns
 
     def get_centroids(
         self, nuclei: pd.DataFrame, mpp_x: float, mpp_y: float

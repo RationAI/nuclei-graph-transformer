@@ -93,7 +93,7 @@ class GraphClassificationDataset(BaseCropDataset):
 
     def __getitem__(self, idx: int) -> Sample:
         slide = self.metadata.iloc[idx]
-        nuclei = self.get_nuclei(slide.slide_nuclei_path)
+        nuclei = self.get_nuclei(slide.slide_nuclei_path, self.nuclei_columns)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
         crop_indices = np.arange(len(nuclei), dtype=int)
@@ -121,7 +121,9 @@ class GraphClassificationDataset(BaseCropDataset):
                 while True:  # ensure crop positivity ≥ `crop_pos_thr`
                     if curr_slide_idx is not None:
                         slide = self.metadata.iloc[curr_slide_idx]
-                        nuclei = self.get_nuclei(slide.slide_nuclei_path)
+                        nuclei = self.get_nuclei(
+                            slide.slide_nuclei_path, self.nuclei_columns
+                        )
                         nuclei_sup = self.get_nuclei_sup(
                             slide.slide_id, nuclei["id"].to_numpy()
                         )

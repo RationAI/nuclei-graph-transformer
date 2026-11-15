@@ -8,7 +8,7 @@ from nuclei_graph.nuclei_graph_typing import Sample
 class NucleiClassificationDataset(BaseCropDataset):
     def __getitem__(self, idx: int) -> Sample:
         slide = self.metadata.iloc[idx]
-        nuclei = self.get_nuclei(slide.slide_nuclei_path)
+        nuclei = self.get_nuclei(slide.slide_nuclei_path, self.nuclei_columns)
         centroids = self.get_centroids(nuclei, slide.mpp_x, slide.mpp_y)
 
         crop_indices = np.arange(len(nuclei), dtype=int)
