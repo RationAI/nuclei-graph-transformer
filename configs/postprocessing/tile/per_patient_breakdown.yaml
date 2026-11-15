@@ -1,0 +1,50 @@
+# @package _global_
+
+# Per-patient breakdown and leave-one-patient-out of the MMCI TL pixel vs nucleus comparison
+# (postprocessing/tile/per_patient_breakdown.py). Reads the outputs of the bootstrap run only;
+# no retraining, no re-pooling.
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+bootstrap_run: e97db5a51cf4470e8febbf6805938894 # postprocessing/tile/bootstrap_pixel_vs_nuclei.py
+
+pixel_models: [vgg16, virchow2]
+nucleus_models: [shape, positions] # columns <name>_seed1..3 in aligned_tiles.parquet
+n_seeds: 3
+labels:
+  vgg16: VGG-16
+  virchow2: Virchow2
+  shape: Shape
+  positions: Positions
+
+# A - B, per patient and leave one patient out
+comparisons:
+  - [shape, vgg16]
+  - [shape, virchow2]
+  - [positions, vgg16]
+  - [positions, virchow2]
+  - [shape, positions]
+# Step 4: AUPRC comparisons of the bootstrap run (its comparisons.csv)
+bootstrap_comparisons:
+  - [shape, virchow2]
+  - [shape, vgg16]
+  - [positions, virchow2]
+  - [positions, vgg16]
+  - [shape, positions]
+ci_level: 0.95
+
+# "Few nuclei": 1..few_nuclei_max nucleus centroids in the ROI (empty ROIs are counted separately)
+few_nuclei_max: 2
+
+out_dir: outputs/mmci_tl_per_patient
+# Patient-label mapping to real ids; written here only, never logged or put in out_dir.
+private_mapping_file: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "MMCI TL Test: Per-Patient Breakdown"
+  description: >-
+    Per-patient metrics, leave-one-patient-out and bootstrap detail for the MMCI TL pixel vs
+    nucleus comparison (child of the paired bootstrap run). Patients labelled P1-P10 by number
+    of positive tiles.
+dataset: null # not used

@@ -1,0 +1,80 @@
+# @package _global_
+
+# NB-A-64: paired patient-level bootstrap of tile-level (TL) carcinoma predictions on the
+# MMCI TL test set, pixel models (Prostate Cancer project) vs nucleus models (3 seeds each).
+# postprocessing/tile/bootstrap_pixel_vs_nuclei.py. No training, no inference.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+# Experiments 65 and 97 live on this server (not on the default MLFLOW_TRACKING_URI).
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+
+# QC-filtered 224 px tiles (level 1, stride 112) used by the nucleus evaluation runs and the
+# VGG16 run; the unfiltered tiling is only used to count what the QC exclusions remove.
+tiles_uri: mlflow-artifacts:/65/f541928fe7e3484fa40321a05745f66d/artifacts/MMCI TL Test_224
+unfiltered_tiles_uri: mlflow-artifacts:/65/74c7b6e1a10444688910b8835adf4208/artifacts/MMCI TL Test 224
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+
+# As the nucleus evaluation runs (params thresholds/*) and the pixel runs (test_data.thresholds).
+thresholds:
+  tissue_roi_t: 0.5
+  exclude_t: 0.0
+  another_pathology_t: 0.0
+  residual_t: 0.25
+  blur_t: 0.25
+  folding_t: 0.25
+  carcinoma_roi_t: 0.5
+
+# Nucleus tile ROI: the central (tile_size - 2 * margin) px of the tile, as the evaluation runs.
+tile_size: 224
+margin: 56
+
+pixel_models:
+  virchow2:
+    label: Virchow2-stain (frozen)
+    run: b7e0be586ba24eca8213aa6c62e76527
+    expected_run_name: Virchow2 (Stain & Frozen) TL Test MMCI TL Test
+    nb_a_64: {AUPRC: 0.876, AUROC: 0.973}
+  vgg16:
+    label: VGG16-stain (224x224)
+    run: a7edc04ad4cc462d87376fa4d229c395
+    expected_run_name: VGG-16 Stain (224x224) TL Test MMCI TL Test
+    nb_a_64: {AUPRC: 0.867, AUROC: 0.969}
+pixel_predictions_artifact: tables/carcinoma_prediction_table.json
+
+nucleus_models:
+  shape:
+    label: Shape + RoVE
+    eval_runs: [a325a7e95a0b4f759cca4804ec7efb5c, 1c925c4bef854cb2ba31d8eb2c1f9315, 2ebbe656d5c6478da80f2ac8fd7be1bd]
+  positions:
+    label: Positions (blank token) + RoVE
+    eval_runs: [e5f0f9dc62d54de98bf14ce656737b74, bd1bab1282bb4fb7b2e5c667a4d74322, fde957296a5d4dd6a6266afa8ca5b65f]
+tile_predictions_artifact: tile_predictions
+pooling_statistics_artifact: pooling_mode_statistics.csv
+
+# A - B; Holm over these comparisons on `holm_metric` only.
+comparisons:
+  - [shape, virchow2]
+  - [shape, vgg16]
+  - [positions, virchow2]
+  - [positions, vgg16]
+  - [shape, positions]
+holm_metric: AUPRC
+
+bootstrap:
+  n_resamples: 2000
+  seed: 20261114
+  ci_level: 0.95
+  n_torchmetrics_checks: 5 # resamples re-evaluated with torchmetrics on replicated tiles
+
+empty_roi_workers: 16
+out_dir: outputs/mmci_tl_pixel_vs_nuclei
+log_mlflow: true # false: compute and write the outputs only
+
+metadata:
+  run_name: "MMCI TL Test: Pixel vs Nuclei Paired Bootstrap"
+  description: >-
+    NB-A-64. Paired patient-level bootstrap (B=2000) of tile-level AUPRC/AUROC on the MMCI TL
+    test set: Virchow2-stain and VGG16-stain vs Shape + RoVE and Positions + RoVE (3 seeds each).
