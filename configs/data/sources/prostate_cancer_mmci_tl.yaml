@@ -23,8 +23,6 @@ dataset:
       # preprocessing/ignore_labels_mmci.py (all splits): nuclei ignored in training, validation and
       # test = Another pathology (the files above) or Exclude (centroid in the XML polygons)
       another_exclude: ${project_path}/nuclei_supervision/MMCI-TL-Data/another_exclude
-      # the same rule, test slides only (commit 7768670a); kept for run e8682243, same test files
-      test_ignore: ${project_path}/nuclei_supervision/MMCI-TL-Data/test_ignore
       # preprocessing/cam_labels.py
       cam:
         annot_restricted_thr: ${project_path}/nuclei_supervision/MMCI-TL-Data/cam/annot_restricted_thr
