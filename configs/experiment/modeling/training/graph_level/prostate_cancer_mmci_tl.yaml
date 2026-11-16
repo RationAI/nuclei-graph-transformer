@@ -27,8 +27,10 @@ trainer:
       save_last: true
       monitor: ${monitor}
       mode: ${checkpoint_mode}
-    # validation and checkpoints use the EMA weights
-    - _target_: lightning.pytorch.callbacks.EMAWeightAveraging
+    # validation and checkpoints use the EMA of the parameters with the live model's
+    # BatchNorm statistics (Lightning's EMAWeightAveraging also averages the buffers, which
+    # distorts near-constant EFD features; see nuclei_graph/callbacks/ema.py)
+    - _target_: nuclei_graph.callbacks.ParamsEMAWeightAveraging
       decay: 0.999
 
 data:
