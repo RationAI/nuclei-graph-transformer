@@ -30,8 +30,11 @@ dataset:
     nuclei_seg: ${project_path}/nuclei_segmentation/iCAIRD
 
     supervision:
-      # preprocessing/unipolar_heatmap_labels.py
+      # preprocessing/unipolar_heatmap_labels.py (train / valid; coarse dataset annotations)
       annotation: ${project_path}/nuclei_supervision/iCAIRD/annotation
+      # preprocessing/reannotation_labels_icaird_cervix.py (the re-annotated positive test slides:
+      # 1 = inside the pathologist's regions, 0 = unlabelled); annotation_sparse only
+      reannotation: ${project_path}/nuclei_supervision/iCAIRD/reannotation
 
   mlflow_uris:
     # preprocessing/exploration/icaird_cervix/save_metadataset.py

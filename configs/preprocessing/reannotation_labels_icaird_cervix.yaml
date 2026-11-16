@@ -1,0 +1,29 @@
+# @package _global_
+
+# Test labels of the iCAIRD cervix slides re-annotated by a pathologist
+# (preprocessing/reannotation_labels_icaird_cervix.py). Only for `annotation_sparse`: on a positive
+# slide the label-1 nuclei are supervised and everything else is ignored.
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+# The pathologist's regions (xOpat export, sensitive MLflow, experiment 187, run "review-2026-11");
+# one annotations/<slide_id>.tiff.json per re-annotated slide. Re-run as more slides are exported.
+regions_tracking_uri: http://mlflow.rationai-mlflow:5000/
+regions_uri: mlflow-artifacts:/187/43a04125fe1b463ab4008ba22f6a372b/artifacts/annotations
+
+nuclei_path: ${dataset.paths.nuclei_seg}
+nuclei_batch_name: ${dataset.nuclei_batch}
+label_column: annot_label
+output_path: ${dataset.paths.supervision.reannotation}
+max_workers: 8
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "🏷️ Nuclei Re-annotation Labeling: ${dataset.name} test"
+  description: >-
+    Test labels of the iCAIRD cervix slides re-annotated by a pathologist: annot_label = 1 for nuclei
+    entirely inside the pathologist's regions, else 0 (= unlabelled; the regions are not exhaustive).
+    For annotation_sparse supervision only.

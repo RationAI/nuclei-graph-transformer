@@ -1,0 +1,48 @@
+# @package _global_
+
+# iCAIRD cervix test set: the 60 slides re-annotated by a pathologist (positive) and the normal /
+# inflammation and low-grade test slides (negative, every nucleus 0).
+#
+# Supervision must be annotation_sparse on the re-annotation labels: on a positive slide only the
+# nuclei inside the pathologist's regions are scored (as positive); every other nucleus of these
+# slides (low-grade areas, unmarked tissue) is ignored, not 0. Negative slides need no label file.
+
+defaults:
+  - /experiment/modeling/testing/base@_here_
+  - /data/sources/icaird_cervix
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/supervision@data.supervision.eval_strategy: annotation_sparse # never `annotation` here
+  - _self_
+
+checkpoint: ???
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  k: 24
+  context: knn # none, dense, knn
+
+  metadata: ${dataset.mlflow_uris.metadata}
+  dataset:
+    efd_order: 16
+    patch_size: 40 # unused with efd
+    embedding_mode: efd # efd, bbox, blank
+  supervision:
+    paths:
+      annotation: ${dataset.paths.supervision.reannotation}
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      use_rope: true
+      attention_variant: vrope # rotated values (RoVE)
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "iCAIRD: NL Testing"

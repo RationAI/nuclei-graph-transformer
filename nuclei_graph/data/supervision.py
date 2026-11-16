@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import reduce
+from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -14,6 +15,9 @@ from tqdm import tqdm
 
 
 IGNORE_KEY = "ignore_dir"
+# A label directory holding this file has 0 = "unlabelled" on positive slides (non-exhaustive
+# annotation, e.g. the iCAIRD re-annotated test slides): only `annotation_sparse` may read it.
+SPARSE_ONLY_MARKER = "_SPARSE_ONLY"
 
 
 @dataclass(frozen=True)
@@ -256,6 +260,15 @@ class SupervisionStrategy:
         self.paths = paths
         if mode not in self.STRATEGY_MAP:
             raise ValueError(f"Unknown mode: {mode}")
+        annot_dir = paths.get("annot_dir")
+        if (
+            annot_dir is not None
+            and (Path(annot_dir) / SPARSE_ONLY_MARKER).exists()
+            and mode != "annotation_sparse"
+        ):
+            raise ValueError(
+                f"{annot_dir} holds sparse labels (0 = unlabelled); use annotation_sparse, not {mode}"
+            )
 
     def create(
         self,

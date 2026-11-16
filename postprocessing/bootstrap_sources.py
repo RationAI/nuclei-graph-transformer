@@ -63,6 +63,8 @@ from rationai.mlkit.lightning.loggers import MLFlowLogger
 from sklearn.metrics import average_precision_score, roc_auc_score
 from tqdm import tqdm
 
+from nuclei_graph.data.supervision import SPARSE_ONLY_MARKER
+
 
 METRICS = ("AUPRC", "AUROC")
 LOGGED_KEYS = {m: f"test_thresholded/nuclei_{m}" for m in METRICS}
@@ -144,6 +146,9 @@ def load_labels(
     slides: pd.DataFrame, supervision_dir: Path, label_column: str
 ) -> pd.DataFrame:
     """(slide, key, label) of the annotation supervision of the carcinoma test slides."""
+    assert not (supervision_dir / SPARSE_ONLY_MARKER).exists(), (
+        f"{supervision_dir} holds sparse labels (0 = unlabelled): missing -> 0 does not apply"
+    )
     frames = []
     for s, row in enumerate(slides.itertuples()):
         if not row.is_carcinoma:  # every nucleus is 0, whatever the supervision says

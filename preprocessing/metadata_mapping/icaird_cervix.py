@@ -144,6 +144,14 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "a negative-only category leaked into train"
     )
     assert not kept.loc[in_negative, "is_carcinoma"].any()
+    # positive test slides are labelled only inside the pathologist's regions (sparse labels of
+    # preprocessing/reannotation_labels_icaird_cervix.py): every one must be re-annotated
+    test_positive = set(
+        kept.loc[(kept["split"] == "test") & kept["is_carcinoma"], "slide_id"]
+    )
+    assert test_positive == test_slides, (
+        "positive test slides != the re-annotated slides"
+    )
     for split_name in ["train", "valid", "test"]:
         split_df = kept[kept["split"] == split_name].drop(columns=["split"])
         log_table(split_df, f"slides_mapping_{split_name}", logger)
