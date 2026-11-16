@@ -1,0 +1,73 @@
+# @package _global_
+
+# Slide-level error analysis of the slide-supervised nuclei model (Shape + RoVE + k-NN, k = 44, full
+# slides, sparse supervision, 3 seeds) on the MMCI TL test set, next to the classic attention-MIL
+# baselines (postprocessing.slide_error_analysis_mmci). Stored predictions only.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+dataset_label: MMCI TL
+
+# slide-supervised nuclei model: evaluation runs (experiment 97) of its three seeds; the threshold of each
+# is its validation F1 threshold (metric thresholds/val_graph_f1, the one its test metrics used)
+eval_runs:
+  - 34ddbea0d532473bb86b71c1fec3643c
+  - 5e0feb6448884ac484fb4114419f6317
+  - 9ae92cb08a674e6e9b87d2fb8e2378df
+threshold_metric: thresholds/val_graph_f1
+predictions_artifact: predictions # per-slide nuclei_prediction and graph_prediction
+
+# classic attention-MIL baselines (experiment 65): slide scores (tables/sl_predictions.json) and the
+# validation slide threshold of each (config slide_threshold)
+mil_runs:
+  Virchow2: 6667eb5fbf2642a8afe36581e0d041e2
+  PGP: 334f4c81cca647178320b46590ca7bf6
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+supervision_dir: ${dataset.paths.supervision.annotation}
+label_column: annot_label
+ignore_dir: ${dataset.paths.supervision.another_exclude} # Another pathology and Exclude ignored (final rule)
+test_cache_dir: ${project_path}/evaluation/mmci_test/predictions
+patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv
+# private (slide ids, never logged): slides flagged in PC-A-104
+flagged_slides: ${project_path}/results/mmci_tl_per_patient/pc_a_104_flagged_slides.csv
+
+thesis_from_old:
+  P1: P1
+  P2: P3
+  P3: P2
+  P4: P6
+  P5: P4
+  P6: P5
+  P7: P9
+  P8: P7
+  P9: P10
+  P10: P8
+
+small_share: 0.05 # positive slides with < 5 % vs >= 5 % carcinoma nuclei
+
+# patient resamples of the tile-level bootstrap (real patient ids: referenced, never logged)
+resamples_run: e97db5a51cf4470e8febbf6805938894
+resamples_artifact: bootstrap_resamples.npz
+resamples_sha256: 8a980e4219bb60e07993a3af46f7a4b60c26f5894dc7ec34ec9f6cdc98e510bd
+ci_level: 0.95
+histogram:
+  n_bins: 100000
+  max_bins: 400000
+  tolerance: 1.0e-4
+
+out_dir: ${project_path}/evaluation/mmci_test/slide_error_analysis_sl
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "Slide-level error analysis: slide-supervised nuclei model vs attention-MIL (MMCI test)"
+  description: >-
+    Per-slide scores, errors at each model's validation threshold, carcinoma share (Another pathology and
+    Exclude ignored), Spearman of carcinoma share vs score, AUROC by carcinoma share, slide AUROC / AUPRC
+    with patient-bootstrap CIs (resamples of run e97db5a5) and the paired difference to MIL Virchow2, and
+    the nucleus AUROC of the slide-supervised nuclei model. Evaluation runs 34ddbea0, 5e0feb64, 9ae92cb0;
+    MIL runs 6667eb5f (Virchow2), 334f4c81 (PGP).
