@@ -11,6 +11,9 @@ exclude_slides_uris: null
 overlap_threshold: 0.5
 positive_threshold: 0.0 # annotation masks are binary
 label_column: annot_label
+# the slides' nuclei: <nuclei_path>/PANDA/slide_id=<id> (`slide_nuclei_path` of the slide tables)
+nuclei_path: ${project_path}/nuclei_segmentation
+nuclei_batch_name: PANDA # not the slides' folder (train_images)
 output_path: ${dataset.providers.radboud.supervision.annotation}
 
 metadata:

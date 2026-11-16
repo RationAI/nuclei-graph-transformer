@@ -31,7 +31,9 @@ dataset:
 
     masks:
       annotation: ${data_path}/Public/Public/prostate/PANDA/train_label_masks
-      carcinoma: mlflow-artifacts:/38/cd504aaafb8c408184584d808a99cf15/artifacts/carcinoma_mask
+      # Gleason 3-5 ("Untie Masks PANDA - Radboud", prostate-cancer); the Radboud nuclei labels
+      # (nuclei_supervision/PANDA/Radboud/annotation) were made from this run
+      carcinoma: mlflow-artifacts:/38/62c15fe465ab4d1b867577252ccbbeec/artifacts/carcinoma_mask
       # tissue masks (0/255 pyramidal TIFFs aligned with level 0), from the prostate cancer project
       tissue: /mnt/projects/prostate_cancer/cancer/tissue_masks/tissue_mask
 
