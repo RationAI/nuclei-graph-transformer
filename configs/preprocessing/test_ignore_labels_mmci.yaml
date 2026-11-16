@@ -1,0 +1,13 @@
+# @package _global_
+
+# Test-time ignore labels of the MMCI TL test set (preprocessing/test_ignore_labels_mmci.py):
+# Another pathology (the pipeline's ignore files) and Exclude (centroid in the XML polygons).
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+another_pathology_dir: ${dataset.paths.supervision.another_pathology}
+annotation_suffix: .xml # ASAP annotations next to the slides
+output_path: ${dataset.paths.supervision.test_ignore}

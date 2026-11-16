@@ -1,0 +1,20 @@
+# @package _global_
+
+# Variant: Another pathology and Exclude nuclei labelled negative at test, nothing ignored (labels of
+# run 19c2ef40; logged as its own run, aaa7004e). Superseded by the default (both ignored).
+
+results_run: 19c2ef40fafd4c1d8c861fd39122b69e
+attach_to_results_run: false
+ignore_another_pathology: false
+ignore_exclude: false
+
+out_dir: ${project_path}/evaluation/mmci_test/patient_analysis_another_negative
+
+metadata:
+  run_name: "Per-patient analysis, Another pathology negative at test: shape, k-NN + rotated values (MMCI test)"
+  description: >-
+    Per patient (thesis labels P1-P10) on the MMCI TL test set with Another pathology nuclei labelled
+    negative at test and Exclude negative (labels of run 19c2ef40); training unchanged. Seed-mean of
+    per-seed AUPRC, calibrated AUPRC (pi0 = pooled prevalence and 0.5) and AUROC; recall / FPR / TP / FP / FN
+    at the Youden threshold of run fa827d68; score quantiles; Another-pathology hard negatives. Stored
+    predictions; thresholds of runs d73e1fe0 / fa827d68; patient resamples of run e97db5a5.

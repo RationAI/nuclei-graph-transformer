@@ -5,6 +5,7 @@
 # histogram check as run 19c2ef40 (Another pathology labelled negative).
 
 ignore_another_pathology: true
+ignore_exclude: false
 previous_run: 19c2ef40fafd4c1d8c861fd39122b69e
 
 out_dir: ${project_path}/evaluation/mmci_test/nucleus_results_ignore_another_pathology

@@ -1,12 +1,18 @@
 # ruff: noqa: RUF002  (Greek letters / minus signs in report text are intended)
-r"""Per-patient analysis on the MMCI TL test set with Another pathology nuclei negative at test.
+r"""Per-patient analysis of the nucleus-level shape model on the MMCI TL test set.
 
 Model: Shape + RoVE + k-NN attention (k = 44, agreement supervision), three seeds; training is
-unchanged (Another pathology nuclei ignored by the training and validation supervision). Test labels
-are those of run ``results_run`` (19c2ef40, tab:res-nucleus MMCI row): ``annot_label`` left-joined on
-(slide, nucleus), missing -> 0, benign slides -> 0; the carcinoma annotation excludes Exclude and
-Another pathology regions, so their nuclei are 0 and no nucleus is ignored. Nothing is predicted:
-the stored per-nucleus test predictions of its evaluation runs.
+unchanged (Another pathology nuclei ignored by the training and validation supervision). Test labels:
+``annot_label`` left-joined on (slide, nucleus), missing -> 0, benign slides -> 0 (the carcinoma
+annotation excludes Exclude and Another pathology regions, so their nuclei are 0), then the test rule:
+
+- default (final rule): Another pathology and Exclude nuclei ignored (``test_ignore_dir``), matching the
+  tile level, which drops every tile touching either;
+- variants: Another pathology ignored, Exclude 0 (``ignore_exclude: false``, run dc419c48), or both 0
+  (``another_negative``, runs 19c2ef40 / aaa7004e).
+
+The rule must be that of run ``results_run`` (tab:res-nucleus MMCI row of nucleus_results_mmci.py).
+Nothing is predicted: the stored per-nucleus test predictions of its evaluation runs.
 
 Per patient (thesis labels P1-P10) and pooled:
 
@@ -20,18 +26,20 @@ Per patient (thesis labels P1-P10) and pooled:
    are and checked against those runs' params.
 3. Quantiles (``np.quantile``, linear) of the seed-mean test score per patient and class, in the format
    of ``patient_score_quantiles_mmci.csv``.
-4. Hard negatives: on the test slides with Another pathology nuclei (``ignore_label = 1`` in the
-   pipeline's ignore files), the FPR and median seed-mean score at the Youden threshold of those nuclei
-   and of the other benign nuclei of the same slides.
+4. Hard negatives (only when Another pathology is labelled 0): on the test slides with Another
+   pathology nuclei, the FPR and median seed-mean score at the Youden threshold of those nuclei and of
+   the other benign nuclei of the same slides.
 5. Thesis order: whether P1-P10 still follow the descending share of carcinoma nuclei (prevalence).
 
-Checks against ``results_run``: per-patient counts, prevalence, AUPRC and AUROC (old labels mapped to
-the thesis labels), pooled per-seed AUPRC / AUROC, and the patient-bootstrap replicates (same patient
-resamples, same logit histogram grid) and CIs.
+Checks against ``results_run``: the ignore rule and counts, per-patient counts, prevalence, AUPRC and
+AUROC (old labels mapped to the thesis labels), pooled per-seed AUPRC / AUROC, and the
+patient-bootstrap replicates (same patient resamples, same logit histogram grid) and CIs.
 
-Outputs (``out_dir``; logged to a new run in experiment 97): ``patient_analysis_mmci.csv``,
-``patient_operating_points_mmci.csv``, ``patient_score_quantiles_mmci.csv``,
-``hard_negatives_mmci.csv``, ``thesis_order_mmci.csv``, ``checks.json``, ``report.md``.
+Outputs (``out_dir``): ``patient_analysis_mmci.csv``, ``patient_operating_points_mmci.csv``,
+``patient_score_quantiles_mmci.csv``, ``thesis_order_mmci.csv``, (``hard_negatives_mmci.csv``),
+``checks.json``, ``report.md``. With ``attach_to_results_run`` they are logged into ``results_run``
+(under ``patient_analysis/``, params ``patients.*``, metrics ``patients/*``), so that one run holds
+the nucleus-level row and the per-patient analysis; otherwise to a new run in experiment 97.
 """
 
 import json
@@ -59,7 +67,11 @@ from postprocessing.bootstrap_sources import (
 )
 from postprocessing.nucleus_results_mmci import (
     CREDENTIAL_URL,
+    IGNORE_RULES,
     exact_metrics,
+    ignore_directory,
+    ignore_rule,
+    load_ignore,
     preflight,
     sha256,
 )
@@ -74,11 +86,13 @@ from postprocessing.tile.bootstrap_pixel_vs_nuclei import git_info
 
 REPO = Path(__file__).parents[1]
 CODE = (
-    "postprocessing/patient_analysis_another_negative_mmci.py",
-    "configs/postprocessing/patient_analysis_another_negative_mmci.yaml",
+    "postprocessing/patient_analysis_mmci.py",
+    "configs/postprocessing/patient_analysis_mmci.yaml",
+    "configs/experiment/postprocessing/patient_analysis_mmci/another_negative.yaml",
 )
 METRICS = ("AUPRC", "AUROC")
 OPS = ("recall", "FPR", "TP", "FP", "FN")
+ARTIFACT_DIR = "patient_analysis"
 
 
 def reference(config: DictConfig, client: MlflowClient, tmp: Path) -> dict:
@@ -94,7 +108,13 @@ def reference(config: DictConfig, client: MlflowClient, tmp: Path) -> dict:
         )
     }
     checks = json.loads(Path(files["checks.json"]).read_text())
-    assert checks["counts"]["ignored_nuclei"] == 0, "results run must ignore no nucleus"
+    params = client.get_run(config.results_run).data.params
+    rule = ignore_rule(config)
+    run_rule = (
+        params.get("ignore_another_pathology", "False") == "True",
+        params.get("ignore_exclude", "False") == "True",
+    )
+    assert run_rule == rule, f"results run rule {run_rule} != {rule}"
     assert checks["resamples"]["run"] == config.resamples_run
     runs = pd.read_csv(files["runs.csv"])
     eval_runs, training_runs = list(runs["eval_run"]), list(runs["training_run"])
@@ -124,6 +144,28 @@ def reference(config: DictConfig, client: MlflowClient, tmp: Path) -> dict:
         "replicates": {m: rep[m] for m in METRICS},
         "thresholds": th,
     }
+
+
+def ignore_masks(
+    config: DictConfig, meta: pd.DataFrame, keys: pd.DataFrame
+) -> dict[str, NDArray]:
+    """Nuclei ignored at test under the rule, and the Another pathology / Exclude parts."""
+    n = len(keys)
+    out = {k: np.zeros(n, bool) for k in ("ignore", "another_pathology", "exclude")}
+    d = ignore_directory(config)
+    if d is None:
+        return out
+    ign = load_ignore(meta, d)
+    merged = keys.merge(ign, on=["slide", "key"], how="left", validate="1:1")
+    out["ignore"] = merged["ignore"].eq(True).to_numpy()
+    assert int(out["ignore"].sum()) == len(ign), "ignore rows without a nucleus"
+    for part in ("another_pathology", "exclude"):
+        out[part] = (
+            merged[part].eq(1).to_numpy() if part in merged else out["ignore"].copy()
+        )
+    if "exclude" not in merged:  # Another pathology files only
+        out["exclude"][:] = False
+    return out
 
 
 def bootstrap(
@@ -196,12 +238,15 @@ def bootstrap(
 def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[str]]:
     out = Path(config.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    for stale in out.glob("*.csv"):
+        stale.unlink()
     tmp = out / "_tmp"
     tmp.mkdir(exist_ok=True)
     ref = reference(config, client, tmp)
     th = ref["thresholds"]
+    ignore_ap, ignore_ex = ignore_rule(config)
 
-    # test: stored predictions and the results run's labels (no nucleus ignored)
+    # test: stored predictions and labels under the rule
     meta = pd.read_parquet(download_artifacts(config.metadata_uri)).sort_values(
         "slide_id", ignore_index=True
     )
@@ -225,15 +270,47 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     slide = keys["slide"].to_numpy()
     probs = np.stack([f["p"].to_numpy() for f in stored])
     another = ignored(meta, Path(config.another_pathology_dir), keys)
+    masks = ignore_masks(config, meta, keys)
     del stored, labels
     shutil.rmtree(tmp, ignore_errors=True)
+
+    regions = ref["checks"]["regions"]
+    assert int(another.sum()) == regions["another_ignore_files"]
+    assert int(y[another].sum()) == 0, "an Another pathology nucleus is labelled 1"
+    ignore = masks["ignore"]
+    ignore_counts = {
+        "rule": IGNORE_RULES[(ignore_ap, ignore_ex)],
+        "ignored": int(ignore.sum()),
+        "ignored_slides": int(np.unique(slide[ignore]).size),
+        "ignored_labelled_1": int(y[ignore].sum()),
+        **{
+            f"{part}_ignored": int(masks[part].sum())
+            for part in ("another_pathology", "exclude")
+        },
+        **{
+            f"{part}_ignored_slides": int(np.unique(slide[masks[part]]).size)
+            for part in ("another_pathology", "exclude")
+        },
+        **{
+            f"{part}_ignored_labelled_1": int(y[masks[part]].sum())
+            for part in ("another_pathology", "exclude")
+        },
+        "exclude_nuclei_in_polygons": regions["exclude"],
+        "exclude_polygon_slides": regions["slides_with_exclude"],
+    }
+    assert ignore_counts["ignored_labelled_1"] == 0, "an ignored nucleus was positive"
+    if ignore_ex:
+        assert ignore_counts["exclude_ignored"] == regions["exclude"]
+    if ignore_ap:
+        assert ignore_counts["another_pathology_ignored"] == int(another.sum())
+    keep = ~ignore
+    y, slide, probs, another = y[keep], slide[keep], probs[:, keep], another[keep]
 
     counts = ref["checks"]["counts"]
     assert len(y) == counts["labeled_nuclei"]
     assert int(y.sum()) == counts["positive_nuclei"]
+    assert int(ignore.sum()) == counts["ignored_nuclei"]
     assert unmatched == counts["carcinoma_slide_nuclei_without_supervision_row"]
-    assert int(another.sum()) == ref["checks"]["regions"]["another_ignore_files"]
-    assert int(y[another].sum()) == 0, "an Another pathology nucleus is labelled 1"
 
     # patients: old labels (results run) -> thesis labels
     mapping = pd.read_csv(config.patient_label_mapping, dtype=str)
@@ -332,8 +409,6 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     assert max(v for k, v in agree.items() if k.endswith("diff")) <= float(
         config.agreement_tolerance
     ), agree
-    pooled = t.loc["pooled"]
-    assert round(pooled["AUPRC"], 4) == 0.8956 and round(pooled["AUROC"], 4) == 0.9611
 
     # 3. quantiles -----------------------------------------------------------------------------
     qs = [float(q) for q in config.quantiles]
@@ -357,53 +432,54 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     quantiles = pd.DataFrame(qrows)
     assert quantiles["n"].sum() == len(y)
 
-    # 4. hard negatives ------------------------------------------------------------------------
-    ap_slides = np.unique(slide[another])
-    hn_rows = []
-    slide_label = {}
-    for p in order:
-        mine = [s for s in ap_slides if new_of[meta["patient_id"].iloc[s]] == p]
-        for k, s in enumerate(mine, start=1):
-            slide_label[s] = f"{p} slide {k}/{len(mine)}"
-
-    def hard(name: str, sel_slides: NDArray) -> None:
-        on = np.isin(slide, sel_slides)
-        for group, mask in (
-            ("another_pathology", on & another),
-            ("other_benign", on & ~another & (y == 0)),
-        ):
-            s = tmean[mask]
-            fp = int((s >= th["youden"]).sum())
-            hn_rows.append(
-                {
-                    "slide": name,
-                    "group": group,
-                    "n": len(s),
-                    "FP_youden": fp,
-                    "FPR_youden": fp / len(s),
-                    "median_score": float(np.median(s)),
-                    "FPR_youden_seed_mean": float(
-                        np.mean([(p[mask] >= th["youden"]).mean() for p in probs])
-                    ),
-                }
-            )
-
-    for s in sorted(ap_slides, key=lambda s: slide_label[s]):
-        hard(slide_label[s], np.array([s]))
-    hard("pooled", ap_slides)
-    hard_neg = pd.DataFrame(hn_rows)
+    # 4. hard negatives (Another pathology labelled 0 only) ------------------------------------
+    hard_neg = None
+    if not ignore_ap:
+        ap_slides = np.unique(slide[another])
+        slide_label = {}
+        for p in order:
+            mine = [s for s in ap_slides if new_of[meta["patient_id"].iloc[s]] == p]
+            for k, s in enumerate(mine, start=1):
+                slide_label[s] = f"{p} slide {k}/{len(mine)}"
+        hn_rows = []
+        for name, sel_slides in [
+            *(
+                (slide_label[s], np.array([s]))
+                for s in sorted(ap_slides, key=slide_label.get)
+            ),
+            ("pooled", ap_slides),
+        ]:
+            on = np.isin(slide, sel_slides)
+            for group, mask in (
+                ("another_pathology", on & another),
+                ("other_benign", on & ~another & (y == 0)),
+            ):
+                s = tmean[mask]
+                fp = int((s >= th["youden"]).sum())
+                hn_rows.append(
+                    {
+                        "slide": name,
+                        "group": group,
+                        "n": len(s),
+                        "FP_youden": fp,
+                        "FPR_youden": fp / len(s),
+                        "median_score": float(np.median(s)),
+                        "FPR_youden_seed_mean": float(
+                            np.mean([(p[mask] >= th["youden"]).mean() for p in probs])
+                        ),
+                    }
+                )
+        hard_neg = pd.DataFrame(hn_rows)
 
     # 5. thesis order --------------------------------------------------------------------------
     prev = t.loc[order, "prevalence"]
-    rank = prev.rank(ascending=False, method="first").astype(int)
     order_tab = pd.DataFrame(
         {
             "patient": order,
             "prevalence": prev.to_numpy(),
-            "rank_by_prevalence": rank.to_numpy(),
-            "prevalence_another_ignored": [
-                float(v) for v in thesis_prevalence_ignored(y, patient, another, order)
-            ],
+            "rank_by_prevalence": prev.rank(ascending=False, method="first")
+            .astype(int)
+            .to_numpy(),
         }
     )
     order_tab["order_holds"] = order_tab["rank_by_prevalence"] == np.arange(
@@ -416,8 +492,9 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     table.to_csv(out / "patient_analysis_mmci.csv", index=False)
     ops.to_csv(out / "patient_operating_points_mmci.csv", index=False)
     quantiles.to_csv(out / "patient_score_quantiles_mmci.csv", index=False)
-    hard_neg.to_csv(out / "hard_negatives_mmci.csv", index=False)
     order_tab.to_csv(out / "thesis_order_mmci.csv", index=False)
+    if hard_neg is not None:
+        hard_neg.to_csv(out / "hard_negatives_mmci.csv", index=False)
     checks = {
         "results_run": config.results_run,
         "error_analysis_run": config.error_analysis_run,
@@ -425,7 +502,8 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
         "eval_runs": ref["eval_runs"],
         "training_runs": ref["training_runs"],
         "labels": "annot_label left-joined on (slide_id, id), missing -> 0, is_carcinoma = False -> 0; "
-        "Another pathology and Exclude nuclei labelled 0; no nucleus ignored (labels of the results run)",
+        "Another pathology and Exclude nuclei labelled 0, then the ignore rule",
+        "ignore": ignore_counts,
         "test": {
             "slides": len(meta),
             "carcinoma_slides": int(carcinoma.sum()),
@@ -433,8 +511,6 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
             "labelled_nuclei": len(y),
             "carcinoma_nuclei": int(y.sum()),
             "pooled_prevalence": pooled_pi,
-            "another_pathology_nuclei": int(another.sum()),
-            "another_pathology_slides": len(ap_slides),
         },
         "pi0": dict(zip(pi0_names, pi0s, strict=True)),
         "thresholds": {
@@ -454,31 +530,30 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     return out, checks, private
 
 
-def thesis_prevalence_ignored(
-    y: NDArray, patient: NDArray, another: NDArray, order: list[str]
-) -> list[float]:
-    """Prevalence per patient with the Another pathology nuclei removed (the thesis ranking's labels)."""
-    keep = ~another
-    return [float(y[keep & (patient == p)].mean()) for p in order]
-
-
 def report(
     table: pd.DataFrame,
-    hard_neg: pd.DataFrame,
+    hard_neg: pd.DataFrame | None,
     order_tab: pd.DataFrame,
     checks: dict,
     config: DictConfig,
 ) -> str:
-    th, pi0, b = checks["thresholds"], checks["pi0"], checks["bootstrap"]
+    th, pi0, b, ig = (
+        checks["thresholds"],
+        checks["pi0"],
+        checks["bootstrap"],
+        checks["ignore"],
+    )
     pooled = table.set_index("patient").loc["pooled"]
     lines = [
-        "# Per-patient analysis, Another pathology negative at test: MMCI TL test",
+        "# Per-patient analysis: MMCI TL test",
         "",
         (
-            f"Labels of run `{config.results_run}` (Another pathology and Exclude nuclei labelled 0, none "
-            "ignored); training unchanged. Shape + RoVE + k-NN attention (k = 44), three seeds, stored test "
-            "predictions. AUPRC, calibrated AUPRC and AUROC per seed, then the mean; operating points on the "
-            f"seed-mean probability at the Youden threshold {th['youden']} (run `{config.quantiles_run}`)."
+            f"Test rule: {ig['rule']} ({ig['ignored']:,} nuclei ignored: Another pathology "
+            f"{ig['another_pathology_ignored']:,}, Exclude {ig['exclude_ignored']:,}; none labelled 1). "
+            f"Labels and predictions of run `{config.results_run}`; training unchanged. Shape + RoVE + k-NN "
+            "attention (k = 44), three seeds, stored test predictions. AUPRC, calibrated AUPRC and AUROC per "
+            "seed, then the mean; operating points on the seed-mean probability at the Youden threshold "
+            f"{th['youden']} (run `{config.quantiles_run}`)."
         ),
         "",
         (
@@ -502,17 +577,18 @@ def report(
             f"{r['AUROC']:.4f} | {r['recall_youden']:.4f} | {r['FPR_youden']:.4f} | {r['TP_youden']:,} | "
             f"{r['FP_youden']:,} | {r['FN_youden']:,} |"
         )
-    lines += [
-        "",
-        "## Hard negatives (Another pathology)",
-        "",
-        "| Slide | Group | n | FP | FPR | Median score |",
-        "| --- | --- | --- | --- | --- | --- |",
-    ]
-    lines += [
-        f"| {r.slide} | {r.group} | {r.n:,} | {r.FP_youden:,} | {r.FPR_youden:.4f} | {r.median_score:.4f} |"
-        for r in hard_neg.itertuples()
-    ]
+    if hard_neg is not None:
+        lines += [
+            "",
+            "## Hard negatives (Another pathology)",
+            "",
+            "| Slide | Group | n | FP | FPR | Median score |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+        lines += [
+            f"| {r.slide} | {r.group} | {r.n:,} | {r.FP_youden:,} | {r.FPR_youden:.4f} | {r.median_score:.4f} |"
+            for r in hard_neg.itertuples()
+        ]
     broken = order_tab[~order_tab["order_holds"]]
     lines += [
         "",
@@ -548,7 +624,18 @@ def report(
     return "\n".join(lines)
 
 
-@with_cli_args(["+postprocessing=patient_analysis_another_negative_mmci"])
+ARTIFACTS = (
+    "patient_analysis_mmci.csv",
+    "patient_operating_points_mmci.csv",
+    "patient_score_quantiles_mmci.csv",
+    "thesis_order_mmci.csv",
+    "hard_negatives_mmci.csv",
+    "checks.json",
+    "report.md",
+)
+
+
+@with_cli_args(["+postprocessing=patient_analysis_mmci"])
 @hydra.main(config_path="../configs", config_name="postprocessing", version_base=None)
 def main(config: DictConfig) -> None:
     mlflow.set_tracking_uri(config.mlflow_tracking_uri)
@@ -561,12 +648,13 @@ def main(config: DictConfig) -> None:
         return
 
     b = checks["bootstrap"]
+    attach = bool(config.attach_to_results_run)
     params = {
         "results_run": config.results_run,
         "error_analysis_run": config.error_analysis_run,
         "quantiles_run": config.quantiles_run,
         "dataset": config.dataset_label,
-        "another_pathology_at_test": "negative (labelled 0)",
+        "ignore_rule": checks["ignore"]["rule"],
         "threshold_youden": checks["thresholds"]["youden"],
         "threshold_recall_0.90": checks["thresholds"]["recall_0.90"],
         "pi0": ",".join(f"{k}={v}" for k, v in checks["pi0"].items()),
@@ -578,44 +666,59 @@ def main(config: DictConfig) -> None:
             for i, r in enumerate(checks["training_runs"], start=1)
         },
     }
+    git = git_info(*CODE)
     tags = {
-        "mlflow.runName": config.metadata.run_name,
-        "mlflow.note.content": config.metadata.description,
-        "results_run": config.results_run,
         "error_analysis_run": config.error_analysis_run,
         "quantiles_run": config.quantiles_run,
-        **git_info(*CODE),
     }
+    if attach:  # one run: the nucleus-level row and the per-patient analysis
+        run_id, prefix, metric_prefix, artifact_dir = (
+            config.results_run,
+            "patients.",
+            "patients/",
+            ARTIFACT_DIR,
+        )
+        tags |= {f"patients.{k}": v for k, v in git.items() if k != "git.repo_url"}
+        params.pop("results_run")
+    else:
+        tags |= {
+            "mlflow.runName": config.metadata.run_name,
+            "mlflow.note.content": config.metadata.description,
+            "results_run": config.results_run,
+            **git,
+        }
+        prefix, metric_prefix, artifact_dir = "", "", None
     for text in [*map(str, tags.values()), *map(str, params.values())]:
         assert not CREDENTIAL_URL.search(text), "credential URL in a tag or param"
-    experiment = client.get_experiment_by_name(config.metadata.experiment_name)
-    run_id = client.create_run(
-        experiment.experiment_id, run_name=config.metadata.run_name, tags=tags
-    ).info.run_id
-    user = client.get_run(config.results_run).data.tags.get("mlflow.user")
-    if user:
-        client.set_tag(run_id, "mlflow.user", user)
+    if not attach:
+        experiment = client.get_experiment_by_name(config.metadata.experiment_name)
+        run_id = client.create_run(
+            experiment.experiment_id, run_name=config.metadata.run_name, tags=tags
+        ).info.run_id
+        user = client.get_run(config.results_run).data.tags.get("mlflow.user")
+        if user:
+            client.set_tag(run_id, "mlflow.user", user)
+    else:
+        for k, v in tags.items():
+            client.set_tag(run_id, k, v)
     for k, v in params.items():
-        client.log_param(run_id, k, v)
+        client.log_param(run_id, prefix + k, v)
     table = pd.read_csv(out / "patient_analysis_mmci.csv").set_index("patient")
     for col in table.columns:
-        client.log_metric(run_id, f"pooled/{col}", float(table.loc["pooled", col]))
-    for m in METRICS:
-        client.log_metric(run_id, f"pooled/{m}_ci_lo", b[m]["ci_lo"])
-        client.log_metric(run_id, f"pooled/{m}_ci_hi", b[m]["ci_hi"])
-    for name in (
-        "patient_analysis_mmci.csv",
-        "patient_operating_points_mmci.csv",
-        "patient_score_quantiles_mmci.csv",
-        "hard_negatives_mmci.csv",
-        "thesis_order_mmci.csv",
-        "checks.json",
-        "report.md",
-    ):
-        client.log_artifact(run_id, str(out / name))
-    client.log_artifact(run_id, str(out / "config-resolved.yaml"), "code")
+        client.log_metric(
+            run_id, f"{metric_prefix}pooled/{col}", float(table.loc["pooled", col])
+        )
+    if not attach:
+        for m in METRICS:
+            client.log_metric(run_id, f"pooled/{m}_ci_lo", b[m]["ci_lo"])
+            client.log_metric(run_id, f"pooled/{m}_ci_hi", b[m]["ci_hi"])
+    for name in ARTIFACTS:
+        if (out / name).exists():
+            client.log_artifact(run_id, str(out / name), artifact_dir)
+    code_dir = f"{artifact_dir}/code" if artifact_dir else "code"
+    client.log_artifact(run_id, str(out / "config-resolved.yaml"), code_dir)
     for source in CODE:
-        client.log_artifact(run_id, str(REPO / source), "code")
+        client.log_artifact(run_id, str(REPO / source), code_dir)
 
     r = client.get_run(run_id)
     leaked = [
@@ -624,10 +727,9 @@ def main(config: DictConfig) -> None:
         if CREDENTIAL_URL.search(v)
     ]
     assert not leaked, f"credential URL in run tags/params {leaked}"
-    client.set_terminated(run_id)
-    print(
-        f"MLflow run {run_id} (experiment {experiment.experiment_id}); outputs in {out}"
-    )
+    if not attach:
+        client.set_terminated(run_id)
+    print(f"MLflow run {run_id} ({'attached' if attach else 'new'}); outputs in {out}")
 
 
 if __name__ == "__main__":

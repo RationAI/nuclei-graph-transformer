@@ -27,6 +27,12 @@ data:
     embedding_mode: efd # efd, bbox, blank
   supervision:
     paths: ${dataset.paths.supervision}
+    eval_strategy:
+      # Final MMCI rule: Another pathology and Exclude nuclei ignored at test, matching the tile level
+      # (every tile touching either is dropped); preprocessing/test_ignore_labels_mmci.py.
+      # Variants: ignore_dir=${data.supervision.paths.another_pathology} (Another pathology only,
+      # Exclude 0) or ignore_dir=null (both labelled 0, the pipeline's dense rule).
+      ignore_dir: ${data.supervision.paths.test_ignore}
 
 model:
   net:

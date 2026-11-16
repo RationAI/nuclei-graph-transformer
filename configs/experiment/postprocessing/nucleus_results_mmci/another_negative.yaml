@@ -1,0 +1,17 @@
+# @package _global_
+
+# tab:res-nucleus, MMCI row with the pipeline's dense test labels: Another pathology and Exclude nuclei
+# labelled negative, nothing ignored (run 19c2ef40). Superseded by the default (both ignored).
+
+ignore_another_pathology: false
+ignore_exclude: false
+previous_run: null
+
+out_dir: ${project_path}/evaluation/mmci_test/nucleus_results
+
+metadata:
+  run_name: "tab:res-nucleus: shape, k-NN + rotated values (MMCI test)"
+  description: >-
+    NB-A-65. Nucleus-level AUPRC/AUROC of Shape + RoVE + k-NN attention (k = 44, agreement
+    supervision, 3 seeds) on the MMCI TL test set, Another pathology and Exclude nuclei labelled
+    negative (as run 19c2ef40), with patient-bootstrap CIs (resamples of the tile-level run e97db5a5).

@@ -20,6 +20,9 @@ dataset:
       annotation: ${project_path}/nuclei_supervision/MMCI-TL-Data/annotation
       # preprocessing/unipolar_heatmap_labels.py (nuclei to exclude from supervision)
       another_pathology: ${project_path}/nuclei_supervision/MMCI-TL-Data/another_pathology
+      # preprocessing/test_ignore_labels_mmci.py (test slides only): nuclei ignored at test =
+      # Another pathology (the files above) or Exclude (centroid in the XML polygons)
+      test_ignore: ${project_path}/nuclei_supervision/MMCI-TL-Data/test_ignore
       # preprocessing/cam_labels.py
       cam:
         annot_restricted_thr: ${project_path}/nuclei_supervision/MMCI-TL-Data/cam/annot_restricted_thr

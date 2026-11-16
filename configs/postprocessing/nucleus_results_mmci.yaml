@@ -16,10 +16,14 @@ supervision_dir: ${dataset.paths.supervision.annotation}
 another_pathology_dir: ${dataset.paths.supervision.another_pathology} # ignore_label; training supervision only
 label_column: annot_label # as postprocessing/crop/metrics (configs/experiment/postprocessing/crop/metrics/prostate_cancer_mmci_tl.yaml)
 predictions_artifact: predictions
-# Another pathology nuclei at test: false = labelled 0 (pipeline default, run 19c2ef40);
-# true = ignored via the pipeline's ignore files (thesis label mapping). Exclude stays 0 either way.
-ignore_another_pathology: false
-previous_run: null # an earlier tab:res-nucleus MMCI run this one supersedes or varies
+# Final MMCI rule: Another pathology and Exclude nuclei are ignored at test, matching the tile level
+# (the filtered tiles drop every tile touching either). Ignore files: preprocessing/test_ignore_labels_mmci.py.
+# Variants (explicit experiment configs nucleus_results_mmci/...): ignore_another_pathology (Another
+# pathology ignored, Exclude 0; run dc419c48) and another_negative (both 0; run 19c2ef40).
+ignore_another_pathology: true
+ignore_exclude: true
+test_ignore_dir: ${dataset.paths.supervision.test_ignore}
+previous_run: dc419c48ca8d4b0697f37235ae9020cc # an earlier tab:res-nucleus MMCI run this one supersedes or varies
 
 # NB-A-65 evaluation runs (experiment 97) holding the per-nucleus test predictions;
 # the training run of each is its mlflow.parentRunId.
@@ -58,6 +62,11 @@ tile_check:
   tolerance: 1.0e-6
   workers: 16
 
+# The tile-level run (tile_check.aligned_tiles_run) must drop every tile touching Exclude or Another
+# pathology: its tiles vs the unfiltered MMCI TL test tiles (224 px, before filter_tiles).
+tile_filter_check:
+  unfiltered_tiles_uri: mlflow-artifacts:/65/74c7b6e1a10444688910b8835adf4208/artifacts/MMCI TL Test 224
+
 # Patient resamples of the tile-level bootstrap (B = 2,000), reused unchanged. They hold real
 # patient ids, so they are referenced by run id and checksum and never re-logged.
 resamples_run: e97db5a51cf4470e8febbf6805938894
@@ -76,13 +85,15 @@ patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label
 annotation_suffix: .xml
 
 cache_dir: ${project_path}/evaluation/mmci_test/predictions
-out_dir: ${project_path}/evaluation/mmci_test/nucleus_results
+out_dir: ${project_path}/evaluation/mmci_test/nucleus_results_ignore_another_exclude
 log_mlflow: true
 
 metadata:
   experiment_name: Nuclei Graph — Transformer
-  run_name: "tab:res-nucleus: shape, k-NN + rotated values (MMCI test)"
+  run_name: "tab:res-nucleus: shape, k-NN + rotated values (MMCI test, Another pathology and Exclude ignored)"
   description: >-
     NB-A-65. Nucleus-level AUPRC/AUROC of Shape + RoVE + k-NN attention (k = 44, agreement
     supervision, 3 seeds) on the MMCI TL test set, with patient-bootstrap CIs (resamples of the
     tile-level run e97db5a5); method of the Radboud row (run 6aa01c04, nucleus_results.py at cb07dc8c).
+    Final MMCI rule: Another pathology and Exclude nuclei ignored at test, matching the tile level
+    (every tile touching either is dropped); supersedes runs dc419c48 and 19c2ef40.

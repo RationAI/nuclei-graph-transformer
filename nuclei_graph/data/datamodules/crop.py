@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from nuclei_graph.data.datamodules.base import METADATA_COLS_EVAL, BaseDataModule
 from nuclei_graph.data.datamodules.collator import GraphCollator
 from nuclei_graph.data.memory import ReleaseMemory
-from nuclei_graph.data.supervision import IGNORE_KEY
 from nuclei_graph.nuclei_graph_typing import Batch
 
 
@@ -117,9 +116,8 @@ class CropDataModule(BaseDataModule):
                     cols=[*METADATA_COLS_EVAL, "is_carcinoma"],
                 )
                 assert self.eval_strategy is not None
-                assert self.eval_strategy.paths.get(IGNORE_KEY) is None, (
-                    "Testing supervision must be dense (no ignored nuclei)."
-                )
+                # nuclei may be ignored at test only through test-specific ignore files (e.g. the
+                # MMCI Another pathology and Exclude regions, matching the tile-level evaluation)
                 sup = self.prepare_supervision(
                     slides_df, self.eval_strategy.paths, self.eval_strategy
                 )

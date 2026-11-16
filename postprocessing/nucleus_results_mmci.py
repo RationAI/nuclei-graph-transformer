@@ -97,6 +97,7 @@ CODE = (
     "postprocessing/nucleus_results_mmci.py",
     "configs/postprocessing/nucleus_results_mmci.yaml",
     "configs/experiment/postprocessing/nucleus_results_mmci/ignore_another_pathology.yaml",
+    "configs/experiment/postprocessing/nucleus_results_mmci/another_negative.yaml",
 )
 
 
@@ -367,6 +368,54 @@ def tile_check(
 # --------------------------------------------------------------------------
 
 
+def tile_filter_check(config: DictConfig, client: MlflowClient) -> dict:
+    """The tile-level run drops every tile touching Exclude or Another pathology.
+
+    Its aligned tiles must equal the filtered tile set it names (`tiles_uri`), which holds no
+    tile with any Exclude / Another pathology overlap, and no tile of the unfiltered set that
+    touches either may be among them.
+    """
+    run = config.tile_check.aligned_tiles_run
+    filtered_uri = client.get_run(run).data.params["tiles_uri"]
+    unfiltered_uri = config.tile_filter_check.unfiltered_tiles_uri
+
+    def tiles(uri: str) -> pd.DataFrame:
+        d = Path(download_artifacts(uri))
+        t = pd.read_parquet(d / "tiles.parquet")
+        s = pd.read_parquet(d / "slides.parquet")
+        t["slide"] = t["slide_id"].map(dict(zip(s["id"], s["stem"], strict=True)))
+        assert t["slide"].notna().all()
+        return t
+
+    def keys(df: pd.DataFrame, col: str) -> set:
+        return set(zip(df[col], df["x"], df["y"], strict=True))
+
+    aligned = pd.read_parquet(
+        download_artifacts(run_id=run, artifact_path="aligned_tiles.parquet"),
+        columns=["slide_id", "x", "y"],
+    )
+    filtered, unfiltered = tiles(filtered_uri), tiles(unfiltered_uri)
+    cols = ("another_pathology_percentage", "exclude_percentage")
+    touching = unfiltered[(unfiltered[list(cols)] > 0).any(axis=1)]
+    a = keys(aligned, "slide_id")
+    out = {
+        "run": run,
+        "filtered_tiles_uri": filtered_uri.split("/artifacts/")[-1],
+        "unfiltered_tiles_uri": unfiltered_uri.split("/artifacts/")[-1],
+        "aligned_tiles": len(a),
+        "aligned_equals_filtered": a == keys(filtered, "slide"),
+        "filtered_max_overlap": {c: float(filtered[c].max()) for c in cols},
+        "unfiltered_tiles": len(unfiltered),
+        "unfiltered_touching": {c: int((unfiltered[c] > 0).sum()) for c in cols},
+        "unfiltered_touching_either": len(touching),
+        "touching_tiles_in_run": len(keys(touching, "slide") & a),
+    }
+    assert out["aligned_equals_filtered"], out
+    assert all(v == 0 for v in out["filtered_max_overlap"].values()), out
+    assert out["touching_tiles_in_run"] == 0, out
+    return out
+
+
 def region_counts(config: DictConfig, meta: pd.DataFrame) -> dict:
     """Test nuclei in Exclude / Another pathology regions and their labels.
 
@@ -455,6 +504,39 @@ def region_counts(config: DictConfig, meta: pd.DataFrame) -> dict:
 # --------------------------------------------------------------------------
 
 
+IGNORE_RULES = {
+    (
+        True,
+        True,
+    ): "Another pathology and Exclude nuclei ignored (removed from the test labels; "
+    "test_ignore files: the pipeline's Another pathology ignore files and centroids in the Exclude "
+    "polygons), matching the tile level, which drops every tile touching either (final rule)",
+    (
+        True,
+        False,
+    ): "Another pathology nuclei (ignore_label = 1 in the pipeline's ignore files) "
+    "removed from the test labels; Exclude nuclei stay labelled 0",
+    (False, False): "none: Another pathology and Exclude nuclei labelled 0",
+}
+
+
+def ignore_rule(config: DictConfig) -> tuple[bool, bool]:
+    rule = (bool(config.ignore_another_pathology), bool(config.ignore_exclude))
+    assert rule in IGNORE_RULES, (
+        f"unsupported rule {rule} (Exclude ignored, Another pathology not)"
+    )
+    return rule
+
+
+def ignore_directory(config: DictConfig) -> Path | None:
+    """The ignore files of the rule: test_ignore (both), another_pathology (AP only) or none."""
+    return {
+        (True, True): Path(config.test_ignore_dir),
+        (True, False): Path(config.another_pathology_dir),
+        (False, False): None,
+    }[ignore_rule(config)]
+
+
 def load_ignore(slides: pd.DataFrame, ignore_dir: Path) -> pd.DataFrame:
     """(slide, key, ignore) of the nuclei with ignore_label = 1 in the pipeline's ignore files."""
     frames = []
@@ -462,15 +544,17 @@ def load_ignore(slides: pd.DataFrame, ignore_dir: Path) -> pd.DataFrame:
         path = ignore_dir / f"{row.slide_id}.parquet"
         if not path.exists():
             continue
-        d = pd.read_parquet(path, columns=["id", "ignore_label"])
+        d = pd.read_parquet(path)
         assert set(d["ignore_label"].unique()) <= {0, 1}
         d = d[d["ignore_label"] == 1]
+        parts = [c for c in ("another_pathology", "exclude") if c in d]
         frames.append(
             pd.DataFrame(
                 {
                     "slide": np.full(len(d), s, np.int16),
                     "key": nucleus_keys(d["id"]),
                     "ignore": True,
+                    **{c: d[c].to_numpy() for c in parts},
                 }
             )
         )
@@ -538,21 +622,22 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
     n_slides = len(slides)
 
     tiles = tile_check(config, client, meta, pred_dirs)
+    tile_filter = tile_filter_check(config, client)
     regions = region_counts(config, meta)
 
-    # Another pathology nuclei: labelled 0 (pipeline default) or ignored (pipeline ignore files)
+    # Another pathology / Exclude nuclei at test: ignored (default) or labelled 0 (variants)
     ignore = np.zeros(len(y), bool)
-    ignore_info = {"rule": "none: Another pathology nuclei labelled 0"}
-    if config.ignore_another_pathology:
-        ign = load_ignore(slides, Path(config.another_pathology_dir))
+    ignore_info = {"rule": IGNORE_RULES[ignore_rule(config)]}
+    ignore_dir = ignore_directory(config)
+    if ignore_dir is not None:
+        ign = load_ignore(slides, ignore_dir)
         merged = ref.merge(ign, on=["slide", "key"], how="left", validate="1:1")
         ignore = merged["ignore"].eq(True).to_numpy()
         assert int(ignore.sum()) == len(ign), (
             "ignore rows without a predicted test nucleus"
         )
-        ignore_info = {
-            "rule": "Another pathology nuclei (ignore_label = 1 in the pipeline's ignore files) "
-            "removed from the test labels; Exclude nuclei stay labelled 0",
+        assert int((y[ignore] == 1).sum()) == 0, "an ignored nucleus is labelled 1"
+        ignore_info |= {
             "ignore_files": int(ign["slide"].nunique()),
             "ignored": int(ignore.sum()),
             "ignored_labelled_1_before": int((y[ignore] == 1).sum()),
@@ -560,6 +645,22 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
                 np.bincount(slide[ignore], minlength=n_slides).max()
             ),
         }
+        for part in ("another_pathology", "exclude"):
+            if part in ign:
+                mask = merged[part].eq(1).to_numpy()
+                ignore_info[f"ignored_{part}"] = int(mask.sum())
+                ignore_info[f"ignored_{part}_slides"] = int(np.unique(slide[mask]).size)
+                ignore_info[f"ignored_{part}_labelled_1"] = int((y[mask] == 1).sum())
+        if config.ignore_exclude:
+            assert ignore_info["ignored_exclude"] == regions["exclude"], (
+                "Exclude nuclei in the ignore files != centroids in the Exclude polygons"
+            )
+            assert (
+                ignore_info["ignored_another_pathology"]
+                == regions["another_ignore_files"]
+            ), (
+                "Another pathology nuclei in the ignore files != the pipeline's ignore files"
+            )
         keep = ~ignore
         y, slide, probs = y[keep], slide[keep], probs[:, keep]
 
@@ -745,6 +846,7 @@ def compute(config: DictConfig, client: MlflowClient) -> tuple[Path, dict, list[
             "errors": dict(zip(config.eval_runs, errors, strict=True)),
         },
         "tile_check": tiles,
+        "tile_filter_check": tile_filter,
     }
     (out / "checks.json").write_text(json.dumps(checks, indent=1, default=str))
     (out / "report.md").write_text(
@@ -826,15 +928,26 @@ def report(
             "Dense annotation labels as the existing MMCI evaluation (`postprocessing/crop/metrics`): `annot_label` "
             "left-joined on (slide, nucleus), missing → 0, all nuclei of benign slides → 0. The carcinoma annotation "
             "is Carcinoma minus (Exclude ∪ Another pathology). "
-            + (
-                "Nuclei in Another pathology regions are **ignored** (removed from the test labels, using the "
-                f"pipeline's ignore files: {checks['ignore']['ignored']:,} nuclei on "
-                f"{checks['ignore']['ignore_files']} slides, {checks['ignore']['ignored_labelled_1_before']} of them "
-                "labelled 1 before); nuclei in Exclude regions stay **labelled negative**."
-                if config.ignore_another_pathology
-                else "Nuclei in Exclude and Another pathology regions are **labelled negative, not ignored**; the "
-                "Another pathology ignore labels are used by the training supervision only."
-            )
+            + {
+                (True, True): (
+                    "Nuclei in Another pathology and Exclude regions are **ignored** (removed from the test labels), "
+                    "as the tile level drops every tile touching either: "
+                    f"{checks['ignore'].get('ignored_another_pathology', 0):,} Another pathology nuclei (the pipeline's "
+                    f"ignore files) and {checks['ignore'].get('ignored_exclude', 0):,} Exclude nuclei (centroid in the "
+                    f"polygons), {checks['ignore']['ignored']:,} in all on {checks['ignore']['ignore_files']} slides, "
+                    f"{checks['ignore']['ignored_labelled_1_before']} of them labelled 1 before."
+                ),
+                (True, False): (
+                    "Nuclei in Another pathology regions are **ignored** (removed from the test labels, using the "
+                    f"pipeline's ignore files: {checks['ignore'].get('ignored', 0):,} nuclei on "
+                    f"{checks['ignore'].get('ignore_files', 0)} slides, {checks['ignore'].get('ignored_labelled_1_before', 0)} "
+                    "of them labelled 1 before); nuclei in Exclude regions stay **labelled negative**."
+                ),
+                (False, False): (
+                    "Nuclei in Exclude and Another pathology regions are **labelled negative, not ignored**; the "
+                    "Another pathology ignore labels are used by the training supervision only."
+                ),
+            }[ignore_rule(config)]
         ),
         "",
         "| Test slides | Patients | Labelled nuclei | Positive nuclei | Ignored nuclei | Prevalence |",
@@ -890,8 +1003,8 @@ def report(
             f"{r0['AUPRC_logged_by_evaluation']:.4f} / {r0['AUROC_logged_by_evaluation']:.4f}; recomputed: "
             f"{r0['AUPRC_exact']:.4f} / {r0['AUROC_exact']:.4f}"
             + (
-                " (the evaluation labelled Another pathology nuclei 0; here they are ignored)."
-                if config.ignore_another_pathology
+                " (the evaluation labelled these nuclei 0; here they are ignored)."
+                if config.ignore_another_pathology or config.ignore_exclude
                 else "."
             )
         )
@@ -951,6 +1064,7 @@ def main(config: DictConfig) -> None:
         "reference_run": "6aa01c0448ec42a49ae5137ceaf4f12e (public MLflow, exp 37)",
         "reference_code_commit": "cb07dc8c5f15e57658081e8e53d236a2fd7ee869",
         "ignore_another_pathology": bool(config.ignore_another_pathology),
+        "ignore_exclude": bool(config.ignore_exclude),
     }
     if config.get("previous_run"):
         params["previous_run"] = config.previous_run
