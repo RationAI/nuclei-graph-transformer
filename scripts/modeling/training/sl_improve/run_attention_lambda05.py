@@ -3,7 +3,7 @@ from kube_jobs import storage, submit_job
 
 # Slide-label screening on MMCI (study sl_improve), seed 1: attention pooling + λ = 0.5.
 # Image and resources as the SL MMCI jobs of runs d9cd4264 / 425c23d5. The checkout is pinned
-# to the commit that added the sl_improve configs, so every screening run trains the same code.
+# to the commit with the sl_improve configs and the EMA fix, so every screening run trains the same code.
 submit_job(
     job_name="nuclei-graph-sli-attention-lam05",
     username=...,
@@ -15,7 +15,7 @@ submit_job(
     script=[
         "git clone --branch xai-sae https://github.com/RationAI/nuclei-graph-transformer.git workdir",
         "cd workdir",
-        "git checkout 0afe9f4abf31ddace9904b57efb10a20ef522115",
+        "git checkout f9215a7d5d1313a2484151a3607cc52e377a5d5d",
         # experiment 97 and the MMCI slide tables live on the sensitive MLflow (no credentials)
         "export MLFLOW_TRACKING_URI='http://mlflow.rationai-mlflow:5000'",
         "uv sync --frozen",
