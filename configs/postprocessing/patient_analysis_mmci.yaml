@@ -18,7 +18,7 @@ dataset_label: MMCI TL
 # tab:res-nucleus MMCI run of the same rule (nucleus_results_mmci.py): labels, predictions, per-patient
 # table and bootstrap replicates are the reference here. With attach_to_results_run the outputs are
 # logged into it (one run: the nucleus-level row and the per-patient analysis).
-results_run: RESULTS_RUN
+results_run: e86822433e4e4e33a07fc6d5ee522bbf # tab:res-nucleus MMCI, Another pathology and Exclude ignored
 attach_to_results_run: true
 
 # Test rule (as nucleus_results_mmci.py): both ignored (final), Another pathology only, or none
