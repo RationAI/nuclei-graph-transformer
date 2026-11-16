@@ -5,18 +5,20 @@ One table per split of the dataset's index (train, valid, test), logged as
 positive (`is_carcinoma`) when its category is high grade or malignant, the classes merged
 into the carcinoma annotation masks the nuclei labels come from.
 
-Validation slides of a category in `valid_negative_categories` (low grade) are kept in the
-valid table as negative slides (`is_carcinoma = False`, so every nucleus is labelled 0), so that
-checkpoint selection and validation thresholds see the kinds of negatives the test set holds;
-they pass the blur and no-nuclei checks like every other slide. Training never sees them.
+Validation and test slides of a category in `negative_categories` (low grade) are kept as
+negative slides (`is_carcinoma = False`, so every nucleus is labelled 0): the test set holds
+them as negatives, and checkpoint selection and validation thresholds see the same kinds of
+negatives. They pass the blur and no-nuclei checks like every other slide. Training never
+sees them.
 
 Left out, and listed with the reasons in `excluded_slides.csv`:
-    - slides whose category is not in `categories` (the experiments leave out low grade),
-      except the validation negatives above;
+    - slides whose category is not in `categories` (training leaves out low grade),
+      except the validation and test negatives above;
     - slides listed in `exclude_slides_uris` (the blur exclusion of the QC);
     - slides with no nuclei;
     - test slides that are neither in `test_slides.slides_uri` (the slides re-annotated by a
-      pathologist) nor of a category in `test_slides.categories` (the negatives kept whole).
+      pathologist) nor of a category in `test_slides.categories` or `negative_categories`
+      (the negatives kept whole).
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -98,13 +100,18 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     test_slides = set(
         pd.read_csv(download_artifacts(config.test_slides.slides_uri))["slide_id"]
     )
-    valid_negative = list(config.get("valid_negative_categories") or [])
-    assert not set(valid_negative) & {*POSITIVE_CATEGORIES, *config.categories}, (
-        "valid_negative_categories must be negative and outside `categories`"
+    negative = list(config.get("negative_categories") or [])
+    assert not set(negative) & {*POSITIVE_CATEGORIES, *config.categories}, (
+        "negative_categories must be negative and outside `categories`"
     )
-    kept_negative = (map_df["split"] == "valid") & map_df["category"].isin(
-        valid_negative
+    kept_negative = map_df["split"].isin(["valid", "test"]) & map_df["category"].isin(
+        negative
     )
+    assert (
+        not map_df.loc[map_df["slide_id"].isin(test_slides), "category"]
+        .isin(negative)
+        .any()
+    ), "a re-annotated test slide is of a negative category"
     reasons = {
         f"category not used ({', '.join(config.categories)})": ~map_df["category"].isin(
             config.categories
@@ -114,7 +121,8 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "no nuclei": map_df["nuclei_count"] == 0,
         "test: not re-annotated and not a kept negative": (map_df["split"] == "test")
         & ~map_df["slide_id"].isin(test_slides)
-        & ~map_df["category"].isin(config.test_slides.categories),
+        & ~map_df["category"].isin(config.test_slides.categories)
+        & ~kept_negative,
     }
     reason = pd.Series("", index=map_df.index)
     for name, mask in reasons.items():
@@ -131,9 +139,9 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         raise ValueError(f"re-annotated test slides left out: {sorted(missing)}")
 
     kept = map_df[reason == ""]
-    in_negative = kept["category"].isin(valid_negative)
-    assert (kept.loc[in_negative, "split"] == "valid").all(), (
-        "a valid-only negative category leaked into train or test"
+    in_negative = kept["category"].isin(negative)
+    assert (kept.loc[in_negative, "split"] != "train").all(), (
+        "a negative-only category leaked into train"
     )
     assert not kept.loc[in_negative, "is_carcinoma"].any()
     for split_name in ["train", "valid", "test"]:
