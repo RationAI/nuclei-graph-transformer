@@ -7,11 +7,10 @@ defaults:
 metadata_uri: ${dataset.mlflow_uris.exploration}
 exclude_slides_uris:
   - ${dataset.mlflow_uris.qc_exclusion}
-categories: ${dataset.categories} # low grade is left out of training
-# Kept in the valid and test tables as negative slides (all nuclei 0), after the blur and no-nuclei
-# checks: the test set holds them as negatives, and checkpoint selection and the validation threshold
-# see the same negatives. Never in train.
-negative_categories: ${dataset.negative_categories}
+categories: ${dataset.categories} # train, valid and test: no low grade
+# Test slides of these categories (after the blur and no-nuclei checks) go to their own table,
+# slides_mapping_test_<category>, as negative slides (all nuclei 0), for a separate analysis.
+separate_test_categories: ${dataset.separate_test_categories}
 # The test set: the slides re-annotated by a pathologist, plus every test slide of `test_slides.categories`.
 test_slides:
   slides_uri: ${dataset.mlflow_uris.reannotated_test_slides}
@@ -24,12 +23,12 @@ metadata:
   description: |
     Slides of the train, valid and test splits mapped to their nuclei in the
     `${dataset.nuclei_batch}` batch (cleaned Cellpose segmentation, see its `_cleanup.json`).
-    Low-grade slides are left out of train and kept in valid and test as negative slides
-    (all nuclei 0); slides excluded for blur (QC, rule of PANDA - Radboud) and slides
-    with no nuclei are left out everywhere; the test set is the 60 slides re-annotated by a
-    pathologist plus the normal / inflammation and low-grade test slides. See
-    `icaird_cervix/excluded_slides.csv`.
+    No low-grade slides in train, valid or test; slides excluded for blur (QC, rule of
+    PANDA - Radboud) and slides with no nuclei are left out everywhere; the test set is the 60
+    slides re-annotated by a pathologist plus the normal / inflammation test slides. The
+    low-grade test slides (after the blur and no-nuclei checks) are in their own table,
+    slides_mapping_test_low_grade, as negative slides. See `icaird_cervix/excluded_slides.csv`.
   hyperparams:
     categories: ${categories}
-    negative_categories: ${negative_categories}
+    separate_test_categories: ${separate_test_categories}
     test_slides: ${test_slides}

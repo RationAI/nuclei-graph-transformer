@@ -1,11 +1,14 @@
 # @package _global_
 
 # iCAIRD cervix test set: the 60 slides re-annotated by a pathologist (positive) and the normal /
-# inflammation and low-grade test slides (negative, every nucleus 0).
+# inflammation test slides (negative, every nucleus 0); no low-grade slide.
 #
 # Supervision must be annotation_sparse on the re-annotation labels: on a positive slide only the
 # nuclei inside the pathologist's regions are scored (as positive); every other nucleus of these
 # slides (low-grade areas, unmarked tissue) is ignored, not 0. Negative slides need no label file.
+#
+# The low-grade test slides (negative, every nucleus 0) are a separate table, not read by default;
+# for that analysis: data.metadata.test=${dataset.mlflow_uris.metadata.test_low_grade}
 
 defaults:
   - /experiment/modeling/testing/base@_here_

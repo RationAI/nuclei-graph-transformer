@@ -6,14 +6,18 @@ The run id defaults to the mapping run in configs/data/sources/icaird_cervix.yam
 
 1. Training config (configs/ml.yaml -> training/nuclei_level/icaird_cervix): resolved data section;
    train / valid through BaseDataModule.load_train_val_dfs (the training code path); no low grade in
-   train; low-grade valid slides negative, every nucleus supervised and labelled 0.
-2. Testing config (testing/nuclei_level/icaird_cervix): resolved data section; the test table as the
-   test stage loads it; composition (re-annotated positives by subcategory, normal / inflammation and
-   low-grade negatives) and labelled nuclei per group; the test supervision built by
+   train or valid; validation supervised as training (the same sparse strategy): on a positive slide
+   exactly the label-1 nuclei are supervised (as 1), on a negative slide every nucleus (as 0).
+2. Testing config (testing/nuclei_level/icaird_cervix): resolved data section; the main test table as
+   the test stage loads it (no low grade); composition (re-annotated positives by subcategory,
+   normal / inflammation negatives) and labelled nuclei per group; the test supervision built by
    BaseDataModule.prepare_supervision: on a positive slide exactly the nuclei inside the
    pathologist's regions are supervised (all as 1) and every other nucleus is ignored; on a negative
    slide every nucleus is supervised as 0. Positive slides whose regions are not exported yet are
    reported as pending. The dense `annotation` mode must refuse the re-annotation labels.
+3. The separate low-grade test table (`dataset.mlflow_uris.metadata.test_low_grade`, not read by any
+   config by default): low-grade test slides only, none in train / valid / test, all negative, every
+   nucleus supervised as 0 by the test strategy.
 """
 
 import os
@@ -46,7 +50,7 @@ def config(experiment: str | None, run_id: str | None) -> OmegaConf:
         base = f"mlflow-artifacts:/37/{run_id}/artifacts/icaird_cervix"
         overrides += [
             f"dataset.mlflow_uris.metadata.{s}={base}/slides_mapping_{s}.parquet"
-            for s in ("train", "valid", "test")
+            for s in ("train", "valid", "test", "test_low_grade")
         ]
     with initialize_config_dir(config_dir=f"{REPO}/configs", version_base=None):
         if experiment is None:  # ml.yaml selects the iCAIRD training experiment
@@ -108,19 +112,32 @@ dm = datamodule(train_cfg)
 train, valid = BaseDataModule.load_train_val_dfs(dm)
 composition("train", train)
 composition("valid", valid)
-assert not train["category"].eq("low_grade").any(), "low grade in train"
-for df in (train, valid):
+for name, df in (("train", train), ("valid", valid)):
+    assert not df["category"].eq("low_grade").any(), f"low grade in {name}"
     assert (df["is_carcinoma"] == df["category"].isin(POSITIVE)).all()
-lg = valid[valid["category"] == "low_grade"]
-assert len(lg) > 0 and not lg["is_carcinoma"].any()
-strategy = instantiate(train_cfg.data.supervision.eval_strategy)
-sup = BaseDataModule.prepare_supervision(dm, lg, strategy.paths, strategy)
-for row in lg.itertuples():
+sup_cfg = train_cfg.data.supervision
+assert sup_cfg.eval_strategy == sup_cfg.train_strategy, "valid supervised unlike train"
+assert sup_cfg.eval_strategy.mode == "annotation_sparse"
+assert sup_cfg.eval_strategy.get("ignore_dir") is None
+strategy = instantiate(sup_cfg.eval_strategy)
+sup = BaseDataModule.prepare_supervision(dm, valid, strategy.paths, strategy)
+v_annot = Path(strategy.paths["annot_dir"])
+v_pos = v_neg = 0
+for row in valid.itertuples():
     ns = sup.supervision_map[row.slide_id].nuclei_supervision
     n = int(row.nuclei_count)
-    assert (ns.get_targets(n) == 0).all() and ns.get_sup_mask(n).all()
+    mask, targets = ns.get_sup_mask(n), ns.get_targets(n)
+    if row.is_carcinoma:
+        labels = pd.read_parquet(v_annot / f"{row.slide_id}.parquet")["annot_label"]
+        assert len(labels) == n and (mask.numpy() == (labels.to_numpy() == 1)).all()
+        assert (targets[mask] == 1).all()
+        v_pos += int(mask.sum())
+    else:
+        assert mask.all() and (targets == 0).all()
+        v_neg += n
 print(
-    f"OK train: no low grade; valid: {len(lg)} low-grade slides, every nucleus supervised as 0\n"
+    f"OK train {len(train)} / valid {len(valid)} slides, no low grade; valid supervised as training "
+    f"(annotation_sparse): {v_pos:,} positive + {v_neg:,} negative nuclei, the rest ignored\n"
 )
 
 # 2. testing ----------------------------------------------------------------------------------
@@ -130,6 +147,7 @@ assert test_cfg.data.supervision.eval_strategy.mode == "annotation_sparse"
 assert test_cfg.data.supervision.eval_strategy.get("ignore_dir") is None
 tdm = datamodule(test_cfg)
 test = tdm.load_df(test_cfg.data.metadata.test)
+assert not test["category"].eq("low_grade").any(), "low grade in the main test table"
 assert not set(test["slide_id"]) & (set(train["slide_id"]) | set(valid["slide_id"]))
 assert (test["is_carcinoma"] == test["category"].isin(POSITIVE)).all()
 annot_dir = Path(test_cfg.data.supervision.eval_strategy.annot_dir)
@@ -205,3 +223,24 @@ if (~has_labels).any():
         f"PENDING: {int((~has_labels).sum())} re-annotated slides have no labels yet "
         "(re-run preprocessing.reannotation_labels_icaird_cervix after their export)"
     )
+
+# 3. separate low-grade test table -------------------------------------------------------------
+lg = tdm.load_df(test_cfg.data.metadata.test_low_grade)
+assert (
+    len(lg) > 0
+    and lg["category"].eq("low_grade").all()
+    and not lg["is_carcinoma"].any()
+)
+assert (lg["nuclei_count"] > 0).all()
+assert not set(lg["slide_id"]) & (
+    set(train["slide_id"]) | set(valid["slide_id"]) | set(test["slide_id"])
+)
+sup = BaseDataModule.prepare_supervision(tdm, lg, strategy.paths, strategy)
+for row in lg.itertuples():
+    ns = sup.supervision_map[row.slide_id].nuclei_supervision
+    n = int(row.nuclei_count)
+    assert ns.get_sup_mask(n).all() and (ns.get_targets(n) == 0).all()
+print(
+    f"OK separate low-grade test table: {len(lg)} slides, {int(lg['nuclei_count'].sum()):,} nuclei, "
+    "every nucleus supervised as 0; not in train, valid or the main test table"
+)
