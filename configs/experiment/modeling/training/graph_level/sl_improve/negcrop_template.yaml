@@ -1,0 +1,18 @@
+# @package _global_
+# Slide-label screening on MMCI (study sl_improve): negative sub-crops on top of a parent
+# configuration. A negative slide is replaced, with probability 0.3, by a random crop holding
+# a uniform 30–100 % of its nuclei; positive slides stay whole, and validation/test always
+# use whole slides. The parent is (a) for now: after screening, point the first default at
+# the best configuration and update run_name to match. Tags come from the parent.
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_improve/attention_lambda05
+  - _self_
+
+data:
+  dataset:
+    neg_crop_prob: 0.3
+    neg_crop_frac_range: [0.3, 1.0]
+
+metadata:
+  run_name: "SL k=44 attention + λ=0.5 + neg crops p=0.3"
