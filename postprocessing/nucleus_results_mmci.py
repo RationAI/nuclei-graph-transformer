@@ -509,7 +509,8 @@ IGNORE_RULES = {
         True,
         True,
     ): "Another pathology and Exclude nuclei ignored (removed from the test labels; "
-    "test_ignore files: the pipeline's Another pathology ignore files and centroids in the Exclude "
+    "ignore files of preprocessing/ignore_labels_mmci.py: the pipeline's Another pathology ignore "
+    "files and centroids in the Exclude "
     "polygons), matching the tile level, which drops every tile touching either (final rule)",
     (
         True,

@@ -17,12 +17,13 @@ another_pathology_dir: ${dataset.paths.supervision.another_pathology} # ignore_l
 label_column: annot_label # as postprocessing/crop/metrics (configs/experiment/postprocessing/crop/metrics/prostate_cancer_mmci_tl.yaml)
 predictions_artifact: predictions
 # Final MMCI rule: Another pathology and Exclude nuclei are ignored at test, matching the tile level
-# (the filtered tiles drop every tile touching either). Ignore files: preprocessing/test_ignore_labels_mmci.py.
+# (the filtered tiles drop every tile touching either). Ignore files: preprocessing/ignore_labels_mmci.py
+# (all splits; for the test slides identical to the test_ignore files of run e8682243).
 # Variants (explicit experiment configs nucleus_results_mmci/...): ignore_another_pathology (Another
 # pathology ignored, Exclude 0; run dc419c48) and another_negative (both 0; run 19c2ef40).
 ignore_another_pathology: true
 ignore_exclude: true
-test_ignore_dir: ${dataset.paths.supervision.test_ignore}
+test_ignore_dir: ${dataset.paths.supervision.another_exclude}
 previous_run: dc419c48ca8d4b0697f37235ae9020cc # an earlier tab:res-nucleus MMCI run this one supersedes or varies
 
 # NB-A-65 evaluation runs (experiment 97) holding the per-nucleus test predictions;

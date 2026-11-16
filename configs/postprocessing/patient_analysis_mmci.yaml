@@ -24,7 +24,7 @@ attach_to_results_run: true
 # Test rule (as nucleus_results_mmci.py): both ignored (final), Another pathology only, or none
 ignore_another_pathology: true
 ignore_exclude: true
-test_ignore_dir: ${dataset.paths.supervision.test_ignore}
+test_ignore_dir: ${dataset.paths.supervision.another_exclude}
 error_analysis_run: d73e1fe0a9294b779b024c5c16704a70 # recall-0.90 threshold (Another pathology ignored)
 quantiles_run: fa827d68dd39497698556f6111b758cd # Youden and recall-0.90 thresholds, quantile CSV format
 

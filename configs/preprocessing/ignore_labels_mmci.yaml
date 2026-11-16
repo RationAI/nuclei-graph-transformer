@@ -1,0 +1,18 @@
+# @package _global_
+
+# Ignore labels of the MMCI TL slides, all splits (preprocessing/ignore_labels_mmci.py): Another
+# pathology (the pipeline's ignore files) and Exclude (centroid in the XML polygons). The `ignore_dir`
+# of every MMCI training, validation and test config and of the postprocessing defaults.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+metadata_uris:
+  train: ${dataset.mlflow_uris.metadata.train} # holds the validation split
+  test: ${dataset.mlflow_uris.metadata.test}
+another_pathology_dir: ${dataset.paths.supervision.another_pathology}
+supervision_dir: ${dataset.paths.supervision.annotation} # check: no ignored nucleus is labelled 1
+label_column: annot_label
+annotation_suffix: .xml # ASAP annotations next to the slides
+output_path: ${dataset.paths.supervision.another_exclude}
