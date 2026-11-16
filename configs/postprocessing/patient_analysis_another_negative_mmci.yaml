@@ -1,0 +1,75 @@
+# @package _global_
+
+# Per-patient analysis of the nucleus-level shape model (Shape + RoVE + k-NN, k = 44, agreement
+# supervision, 3 seeds) on the MMCI TL test set with Another pathology nuclei labelled negative at
+# test (Exclude negative): the labels of run 19c2ef40 (postprocessing.patient_analysis_another_negative_mmci).
+# Training is unchanged (Another pathology ignored in training and validation supervision). Stored test
+# predictions, the thresholds of runs d73e1fe0 / fa827d68 (validation, Another pathology ignored) and
+# the patient resamples of run 19c2ef40; nothing is re-predicted.
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+mlflow_tracking_uri: http://mlflow.rationai-mlflow:5000/
+dataset_label: MMCI TL
+
+# tab:res-nucleus MMCI run with Another pathology labelled 0 (no nucleus ignored): labels, predictions,
+# per-patient table and bootstrap replicates are the reference here
+results_run: 19c2ef40fafd4c1d8c861fd39122b69e
+error_analysis_run: d73e1fe0a9294b779b024c5c16704a70 # recall-0.90 threshold (Another pathology ignored)
+quantiles_run: fa827d68dd39497698556f6111b758cd # Youden and recall-0.90 thresholds, quantile CSV format
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+supervision_dir: ${dataset.paths.supervision.annotation}
+another_pathology_dir: ${dataset.paths.supervision.another_pathology} # identifies the nuclei; not ignored
+label_column: annot_label
+predictions_artifact: predictions
+test_cache_dir: ${project_path}/evaluation/mmci_test/predictions # cache of nucleus_results_mmci.py
+patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv
+
+# Thresholds on the seed-mean validation score (runs d73e1fe0 / fa827d68), applied to the seed-mean test score
+thresholds:
+  youden: 0.22132409363985062
+  recall_0.90: 0.4199611743291219
+
+# Calibrated AUPRC (Siblini et al., IDA 2020): reference prevalences; "pooled" = the pooled test prevalence
+pi0: [pooled, 0.5]
+calibration_check_tolerance: 1.0e-6
+# AUPRC / AUROC vs the results run's tables (torchmetrics float32: a few ulps, ~1e-7); counts must be equal
+agreement_tolerance: 1.0e-6
+
+quantiles: [0.05, 0.25, 0.5, 0.75, 0.95]
+
+# Thesis labels P1-P10, ordered by the share of carcinoma nuclei (prevalence); old -> thesis
+thesis_from_old:
+  P1: P1
+  P2: P3
+  P3: P2
+  P4: P6
+  P5: P4
+  P6: P5
+  P7: P9
+  P8: P7
+  P9: P10
+  P10: P8
+
+# Patient resamples of the tile-level bootstrap, as run 19c2ef40 (real patient ids: referenced, never logged)
+resamples_run: e97db5a51cf4470e8febbf6805938894
+resamples_artifact: bootstrap_resamples.npz
+resamples_seed: 20261114
+ci_level: 0.95
+replicate_tolerance: 1.0e-12
+
+out_dir: ${project_path}/evaluation/mmci_test/patient_analysis_another_negative
+log_mlflow: true
+
+metadata:
+  experiment_name: Nuclei Graph — Transformer
+  run_name: "Per-patient analysis, Another pathology negative at test: shape, k-NN + rotated values (MMCI test)"
+  description: >-
+    Per patient (thesis labels P1-P10) on the MMCI TL test set with Another pathology nuclei labelled
+    negative at test and Exclude negative (labels of run 19c2ef40); training unchanged. Seed-mean of
+    per-seed AUPRC, calibrated AUPRC (pi0 = pooled prevalence and 0.5) and AUROC; recall / FPR / TP / FP / FN
+    at the Youden threshold of run fa827d68; score quantiles; Another-pathology hard negatives. Stored
+    predictions; thresholds of runs d73e1fe0 / fa827d68; patient resamples of run 19c2ef40.
