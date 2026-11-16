@@ -49,8 +49,8 @@ dataset:
 
     # preprocessing/metadata_mapping/icaird_cervix.py (cleaned Cellpose batch; blur-excluded slides and
     # slides with no nuclei left out; no low grade in train, valid or test; test = the 60 re-annotated
-    # slides + normal / inflammation): train 792, valid 392, test 245 slides. (The run also logged a
-    # slides_mapping_test_low_grade table; it is not used: low grade is not evaluated.)
+    # slides + normal / inflammation): train 792, valid 392, test 245 slides. (The run's
+    # slides_mapping_test_low_grade table was deleted on 2026-11-16: low grade is not used.)
     metadata:
       train: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_train.parquet
       valid: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_valid.parquet
