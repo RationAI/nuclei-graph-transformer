@@ -3,7 +3,8 @@
 # configuration. A negative slide is replaced, with probability 0.3, by a random crop holding
 # a uniform 30–100 % of its nuclei; positive slides stay whole, and validation/test always
 # use whole slides. The parent is (a) for now: after screening, point the first default at
-# the best configuration and update run_name to match. Tags come from the parent.
+# the best configuration and update run_name to match. Tags and the 200 epochs come from
+# sl_improve/_base through the parent.
 
 defaults:
   - /experiment/modeling/training/graph_level/sl_improve/attention_lambda05

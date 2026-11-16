@@ -1,0 +1,16 @@
+# @package _global_
+# Shared base of the slide-label screening on MMCI (study sl_improve). Every sl_improve config
+# inherits it (negcrop_template through its parent). It changes only the epoch budget and the
+# tags of prostate_cancer_mmci_tl; the cosine schedule follows max_epochs. Not a run on its own.
+
+defaults:
+  - /experiment/modeling/training/graph_level/prostate_cancer_mmci_tl
+  - _self_
+
+trainer:
+  max_epochs: 200
+
+logger:
+  tags:
+    study: sl_improve
+    role: screening

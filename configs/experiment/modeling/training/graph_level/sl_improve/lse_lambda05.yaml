@@ -1,10 +1,10 @@
 # @package _global_
 # Slide-label screening on MMCI (study sl_improve), LSE pooling + λ = 0.5.
-# Only the keys below differ from prostate_cancer_mmci_tl; model selection stays on
+# Only the keys below differ from sl_improve/_base (200 epochs, tags); model selection stays on
 # validation/graph/AUROC (slide labels only, no region annotations).
 
 defaults:
-  - /experiment/modeling/training/graph_level/prostate_cancer_mmci_tl
+  - /experiment/modeling/training/graph_level/sl_improve/_base
   - _self_
 
 model:
@@ -12,11 +12,6 @@ model:
   net:
     config:
       pooling: lse
-
-logger:
-  tags:
-    study: sl_improve
-    role: screening
 
 metadata:
   run_name: "SL k=44 LSE + λ=0.5"

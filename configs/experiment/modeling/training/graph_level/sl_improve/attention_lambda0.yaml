@@ -1,0 +1,17 @@
+# @package _global_
+# Slide-label screening on MMCI (study sl_improve), attention pooling, λ = 0 (control).
+# Only the keys below differ from sl_improve/_base (200 epochs, tags); model selection stays on
+# validation/graph/AUROC (slide labels only, no region annotations).
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_improve/_base
+  - _self_
+
+model:
+  neg_instance_weight: 0.0 # λ (control)
+  net:
+    config:
+      pooling: attention
+
+metadata:
+  run_name: "SL k=44 attention + λ=0 (control)"

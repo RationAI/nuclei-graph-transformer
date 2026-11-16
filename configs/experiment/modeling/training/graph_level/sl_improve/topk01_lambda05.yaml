@@ -1,10 +1,10 @@
 # @package _global_
 # Slide-label screening on MMCI (study sl_improve), top-k pooling (1 %) + λ = 0.5.
-# Only the keys below differ from prostate_cancer_mmci_tl; model selection stays on
+# Only the keys below differ from sl_improve/_base (200 epochs, tags); model selection stays on
 # validation/graph/AUROC (slide labels only, no region annotations).
 
 defaults:
-  - /experiment/modeling/training/graph_level/prostate_cancer_mmci_tl
+  - /experiment/modeling/training/graph_level/sl_improve/_base
   - _self_
 
 model:
@@ -13,11 +13,6 @@ model:
     config:
       pooling: topk
       topk_frac: 0.01 # k = max(topk_min = 50, ceil(0.01 * n))
-
-logger:
-  tags:
-    study: sl_improve
-    role: screening
 
 metadata:
   run_name: "SL k=44 top-k 1% + λ=0.5"
