@@ -8,11 +8,9 @@ dataset:
   # cervix_cellpose (Cellpose) or cervix_lsp-detr (LSP-DETR).
   nuclei_batch: cervix_cellpose
 
-  # Diagnoses (`category` of the index) of train, valid and test; low grade is left out.
+  # Diagnoses (`category` of the index) of train, valid and test. Low grade is used nowhere (no
+  # training, validation or evaluation) and is in no metadata table.
   categories: [normal_inflammation, high_grade, malignant]
-  # Test slides of these categories get their own table (mlflow_uris.metadata.test_<category>), as
-  # negative slides (every nucleus 0), for a separate analysis; nothing reads it by default.
-  separate_test_categories: [low_grade]
 
   mask_tile_width: 512
   mask_tile_height: 512
@@ -51,13 +49,12 @@ dataset:
 
     # preprocessing/metadata_mapping/icaird_cervix.py (cleaned Cellpose batch; blur-excluded slides and
     # slides with no nuclei left out; no low grade in train, valid or test; test = the 60 re-annotated
-    # slides + normal / inflammation): train 792, valid 392, test 245 slides. `test_low_grade`: the
-    # low-grade test slides as negative slides, for a separate analysis; no config reads it by default.
+    # slides + normal / inflammation): train 792, valid 392, test 245 slides. (The run also logged a
+    # slides_mapping_test_low_grade table; it is not used: low grade is not evaluated.)
     metadata:
       train: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_train.parquet
       valid: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_valid.parquet
       test: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_test.parquet
-      test_low_grade: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_test_low_grade.parquet
 
     masks:
       annotation:

@@ -15,9 +15,7 @@ The run id defaults to the mapping run in configs/data/sources/icaird_cervix.yam
    pathologist's regions are supervised (all as 1) and every other nucleus is ignored; on a negative
    slide every nucleus is supervised as 0. Positive slides whose regions are not exported yet are
    reported as pending. The dense `annotation` mode must refuse the re-annotation labels.
-3. The separate low-grade test table (`dataset.mlflow_uris.metadata.test_low_grade`, not read by any
-   config by default): low-grade test slides only, none in train / valid / test, all negative, every
-   nucleus supervised as 0 by the test strategy.
+Low grade is used nowhere: no low-grade slide may be in any table.
 """
 
 import os
@@ -50,7 +48,7 @@ def config(experiment: str | None, run_id: str | None) -> OmegaConf:
         base = f"mlflow-artifacts:/37/{run_id}/artifacts/icaird_cervix"
         overrides += [
             f"dataset.mlflow_uris.metadata.{s}={base}/slides_mapping_{s}.parquet"
-            for s in ("train", "valid", "test", "test_low_grade")
+            for s in ("train", "valid", "test")
         ]
     with initialize_config_dir(config_dir=f"{REPO}/configs", version_base=None):
         if experiment is None:  # ml.yaml selects the iCAIRD training experiment
@@ -201,7 +199,7 @@ print(
 )
 groups = stats.assign(
     group=stats["category"].where(
-        stats["category"].isin(["normal_inflammation", "low_grade"]),
+        stats["category"].eq("normal_inflammation"),
         "positive (" + stats["subcategory"] + ")",
     )
 ).groupby("group")
@@ -223,24 +221,3 @@ if (~has_labels).any():
         f"PENDING: {int((~has_labels).sum())} re-annotated slides have no labels yet "
         "(re-run preprocessing.reannotation_labels_icaird_cervix after their export)"
     )
-
-# 3. separate low-grade test table -------------------------------------------------------------
-lg = tdm.load_df(test_cfg.data.metadata.test_low_grade)
-assert (
-    len(lg) > 0
-    and lg["category"].eq("low_grade").all()
-    and not lg["is_carcinoma"].any()
-)
-assert (lg["nuclei_count"] > 0).all()
-assert not set(lg["slide_id"]) & (
-    set(train["slide_id"]) | set(valid["slide_id"]) | set(test["slide_id"])
-)
-sup = BaseDataModule.prepare_supervision(tdm, lg, strategy.paths, strategy)
-for row in lg.itertuples():
-    ns = sup.supervision_map[row.slide_id].nuclei_supervision
-    n = int(row.nuclei_count)
-    assert ns.get_sup_mask(n).all() and (ns.get_targets(n) == 0).all()
-print(
-    f"OK separate low-grade test table: {len(lg)} slides, {int(lg['nuclei_count'].sum()):,} nuclei, "
-    "every nucleus supervised as 0; not in train, valid or the main test table"
-)

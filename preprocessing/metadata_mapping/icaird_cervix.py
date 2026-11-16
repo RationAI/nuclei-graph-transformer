@@ -5,17 +5,12 @@ One table per split of the dataset's index (train, valid, test), logged as
 positive (`is_carcinoma`) when its category is high grade or malignant, the classes merged
 into the carcinoma annotation masks the nuclei labels come from.
 
-Train, valid and test hold only the slides of `categories` (no low grade). The test table is the
-slides re-annotated by a pathologist (positive) plus every test slide of `test_slides.categories`
+Train, valid and test hold only the slides of `categories`: low grade is used nowhere (no
+training, validation or evaluation), and no table holds it. The test table is the slides
+re-annotated by a pathologist (positive) plus every test slide of `test_slides.categories`
 (negative); every positive test slide must be re-annotated.
 
-Test slides of a category in `separate_test_categories` (low grade) that pass the blur and
-no-nuclei checks are logged to their own table, `slides_mapping_test_<category>.parquet`, as
-negative slides (`is_carcinoma = False`, every nucleus labelled 0), for a separate analysis;
-nothing reads it by default.
-
-Left out, and listed with the reasons in `excluded_slides.csv` (column `separate_table`: the
-separate test table a slide is in instead, if any):
+Left out, and listed with the reasons in `excluded_slides.csv`:
     - slides whose category is not in `categories` (low grade);
     - slides listed in `exclude_slides_uris` (the blur exclusion of the QC);
     - slides with no nuclei;
@@ -102,15 +97,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     test_slides = set(
         pd.read_csv(download_artifacts(config.test_slides.slides_uri))["slide_id"]
     )
-    separate = list(config.get("separate_test_categories") or [])
-    assert not set(separate) & {*POSITIVE_CATEGORIES, *config.categories}, (
-        "separate_test_categories must be negative and outside `categories`"
-    )
-    assert (
-        not map_df.loc[map_df["slide_id"].isin(test_slides), "category"]
-        .isin(separate)
-        .any()
-    ), "a re-annotated test slide is of a separate (negative) category"
     reasons = {
         f"category not used ({', '.join(config.categories)})": ~map_df["category"].isin(
             config.categories
@@ -119,25 +105,14 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         "no nuclei": map_df["nuclei_count"] == 0,
         "test: not re-annotated and not a kept negative": (map_df["split"] == "test")
         & ~map_df["slide_id"].isin(test_slides)
-        & ~map_df["category"].isin([*config.test_slides.categories, *separate]),
+        & ~map_df["category"].isin(config.test_slides.categories),
     }
     reason = pd.Series("", index=map_df.index)
     for name, mask in reasons.items():
         reason[mask] = reason[mask].map(lambda r, n=name: f"{r}; {n}" if r else n)
 
-    # the separate test tables: their slides fail only the category check
-    category_only = reason == next(iter(reasons))
-    separate_table = pd.Series("", index=map_df.index)
-    for category in separate:
-        in_table = (
-            category_only
-            & (map_df["split"] == "test")
-            & (map_df["category"] == category)
-        )
-        separate_table[in_table] = f"slides_mapping_test_{category}"
-
     dropped = map_df.loc[reason != "", ["slide_id", "split", "category"]].assign(
-        reason=reason[reason != ""], separate_table=separate_table[reason != ""]
+        reason=reason[reason != ""]
     )
     with TemporaryDirectory() as temp_dir:
         path = Path(temp_dir, "excluded_slides.csv")
@@ -162,15 +137,6 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     for split_name in ["train", "valid", "test"]:
         split_df = kept[kept["split"] == split_name].drop(columns=["split"])
         log_table(split_df, f"slides_mapping_{split_name}", logger)
-
-    for category in separate:
-        table = map_df[separate_table == f"slides_mapping_test_{category}"]
-        assert (table["split"] == "test").all() and (table["nuclei_count"] > 0).all()
-        assert not table["is_carcinoma"].any(), "a separate test slide is positive"
-        assert not table["slide_path"].isin(excluded["slide_path"]).any()
-        log_table(
-            table.drop(columns=["split"]), f"slides_mapping_test_{category}", logger
-        )
 
 
 if __name__ == "__main__":
