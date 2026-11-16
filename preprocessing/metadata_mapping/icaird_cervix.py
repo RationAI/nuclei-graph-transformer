@@ -5,8 +5,14 @@ One table per split of the dataset's index (train, valid, test), logged as
 positive (`is_carcinoma`) when its category is high grade or malignant, the classes merged
 into the carcinoma annotation masks the nuclei labels come from.
 
+Validation slides of a category in `valid_negative_categories` (low grade) are kept in the
+valid table as negative slides (`is_carcinoma = False`, so every nucleus is labelled 0), so that
+checkpoint selection and validation thresholds see the kinds of negatives the test set holds;
+they pass the blur and no-nuclei checks like every other slide. Training never sees them.
+
 Left out, and listed with the reasons in `excluded_slides.csv`:
-    - slides whose category is not in `categories` (the experiments leave out low grade);
+    - slides whose category is not in `categories` (the experiments leave out low grade),
+      except the validation negatives above;
     - slides listed in `exclude_slides_uris` (the blur exclusion of the QC);
     - slides with no nuclei;
     - test slides that are neither in `test_slides.slides_uri` (the slides re-annotated by a
@@ -92,10 +98,18 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     test_slides = set(
         pd.read_csv(download_artifacts(config.test_slides.slides_uri))["slide_id"]
     )
+    valid_negative = list(config.get("valid_negative_categories") or [])
+    assert not set(valid_negative) & {*POSITIVE_CATEGORIES, *config.categories}, (
+        "valid_negative_categories must be negative and outside `categories`"
+    )
+    kept_negative = (map_df["split"] == "valid") & map_df["category"].isin(
+        valid_negative
+    )
     reasons = {
         f"category not used ({', '.join(config.categories)})": ~map_df["category"].isin(
             config.categories
-        ),
+        )
+        & ~kept_negative,
         "qc: blur": map_df["slide_path"].isin(excluded["slide_path"]),
         "no nuclei": map_df["nuclei_count"] == 0,
         "test: not re-annotated and not a kept negative": (map_df["split"] == "test")
@@ -117,6 +131,11 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
         raise ValueError(f"re-annotated test slides left out: {sorted(missing)}")
 
     kept = map_df[reason == ""]
+    in_negative = kept["category"].isin(valid_negative)
+    assert (kept.loc[in_negative, "split"] == "valid").all(), (
+        "a valid-only negative category leaked into train or test"
+    )
+    assert not kept.loc[in_negative, "is_carcinoma"].any()
     for split_name in ["train", "valid", "test"]:
         split_df = kept[kept["split"] == split_name].drop(columns=["split"])
         log_table(split_df, f"slides_mapping_{split_name}", logger)
