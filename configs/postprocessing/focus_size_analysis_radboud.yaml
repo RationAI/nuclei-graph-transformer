@@ -1,0 +1,117 @@
+# @package _global_
+
+# Why do the nucleus-level scores fall with the amount of carcinoma? Focus size (D1), boundary
+# profile (D2) and Gleason pattern (D3) on PANDA Radboud test (postprocessing.focus_size_analysis_radboud).
+# Existing checkpoints and stored test predictions only (no training). Same test slides, labels
+# (annot_label, dense: missing -> 0, is_carcinoma = False -> 0) and QC as tab:res-nucleus (run 6aa01c04).
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+# public MLflow (experiment 37); MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD from the environment
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz
+dataset_label: PANDA Radboud
+
+# stages to run: validation (thresholds), geometry (per-nucleus annotations), analysis (D1-D3)
+stages: [validation, geometry, analysis]
+
+# Models (NB-A-68): evaluation runs hold the stored test predictions; their parent training runs the
+# checkpoints. Seeds in NB-A-68 order. Scores = seed-mean probability.
+models:
+  shape_knn:
+    label: Shape, k-NN, rotated values (main)
+    short: Shape k-NN
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+    thesis_threshold: 0.40 # thesis figure (slide_error_analysis_radboud: 0.4021)
+  shape_self:
+    label: Shape, self-only
+    short: Shape self
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+  shape_dense:
+    label: Shape, dense (whole slide), no positions
+    short: Shape dense
+    eval_runs: [9363c68f37da442f89c940d80efa49d5, df298e11a4c543dbaf57a378baab98e6, ba58d016ece74741a93b409d49526e5a]
+  blank_knn:
+    label: Blank token, k-NN, rotated values
+    short: Blank k-NN
+    # seed 1 = the retrained 5e3274c2 (NB-A-68); the Q2/Q3 table used c8f6f450 (training e9eace03,
+    # schedule check flagged), kept as the sensitivity model blank_knn_q2
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+  texture_self:
+    label: Texture, self-only
+    short: Texture self
+    eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+  texture_knn:
+    label: Texture, k-NN, rotated values
+    short: Texture k-NN
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+sensitivity_models:
+  blank_knn_q2:
+    label: Blank token, k-NN, rotated values (Q2/Q3 seeds)
+    short: Blank k-NN (Q2)
+    eval_runs: [c8f6f4503b054a418fb3d2c1c044b662, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+
+# The public cluster's project folder is mounted read-only here; paths under `remote_project_path`
+# (slide tables, run configs) are remapped. Outputs and caches go to `write_path`.
+remote_project_path: /mnt/projects/nuclei_based_wsi_analysis
+local_project_path: /mnt/public_projects/nuclei_based_wsi_analysis
+write_path: ${project_path}/evaluation/radboud_test
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${local_project_path}/nuclei_supervision/PANDA/Radboud/annotation
+label_column: annot_label
+predictions_artifact: predictions
+test_cache_dirs: # aligned stored test predictions, <eval run>.parquet; first hit wins, else downloaded to the last
+  - ${local_project_path}/evaluation/radboud_test/predictions
+  - ${write_path}/predictions
+tmp_dir: ${write_path}/_tmp_focus # checkpoints, git worktrees (one per process)
+validation_models: null # restrict the validation stage to these models (null: all)
+inference_cache_dir: ${write_path}/inference_predictions # <commit[:8]>/<training run>_{validation,testsample}.parquet
+inference:
+  device: cuda
+  test_sample_slides: 24 # test slides re-predicted per seed to check the reproduction at the evaluation commit
+  test_sample_seed: 20261117
+
+# Radboud label masks (0 background, 1 stroma, 2 benign epithelium, 3-5 Gleason pattern), level 0
+label_masks_dir: ${dataset.paths.masks.annotation}
+overlap_threshold: 0.5 # majority-vertex rule of the thesis labels (unipolar_heatmap_labels, radboud.yaml)
+geometry:
+  stride: 4 # carcinoma mask (pattern >= 3) subsampled from level 0 for the distance / component geometry
+  closings_um: [0, 50, 100] # closing diameter (disk); 50 = primary
+  primary_closing_um: 50
+  workers: 12
+geometry_dir: ${write_path}/focus_geometry # per-slide nucleus / focus tables
+
+analysis:
+  min_focus_nuclei: 5 # foci with fewer carcinoma nuclei: not in the per-focus summaries
+  area_bins_mm2: [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0, 3.0, 10.0, 1000.0]
+  small_focus_mm2: 0.05
+  large_focus_mm2: 1.0
+  distance_edges_um: {lo: -200, hi: 200, step: 10}
+  min_pattern_nuclei: 50 # within-slide AUROC: slides with at least this many nuclei of the pattern
+  min_benign_nuclei: 50
+  pure_share: 0.9 # "pure" pattern focus: >= 90 % of its carcinoma nuclei of that pattern
+  ramp: # D2 summary bands (signed distance, um; [lo, hi)): deep - edge recall, near - far FPR
+    edge: [0, 20]
+    deep: [50, .inf]
+    near: [-20, 0]
+    far: [-.inf, -100]
+    min_nuclei: 100 # fewer nuclei in a band: not reported
+bootstrap:
+  n_resamples: 1000
+  seed: 20261117
+  ci_level: 0.95
+
+out_dir: ${write_path}/focus_size_analysis
+log_mlflow: true
+
+metadata:
+  experiment_id: "37"
+  run_name: "Focus size, boundary profile and Gleason pattern (Radboud test)"
+  description: >-
+    Diagnosis of the score shift with the amount of carcinoma for six nucleus-level models (3 seeds,
+    seed-mean probability, Youden threshold on the validation nuclei of each model): carcinoma foci
+    (connected components of the G3-5 mask after a 0 / 50 / 100 um closing), score and recall vs focus
+    area (D1); signed distance to the carcinoma boundary (D2); Gleason pattern recall, within-slide
+    AUROC, G3-dominant foci, partial Spearman (D3). Stored test predictions; no training.
