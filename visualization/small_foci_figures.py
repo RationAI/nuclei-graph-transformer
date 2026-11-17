@@ -100,10 +100,10 @@ def recall_fpr_figure(
                         alpha=0.7,
                     )
         ax1.set_xticks(x1, [bins[i] for i in present], rotation=45, ha="right")
-        ax1.set_xlabel("Focus area (closed, mm²)")
+        ax1.set_xlabel(r"Focus area (closed, mm$^2$)")
         ax1.set_ylabel("Recall (Youden threshold)")
         ax2.set_xticks(np.arange(len(bands)), bands)
-        ax2.set_xlabel("Distance outside focus (µm)")
+        ax2.set_xlabel(r"Distance outside focus ($\mu$m)")
         ax2.set_ylabel("FPR, benign nuclei")
         for ax in (ax1, ax2):
             ax.grid(axis="y", color=GRID, lw=0.5)
