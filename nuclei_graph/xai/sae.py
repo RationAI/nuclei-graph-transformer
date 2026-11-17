@@ -1,4 +1,4 @@
-"""Concept autoencoders with an affine decoder (Kůr et al., unifying concept-based XAI).
+"""Concept autoencoders with an affine decoder.
 
 Both autoencoders map a nucleus representation z ∈ R^d (output of `final_norm`) to
 concept codes c ∈ R^k and back with an affine decoder D(c) = Uᵀc + b_D, where the
