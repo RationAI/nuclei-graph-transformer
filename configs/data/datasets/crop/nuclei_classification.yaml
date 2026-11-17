@@ -5,3 +5,5 @@ efd_order: ???
 embedding_mode: ???
 patch_size: null
 patches_path: null # preprocessing/nuclei_patches.py output, read instead of the WSI when embedding_mode=bbox
+foci: null # focus table (nuclei_graph.data.foci): focus sizes of the nuclei, focus seeding
+pos_seed_mode: nucleus # nucleus: positive seed uniform over positive nuclei; focus: a focus, then a nucleus

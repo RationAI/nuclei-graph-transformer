@@ -1,2 +1,4 @@
 # @package _global_
 _target_: nuclei_graph.meta_archs.nuclei.NucleiModelMetaArch
+train_loss: bce # bce, focus_weighted (needs data.dataset.foci), crop_balanced; validation/test: bce
+focus_weight_power: 0.5 # focus_weighted: positives weighted by (focus size in nuclei)^(-power)

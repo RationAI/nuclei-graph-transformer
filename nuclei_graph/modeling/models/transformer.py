@@ -158,6 +158,15 @@ class Transformer(nn.Module):
             # r = softplus(rho) > 0, initialized at r = 1
             self.lse_rho = nn.Parameter(torch.tensor(math.log(math.expm1(1.0))))
 
+        # self-evidence head (study small_foci, B1): a linear logit of each nucleus's own input
+        # embedding, added to the context logit; created last (and only when enabled), so the
+        # other parameters and their initialization are unchanged
+        self.self_head = (
+            nn.Linear(config.dim, config.num_classes)
+            if config.get("self_head", False)
+            else None
+        )
+
     def embed_efd(self, x: Tensor, real_seq_len: int) -> Tensor:
         norm_dim = self.batch_norm.num_features
         not_to_norm = x[..., norm_dim:]  # angles
@@ -279,6 +288,9 @@ class Transformer(nn.Module):
     ) -> Outputs:
         real_seq_len = int(seq_lens.sum().item())
         x = self.prepare_features(x, pos, bboxes, real_seq_len, seq_lens)
+        self_logits = (
+            self.self_head(x[:real_seq_len]) if self.self_head is not None else None
+        )
 
         x = x.unsqueeze(0)
         pos = pos.unsqueeze(0)
@@ -300,6 +312,9 @@ class Transformer(nn.Module):
 
         nuclei_logits = self.class_head(x)[:real_seq_len]
         x = x[:real_seq_len]
+        context_logits = nuclei_logits
+        if self_logits is not None:
+            nuclei_logits = context_logits + self_logits
 
         seq_lens_list = seq_lens.tolist()
         if self.pooling == "attention":
@@ -312,8 +327,12 @@ class Transformer(nn.Module):
         else:
             graph_logits, attn_weights = self.pool_lse(nuclei_logits, seq_lens_list)
 
-        return Outputs(
+        outputs = Outputs(
             graph=graph_logits,
             nuclei=nuclei_logits[:real_seq_len],
             attn_weights=attn_weights,
         )
+        if self_logits is not None:
+            outputs["nuclei_context"] = context_logits
+            outputs["nuclei_self"] = self_logits
+        return outputs

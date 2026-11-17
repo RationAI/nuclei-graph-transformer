@@ -10,7 +10,9 @@ logits, TF32 matmuls (``torch.set_float32_matmul_precision("high")`` as ``nuclei
 Inputs (``--job``, JSON): ``slides`` (parquet with the dataset's metadata columns), ``runs``
 (list of {"checkpoint", "config"}: a checkpoint file and the training run's resolved config,
 YAML), ``outputs`` (one parquet per run) and ``device``. Each output holds (slide, key, p) of
-every nucleus, slide = row in ``slides``, key = the 64-bit prefix of the nucleus id, sorted.
+every nucleus, slide = row in ``slides``, key = the 64-bit prefix of the nucleus id, sorted; with
+``"logits": true`` in the job also the logit, and for models with a self-evidence head (study
+small_foci, B1) its two components ``logit_context`` and ``logit_self`` (logit = their sum).
 Only standard-library and third-party modules are imported at module level.
 """
 
@@ -91,6 +93,7 @@ def main() -> None:
         block_size=d["block_size"], k=d["k"], predict=True, context=d["context"]
     )
 
+    with_logits = bool(job.get("logits", False))
     frames = [[] for _ in models]
     for s in tqdm(range(len(ds)), desc=Path(job["outputs"][0]).stem):
         batch = collate([ds[s]])
@@ -102,14 +105,24 @@ def main() -> None:
         keys = nucleus_keys(ids)
         for m, model in enumerate(models):
             with torch.inference_mode():
-                logits = model(inputs)["nuclei"].squeeze(-1)
+                out = model(inputs)
+            logits = out["nuclei"].squeeze(-1)
             p = torch.sigmoid(logits).float().cpu().numpy().ravel()
             assert len(p) == len(ids)
-            frames[m].append(
-                pd.DataFrame(
-                    {"slide": np.full(len(p), s, np.int16), "key": keys, "p": p}
-                )
-            )
+            cols = {"slide": np.full(len(p), s, np.int16), "key": keys, "p": p}
+            if with_logits:
+                cols["logit"] = logits.float().cpu().numpy().ravel()
+                for name in ("context", "self"):
+                    if f"nuclei_{name}" in out:
+                        cols[f"logit_{name}"] = (
+                            out[f"nuclei_{name}"]
+                            .squeeze(-1)
+                            .float()
+                            .cpu()
+                            .numpy()
+                            .ravel()
+                        )
+            frames[m].append(pd.DataFrame(cols))
     for f, path in zip(frames, job["outputs"], strict=True):
         df = pd.concat(f, ignore_index=True).sort_values(
             ["slide", "key"], ignore_index=True

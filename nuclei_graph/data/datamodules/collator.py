@@ -100,6 +100,7 @@ class GraphCollator:
         all_labels_nuclei: list[Tensor] = []
         all_labels_graph: list[Tensor] = []
         all_labels_pseudo: list[Tensor] = []
+        all_focus_nuclei: list[Tensor] = []
         all_sup_masks: list[Tensor] = []
         all_bboxes: list[Tensor] = []
         all_sort_indices: list[np.ndarray] = []
@@ -151,6 +152,9 @@ class GraphCollator:
                 pseudo = b["labels"].get("pseudo")
                 if pseudo is not None:
                     all_labels_pseudo.append(pseudo[sort_indices])
+                focus_nuclei = b["labels"].get("focus_nuclei")
+                if focus_nuclei is not None:
+                    all_focus_nuclei.append(focus_nuclei[sort_indices])
 
             current_global_idx += len(sorted_pos)
 
@@ -164,6 +168,11 @@ class GraphCollator:
                 assert len(all_labels_pseudo) == len(batch)
                 targets["pseudo"] = self._pad(
                     torch.cat(all_labels_pseudo), target_seq_len, value=False
+                )
+            if all_focus_nuclei:
+                assert len(all_focus_nuclei) == len(batch)
+                targets["focus_nuclei"] = self._pad(
+                    torch.cat(all_focus_nuclei), target_seq_len
                 )
 
         block_mask = (

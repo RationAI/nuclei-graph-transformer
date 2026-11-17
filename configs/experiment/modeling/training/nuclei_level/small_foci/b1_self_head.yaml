@@ -1,0 +1,20 @@
+# @package _global_
+# small_foci B1: self-evidence branch. A linear head on each nucleus's own input embedding; the
+# nucleus logit is the context logit + this self logit, trained end to end. Everything else as the
+# control.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+model:
+  net:
+    config:
+      self_head: true
+
+logger:
+  tags:
+    intervention: b1_self_head
+
+metadata:
+  run_name: "small_foci: B1 self-evidence head"

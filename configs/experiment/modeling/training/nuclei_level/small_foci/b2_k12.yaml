@@ -1,0 +1,17 @@
+# @package _global_
+# small_foci B2: smaller neighbourhood, k = 12 (training, validation and inference). Everything else
+# as the control.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+data:
+  k: 12
+
+logger:
+  tags:
+    intervention: b2_k12
+
+metadata:
+  run_name: "small_foci: B2 k = 12"

@@ -1,0 +1,13 @@
+# @package _global_
+# small_foci control: the main model's configuration, unchanged, trained with the current code.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+logger:
+  tags:
+    intervention: control
+
+metadata:
+  run_name: "small_foci: control (main config)"

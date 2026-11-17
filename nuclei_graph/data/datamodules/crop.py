@@ -63,8 +63,13 @@ class CropDataModule(BaseDataModule):
         return df[mask_keep].reset_index(drop=True)
 
     def eval_dataset_overrides(self) -> dict[str, float | None]:
-        """Disables the training-only negative crops and pseudo-labels for evaluation."""
-        overrides = {"neg_crop_prob": 0.0, "pseudo_labels": None}
+        """Disables the training-only negative crops, pseudo-labels and foci for evaluation."""
+        overrides = {
+            "neg_crop_prob": 0.0,
+            "pseudo_labels": None,
+            "foci": None,
+            "pos_seed_mode": "nucleus",
+        }
         return {k: v for k, v in overrides.items() if k in self.dataset_cfg}
 
     def setup(self, stage: str) -> None:

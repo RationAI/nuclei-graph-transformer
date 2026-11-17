@@ -1,0 +1,18 @@
+# @package _global_
+# small_foci A3: per-crop class-balanced loss: mean BCE over the crop's positives + mean BCE over its
+# negatives, averaged over the crops of the batch. Validation loss (checkpoint rule) stays the mean
+# BCE. Everything else as the control.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+model:
+  train_loss: crop_balanced
+
+logger:
+  tags:
+    intervention: a3_crop_balanced
+
+metadata:
+  run_name: "small_foci: A3 per-crop class-balanced loss"

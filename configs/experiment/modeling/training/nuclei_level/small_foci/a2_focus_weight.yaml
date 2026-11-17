@@ -1,0 +1,23 @@
+# @package _global_
+# small_foci A2: focus-size loss weighting. Positive nuclei weighted by (focus size in carcinoma
+# nuclei)^(-0.5), renormalized to a mean weight of 1 over the positives of the batch; negatives 1.
+# Validation loss (checkpoint rule) stays the unweighted BCE. Everything else as the control.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+data:
+  dataset:
+    foci: ${foci_table} # focus sizes only; seeding unchanged
+
+model:
+  train_loss: focus_weighted
+  focus_weight_power: 0.5
+
+logger:
+  tags:
+    intervention: a2_focus_weight
+
+metadata:
+  run_name: "small_foci: A2 focus-size loss weight"

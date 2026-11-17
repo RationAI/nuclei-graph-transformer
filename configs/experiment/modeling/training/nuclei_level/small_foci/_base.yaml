@@ -1,0 +1,88 @@
+# @package _global_
+# Study small_foci: interventions against context dilution on small carcinoma foci of PANDA Radboud
+# (focus analysis 7287d498). Shared base = the thesis main nucleus-level model (shape / EFD embedding,
+# k-NN block-sparse attention with rotated values, k = 24, 8 layers, d 256; training runs 5401eebe /
+# 084da1a0 / c8f26853, exp 37): the values of their resolved configs, pinned here (the generic
+# nuclei_level/radboud.yaml has drifted). Code: the current block mask (752565f2), which the main
+# runs predate; `control` retrains the main configuration with it. Not a run on its own: each
+# intervention changes one thing (see its file).
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/augmentations@data.dataset.augmentations: base # FieldRotation(π)
+  - /data/supervision@data.supervision.train_strategy: annotation
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - _self_
+
+# the main runs' checkpoint rule: the single best validation loss (no EMA)
+monitor: validation/loss
+checkpoint_mode: min
+
+trainer:
+  max_epochs: 300
+  gradient_clip_val: 0.7
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 16
+  num_workers: 10 # as the main runs (loader workers draw the random crops)
+  eval_num_workers: 2
+  k: 24
+  context: knn
+
+  split_stratify_col: gleason_score
+  split_group_col: null
+  split_size: 0.1
+  metadata: ${dataset.providers.radboud.metadata}
+
+  dataset:
+    crop_size_min: 512
+    crop_size_max: 8192
+    alpha: 0.8
+    efd_order: 16
+    patch_size: 48 # unused by the efd embedding; the main runs' value
+    embedding_mode: efd
+
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+  sampler:
+    positivity_thr: 0.05 # the main runs' value (nuclei_level/radboud.yaml has 0.0 since 55bc57ba)
+    pos_slide_ratio: 0.75
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      use_rope: true
+      attention_variant: vrope
+      embedding_mode: ${data.dataset.embedding_mode}
+
+# focus table of the train-table slides (postprocessing.small_foci_radboud, stage foci_table;
+# MLflow run f02506e1: 3,119 carcinoma slides, 22.65M carcinoma nuclei, 93,259 foci)
+foci_table: mlflow-artifacts:/37/f02506e14faf47cab11d50ad19b32c3e/artifacts/foci_table/radboud_train_foci.parquet
+
+logger:
+  tags:
+    study: small_foci
+    intervention: ???
+    role: screening # screening (step 1) or selection (step 2: seeds 0, 1, 2)
+
+metadata:
+  run_name: ???
+  hyperparams:
+    train_loss: ${model.train_loss}
+    focus_weight_power: ${model.focus_weight_power}
+    self_head: ${model.net.config.self_head}
+    pos_seed_mode: ${data.dataset.pos_seed_mode}
+    foci: ${data.dataset.foci}

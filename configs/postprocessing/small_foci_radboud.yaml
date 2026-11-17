@@ -1,0 +1,118 @@
+# @package _global_
+
+# Study small_foci (postprocessing.small_foci_radboud): interventions against the context dilution of
+# the nucleus-level model on small carcinoma foci of PANDA Radboud (focus analysis 7287d498, MLflow
+# run 79bfa6dd). Shared evaluation of every model on validation (all runs) and test (final models).
+# Foci = 8-connected components of the Gleason 3-5 mask after a 50 um closing (as 7287d498).
+# Pixel size: the slide tables' mpp_x = 0.4862 um/px, which is the Radboud TIFF header value.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+# public MLflow (experiment 37); MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD from the environment
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz
+dataset_label: PANDA Radboud
+
+# geometry (train-table slides), foci_table (training input), predict (validation / test inference of
+# the study's training runs), evaluate (shared evaluation), fusion (step 0), test (step 3), report
+stages: [geometry, foci_table]
+split: validation # predict / evaluate / report: validation or test
+
+remote_project_path: /mnt/projects/nuclei_based_wsi_analysis
+local_project_path: /mnt/public_projects/nuclei_based_wsi_analysis
+write_path: ${project_path}/evaluation/radboud_small_foci
+
+train_metadata_uri: ${dataset.providers.radboud.metadata.train}
+test_metadata_uri: ${dataset.providers.radboud.metadata.test}
+# validation = the training runs' fixed split of the train table (split_train_val, random_state = 42)
+validation_split:
+  size: 0.1
+  stratify_col: gleason_score
+  group_col: null
+
+supervision_dir: ${local_project_path}/nuclei_supervision/PANDA/Radboud/annotation
+label_column: annot_label # dense: missing -> 0, is_carcinoma = False -> 0 (as 7287d498)
+label_masks_dir: ${dataset.paths.masks.annotation}
+overlap_threshold: 0.5
+
+geometry:
+  stride: 4
+  closing_um: 50
+  workers: 12
+geometry_dirs:
+  train: ${write_path}/focus_geometry_train # train + validation slides (this study)
+  test: ${project_path}/evaluation/radboud_test/focus_geometry # 7287d498 (closings 0 / 50 / 100 um)
+
+# training input of A1 / A2: carcinoma nuclei of the training-table slides with their focus and its size
+foci_table:
+  path: ${write_path}/foci_table/radboud_train_foci.parquet
+  log_mlflow: true
+  run_name: "small_foci: focus table of the Radboud training slides"
+
+predictions_dir: ${write_path}/predictions # <training run>_<split>.parquet (slide, key, logit[, components])
+tmp_dir: ${write_path}/_tmp
+inference:
+  device: cuda
+
+# Stored predictions of existing models (NB-A-68): validation at each evaluation run's commit
+# (7287d498 inference cache), test = the evaluation runs' stored predictions. Seeds in NB-A-68 order.
+existing_inference_cache: ${project_path}/evaluation/radboud_test/inference_predictions
+test_cache_dirs:
+  - ${local_project_path}/evaluation/radboud_test/predictions
+  - ${project_path}/evaluation/radboud_test/predictions
+predictions_artifact: predictions
+existing_models:
+  main:
+    label: Thesis main (shape, k-NN, rotated values, k = 24)
+    training_runs: [5401eebe1212414d99b19e903a22db31, 084da1a0f82748049381c84d87b74462, c8f268536be8416f9fe395eea95c458e]
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+    eval_commits: ["96860cec", "96860cec", "96860cec"]
+  self:
+    label: Shape, self-only
+    training_runs: [5dbc2c074d434e90a16e0038ef0a2860, bcd0536191b545b6bd414672cd7816c9, fa631c2373db45faaa2dd46d1355a768]
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+    eval_commits: ["99510237", "96860cec", "96860cec"] # quoted: all-digit hashes parse as int
+
+# Training runs of this study (filled in as they finish); seeds in order 0, 1, 2. B1 adds the two
+# logit components as the models <name>:context and <name>:self.
+study_models:
+  control: {label: "Control (main config, fixed block mask)", training_runs: []}
+  a1_focus_seeding: {label: "A1 focus-balanced seeding", training_runs: []}
+  a2_focus_weight: {label: "A2 focus-size loss weight", training_runs: []}
+  a3_crop_balanced: {label: "A3 per-crop class-balanced loss", training_runs: []}
+  b1_self_head: {label: "B1 self-evidence head", training_runs: [], components: true}
+  b2_k8: {label: "B2 k = 8", training_runs: []}
+  b2_k12: {label: "B2 k = 12", training_runs: []}
+
+fusion: # step 0: logits of main and self-only, seed by seed (seed i with seed i)
+  weights: [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
+  selection_metric: AUPRC # w (weight of the main model) maximising the seed-mean validation AUPRC
+  logit_clip: 16.0 # float32 probabilities saturate at |logit| ~ 16.6
+
+evaluation:
+  min_focus_nuclei: 5 # as 7287d498: foci with fewer carcinoma nuclei are not binned
+  area_bins_mm2: [0.0, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0, 3.0, 10.0, 1000.0] # closed area, as 7287d498
+  small_bins: 2 # the two smallest bins
+  distance_bands_um: [[0, 50], [50, 100], [100, 200]] # benign nuclei outside the nearest focus
+  pi0: 0.385 # calibrated AUPRC (Siblini et al. 2020), as Appendix F / slide_error_analysis_radboud
+  low_prevalence: 0.05
+  min_carcinoma_nuclei: 50
+
+selection: # step 2
+  max_auprc_drop: 0.005
+  max_selected: 2
+
+bootstrap: # step 3: canonical stratified slide resamples of Radboud test (Q2-Q4)
+  resamples: ${local_project_path}/evaluation/radboud_test/q2_sources_bootstrap/bootstrap_resamples_radboud_test.npz
+  resamples_seed: 20261108
+  ci_level: 0.95
+  histogram: {n_bins: 4096, max_bins: 65536, tolerance: 1.0e-4}
+  reference: control
+  models: [] # selected interventions (step 2)
+
+out_dir: ${write_path}/${split}
+log_mlflow: true
+metadata:
+  experiment_id: "37"
+  run_name: "small_foci: shared evaluation (${split})"

@@ -17,3 +17,4 @@ config:
   pooling: attention # attention, topk, lse (nuclei-to-graph)
   topk_frac: 0.01 # topk: k = max(topk_min, ceil(topk_frac * n))
   topk_min: 50
+  self_head: false # linear logit of each nucleus's input embedding added to the context logit

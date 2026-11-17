@@ -69,6 +69,8 @@ class Targets(TypedDict):
     nuclei: Tensor | None
     graph: Tensor | None
     pseudo: NotRequired[Tensor | None]  # pseudo-positive nuclei (training only)
+    # size (carcinoma nuclei) of each nucleus's carcinoma focus, 0 outside (training only)
+    focus_nuclei: NotRequired[Tensor | None]
 
 
 class Sample(TypedDict):
@@ -85,6 +87,9 @@ class Outputs(TypedDict):
     graph: Tensor
     nuclei: Tensor
     attn_weights: Tensor
+    # with a self-evidence head: nuclei = nuclei_context + nuclei_self
+    nuclei_context: NotRequired[Tensor]
+    nuclei_self: NotRequired[Tensor]
 
 
 class BatchMetadata(TypedDict):

@@ -1,0 +1,20 @@
+# @package _global_
+# small_foci A1: focus-balanced seeding. In positive slides, a positive crop's seed is a carcinoma
+# focus drawn uniformly, then a positive nucleus within it (instead of a seed uniform over the
+# positive nuclei). Everything else as the control.
+
+defaults:
+  - /experiment/modeling/training/nuclei_level/small_foci/_base
+  - _self_
+
+data:
+  dataset:
+    foci: ${foci_table}
+    pos_seed_mode: focus
+
+logger:
+  tags:
+    intervention: a1_focus_seeding
+
+metadata:
+  run_name: "small_foci: A1 focus-balanced seeding"
