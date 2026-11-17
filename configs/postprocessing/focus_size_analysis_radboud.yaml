@@ -35,8 +35,8 @@ models:
   blank_knn:
     label: Blank token, k-NN, rotated values
     short: Blank k-NN
-    # seed 1 = the retrained 5e3274c2 (NB-A-68); the Q2/Q3 table used c8f6f450 (training e9eace03,
-    # schedule check flagged), kept as the sensitivity model blank_knn_q2
+    # seed 1 = the retrained 5e3274c2 (NB-A-68); the Q2/Q3 tables used c8f6f450 (training e9eace03,
+    # schedule check flagged) until 2026-11-17, kept here as the sensitivity model blank_knn_q2
     eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
   texture_self:
     label: Texture, self-only

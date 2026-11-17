@@ -39,7 +39,10 @@ configurations:
   position_knn:
     label: Position only, k-NN, rotated values
     source: Position only
-    eval_runs: [c8f6f4503b054a418fb3d2c1c044b662, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+    # seed 1 = training 5e3274c2 (retrained, NB-A-68), evaluation 1f5e2e4a (commit a2f10781; its
+    # checkpoint re-predicted at 96860cec, the other seeds' commit, gives the same scores within TF32
+    # noise). Until 2026-11-17: training e9eace03 / evaluation c8f6f450 (schedule check flagged).
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
   shape_knn_nopos:
     label: Shape, k-NN, no positions
     source: Shape
