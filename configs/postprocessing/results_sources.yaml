@@ -46,10 +46,14 @@ configurations:
   shape_knn_nopos:
     label: Shape, k-NN, no positions
     source: Shape
-    # Not used until it has all its seeds (bootstrap.min_seeds): seed 3 (training run 650b1d8d...)
-    # is still training. fc1c02b4... is not a seed of this configuration: its model
-    # (9c8c04fe...) was trained with data.context = none.
-    eval_runs: [28cfe9796d924a3ca31a3922947aca05, be5e23d0adad4c0b8f1e77da8057a7ba]
+    # Training b825727e, 5de0289b, 650b1d8d (NB-A-68). 5de0289b and 650b1d8d were trained with
+    # attention_variant vrope and use_rope false: without RoPE, rotate_v does nothing, so the model
+    # is standard attention without positions (same parameters; evaluated as standard).
+    # Seed 3 (8eef7874) was evaluated at commit a2f10781; its checkpoint re-predicted at 96860cec
+    # (scripts/reporting/positions_commit_check.py) is compared with its stored predictions.
+    # fc1c02b4... is not a seed of this configuration: its model (9c8c04fe...) was trained with
+    # data.context = none.
+    eval_runs: [28cfe9796d924a3ca31a3922947aca05, be5e23d0adad4c0b8f1e77da8057a7ba, 8eef7874b48c4051aaa86b7b6be4c50f]
   shape_knn_rope:
     label: Shape, k-NN, RoPE
     source: Shape
@@ -137,6 +141,14 @@ figure: # drawn by visualization.thesis_results_figures
   configurations: [shape_knn, texture_knn, position_knn]
 
 block_mask_fix_date: "2026-10-30" # knn/dense flex BlockMask double count fixed
+
+# Checks of the positions configurations made outside this script, logged with the run:
+# scripts/reporting/positions_ablation_preflight.py (runs, configs, checkpoints, commits) and
+# scripts/reporting/positions_commit_check.py (runs evaluated at another commit than 96860cec,
+# re-predicted on the 24-slide test sample at 96860cec and at their own commit).
+run_checks:
+  - ${project_path}/evaluation/radboud_test/positions_ablation/preflight_runs.csv
+  - ${project_path}/evaluation/radboud_test/positions_ablation/commit_check.csv
 
 cache_dir: ${project_path}/evaluation/radboud_test/predictions # aligned predictions, one parquet per run
 out_dir: ${project_path}/evaluation/radboud_test/q2_q3_results

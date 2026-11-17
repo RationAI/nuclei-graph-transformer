@@ -89,9 +89,12 @@ def main() -> None:
         slides,
         **{k: v for k, v in ds_kwargs.items() if k in accepted and v is not None},
     )
-    collate = GraphCollator(
-        block_size=d["block_size"], k=d["k"], predict=True, context=d["context"]
-    )
+    collate_kwargs = {"block_size": d["block_size"], "k": d["k"], "predict": True}
+    if "context" in inspect.signature(GraphCollator).parameters:
+        collate_kwargs["context"] = d["context"]
+    else:  # commits before the context option build the k-NN mask only
+        assert d.get("context", "knn") == "knn", "this commit's collator is k-NN only"
+    collate = GraphCollator(**collate_kwargs)
 
     with_logits = bool(job.get("logits", False))
     frames = [[] for _ in models]
