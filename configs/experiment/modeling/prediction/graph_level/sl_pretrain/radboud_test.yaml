@@ -1,0 +1,29 @@
+# @package _global_
+# Test predictions (per nucleus and per slide) of an sl_pretrain PANDA model on Radboud test (978
+# slides): the input of metrics/sl_pretrain/radboud_test and of the comparison with the
+# region-supervised Radboud model (postprocessing/sl_pretrain_vs_region).
+
+defaults:
+  - /experiment/modeling/prediction/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: crop
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/predictions@trainer.callbacks.predictions: crop
+  - /experiment/modeling/validation/graph_level/sl_pretrain/_arch@_here_
+  - _self_
+
+checkpoint: ??? # mlflow-artifacts:/37/<training run>/artifacts/checkpoints/last/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: ??? # the training run
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  metadata:
+    predict: ${dataset.providers.radboud.metadata.test}
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+
+metadata:
+  run_name: "SL pretrain: Radboud test predictions"

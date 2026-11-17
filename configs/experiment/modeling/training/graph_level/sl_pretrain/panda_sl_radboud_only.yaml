@@ -1,0 +1,29 @@
+# @package _global_
+# (b) Slide-label pretraining on PANDA Radboud only (study sl_pretrain; fallback / control of
+# panda_sl). Training: Radboud train (3,520); validation: Radboud valid (392); test: Radboud test.
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_pretrain/_panda_base
+  - /data/supervision@data.supervision.eval_strategy.radboud: annotation
+  - _self_
+
+trainer:
+  # the same number of optimizer steps as panda_sl (464 x 55 / 220 steps per epoch)
+  max_epochs: 116
+
+data:
+  metadata:
+    train:
+      radboud: ${dataset.providers.radboud.metadata.train}
+    test:
+      radboud: ${dataset.providers.radboud.metadata.test}
+
+logger:
+  tags:
+    role: pretrain_control
+
+metadata:
+  run_name: "SL pretrain PANDA (Radboud only), k=24 attention"
+  hyperparams:
+    validation_supervision_mode: radboud=annotation
+    providers: radboud

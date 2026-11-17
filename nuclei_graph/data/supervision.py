@@ -169,6 +169,35 @@ class SparseAnnotationNucleiSupervision(AnnotationNucleiSupervision):
         return self.labels == 1
 
 
+class SlideLabelNucleiSupervision(NucleiSupervision):
+    """Slide labels only: no nucleus label is read and no nucleus is supervised.
+
+    For slide-label (weakly supervised) training and for slides whose nuclei must not
+    enter the nucleus metrics. `get_sup_mask` is all False (also on negative slides),
+    the nucleus targets are the slide label, and the positivity (which drives the
+    slide sampler) is the slide label. No nucleus seeds exist, so crops cannot be
+    sampled (`full_slide` only).
+    """
+
+    def _get_targets(self) -> Tensor:
+        raise NotImplementedError("slide-label supervision has no nucleus labels")
+
+    def _get_sup_mask(self) -> Tensor:
+        raise NotImplementedError("slide-label supervision has no nucleus labels")
+
+    def get_sup_mask(self, n: int) -> Tensor:
+        return torch.zeros(n, dtype=torch.bool)
+
+    def get_targets(self, n: int) -> Tensor:
+        return torch.full((n,), float(self.is_carcinoma), dtype=torch.float32)
+
+    def get_positivity(self) -> float:
+        return float(self.is_carcinoma)
+
+    def get_pos_count(self) -> int:
+        raise NotImplementedError("slide-label supervision has no nucleus labels")
+
+
 class PredictionNucleiSupervision(DenseNucleiSupervision):
     """Supervision based on model predictions."""
 
@@ -253,6 +282,7 @@ class SupervisionStrategy:
         "cam": (CAMNucleiSupervision, ["cam_label"]),
         "agreement": (AgreementNucleiSupervision, ["annot_label", "cam_label"]),
         "prediction": (PredictionNucleiSupervision, ["pred_label"]),
+        "slide_label": (SlideLabelNucleiSupervision, []),  # reads no nucleus labels
     }
 
     def __init__(self, mode: str, **paths: str | None):
@@ -341,7 +371,11 @@ def build_supervision(
     """
     ignore_df = sup_dfs.get(IGNORE_KEY)
     sources = [df for k, df in sup_dfs.items() if k != IGNORE_KEY and df is not None]
-    assert sources
+    _, required_cols = strategy.STRATEGY_MAP[strategy.mode]
+    # slide labels only (no required columns): no label source may be given
+    assert bool(sources) == bool(required_cols), (
+        f"{strategy.mode}: {len(sources)} label sources for columns {required_cols}"
+    )
 
     # Row positions of each slide (no copies of the dataframes); a slide's rows are
     # merged across the sources and sorted by id only when its supervision is built,
@@ -356,7 +390,6 @@ def build_supervision(
 
     sup_map = {}
     empty_t = torch.empty(0, dtype=torch.float32)
-    _, required_cols = strategy.STRATEGY_MAP[strategy.mode]
 
     for slide_id, is_carcinoma in tqdm(
         carcinoma_map.items(), desc="Building Supervision"
@@ -364,7 +397,7 @@ def build_supervision(
         labels = dict.fromkeys(required_cols, empty_t)
 
         ids = None
-        if is_carcinoma:
+        if is_carcinoma and required_cols:
             group = slide_supervision(sources, source_rows, slide_id)
             ids = IdsDigest.of(group["id"].tolist())
             for col in required_cols:

@@ -1,0 +1,25 @@
+# @package _global_
+# (c) Fine-tuning of the PANDA slide-label model (panda_sl) on MMCI slide labels (study
+# sl_pretrain); seeds 0, 1, 2 (`seed=` on the command line).
+# Weights only from panda_sl's last.ckpt (its final EMA weights): fresh optimizer and schedule.
+# MLflow experiment 37 is not reachable from the sensitive cluster, so the checkpoint is copied
+# to init_ckpt below first (see the job script).
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_pretrain/_mmci_base
+  - _self_
+
+trainer:
+  max_epochs: 100
+
+model:
+  lr: 3e-5
+  warmup_epochs: 2
+  init_ckpt: ${project_path}/checkpoints/sl_pretrain/panda_sl/last.ckpt
+
+logger:
+  tags:
+    role: finetune
+
+metadata:
+  run_name: "SL MMCI fine-tune from PANDA SL, k=24 attention + λ=0"

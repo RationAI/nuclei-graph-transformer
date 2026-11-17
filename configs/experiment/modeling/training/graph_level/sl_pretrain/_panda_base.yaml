@@ -1,0 +1,100 @@
+# @package _global_
+# Shared base of the slide-label pretraining on PANDA (study sl_pretrain); panda_sl and
+# panda_sl_radboud_only add the providers. Not a run on its own.
+#
+# Slide labels only: is_carcinoma = ISUP grade > 0 (preprocessing/metadata_mapping/panda.py).
+# Training reads no nucleus label (train_strategy slide_label: the sampler weights follow the
+# slide labels, no crop is sampled), λ = μ = 0. The dense Radboud nucleus labels enter only the
+# validation/test nucleus metrics (eval_strategy of the providers).
+#
+# Architecture of the thesis's main nucleus-level Radboud model (shape embedding, rotated
+# values, k-NN attention, k = 24; training runs 5401eebe / 084da1a0 / c8f26853, exp 37) with
+# attention pooling.
+
+defaults:
+  - /experiment/modeling/training/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: crop
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: graph_classification
+  - /data/samplers@data.sampler: weighted_random_sampler
+  - /data/augmentations@data.dataset.augmentations: base
+  - /data/supervision@data.supervision.train_strategy: slide_label
+  - _self_
+
+monitor: validation/graph/AUROC
+checkpoint_mode: max
+
+trainer:
+  # from the timing dry run: ~9.7 µs/nucleus on an H100 MIG 2g.24gb (Lightning, steady state) → an
+  # A40 is ~1.6-2x slower: 39-48 min/epoch (144M training + 17M validation nuclei) → 35-44 h
+  max_epochs: 55
+  gradient_clip_val: 0.7
+  callbacks:
+    # the best checkpoint by validation slide AUROC and last.ckpt (the final EMA weights)
+    - _target_: nuclei_graph.callbacks.FinalModelCheckpoint
+      save_top_k: 1
+      save_last: true
+      monitor: ${monitor}
+      mode: ${checkpoint_mode}
+    # EMA of the parameters with the live BatchNorm statistics (see nuclei_graph/callbacks/ema.py)
+    - _target_: nuclei_graph.callbacks.ParamsEMAWeightAveraging
+      decay: 0.999
+    # validation/graph/<provider>/{AUROC,AUPRC}
+    - _target_: nuclei_graph.callbacks.ProviderGraphMetricsCallback
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 16
+  k: 24
+  context: knn
+  # each provider's train table is split on its own (Radboud: the thesis split, 3,520 / 392)
+  split_stratify_col: gleason_score
+  split_group_col: null
+  split_size: 0.1
+
+  dataset:
+    full_slide: true # whole slides: no crop sampling (crops need nucleus labels)
+    neg_crop_prob: 0.0
+    pseudo_labels: null
+    crop_size_min: null
+    crop_size_max: null
+    crop_pos_thr: null
+    alpha: 0.8
+    efd_order: 16
+    patch_size: 40
+    embedding_mode: efd
+
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+  sampler:
+    positivity_thr: 0.0 # slide_label positivity = the slide label
+    pos_slide_ratio: 0.5
+
+model:
+  lr: 1e-4
+  warmup_epochs: 8
+  neg_instance_weight: 0.0 # λ
+  pseudo_pos_weight: 0.0 # μ
+  selection_metric: AUROC
+  graph_metrics_all_slides: true # slides without nucleus labels (Karolinska) count in the slide metrics
+  net:
+    config:
+      pooling: attention
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      attention_variant: vrope
+      embedding_mode: ${data.dataset.embedding_mode}
+
+logger:
+  tags:
+    study: sl_pretrain
+
+metadata:
+  hyperparams:
+    train_supervision_mode: slide_label
+    validation_supervision_mode: ??? # per provider
+    providers: ???

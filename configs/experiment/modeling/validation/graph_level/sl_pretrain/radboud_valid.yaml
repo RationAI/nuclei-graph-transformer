@@ -1,0 +1,36 @@
+# @package _global_
+# Thresholds of an sl_pretrain PANDA model (panda_sl, panda_sl_radboud_only) on Radboud valid (the
+# thesis split: 392 slides): CropCurvesCallback logs thresholds/val_graph_j (slide, Youden) and
+# thresholds/val_nuclei_* (dense nucleus labels), used by metrics/sl_pretrain/radboud_test.
+
+defaults:
+  - /experiment/modeling/validation/base@_here_
+  - /data/sources/panda
+  - /model/meta_archs@model: crop
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: graph_classification
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: crop
+  - /experiment/modeling/validation/graph_level/sl_pretrain/_arch@_here_
+  - _self_
+
+checkpoint: ??? # mlflow-artifacts:/37/<training run>/artifacts/checkpoints/last/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: ??? # the training run
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  split_stratify_col: gleason_score
+  split_group_col: null
+  split_size: 0.1
+  metadata: ${dataset.providers.radboud.metadata}
+  dataset:
+    full_slide: true
+  supervision:
+    paths: ${dataset.providers.radboud.supervision}
+
+model:
+  graph_metrics_all_slides: true
+
+metadata:
+  run_name: "SL pretrain: Radboud valid thresholds"

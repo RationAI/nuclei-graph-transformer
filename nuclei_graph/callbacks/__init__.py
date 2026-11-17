@@ -14,6 +14,7 @@ from nuclei_graph.callbacks.predictions import (
     NucleiPredictionCallback,
     TilePredictionCallback,
 )
+from nuclei_graph.callbacks.provider_metrics import ProviderGraphMetricsCallback
 from nuclei_graph.callbacks.shape_features_permutation_importances import (
     ShapePermutationImportanceCallback,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "NucleiPredictionMasksCallback",
     "ParamsEMAWeightAveraging",
     "PositionImportanceCallback",
+    "ProviderGraphMetricsCallback",
     "ShapePermutationImportanceCallback",
     "TilePredictionCallback",
 ]

@@ -4,7 +4,11 @@ import pandas as pd
 from hydra.utils import instantiate
 from torch.utils.data import DataLoader
 
-from nuclei_graph.data.datamodules.base import METADATA_COLS_EVAL, BaseDataModule
+from nuclei_graph.data.datamodules.base import (
+    METADATA_COLS_EVAL,
+    BaseDataModule,
+    strategy_modes,
+)
 from nuclei_graph.data.datamodules.collator import GraphCollator
 from nuclei_graph.data.memory import ReleaseMemory
 from nuclei_graph.nuclei_graph_typing import Batch
@@ -75,14 +79,18 @@ class CropDataModule(BaseDataModule):
 
                 if stage == "fit":
                     assert self.train_strategy is not None
+                    if "slide_label" in strategy_modes(self.train_strategy):
+                        # no nucleus labels: whole slides, no positive-crop filter
+                        assert self.dataset_cfg.get("full_slide"), (
+                            "slide_label training needs full_slide"
+                        )
+                        assert self.dataset_cfg.get("crop_pos_thr") is None
 
                     if self.dataset_cfg.get("crop_size_min") is not None:
                         train_df = self.min_count_filter(
                             train_df, self.dataset_cfg.crop_size_min
                         )
-                    train_sup = self.prepare_supervision(
-                        train_df, self.train_strategy.paths, self.train_strategy
-                    )
+                    train_sup = self.supervise(train_df, self.train_strategy)
                     self.positivity = train_sup.positivity_map
 
                     if self.dataset_cfg.get("crop_pos_thr") is not None:
@@ -97,11 +105,7 @@ class CropDataModule(BaseDataModule):
                         self.dataset_cfg, metadata=train_df, supervision=train_sup
                     )
 
-                validation_sup = self.prepare_supervision(
-                    validation_df,
-                    self.eval_strategy.paths,
-                    self.eval_strategy,
-                )
+                validation_sup = self.supervise(validation_df, self.eval_strategy)
                 self.validation_dataset = instantiate(
                     self.dataset_cfg,
                     metadata=validation_df,
@@ -118,9 +122,7 @@ class CropDataModule(BaseDataModule):
                 assert self.eval_strategy is not None
                 # nuclei may be ignored at test only through test-specific ignore files (e.g. the
                 # MMCI Another pathology and Exclude regions, matching the tile-level evaluation)
-                sup = self.prepare_supervision(
-                    slides_df, self.eval_strategy.paths, self.eval_strategy
-                )
+                sup = self.supervise(slides_df, self.eval_strategy)
                 self.test_dataset = instantiate(
                     self.dataset_cfg,
                     metadata=slides_df,

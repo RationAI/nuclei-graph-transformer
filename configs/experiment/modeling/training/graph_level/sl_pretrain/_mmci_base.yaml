@@ -1,0 +1,40 @@
+# @package _global_
+# Shared base of the MMCI slide-label runs of the sl_pretrain study: sl_improve/_base (MMCI slide
+# labels, attention pooling, λ = 0, 200 epochs, EMA, model selection on validation/graph/AUROC)
+# with the architecture of panda_sl. Not a run on its own.
+#
+# The sampler classes of sl_improve's annotation_sparse train strategy equal the slide labels on
+# MMCI train (0 of 240 positive slides without an annotated nucleus), and λ = μ = 0 with whole
+# slides, so no nucleus label enters training.
+#
+# Memory: the panda_sl architecture needs ~50 KB of GPU memory per nucleus in training (fp32), and
+# 16 MMCI slides hold ~1.2M nuclei on average (one slide up to 376k), more than an A40 (48 GB).
+# Each optimizer step therefore accumulates 8 batches of 2 slides: still 16 slides (45 steps) per
+# epoch and the same cosine schedule; BatchNorm sees 2 slides (~130k nuclei) per forward.
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_improve/_base
+  - _self_
+
+trainer:
+  accumulate_grad_batches: 8
+
+data:
+  batch_size: 2 # x 8 accumulated = 16 slides per optimizer step
+  k: 24 # the panda_sl architecture
+
+model:
+  neg_instance_weight: 0.0 # λ
+  net:
+    config:
+      pooling: attention
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      attention_variant: vrope
+
+logger:
+  tags:
+    study: sl_pretrain

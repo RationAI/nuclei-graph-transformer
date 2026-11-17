@@ -1,0 +1,7 @@
+defaults:
+  - /data/supervision/base@_here_
+  - _self_
+
+# slide labels only: no nucleus label is read and no nucleus is supervised (nucleus
+# metrics skip these slides); the slide sampler uses the slide label
+mode: slide_label

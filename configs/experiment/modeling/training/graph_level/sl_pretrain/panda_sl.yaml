@@ -1,0 +1,32 @@
+# @package _global_
+# (a) Slide-label pretraining on PANDA Radboud + Karolinska (study sl_pretrain).
+# Each provider's train table is split on its own (split_size 0.1, stratified by Gleason score):
+# training on Radboud train (3,520) + Karolinska train (3,917) = 7,437 slides; validation on
+# Radboud valid (392) + Karolinska valid (436); slide AUROC overall (selection) and per provider,
+# nucleus metrics on Radboud valid only (dense labels; no Karolinska nucleus labels are read).
+# The Karolinska test split is not used. Test (mode=test, or the sl_pretrain prediction/metrics
+# configs): Radboud test (978) only.
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_pretrain/_panda_base
+  - /data/supervision@data.supervision.eval_strategy.radboud: annotation
+  - /data/supervision@data.supervision.eval_strategy.karolinska: slide_label
+  - _self_
+
+data:
+  metadata:
+    train:
+      radboud: ${dataset.providers.radboud.metadata.train}
+      karolinska: ${dataset.providers.karolinska.metadata.train}
+    test:
+      radboud: ${dataset.providers.radboud.metadata.test}
+
+logger:
+  tags:
+    role: pretrain
+
+metadata:
+  run_name: "SL pretrain PANDA (Radboud + Karolinska), k=24 attention"
+  hyperparams:
+    validation_supervision_mode: radboud=annotation,karolinska=slide_label
+    providers: radboud,karolinska

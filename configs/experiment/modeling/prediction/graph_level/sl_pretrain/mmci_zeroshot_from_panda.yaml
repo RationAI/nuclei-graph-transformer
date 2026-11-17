@@ -1,0 +1,17 @@
+# @package _global_
+# (d) Zero-shot: MMCI test predictions of the panda_sl model (no MMCI training).
+
+defaults:
+  - /experiment/modeling/prediction/graph_level/sl_pretrain/mmci_test
+  - _self_
+
+checkpoint: ${project_path}/checkpoints/sl_pretrain/panda_sl/last.ckpt
+mlflow_parent_run_id: "" # panda_sl is on the public MLflow (experiment 37)
+
+logger:
+  tags:
+    role: zeroshot
+    init_run: ??? # the panda_sl training run (public MLflow, experiment 37)
+
+metadata:
+  run_name: "SL pretrain: MMCI zero-shot from PANDA, test predictions"

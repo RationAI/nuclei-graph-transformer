@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections.abc import Mapping
 
 import pandas as pd
 import pyarrow as pa
@@ -16,6 +17,37 @@ from nuclei_graph.data.supervision import (
     SupervisionStrategy,
     build_supervision,
 )
+
+
+# A metadata URI, or {provider: URI} for slides of several providers (multi-provider
+# tables get a `provider` column).
+type MetadataUri = str | Mapping[str, str]
+# One supervision strategy, or {provider: strategy} for multi-provider tables.
+type Strategy = SupervisionStrategy | dict[str, SupervisionStrategy]
+
+PROVIDER_COL = "provider"
+
+
+def is_provider_map(cfg: object) -> bool:
+    """Whether a metadata or strategy config is a {provider: ...} mapping.
+
+    A strategy config is a mapping too, but it has a `_target_`.
+    """
+    return isinstance(cfg, Mapping | DictConfig) and "_target_" not in cfg
+
+
+def instantiate_strategy(cfg: DictConfig | None) -> Strategy | None:
+    if cfg is None:
+        return None
+    if is_provider_map(cfg):
+        return {str(provider): instantiate(c) for provider, c in cfg.items()}
+    return instantiate(cfg)
+
+
+def strategy_modes(strategy: Strategy) -> list[str]:
+    if isinstance(strategy, dict):
+        return [s.mode for s in strategy.values()]
+    return [strategy.mode]
 
 
 def split_train_val(
@@ -106,13 +138,16 @@ class BaseDataModule(LightningDataModule):
         self.sampler_cfg = sampler
         self.metadata_uris_cfg = metadata
 
+        # one strategy, or {provider: strategy} for multi-provider metadata
         self.train_strategy = (
-            instantiate(supervision.train_strategy)
-            if supervision is not None and supervision.train_strategy is not None
+            instantiate_strategy(supervision.train_strategy)
+            if supervision is not None
             else None
         )
         self.eval_strategy = (
-            instantiate(supervision.eval_strategy) if supervision is not None else None
+            instantiate_strategy(supervision.eval_strategy)
+            if supervision is not None
+            else None
         )
 
     def filter_df(
@@ -122,13 +157,49 @@ class BaseDataModule(LightningDataModule):
             return None
         return df[df["slide_id"].isin(slide_ids)].reset_index(drop=True)
 
-    def load_df(self, uri: str, cols: list[str] | None = None) -> pd.DataFrame:
-        return pd.read_parquet(download_artifacts(uri), columns=cols)
+    def load_df(self, uri: MetadataUri, cols: list[str] | None = None) -> pd.DataFrame:
+        """The slides table of `uri`.
+
+        With {provider: URI}, the providers' tables are concatenated with a `provider`
+        column (a slide may belong to one provider only).
+        """
+        if not is_provider_map(uri):
+            assert isinstance(uri, str), uri
+            return pd.read_parquet(download_artifacts(uri), columns=cols)
+        assert isinstance(uri, Mapping)
+        df = pd.concat(
+            [
+                self.load_df(u, cols).assign(**{PROVIDER_COL: str(provider)})
+                for provider, u in uri.items()
+            ],
+            ignore_index=True,
+        )
+        assert df["slide_id"].is_unique, "a slide is listed more than once"
+        return df
 
     def get_carcinoma_map(self, slide_df: pd.DataFrame) -> dict[str, bool]:
         return {
             str(k): v for k, v in slide_df.set_index("slide_id")["is_carcinoma"].items()
         }
+
+    def supervise(
+        self, slides_df: pd.DataFrame, strategy: Strategy
+    ) -> DatasetSupervision:
+        """`prepare_supervision` with the slides' strategy (per provider for a mapping)."""
+        if not isinstance(strategy, dict):
+            return self.prepare_supervision(slides_df, strategy.paths, strategy)
+        providers = set(slides_df[PROVIDER_COL])
+        assert providers <= set(strategy), (
+            f"no supervision strategy for {providers - set(strategy)}"
+        )
+        supervision_map = {}
+        for provider in sorted(providers):
+            s = strategy[provider]
+            part = slides_df[slides_df[PROVIDER_COL] == provider]
+            supervision_map.update(
+                self.prepare_supervision(part, s.paths, s).supervision_map
+            )
+        return DatasetSupervision(supervision_map)
 
     def prepare_supervision(
         self,
@@ -156,8 +227,24 @@ class BaseDataModule(LightningDataModule):
 
         With a `valid` metadata table and `split_size: null`, the dataset's own validation
         split is used as is (e.g. iCAIRD); otherwise validation is the fixed split of the
-        `train` table (`get_train_val_dfs`).
+        `train` table (`get_train_val_dfs`). With {provider: URI} as `train`, each
+        provider's table is split on its own (so a provider's split does not depend on
+        the others) and the splits are concatenated with a `provider` column.
         """
+        train_uri = self.metadata_uris_cfg["train"]
+        if is_provider_map(train_uri):
+            assert self.metadata_uris_cfg.get("valid") is None
+            splits = [
+                tuple(
+                    df.assign(**{PROVIDER_COL: str(provider)})
+                    for df in self.get_train_val_dfs(self.load_df(uri))
+                )
+                for provider, uri in train_uri.items()
+            ]
+            return (
+                pd.concat([t for t, _ in splits], ignore_index=True),
+                pd.concat([v for _, v in splits], ignore_index=True),
+            )
         valid_uri = self.metadata_uris_cfg.get("valid")
         if valid_uri is not None and self.split_size is None:
             train_df = self.load_df(self.metadata_uris_cfg["train"])

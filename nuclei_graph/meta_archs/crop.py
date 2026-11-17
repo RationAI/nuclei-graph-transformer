@@ -1,9 +1,11 @@
+from pathlib import Path
 from typing import Any
 
 import torch
 import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
+from mlflow.artifacts import download_artifacts
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
@@ -39,6 +41,8 @@ class CropModelMetaArch(LightningModule):
         neg_instance_weight: float = 0.0,
         pseudo_pos_weight: float = 0.0,
         selection_metric: str = "loss",
+        graph_metrics_all_slides: bool = False,
+        init_ckpt: str | None = None,
     ) -> None:
         super().__init__()
         assert selection_metric in {"loss", "AUROC"}, selection_metric
@@ -53,6 +57,9 @@ class CropModelMetaArch(LightningModule):
         self.pseudo_pos_weight = pseudo_pos_weight
         # validation graph metric ("loss" or "AUROC") whose best epoch is logged as best/
         self.selection_metric = selection_metric
+        # False: a slide enters the graph metrics only if it has a supervised nucleus;
+        # True: every slide does (e.g. slides with slide-label supervision only)
+        self.graph_metrics_all_slides = graph_metrics_all_slides
         self.bce = nn.BCEWithLogitsLoss()
 
         self.val_graph_metrics = self._create_metrics("validation/graph/")
@@ -66,6 +73,54 @@ class CropModelMetaArch(LightningModule):
         self.best_val_graph_metrics: dict[str, Tensor] = {}
         self.val_step_graph_losses: list[Tensor] = []
         self.val_step_graph_sizes: list[int] = []
+
+        # weights only (fresh optimizer, scheduler and epoch count) from another run
+        self.init_ckpt = init_ckpt
+        self.init_report: dict[str, Any] | None = None
+        if init_ckpt is not None:
+            self.init_report = self.load_init_weights(init_ckpt)
+
+    def load_init_weights(self, uri: str) -> dict[str, Any]:
+        """Loads the network weights of a checkpoint (a local path or an MLflow URI).
+
+        The checkpoint's `state_dict` is used: under (Params)EMAWeightAveraging these are
+        the EMA parameters (with the live BatchNorm buffers). Only `net.*` is loaded, and
+        a shape mismatch raises; the missing and unexpected keys are reported.
+        """
+        path = uri if Path(uri).exists() else download_artifacts(uri)
+        ckpt = torch.load(path, map_location="cpu", weights_only=False)
+        state = {
+            k.removeprefix("net."): v
+            for k, v in ckpt["state_dict"].items()
+            if k.startswith("net.")
+        }
+        result = self.net.load_state_dict(state, strict=False)
+        loaded = sorted(set(state) - set(result.unexpected_keys))
+        assert loaded, f"no network weights loaded from {uri}"
+        report = {
+            "init_ckpt": uri,
+            "init_ckpt_epoch": ckpt.get("epoch"),
+            "init_ckpt_ema": "current_model_state" in ckpt,
+            "init_loaded_keys": len(loaded),
+            "init_missing_keys": sorted(result.missing_keys),
+            "init_unexpected_keys": sorted(result.unexpected_keys),
+        }
+        print(
+            f"[init_ckpt] {uri} (epoch {report['init_ckpt_epoch']}, "
+            f"EMA state_dict: {report['init_ckpt_ema']}): "
+            f"loaded {len(loaded)} tensors, missing {result.missing_keys}, "
+            f"unexpected {result.unexpected_keys}"
+        )
+        return report
+
+    def on_fit_start(self) -> None:
+        if self.init_report is not None and self.logger is not None:
+            self.logger.log_hyperparams(
+                {
+                    k: ",".join(v)[:5000] if isinstance(v, list) else v
+                    for k, v in self.init_report.items()
+                }
+            )
 
     def forward(self, inputs: Batch) -> Outputs:
         ensure_block_mask(inputs)
@@ -173,7 +228,7 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        if batch["sup_mask"].any():
+        if self.graph_metrics_all_slides or batch["sup_mask"].any():
             self.val_graph_metrics.update(
                 torch.sigmoid(logits_graph), targets_graph.long()
             )
@@ -192,15 +247,16 @@ class CropModelMetaArch(LightningModule):
 
         logits_sup = logits["nuclei"][sup_mask].squeeze(-1)
 
-        loss_sup = self.bce(logits_sup, targets_sup)
-        self.log(
-            "validation/nuclei/loss",
-            loss_sup,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=targets_sup.numel(),
-        )
+        # a slide without supervised nuclei would log a NaN loss (mean of nothing)
         if logits_sup.numel() > 0:
+            loss_sup = self.bce(logits_sup, targets_sup)
+            self.log(
+                "validation/nuclei/loss",
+                loss_sup,
+                on_epoch=True,
+                prog_bar=True,
+                batch_size=targets_sup.numel(),
+            )
             self.val_nuclei_metrics.update(
                 torch.sigmoid(logits_sup), targets_sup.long()
             )
@@ -274,7 +330,7 @@ class CropModelMetaArch(LightningModule):
             prog_bar=True,
             batch_size=targets_graph.size(0),
         )
-        if batch["sup_mask"].any():
+        if self.graph_metrics_all_slides or batch["sup_mask"].any():
             self.test_graph_metrics.update(
                 torch.sigmoid(logits_graph), targets_graph.long()
             )
@@ -290,15 +346,15 @@ class CropModelMetaArch(LightningModule):
         logits_nuclei = logits["nuclei"]
         logits_sup = logits_nuclei[sup_mask].squeeze(-1)
 
-        loss_sup = self.bce(logits_sup, targets_sup)
-        self.log(
-            "test/nuclei/loss",
-            loss_sup,
-            on_epoch=True,
-            prog_bar=True,
-            batch_size=targets_sup.numel(),
-        )
-        if logits_sup.numel() > 0:
+        if logits_sup.numel() > 0:  # as in validation_step
+            loss_sup = self.bce(logits_sup, targets_sup)
+            self.log(
+                "test/nuclei/loss",
+                loss_sup,
+                on_epoch=True,
+                prog_bar=True,
+                batch_size=targets_sup.numel(),
+            )
             self.test_nuclei_metrics.update(
                 torch.sigmoid(logits_sup), targets_sup.long()
             )

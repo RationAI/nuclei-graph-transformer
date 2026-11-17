@@ -15,6 +15,10 @@ class TileDataModule(BaseDataModule):
         mode = "train" if stage in {"fit", "validate"} else stage
         slides_uri = self.metadata_uris_cfg[mode]
 
+        # tiles: one supervision strategy (no per-provider strategies)
+        assert not isinstance(self.train_strategy, dict)
+        assert not isinstance(self.eval_strategy, dict)
+
         match stage:
             case "fit" | "validate":
                 assert self.split_size is not None

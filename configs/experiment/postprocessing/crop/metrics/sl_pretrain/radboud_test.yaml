@@ -1,0 +1,22 @@
+# @package _global_
+# Radboud test metrics of an sl_pretrain PANDA model, as the thesis nucleus-level evaluation
+# (postprocessing/crop/metrics, configs/experiment/postprocessing/crop/metrics/radboud.yaml): dense
+# annot_label, every nucleus of a negative slide = 0, pooled AUROC/AUPRC with slide-bootstrap CIs;
+# plus the slide metrics (graph_prediction). Thresholds from sl_pretrain/radboud_valid.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+predictions_uri: ??? # mlflow-artifacts:/37/<prediction run>/artifacts/predictions
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label
+graph_threshold: ??? # thresholds/val_graph_j of the radboud_valid run
+nuclei_threshold: ??? # thresholds/val_nuclei_j of the radboud_valid run
+
+mlflow_run_id: ??? # the prediction run
+mlflow_parent_run_id: ??? # the training run
+
+metadata:
+  run_name: "SL pretrain: Radboud test evaluation"

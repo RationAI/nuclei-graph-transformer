@@ -1,0 +1,16 @@
+# @package _global_
+# (e) MMCI slide labels from scratch with the panda_sl architecture (study sl_pretrain): the
+# control that separates the effect of pretraining (mmci_finetune_from_panda) from that of the
+# architecture; seeds 0, 1, 2 (`seed=` on the command line). sl_improve/_base schedule (200
+# epochs, lr 1e-4, warmup 8).
+
+defaults:
+  - /experiment/modeling/training/graph_level/sl_pretrain/_mmci_base
+  - _self_
+
+logger:
+  tags:
+    role: scratch_control
+
+metadata:
+  run_name: "SL MMCI from scratch, panda_sl architecture, k=24 attention + λ=0"

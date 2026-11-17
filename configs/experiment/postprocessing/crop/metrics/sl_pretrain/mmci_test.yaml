@@ -1,0 +1,22 @@
+# @package _global_
+# MMCI test metrics of an sl_pretrain model (fine-tuned, scratch or zero-shot), as the existing MMCI
+# evaluation (configs/experiment/postprocessing/crop/metrics/prostate_cancer_mmci_tl.yaml). The slide
+# threshold is the Youden threshold of the model on MMCI valid (sl_pretrain/mmci_valid or
+# mmci_zeroshot_from_panda: thresholds/val_graph_j).
+
+defaults:
+  - /data/sources/prostate_cancer_mmci_tl
+  - _self_
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test}
+predictions_uri: ??? # mlflow-artifacts:/97/<prediction run>/artifacts/predictions
+supervision_dir: ${dataset.paths.supervision.annotation}
+label_column: annot_label
+graph_threshold: ??? # thresholds/val_graph_j of the MMCI valid run (Youden)
+nuclei_threshold: null
+
+mlflow_run_id: ??? # the prediction run
+mlflow_parent_run_id: ??? # the training run ("" for the zero-shot model)
+
+metadata:
+  run_name: "SL pretrain: MMCI test evaluation"

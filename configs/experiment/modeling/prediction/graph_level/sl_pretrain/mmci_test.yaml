@@ -1,0 +1,28 @@
+# @package _global_
+# Test predictions (per nucleus and per slide) of an sl_pretrain model on MMCI test: the input of
+# metrics/sl_pretrain/mmci_test. mmci_zeroshot_from_panda sets the PANDA checkpoint.
+
+defaults:
+  - /experiment/modeling/prediction/base@_here_
+  - /data/sources/prostate_cancer_mmci_tl
+  - /model/meta_archs@model: crop
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: prediction
+  - /data/supervision@data.supervision.eval_strategy: annotation
+  - /callbacks/predictions@trainer.callbacks.predictions: crop
+  - /experiment/modeling/validation/graph_level/sl_pretrain/_arch@_here_
+  - _self_
+
+checkpoint: ??? # mlflow-artifacts:/97/<training run>/artifacts/checkpoints/last/checkpoint.ckpt
+mlflow_run_id: null
+mlflow_parent_run_id: ??? # the training run
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  metadata:
+    predict: ${dataset.mlflow_uris.metadata.test}
+  supervision:
+    paths: ${dataset.paths.supervision}
+
+metadata:
+  run_name: "SL pretrain: MMCI test predictions"

@@ -1,0 +1,19 @@
+# @package _global_
+# (d) Zero-shot: the panda_sl model (no MMCI training) on MMCI valid; its slide threshold
+# (thresholds/val_graph_j, Youden) is applied to MMCI test by metrics/sl_pretrain/mmci_test.
+# The checkpoint is panda_sl's last.ckpt, copied to the sensitive cluster (see the job script).
+
+defaults:
+  - /experiment/modeling/validation/graph_level/sl_pretrain/mmci_valid
+  - _self_
+
+checkpoint: ${project_path}/checkpoints/sl_pretrain/panda_sl/last.ckpt
+mlflow_parent_run_id: "" # panda_sl is on the public MLflow (experiment 37)
+
+logger:
+  tags:
+    role: zeroshot
+    init_run: ??? # the panda_sl training run (public MLflow, experiment 37)
+
+metadata:
+  run_name: "SL pretrain: MMCI zero-shot from PANDA, valid thresholds"

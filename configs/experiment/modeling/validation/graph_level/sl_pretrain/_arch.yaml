@@ -1,0 +1,27 @@
+# @package _global_
+# The architecture of the sl_pretrain models (panda_sl and the MMCI runs initialized from it or
+# trained with it); shared by their validation and prediction configs. Not a run on its own.
+
+data:
+  k: 24
+  context: knn
+  dataset:
+    efd_order: 16
+    patch_size: 40
+    embedding_mode: efd
+
+model:
+  net:
+    config:
+      pooling: attention
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      attention_variant: vrope
+      embedding_mode: ${data.dataset.embedding_mode}
+
+logger:
+  tags:
+    study: sl_pretrain

@@ -1,0 +1,47 @@
+# @package _global_
+
+# Slide-label pretrained model (sl_pretrain/panda_sl) vs the region-supervised Radboud model of the
+# same architecture (shape embedding, rotated values, k-NN attention, k = 24; the thesis's main
+# nucleus-level model, tab:res-nucleus), nucleus level on PANDA Radboud test, same nuclei, paired
+# bootstrap over the canonical slide resamples (postprocessing.sl_pretrain_vs_region).
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${dataset.providers.radboud.supervision.annotation}
+label_column: annot_label
+predictions_artifact: predictions
+
+configurations:
+  slide_label:
+    label: Slide labels (PANDA SL pretraining)
+    eval_runs: ??? # the sl_pretrain/radboud_test prediction run(s) of panda_sl
+  region:
+    label: Region annotations (thesis model)
+    # evaluation runs of configs/postprocessing/nucleus_results.yaml (experiment 37)
+    eval_runs:
+      - a5ee0cd9d08f4e3e92e5e55d71a1d9a7
+      - 98fc505c09ed41348e5b5b200afd465c
+      - 777fb4134250483bab02ba57ce484ea4
+
+resamples: ${project_path}/evaluation/radboud_test/q2_sources_bootstrap/bootstrap_resamples_radboud_test.npz
+resamples_seed: 20261108
+ci_level: 0.95
+histogram:
+  n_bins: 100000
+  max_bins: 400000
+  tolerance: 1.0e-4
+
+# aligned predictions, one parquet per run: the Q2 cache (holds the region runs), then a writable one
+cache_dirs:
+  - ${project_path}/evaluation/radboud_test/predictions
+  - ${project_path}/evaluation/radboud_test/sl_pretrain/predictions
+out_dir: ${project_path}/evaluation/radboud_test/sl_pretrain/vs_region
+
+metadata:
+  run_name: "SL pretrain vs region-supervised (Radboud test, nucleus level)"
+  hyperparams:
+    ci_level: ${ci_level}
+    resamples_seed: ${resamples_seed}
