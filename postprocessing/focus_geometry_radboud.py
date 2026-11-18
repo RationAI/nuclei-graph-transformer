@@ -65,6 +65,32 @@ def closing(mask: NDArray[np.bool_], radius: float) -> NDArray[np.bool_]:
     return closed[pad:-pad, pad:-pad] | mask
 
 
+def vertex_classes(
+    polygons: list, mask: NDArray[np.uint8], scale: tuple[float, float], thr: float
+) -> tuple[NDArray[np.int8], NDArray[np.int8]]:
+    """Vertex rule (as unipolar_heatmap_labels.label_slide) and the class of every nucleus.
+
+    `polygons` are flat (x0, y0, x1, y1, …) level-0 vertices, `scale` = mask / slide extent.
+    Returns y_rule (≥ `thr` of the vertices with value ≥ 3) and cls: the Gleason pattern with
+    most vertices (ties → higher) for carcinoma nuclei, else 2 / 1 when ≥ `thr` of the vertices
+    are benign epithelium / stroma, else 0.
+    """
+    my, mx = mask.shape
+    poly = rearrange(polygons, "b (v d) -> b v d", d=2)
+    c = np.round(poly * np.array(scale)).astype(int)
+    v = mask[np.clip(c[..., 1], 0, my - 1), np.clip(c[..., 0], 0, mx - 1)]
+    y_rule = (np.mean(v >= 3, axis=1) >= thr).astype(np.int8)
+    counts = np.stack([(v == k).sum(1) for k in range(6)], 1)  # (n, 6)
+    pattern = 3 + (2 - np.argmax(counts[:, 5:2:-1], axis=1))  # ties -> higher pattern
+    frac = counts / v.shape[1]
+    cls = np.where(
+        y_rule == 1,
+        pattern,
+        np.where(frac[:, 2] >= thr, 2, np.where(frac[:, 1] >= thr, 1, 0)),
+    ).astype(np.int8)
+    return y_rule, cls
+
+
 def slide_geometry(job: dict) -> dict:
     """Writes the slide's nucleus and focus tables; returns its checks."""
     s, sid = int(job["slide"]), job["slide_id"]
@@ -84,20 +110,9 @@ def slide_geometry(job: dict) -> dict:
         wx, wy = slide.dimensions
     sx, sy = mx / wx, my / wy
 
-    # vertex rule (as unipolar_heatmap_labels.label_slide)
-    poly = rearrange(nuclei["polygon"].tolist(), "b (v d) -> b v d", d=2)
-    c = np.round(poly * np.array([sx, sy])).astype(int)
-    v = mask[np.clip(c[..., 1], 0, my - 1), np.clip(c[..., 0], 0, mx - 1)]
-    thr = float(job["overlap_threshold"])
-    y_rule = (np.mean(v >= 3, axis=1) >= thr).astype(np.int8)
-    counts = np.stack([(v == k).sum(1) for k in range(6)], 1)  # (n, 6)
-    pattern = 3 + (2 - np.argmax(counts[:, 5:2:-1], axis=1))  # ties -> higher pattern
-    frac = counts / v.shape[1]
-    cls = np.where(
-        y_rule == 1,
-        pattern,
-        np.where(frac[:, 2] >= thr, 2, np.where(frac[:, 1] >= thr, 1, 0)),
-    ).astype(np.int8)
+    y_rule, cls = vertex_classes(
+        nuclei["polygon"].tolist(), mask, (sx, sy), float(job["overlap_threshold"])
+    )
 
     checks = {
         "slide": s,

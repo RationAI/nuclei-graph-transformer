@@ -1,0 +1,45 @@
+# @package _global_
+
+# Which concepts separate carcinoma from benign epithelium (xai.epithelium_separation).
+# Run with +experiment=xai/radboud (PANDA sources: label masks, slides).
+
+activations_dir: ${out_dir}/activations
+slides: ${out_dir}/slides.parquet
+concept_dir: ${out_dir}/concepts/k16_seed1
+sae_model: ${out_dir}/sae/sae_k16_seed1_l13.pt # the fixed SAE (k = 16, seed 1), only read
+codes: # only read
+  l1: # the stored encoder codes κ
+    validation: ${concept_dir}/morphometry/codes_validation.npy
+    test: ${concept_dir}/codes_test.npy
+  refit: # κ̃ of xai.refit_magnitudes
+    validation: ${concept_dir}/refit_nnls/codes_refit_validation.npy
+    test: ${concept_dir}/refit_nnls/codes_refit_test.npy
+subsets_checks: ${concept_dir}/subsets/checks.json # all-nuclei AUROC / AUPRC of ẑ (check)
+deck_key: ${out_dir}/session/key.csv
+stable_concepts: [A, B, C, D, E, F, G, H]
+stable_indices: [0, 1, 2, 3, 4, 6, 8, 12] # asserted against the deck key
+out_epithelium_dir: ${concept_dir}/epithelium_separation
+
+# nucleus classes from the Radboud label masks (0 background, 1 stroma, 2 benign epithelium,
+# 3-5 Gleason pattern), level 0, by the thesis vertex rule
+label_masks_dir: ${dataset.paths.masks.annotation}
+overlap_threshold: 0.5 # majority-vertex rule of the thesis labels (unipolar_heatmap_labels)
+path_remap: null # {from: <prefix>, to: <prefix>} for slide_nuclei_path when the project is mounted elsewhere
+test_geometry_dir: null # optional: per-slide classes of postprocessing.focus_geometry_radboud (exact check)
+n_jobs: 12
+
+bootstrap: 1000 # slide-level resamples (per split)
+seed: 42
+num_threads: ${oc.decode:${oc.env:XAI_THREADS,10}}
+
+links: # recorded as tags
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  refit_magnitudes_run_id: 6532785defde40c7a9669fa4ff6c5774 # "XAI: SAE magnitude refit (NNLS)"
+
+metadata:
+  run_name: "XAI: SAE concepts, carcinoma vs benign epithelium"
+  hyperparams:
+    sae_model: ${sae_model}
+    overlap_threshold: ${overlap_threshold}
+    bootstrap: ${bootstrap}
+    seed: ${seed}
