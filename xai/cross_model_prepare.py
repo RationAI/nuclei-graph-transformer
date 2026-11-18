@@ -6,8 +6,9 @@ nuclei of the analysed model (same validation and test slides, same row order), 
 model's folder instead of being recomputed. `slides_predict.parquet` is the same table
 with the nuclei paths remapped (`path_map`) for the machine that runs the extraction.
 
-The new run is checked against the analysed run: every architecture, data and split
-parameter in `CHECKED_PARAMS` must be equal (the training seed may differ). The run must
+The new run is checked against the analysed run: the `model`, `data` and `trainer`
+sections of their resolved training configs must be equal (the training seed may differ;
+the logged params are not used, older runs lack some of them). The run must
 have exactly one checkpoint (`save_top_k: 1`, the lowest validation loss); its URI is
 written to `source.json` for the activation extraction.
 
@@ -19,31 +20,13 @@ import shutil
 import sys
 from pathlib import Path
 
+import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
+from omegaconf import OmegaConf
 
 
-CHECKED_PARAMS = [
-    "k",
-    "context",
-    "embedding_mode",
-    "attention_variant",
-    "use_rope",
-    "efd_order",
-    "dim",
-    "hidden_dim",
-    "num_heads",
-    "num_layers",
-    "drop_path_rate",
-    "split_size",
-    "batch_size",
-    "lr",
-    "warmup_epochs",
-    "crop_size_min",
-    "crop_size_max",
-    "train_supervision_mode",
-    "validation_supervision_mode",
-]
+CHECKED_SECTIONS = ["model", "data", "trainer"]  # of the resolved training config
 
 
 def checkpoints(
@@ -64,11 +47,20 @@ def main(
     client = MlflowClient()
     reference_id = reference_dir.name
     run, reference = client.get_run(run_id), client.get_run(reference_id)
-    params, reference_params = run.data.params, reference.data.params
+    configs = {
+        key: OmegaConf.to_container(
+            OmegaConf.load(
+                mlflow.artifacts.download_artifacts(
+                    run_id=key, artifact_path="configs/config-resolved.yaml"
+                )
+            )
+        )
+        for key in (run_id, reference_id)
+    }
     differences = {
-        key: (reference_params.get(key), params.get(key))
-        for key in CHECKED_PARAMS
-        if reference_params.get(key) != params.get(key)
+        section: (configs[reference_id].get(section), configs[run_id].get(section))
+        for section in CHECKED_SECTIONS
+        if configs[reference_id].get(section) != configs[run_id].get(section)
     }
     assert not differences, f"{run_id} differs from {reference_id}: {differences}"
     assert run.info.experiment_id == reference.info.experiment_id
@@ -81,10 +73,11 @@ def main(
         "status": run.info.status,
         "reference_run_id": reference_id,
         "checkpoint": f"mlflow-artifacts:/{run.info.experiment_id}/{run_id}/artifacts/{found[0]}",
-        "seed": params.get("seed"),
-        "reference_seed": reference_params.get("seed"),
+        "seed": configs[run_id].get("seed"),
+        "reference_seed": configs[reference_id].get("seed"),
+        "init_checkpoint": configs[run_id].get("checkpoint"),
         "git_commit": run.data.tags.get("mlflow.source.git.commit"),
-        "checked_params": {key: params.get(key) for key in CHECKED_PARAMS},
+        "checked_sections": CHECKED_SECTIONS,
     }
     print(json.dumps(source, indent=2))
 
