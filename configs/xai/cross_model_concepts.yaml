@@ -1,0 +1,29 @@
+# @package _global_
+
+# Concepts of the analysed model (parent_run_id) in independently trained models (other
+# training seeds), see xai/cross_model_concepts.py. Each model's `dir` holds its own
+# activations, sae/ and completeness.csv (xai.train_sae, xai.evaluate_sae).
+num_concepts: 16
+reference:
+  dir: ${out_dir} # the analysed model
+  sae: sae_k16_seed1_l13.pt
+  codes: concepts/k16_seed1/codes_test.npy
+  morphometry: concepts/k16_seed1/morphometry # per-nucleus measures of the test nuclei (model-independent)
+models: ??? # list of {name, run_id, dir}
+output_dir: ${project_path}/xai/${parent_run_id}/cross_model
+
+stability_threshold: 0.8 # Hungarian decoder cosine to both other seeds of the same model
+subsample: 2000000 # fixed random test nuclei (seed: `seed`), as xai.compare_topk_concepts
+top_n: 2000 # signature: the most active nuclei vs. the inactive ones
+match:
+  min_correlation: 0.7 # and the same sign of wᵀu
+device: ${oc.env:XAI_DEVICE,cuda}
+
+metadata:
+  run_name: "XAI: Concepts Across Model Seeds"
+  hyperparams:
+    num_concepts: ${num_concepts}
+    stability_threshold: ${stability_threshold}
+    subsample: ${subsample}
+    top_n: ${top_n}
+    min_correlation: ${match.min_correlation}
