@@ -14,11 +14,20 @@ codes κ̃ (run 6532785d), and with two fit sets: all validation nuclei (as
 (validation without the holdout slides of `sae/holdout_slides.csv`; a sensitivity check).
 Also the probes on the 8 stable and on the 8 unstable concepts.
 
-Outputs: `<OUT_DIR>/concept_deletion_probes.csv` (cache; `--recompute` refits),
-`figures/res_concept_subsets.{pdf,png}` and `figures/res_concept_subsets_stats.json`.
-No slide IDs are written. Not logged to MLflow.
+No refit (mean replacement in the model's own decomposition): ẑ_i = b₀ + Σ_{j kept} φ_ij
++ Σ_{j removed} φ̄_j with φ_ij = κ_ij wᵀu_j, b₀ = wᵀb_D + β (frozen head) and φ̄_j the mean
+of φ_ij over all validation nuclei (as `xai.concept_subsets.mean_replaced`); κ̃ with
+φ̃_ij = κ̃_ij wᵀu_j and the mean of φ̃. The removed concepts only add a constant, so AUPRC
+and AUROC depend on the kept φ alone (the choice of nuclei for φ̄ does not change them).
+Same orders, 0…16 removed; checked against the stored mean-replacement curves of
+`xai.concept_subsets` (run 571ede3a: deletion m = k, insertion m = 16 − k).
 
-    PYTHONPATH=. python visualization/concept_deletion_figure.py [--recompute]
+Outputs: `<OUT_DIR>/concept_deletion_probes.csv` (cache; `--recompute` refits),
+`<OUT_DIR>/concept_deletion_no_refit.csv` (cache; `--recompute-no-refit`),
+`figures/res_concept_subsets.{pdf,png}` (probes for κ and κ̃, no refit for κ) and
+`figures/res_concept_subsets_stats.json`. No slide IDs are written. Not logged to MLflow.
+
+    PYTHONPATH=. python visualization/concept_deletion_figure.py [--recompute] [--recompute-no-refit]
 """
 
 import argparse
@@ -37,7 +46,8 @@ import torch
 from matplotlib.transforms import blended_transform_factory
 
 from nuclei_graph.xai.activations import load_activations
-from nuclei_graph.xai.metrics import classification_metrics
+from nuclei_graph.xai.metrics import LinearHead, baseline, classification_metrics
+from nuclei_graph.xai.sae import load_autoencoder
 from xai.concept_morphometry import FIG_W_CM, THESIS_RC
 from xai.concept_subsets import fit_logistic
 
@@ -59,6 +69,7 @@ CODES = {
 }
 OUT_DIR = Path("/mnt/projects/nuclei_based_wsi_analysis/evaluation/radboud_test/concepts")
 CSV = OUT_DIR / "concept_deletion_probes.csv"
+NO_REFIT_CSV = OUT_DIR / "concept_deletion_no_refit.csv"
 FIG = Path("figures/res_concept_subsets.pdf")
 RUNS = {
     "model_training": "c8f268536be8416f9fe395eea95c458e",
@@ -72,6 +83,7 @@ ORDER_COLORS = {"most_first": "#c0392b", "least_first": "#2a78d6"}
 VARIANT_STYLE = {"l1": "-", "refit": "--"}
 VARIANT_LABEL = {"l1": r"$\ell_1$ codes $\kappa$", "refit": r"refitted codes $\tilde\kappa$"}
 REFERENCE = "#7a7a7a"
+NO_REFIT_LS = (0, (1, 1.2))  # densely dotted, coloured by order (the references are grey)
 
 
 def ranking() -> tuple[list[str], dict[str, int], set[str]]:
@@ -141,6 +153,93 @@ def compute() -> pd.DataFrame:
     return df
 
 
+def removed_at(names: list[str], order: str, k: int) -> list[str]:
+    return names[:k] if order == "most_first" else names[16 - k:]
+
+
+def compute_no_refit() -> pd.DataFrame:
+    """Mean replacement in the frozen decomposition, both orders, 0…16 removed (long format)."""
+    names, index, _ = ranking()
+    head = LinearHead.from_npz(str(XAI_DIR / "activations" / "head.npz"))
+    sae, _ = load_autoencoder(str(XAI_DIR / "sae" / "sae_k16_seed1_l13.pt"))
+    wu = sae.decoder_weight.detach().double().numpy() @ head.w
+    b0 = baseline(sae.decoder_bias.detach().double().numpy(), head)
+    y_test = load_activations(XAI_DIR / "activations", "test").labels
+    rows = []
+    for variant, paths in CODES.items():
+        mean_phi = np.load(paths["validation"], mmap_mode="r").mean(0, dtype=np.float64) * wu
+        phi = np.load(paths["test"]).astype(np.float64) * wu
+        cache: dict[frozenset, dict] = {}
+        for order in ORDERS:
+            for k in range(17):
+                removed = removed_at(names, order, k)
+                kept = frozenset(index[n] for n in names if n not in removed)
+                if kept not in cache:
+                    constant = b0 + float(mean_phi[[index[n] for n in removed]].sum())
+                    z_hat = phi[:, sorted(kept)].sum(1) + constant
+                    cache[kept] = classification_metrics(y_test, z_hat)
+                rows.append({"variant": variant, "order": order, "n_removed": k,
+                             "removed_at_step": removed[0 if order == "least_first" else -1] if k else "",
+                             "concepts_removed": " ".join(removed), **cache[kept]})
+                print("no refit", variant, order, k, round(cache[kept]["AUPRC"], 4), flush=True)
+    df = pd.DataFrame(rows)
+    df["prevalence_test"] = float(y_test.mean())
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(NO_REFIT_CSV, index=False)
+    return df
+
+
+def no_refit_wide(df: pd.DataFrame) -> pd.DataFrame:
+    """The deliverable layout: one row per number removed (0…15), three decimals."""
+    out = []
+    for k in range(16):
+        row: dict[str, object] = {"removed": k}
+        for prefix, order in (("top", "most_first"), ("bottom", "least_first")):
+            part = df[(df["order"] == order) & (df["n_removed"] == k)].set_index("variant")
+            row[f"{prefix}_concept"] = part.loc["l1", "removed_at_step"] or "none"
+            for variant in CODES:
+                for metric in ("AUPRC", "AUROC"):
+                    row[f"{prefix}_{variant}_{metric.lower()}"] = round(float(part.loc[variant, metric]), 3)
+        out.append(row)
+    return pd.DataFrame(out)
+
+
+def check_no_refit(df: pd.DataFrame) -> dict:
+    """Against the stored mean-replacement curves of `xai.concept_subsets` and the endpoints."""
+    curves = pd.read_csv(SUBSETS_DIR / "curves.csv")
+    diffs = []
+    for _, r in df.iterrows():
+        curve, m = ("deletion", r["n_removed"]) if r["order"] == "most_first" else ("insertion", 16 - r["n_removed"])
+        s = curves[(curves["variant"] == r["variant"]) & (curves["curve"] == curve) & (curves["m"] == m)].iloc[0]
+        diffs += [abs(s["AUPRC"] - r["AUPRC"]), abs(s["AUROC"] - r["AUROC"])]
+    faith = pd.read_csv(CONCEPT_DIR / "refit_nnls" / "metrics.csv").query("split == 'test'").set_index("variant")
+    none = df[df["n_removed"] == 0].groupby("variant")[["AUPRC", "AUROC"]].first()
+    every = df[df["n_removed"] == 16].groupby("variant")[["AUPRC", "AUROC"]].first()
+    return {
+        "source": "recomputed from the stored codes; equals concept_subsets run 571ede3a curves.csv",
+        "max_abs_diff_vs_concept_subsets_curves": float(max(diffs)),
+        "n_compared": len(diffs),
+        "none_removed_vs_faithfulness_AUPRC": {
+            v: {"here": float(none.loc[v, "AUPRC"]),
+                "faithfulness": float(faith.loc["sae_l1" if v == "l1" else "sae_l1_nnls_refit", "AUPRC_fA"])}
+            for v in CODES},
+        "all_removed": {v: {"AUPRC": float(every.loc[v, "AUPRC"]), "AUROC": float(every.loc[v, "AUROC"])}
+                        for v in CODES},
+        "prevalence_test": float(df["prevalence_test"].iloc[0]),
+    }
+
+
+def summary_no_refit(df: pd.DataFrame, auprc_f: float) -> dict:
+    out = {}
+    for variant in CODES:
+        for order in ORDERS:
+            part = df[(df["variant"] == variant) & (df["order"] == order)].sort_values("n_removed")
+            hit = part[part["AUPRC"] < 0.95 * auprc_f]
+            out[f"{variant}/{order}/n_removed_below_95pct_model"] = int(hit["n_removed"].iloc[0]) if len(hit) else None
+            out[f"{variant}/{order}/removed_below_95pct_model"] = hit["concepts_removed"].iloc[0] if len(hit) else None
+    return out
+
+
 def check_against_stored(df: pd.DataFrame) -> dict:
     """The all-validation probes against `xai.concept_subsets` (curves.csv)."""
     curves = pd.read_csv(SUBSETS_DIR / "curves.csv")
@@ -177,7 +276,7 @@ def summary(df: pd.DataFrame) -> dict:
     return out
 
 
-def figure(df: pd.DataFrame, names: list[str]) -> plt.Figure:
+def figure(df: pd.DataFrame, names: list[str], no_refit: pd.DataFrame) -> plt.Figure:
     df = df[df["fit_set"] == "all_validation"]
     auprc_f, prevalence = float(df["model_test_AUPRC"].iloc[0]), float(df["prevalence_test"].iloc[0])
     width = FIG_W_CM / 2.54
@@ -189,6 +288,10 @@ def figure(df: pd.DataFrame, names: list[str]) -> plt.Figure:
             v = df[(df["variant"] == variant) & (df["order"] == order)].sort_values("n_removed")
             ax.plot(v["n_removed"], v["AUPRC"], color=ORDER_COLORS[order], ls=VARIANT_STYLE[variant],
                     lw=1.1, marker="o" if variant == "l1" else None, ms=2.3, zorder=3)
+        v = no_refit[(no_refit["variant"] == "l1") & (no_refit["order"] == order)
+                     & (no_refit["n_removed"] <= 15)].sort_values("n_removed")
+        ax.plot(v["n_removed"], v["AUPRC"], color=ORDER_COLORS[order], ls=NO_REFIT_LS, lw=0.9,
+                marker="s", ms=2.3, mfc="white", mew=0.7, zorder=2)
     ax.set_xlim(-0.5, 15.5)
     ax.set_ylim(0.3, 0.95)
     ax.set_xticks(range(16))
@@ -220,28 +323,43 @@ def figure(df: pd.DataFrame, names: list[str]) -> plt.Figure:
         mpl.lines.Line2D([], [], color=ORDER_COLORS["least_first"], lw=1.1),
         mpl.lines.Line2D([], [], color="#333333", lw=1.1, ls="-", marker="o", ms=2.3),
         mpl.lines.Line2D([], [], color="#333333", lw=1.1, ls="--"),
+        mpl.lines.Line2D([], [], color="#333333", lw=0.9, ls=NO_REFIT_LS, marker="s", ms=2.3,
+                         mfc="white", mew=0.7),
         mpl.lines.Line2D([], [], color=REFERENCE, lw=0.8, ls=":"),
         mpl.lines.Line2D([], [], color=REFERENCE, lw=0.8, ls="-."),
     ]
-    labels = ["most important first", "least important first", VARIANT_LABEL["l1"],
-              VARIANT_LABEL["refit"], f"model ({auprc_f:.3f})", f"prevalence ({prevalence:.3f})"]
-    fig.legend(handles, labels, loc="upper center", ncol=6, frameon=False, fontsize=6.5,
-               handlelength=2.0, columnspacing=1.0, bbox_to_anchor=(0.5, 1.0))
-    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.27, top=0.84)
+    labels = ["most important first", "least important first",
+              f"probe, {VARIANT_LABEL['l1']}", f"probe, {VARIANT_LABEL['refit']}",
+              r"no refit (mean replacement), $\kappa$",
+              f"model ({auprc_f:.3f})", f"prevalence ({prevalence:.3f})"]
+    fig.legend(handles, labels, loc="upper center", ncol=4, frameon=False, fontsize=6.5,
+               handlelength=2.4, columnspacing=1.2, bbox_to_anchor=(0.5, 1.0))
+    fig.subplots_adjust(left=0.12, right=0.99, bottom=0.25, top=0.80)
     return fig
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--recompute", action="store_true")
+    parser.add_argument("--recompute-no-refit", action="store_true")
     args = parser.parse_args()
     df = compute() if args.recompute or not CSV.exists() else pd.read_csv(CSV, keep_default_na=False)
+    no_refit = (compute_no_refit() if args.recompute_no_refit or not NO_REFIT_CSV.exists()
+                else pd.read_csv(NO_REFIT_CSV, keep_default_na=False))
+    wide = no_refit_wide(no_refit)
+    wide.to_csv(OUT_DIR / "concept_deletion_no_refit_table.csv", index=False)
+    print(wide.to_string(index=False))
     names, _, _ = ranking()
+    auprc_f = float(df["model_test_AUPRC"].iloc[0])
     stats = {"runs": RUNS, "mlflow": "not logged", "csv": str(CSV), "ranking": names,
              "probe": "unpenalised logistic regression (Newton; xai.concept_subsets.fit_logistic)",
-             **check_against_stored(df), **summary(df)}
+             **check_against_stored(df), **summary(df),
+             "no_refit": {"csv": str(NO_REFIT_CSV),
+                          "mean_phi": "mean over all validation nuclei (as xai.concept_subsets); "
+                                      "AUPRC/AUROC do not depend on it (a constant shift)",
+                          **check_no_refit(no_refit), **summary_no_refit(no_refit, auprc_f)}}
     with mpl.rc_context(THESIS_RC):
-        fig = figure(df, names)
+        fig = figure(df, names, no_refit)
         FIG.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(FIG)
         fig.savefig(FIG.with_suffix(".png"), dpi=300)
