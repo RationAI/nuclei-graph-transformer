@@ -67,6 +67,16 @@ class GraphCollator:
         pad = torch.full(pad_shape, value, dtype=x.dtype, device=x.device)
         return torch.cat((x, pad), dim=0)
 
+    def sort_order(self, sample: Sample, global_offset: int) -> np.ndarray:
+        """The order of the sample's nuclei in the packed sequence.
+
+        The block-aligned spatial sort of its positions; `global_offset` is the sample's
+        start in the batch. Subclasses may override it (e.g. to reuse an order).
+        """
+        return block_spatial_sort(
+            sample["pos"].numpy(), self.block_size, global_offset=global_offset
+        )
+
     def _aggregate_metadata(
         self, batch: list[Sample], sort_indices_list: list[np.ndarray]
     ) -> BatchMetadata | None:
@@ -110,9 +120,7 @@ class GraphCollator:
             n_nodes = len(b["pos"])
             pos_tensor = b["pos"]
 
-            sort_indices = block_spatial_sort(
-                pos_tensor.numpy(), self.block_size, global_offset=current_global_idx
-            )
+            sort_indices = self.sort_order(b, current_global_idx)
             all_sort_indices.append(sort_indices)
             sorted_pos = pos_tensor[sort_indices]
 
