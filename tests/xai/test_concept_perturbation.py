@@ -19,6 +19,7 @@ from xai.concept_perturbation import (
     crop_around,
     ellipse_polygons,
     first_harmonic,
+    judge,
     make_sample,
     make_variants,
     moment_axis_ratio,
@@ -428,3 +429,30 @@ def test_legacy_mask_counts_pure_pairs_twice(rng):
     # block 5 (rows 640-767) holds the last 60 nuclei and padding: never in the full list
     assert not full[5].any() and not full[:, 5].any()
     assert partial[5].any()
+
+
+def test_judge_both_groups():
+    rows = []
+    for group in ("top", "active", "inactive"):
+        for letter, pert, sign in HYPOTHESES:
+            # top: everything drops; active: as predicted
+            d = -1.0 if group == "top" else float(sign)
+            rows.append(
+                {
+                    "group": group,
+                    "concept": letter,
+                    "perturbation": pert,
+                    "off_share": 0.0,
+                    **{
+                        f"{n}{e}": d + {"": 0, "_lo": -0.5, "_hi": 0.5}[e]
+                        for n in ("d_kappa", "rel_change", "d_z")
+                        for e in ("", "_lo", "_hi")
+                    },
+                }
+            )
+    out = judge(pd.DataFrame(rows))
+    assert set(out["group"]) == {"top", "active"}
+    assert (out[out["group"] == "active"]["verdict"] == "holds").all()
+    top = out[out["group"] == "top"]
+    assert (top[top["predicted"] == "drop"]["verdict"] == "holds").all()
+    assert (top[top["predicted"] == "rise"]["verdict"] == "opposite").all()

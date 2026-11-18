@@ -53,16 +53,19 @@ from a bootstrap over slides (`N_BOOT` resamples): mean Δκ_j = κ_j(perturbed)
 crop); relative change = Σ Δκ_j / Σ κ_j (ratio of means; undefined for "inactive"); mean Δz;
 switch-off share = share of the targets with κ_j > 0 in the unperturbed crop that have κ_j = 0
 after the perturbation; switch-on share likewise for κ_j = 0 before. Hypotheses (from the
-thesis signature, fixed before the run) are judged on the "top" targets by the interval of the
-mean Δκ_j: "holds" if it lies entirely on the predicted side, "opposite" if entirely on the
-other, else "not supported".
+thesis signature, fixed before the run) are judged by the interval of the mean Δκ_j: "holds"
+if it lies entirely on the predicted side, "opposite" if entirely on the other, else "not
+supported". The judgement on the "top" targets was specified before the run; the one on the
+"active" controls was added after it: nearly every perturbation lowers the top targets (they
+were selected at the maximum of κ_j), so a predicted drop there is weak evidence and a
+predicted rise can hardly be seen.
 
 Check: on `N_CHECK` random targets the unperturbed crop's codes are compared with the stored
 whole-slide ones (Pearson r over all 16 codes and of the logits; same for all targets).
 
 Outputs (no slide IDs; slides are numbered by their position among the test slides):
-`OUT_DIR/{targets.parquet, raw/, raw.parquet, perturbation_summary.csv, hypotheses.csv,
-check.json, tab_res_concept_perturbation.tex, note.md}`, `figures/res_concept_perturbation
+`OUT_DIR/{targets.parquet, raw/, raw.parquet, perturbation_summary.csv, hypotheses.{csv,md},
+check.json, tab_res_concept_perturbation_{top,active}.tex}`, `figures/res_concept_perturbation
 .{pdf,png}` and `figures/res_concept_perturbation_stats.json`. Not logged to MLflow.
 
     PYTHONPATH=. python xai/concept_perturbation.py --stage check   # 50 targets, gate
@@ -117,6 +120,7 @@ FIG = Path("figures/res_concept_perturbation.pdf")
 
 STABLE = {"A": 0, "B": 1, "C": 8, "D": 12, "E": 3, "F": 6, "G": 2, "H": 4}
 GROUPS = ("top", "active", "inactive")
+JUDGED_GROUPS = ("top", "active")  # hypotheses: top (pre-specified), active (added)
 
 # as the activations (configs/experiment/modeling/prediction/nuclei_level/radboud_activations)
 EXPECTED_DATA = {"k": 24, "block_size": 128, "context": "knn"}
@@ -856,6 +860,7 @@ def slide_bootstrap(
     draws = rng.integers(0, len(codes), (n_boot, len(codes)))
     with np.errstate(invalid="ignore", divide="ignore"):
         boot = num[draws].sum(1) / den[draws].sum(1)
+    boot[~np.isfinite(boot)] = np.nan  # resamples without any denominator
     lo, hi = np.nanpercentile(boot, [2.5, 97.5])
     return float(estimate), float(lo), float(hi)
 
@@ -932,25 +937,27 @@ def verdict(lo: float, hi: float, sign: int) -> str:
 
 
 def judge(summary: pd.DataFrame) -> pd.DataFrame:
-    top = summary[summary["group"] == "top"].set_index(["concept", "perturbation"])
+    """Verdict of each hypothesis on the top targets and on the random active controls."""
+    by = summary.set_index(["group", "concept", "perturbation"])
     rows = []
-    for letter, pert, sign in HYPOTHESES:
-        s = top.loc[(letter, pert)]
-        rows.append(
-            {
-                "concept": letter,
-                "perturbation": pert,
-                "predicted": "rise" if sign > 0 else "drop",
-                "d_kappa": s["d_kappa"],
-                "d_kappa_lo": s["d_kappa_lo"],
-                "d_kappa_hi": s["d_kappa_hi"],
-                "rel_change": s["rel_change"],
-                "rel_change_lo": s["rel_change_lo"],
-                "rel_change_hi": s["rel_change_hi"],
-                "off_share": s["off_share"],
-                "verdict": verdict(s["d_kappa_lo"], s["d_kappa_hi"], sign),
-            }
-        )
+    for group in JUDGED_GROUPS:
+        for letter, pert, sign in HYPOTHESES:
+            s = by.loc[(group, letter, pert)]
+            rows.append(
+                {
+                    "group": group,
+                    "concept": letter,
+                    "perturbation": pert,
+                    "predicted": "rise" if sign > 0 else "drop",
+                    **{
+                        f"{name}{end}": s[f"{name}{end}"]
+                        for name in ("d_kappa", "rel_change", "d_z")
+                        for end in ("", "_lo", "_hi")
+                    },
+                    "off_share": s["off_share"],
+                    "verdict": verdict(s["d_kappa_lo"], s["d_kappa_hi"], sign),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -1000,10 +1007,14 @@ def tex_pct(value: float) -> str:
     return f"{value * 100:+.0f}".replace("-", "$-$")
 
 
-def latex_table(summary: pd.DataFrame, verdicts: pd.DataFrame) -> str:
-    """Relative change of κ_j of the top targets (%), CI below; hypotheses marked."""
-    top = summary[summary["group"] == "top"].set_index(["concept", "perturbation"])
-    marks = {(r.concept, r.perturbation): r for r in verdicts.itertuples()}
+def latex_table(summary: pd.DataFrame, verdicts: pd.DataFrame, group: str) -> str:
+    """Relative change of κ_j of a target group (%), CI below; hypotheses marked.
+
+    Hypothesis cells carry the predicted direction (arrow), bold when the hypothesis holds.
+    """
+    top = summary[summary["group"] == group].set_index(["concept", "perturbation"])
+    judged = verdicts[verdicts["group"] == group]
+    marks = {(r.concept, r.perturbation): r for r in judged.itertuples()}
     head = " & ".join(
         r"\makecell{" + SHORT[p].replace("\n", r" \\ ") + "}" for p in PERTURBATIONS
     )
@@ -1029,8 +1040,19 @@ def latex_table(summary: pd.DataFrame, verdicts: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+VERDICT_SYMBOL = {
+    "holds": r"\checkmark",
+    "opposite": r"\times",
+    "not supported": r"\circ",
+}
+
+
 def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
-    """Δκ_j in % of the top targets' unperturbed mean κ_j, per concept and perturbation."""
+    """Relative change of κ_j (Σ Δκ_j / Σ κ_j, %) of the top targets and active controls.
+
+    Hypothesis cells are shaded; above them the predicted direction and the verdicts on
+    the top targets and on the active controls (✓ holds, × opposite, ∘ not supported).
+    """
     import matplotlib
 
     matplotlib.use("Agg")
@@ -1040,12 +1062,13 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
 
     style = {  # identity: colour and marker shape
         "top": ("#2a78d6", "o", "full", r"top 300 ($\leq$3 per slide)"),
-        "active": ("#eb6834", "^", "none", "random active"),
-        "inactive": ("#7a7a7a", "s", "none", "random inactive"),
+        "active": ("#eb6834", "^", "none", "300 random active"),
     }
-    offsets = {"top": -0.22, "active": 0.0, "inactive": 0.22}
+    offsets = {"top": -0.14, "active": 0.14}
     predicted = {(c, p): s for c, p, s in HYPOTHESES}
-    held = {(r.concept, r.perturbation): r.verdict for r in verdicts.itertuples()}
+    held = {
+        (r.group, r.concept, r.perturbation): r.verdict for r in verdicts.itertuples()
+    }
     with plt.rc_context(THESIS_RC):
         fig, axes = plt.subplots(
             4,
@@ -1059,16 +1082,17 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
             sub = summary[(summary["concept"] == letter)].set_index(
                 ["group", "perturbation"]
             )
-            scale = sub.loc[("top", PERTURBATIONS[0]), "kappa0_crop_mean"]
             for k, p in enumerate(PERTURBATIONS):
                 if (letter, p) in predicted:
                     ax.axvspan(k - 0.45, k + 0.45, color="#ececec", lw=0, zorder=0)
-                    mark = r"\uparrow" if predicted[(letter, p)] > 0 else r"\downarrow"
-                    ok = r"\checkmark" if held[(letter, p)] == "holds" else r"\times"
+                    arrow = r"\uparrow" if predicted[(letter, p)] > 0 else r"\downarrow"
+                    marks = "".join(
+                        VERDICT_SYMBOL[held[(g, letter, p)]] for g in JUDGED_GROUPS
+                    )
                     ax.text(
                         k,
                         1.0,
-                        f"${mark}{ok}$",
+                        rf"${arrow}\,{marks}$",
                         transform=ax.get_xaxis_transform(),
                         ha="center",
                         va="bottom",
@@ -1078,9 +1102,9 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
             ax.axhline(0, color="#9a9a9a", lw=0.6, zorder=1)
             for group, (color, marker, fill, _) in style.items():
                 rows = sub.loc[[(group, p) for p in PERTURBATIONS]]
-                y = rows["d_kappa"].to_numpy() / scale * 100
-                lo = rows["d_kappa_lo"].to_numpy() / scale * 100
-                hi = rows["d_kappa_hi"].to_numpy() / scale * 100
+                y = rows["rel_change"].to_numpy() * 100
+                lo = rows["rel_change_lo"].to_numpy() * 100
+                hi = rows["rel_change_hi"].to_numpy() * 100
                 ax.errorbar(
                     x + offsets[group],
                     y,
@@ -1101,10 +1125,9 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
             ax.grid(axis="y", color="#e6e6e6", lw=0.5, zorder=0)
             ax.set_axisbelow(True)
         for ax in axes[-1]:
-            ticks = [SHORT[p] for p in PERTURBATIONS]
-            ax.set_xticks(x, ticks, fontsize=6.5)
+            ax.set_xticks(x, [SHORT[p] for p in PERTURBATIONS], fontsize=6.5)
         for ax in axes[:, 0]:
-            ax.set_ylabel(r"$\Delta\kappa_j$ (% of top mean $\kappa_j$)", fontsize=7)
+            ax.set_ylabel(r"change of $\kappa_j$ (%)", fontsize=7)
         handles = [
             plt.Line2D(
                 [],
@@ -1125,13 +1148,16 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
                 1,
                 1,
                 color="#ececec",
-                label=r"hypothesis: $\uparrow\downarrow$ predicted, $\checkmark$ holds",
+                label=(
+                    r"hypothesis: $\uparrow\downarrow$ predicted; top, active: "
+                    r"$\checkmark$ holds, $\times$ opposite, $\circ$ n.s."
+                ),
             )
         )
         fig.legend(
             handles=handles,
             loc="outside upper center",
-            ncol=4,
+            ncol=3,
             frameon=False,
             fontsize=7,
         )
@@ -1141,9 +1167,9 @@ def figure(summary: pd.DataFrame, verdicts: pd.DataFrame, path: Path) -> None:
         plt.close(fig)
 
 
-def note(summary: pd.DataFrame, verdicts: pd.DataFrame, check: dict) -> str:
+def hypotheses_markdown(verdicts: pd.DataFrame, check: dict) -> str:
     lines = [
-        "# Input perturbations of the stable concepts — note",
+        "# Input perturbations of the stable concepts: hypotheses",
         "",
         (
             f"Crop check ({check['n_targets']} random targets): Pearson r of the 16 "
@@ -1153,17 +1179,23 @@ def note(summary: pd.DataFrame, verdicts: pd.DataFrame, check: dict) -> str:
         ),
         "",
         (
-            "Hypotheses (top targets; 95 % slide-bootstrap CI; relative change = "
-            "Σ Δκ_j / Σ κ_j):"
+            "Relative change = Σ Δκ_j / Σ κ_j over the group's targets, 95 % "
+            "slide-bootstrap CI; verdict from the CI of the mean Δκ_j. The top-target "
+            "verdict was specified before the run; the active-control verdict was added "
+            "after it, because the top targets sit at a ceiling (see note.md)."
         ),
         "",
-        "| Concept | Perturbation | Predicted | Relative change | Switch-off | Verdict |",
-        "|---|---|---|---|---|---|",
+        (
+            "| Concept | Perturbation | Predicted | Group | Relative change | Δz | "
+            "Switch-off | Verdict |"
+        ),
+        "|---|---|---|---|---|---|---|---|",
     ]
-    for r in verdicts.itertuples():
+    for r in verdicts.sort_values(["concept", "perturbation", "group"]).itertuples():
         lines.append(
-            f"| {r.concept} | {LABELS[r.perturbation]} | {r.predicted} | "
+            f"| {r.concept} | {LABELS[r.perturbation]} | {r.predicted} | {r.group} | "
             f"{fmt(r.rel_change, r.rel_change_lo, r.rel_change_hi)} % | "
+            f"{fmt(r.d_z, r.d_z_lo, r.d_z_hi, scale=1.0, digits=2)} | "
             f"{r.off_share * 100:.0f} % | {r.verdict} |"
         )
     return "\n".join(lines) + "\n"
@@ -1232,10 +1264,11 @@ def main() -> None:
     verdicts.to_csv(OUT_DIR / "hypotheses.csv", index=False)
     check = json.loads((OUT_DIR / "check.json").read_text())
     check_all = check_crops(raw, codes, logits)
-    (OUT_DIR / "tab_res_concept_perturbation.tex").write_text(
-        latex_table(summary, verdicts)
-    )
-    (OUT_DIR / "note.md").write_text(note(summary, verdicts, check))
+    for group in JUDGED_GROUPS:
+        (OUT_DIR / f"tab_res_concept_perturbation_{group}.tex").write_text(
+            latex_table(summary, verdicts, group)
+        )
+    (OUT_DIR / "hypotheses.md").write_text(hypotheses_markdown(verdicts, check))
     figure(summary, verdicts, FIG)
     stats = {
         "runs": {"model_training": MODEL_RUN, "sae_training": SAE_TRAINING_RUN},
