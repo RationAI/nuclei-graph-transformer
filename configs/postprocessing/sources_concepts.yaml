@@ -1,0 +1,80 @@
+# @package _global_
+
+# fig:res-sources-concepts: information sources (shape, texture, position only) by the SAE concept
+# dominating each test nucleus (postprocessing.sources_concepts). Stored predictions and stored
+# SAE codes only. Grouping, SAE, resamples and probability clip are those of fig:res-context-concepts
+# (context_concepts, run 875566dc); the models are the "sources" family of tab:res-sources
+# (results_sources, run a925ae67).
+
+defaults:
+  - /postprocessing/context_concepts
+  - _self_
+
+# k = 24, three seeds each; the eval runs are asserted equal to configs/postprocessing/results_sources.yaml.
+configurations:
+  shape_self:
+    label: Shape, self-only
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+  shape_knn:
+    label: Shape, k-NN, rotated values (thesis model)
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_self:
+    label: Texture, self-only
+    eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+  texture_knn:
+    label: Texture, k-NN, rotated values
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+  position_knn:
+    label: Position only, k-NN, rotated values
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+sources_config: configs/postprocessing/results_sources.yaml # eval runs checked against it
+
+configurations_used: [shape_self, shape_knn, texture_self, texture_knn, position_knn]
+differences: # first − second; negative = the first has the lower loss
+  - name: shape_vs_texture_self
+    label: shape $-$ texture, self-only
+    plus: shape_self
+    minus: texture_self
+  - name: shape_vs_texture_knn
+    label: shape $-$ texture, with context
+    plus: shape_knn
+    minus: texture_knn
+  - name: shape_vs_position_knn
+    label: shape $-$ position only
+    plus: shape_knn
+    minus: position_knn
+  - name: texture_vs_position_knn
+    label: texture $-$ position only
+    plus: texture_knn
+    minus: position_knn
+  - name: context_gain_shape # CSV only
+    label: context gain, shape (k-NN $-$ self-only)
+    plus: shape_knn
+    minus: shape_self
+    figure: false
+  - name: context_gain_texture # CSV only
+    label: context gain, texture (k-NN $-$ self-only)
+    plus: texture_knn
+    minus: texture_self
+    figure: false
+
+# The grouping of 875566dc: its per-group nucleus and carcinoma counts must be reproduced exactly.
+reference_run: 875566dc
+reference_groups: ${project_path}/evaluation/radboud_test/q3_context_concepts/groups.csv
+
+links:
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  context_concepts_run: 875566dc
+  sources_table_run: a925ae67
+
+out_dir: ${project_path}/evaluation/radboud_test/q2_sources_concepts
+repo_figures_dir: null # optional copy of res_sources_concepts.{pdf,png}
+
+metadata:
+  run_name: "Q2 sources by dominant SAE concept: log-loss differences (Radboud test)"
+  hyperparams:
+    resamples: ${resamples}
+    ci_level: ${bootstrap.ci_level}
+    probability_clip: ${probability_clip}
+    sae_model: ${xai.sae_model}
+    reference_run: ${reference_run}

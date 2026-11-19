@@ -188,20 +188,33 @@ def log_loss(y: NDArray, p: NDArray, eps: float) -> NDArray:
     return -np.where(y == 1, np.log(p), np.log1p(-p))
 
 
-def compute(config: DictConfig) -> tuple[Path, dict]:
-    out = Path(config.out_dir)
-    (out / "figures").mkdir(parents=True, exist_ok=True)
-
+def load_grouped(config: DictConfig) -> dict:
+    """Test nuclei with labels, seed-mean probabilities and dominating-concept groups."""
     slides = load_slides(config.metadata_uri)
     slide_ids = slides["slide_id"].tolist()
     labels = load_labels(slides, Path(config.supervision_dir), config.label_column)
     carcinoma = slides["is_carcinoma"].to_numpy(bool)
     nuclei, y, p_mean = seed_averaged_predictions(config, slide_ids, labels, carcinoma)
-    slide = nuclei["slide"].to_numpy().astype(np.int64)
-    n_slides = len(slides)
-
     order = xai_order(config, slide_ids, nuclei, y)
     group, group_names, group_checks = dominant_groups(config, order)
+    return {
+        "slide_ids": slide_ids,
+        "slide": nuclei["slide"].to_numpy().astype(np.int64),
+        "y": y,
+        "p_mean": p_mean,
+        "group": group,
+        "group_names": group_names,
+        "group_checks": group_checks,
+    }
+
+
+def group_table(
+    config: DictConfig, data: dict
+) -> tuple[pd.DataFrame, dict[str, NDArray], dict]:
+    """Per group (and "all"): mean log-losses and the configured differences with CIs."""
+    slide_ids, slide, y = data["slide_ids"], data["slide"], data["y"]
+    p_mean, group, group_names = data["p_mean"], data["group"], data["group_names"]
+    n_slides = len(slide_ids)
     n_groups = len(group_names)
 
     eps = float(config.probability_clip)
@@ -260,14 +273,6 @@ def compute(config: DictConfig) -> tuple[Path, dict]:
                 f"{d.name}_p": bootstrap_p(reps[~np.isnan(reps)]),
             }
         rows.append(row)
-    table = pd.DataFrame(rows)
-    table.to_csv(out / "groups.csv", index=False)
-    np.savez_compressed(out / "replicates.npz", **diff_reps)  # type: ignore[arg-type]
-
-    figure_dirs = [out / "figures"]
-    if config.get("repo_figures_dir"):
-        figure_dirs.append(Path(config.repo_figures_dir))
-    save_context_concepts_figure(out, figure_dirs)
 
     checks = {
         "nuclei": len(y),
@@ -275,7 +280,7 @@ def compute(config: DictConfig) -> tuple[Path, dict]:
         "rows_matched": "XAI index rows matched to the predictions by (slide, nucleus key); "
         "labels identical on every nucleus",
         "groups": group_names,
-        **group_checks,
+        **data["group_checks"],
         "probability_clip": eps,
         "clipped_probabilities": clipped,
         "resamples": {
@@ -285,6 +290,22 @@ def compute(config: DictConfig) -> tuple[Path, dict]:
             "replicate_group_cells_without_nuclei": empty,
         },
     }
+    return pd.DataFrame(rows), diff_reps, checks
+
+
+def compute(config: DictConfig) -> tuple[Path, dict]:
+    out = Path(config.out_dir)
+    (out / "figures").mkdir(parents=True, exist_ok=True)
+
+    table, diff_reps, checks = group_table(config, load_grouped(config))
+    table.to_csv(out / "groups.csv", index=False)
+    np.savez_compressed(out / "replicates.npz", **diff_reps)  # type: ignore[arg-type]
+
+    figure_dirs = [out / "figures"]
+    if config.get("repo_figures_dir"):
+        figure_dirs.append(Path(config.repo_figures_dir))
+    save_context_concepts_figure(out, figure_dirs)
+
     (out / "checks.json").write_text(json.dumps(checks, indent=1, default=str))
     return out, checks
 
