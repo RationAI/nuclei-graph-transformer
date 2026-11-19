@@ -93,6 +93,7 @@ links:
   sources_table_run: a925ae67
 
 compute_only: false # true: write the outputs without an MLflow run (no credentials needed)
+log_run: null # postprocessing.disagreement_net: an existing run to add its outputs to
 out_dir: ${project_path}/evaluation/radboud_test/disagreement
 repo_figures_dir: null # optional copy of res_disagreement_{context,sources}.{pdf,png}
 
