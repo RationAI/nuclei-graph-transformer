@@ -20,6 +20,7 @@ steps use the repo's TF32 matmul precision (`matmul_precision: high`).
 | 4. Completeness (GPU) | `python -m xai.evaluate_sae +experiment=xai/radboud` | `completeness.csv`, `completeness_summary.csv`, `stability.csv`, `pca_spectrum.csv` |
 | 5. Concept material | `python -m xai.concept_material +experiment=xai/radboud num_concepts=16` | `concepts/k<k>_seed<s>/…` (own `README.md`) |
 | 6. Session material | `python -m xai.session_material +experiment=xai/radboud` | `session/`: blinded deck, response sheets, key, whole-slide concept overlays |
+| 7. Other training seeds | `bash scripts/xai/cross_model_seeds.sh` | per new model `<project_path>/xai/<run_id>/` (steps 2–4), and `cross_model/` of the analysed model (own `README.md`) |
 | Optional | `python -m xai.precision_check` | test logits in full fp32 next to the TF32 ones |
 
 - **Steps 1–2.** Every nucleus of the validation slides (the training run's own split)
@@ -44,6 +45,10 @@ steps use the repo's TF32 matmul precision (`matmul_precision: high`).
   activation values or labels in the deck; `key.csv` maps letters back. Overlays are
   written like `nuclei_graph.callbacks.masks` (polygons filled with
   ceil(255 · min(c_j / color_scale_max, 1)), level 0).
+- **Step 7.** The same SAE on other training seeds of the model, on the analysed model's
+  nuclei (index copied, `xai.cross_model_prepare`); concepts matched to A–H by the Pearson
+  correlation of activations on 2M fixed test nuclei (`xai.cross_model_concepts`), not by
+  decoder directions (the representation spaces are not aligned).
 
 Set `XAI_DEVICE=cpu` to run steps 3–5 without a GPU. The jobs in `scripts/xai/` clone
 the `xai-sae` branch, so it must be pushed first.
