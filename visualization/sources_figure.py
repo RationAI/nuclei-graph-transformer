@@ -39,15 +39,8 @@ from matplotlib.transforms import blended_transform_factory
 
 from visualization.thesis_results_figures import (
     FONT_SIZE,
-    GRID,
-    INK,
-    MARKER_SIZE,
-    POSITION,
     RC,
-    SHAPE,
     TEXT_W_IN,
-    TEXTURE,
-    clean_spines,
     save_figure,
 )
 
@@ -73,9 +66,9 @@ N_RESAMPLES, RESAMPLE_SEED, CI_LEVEL = 2000, 20261108, 0.95
 
 # top to bottom
 MODELS = (
-    ("position_knn", "positions", POSITION),
-    ("shape_knn", "positions + shape", SHAPE),
-    ("texture_knn", "positions + texture", TEXTURE),
+    ("position_knn", "positions", "#2E9A6B"),
+    ("shape_knn", "positions + shape", "#3165AE"),
+    ("texture_knn", "positions + texture", "#D6782A"),
 )
 EXPECTED = {  # tab:res-sources, three decimals
     "AUPRC": {"position_knn": 0.832, "shape_knn": 0.904, "texture_knn": 0.945},
@@ -83,16 +76,25 @@ EXPECTED = {  # tab:res-sources, three decimals
 }
 PANELS = (
     # metric, x range, x ticks
-    ("AUPRC", (0.80, 0.96), (0.80, 0.84, 0.88, 0.92, 0.96)),
-    ("AUROC", (0.88, 0.98), (0.88, 0.90, 0.92, 0.94, 0.96, 0.98)),
+    ("AUPRC", (0.80, 0.96), (0.80, 0.85, 0.90, 0.95)),
+    ("AUROC", (0.87, 0.98), (0.88, 0.92, 0.96)),
 )
 
-FIG_H_IN = 1.75
-BOTTOM, HEIGHT = 0.24, 0.58
-AXES = ((0.175, 0.225), (0.6, 0.225))  # (left, width) of (a) and (b), figure fractions
-VALUES_DX = 0.08  # centre of each numbers column, right of its axes
+INK, MUTED, FAINT, GRID = "#333333", "#7a7a7a", "#a0a0a0", "#e4e4e4"
+FIG_H_IN = 2.25
+BOTTOM, HEIGHT = 0.17, 0.66
+AXES = ((0.17, 0.265), (0.59, 0.285))  # (left, width) of (a) and (b), figure fractions
+VALUES_DX = 0.065  # centre of each numbers column, right of its axes
+LETTER_DX = (-0.02, -0.03)  # panel letters, relative to the left of the labels / axes
+LABELS_W = 0.14  # width of the row labels left of (a)
+POINT_SIZE, CI_LW = 4.2, 2.2
 # seed ticks: height above the bar (rows), marker size, line width
-SEED_DY, SEED_TICK, SEED_MEW = 0.27, 4.0, 0.55
+SEED_DY, SEED_TICK, SEED_MEW = 0.17, 4.5, 0.7
+
+
+def bold(text: str) -> str:
+    """Bold in Computer Modern (cmr10 has no bold face; mathtext's cm set has cmb10)."""
+    return r"$\mathbf{" + text.replace(" ", r"\ ") + "}$"
 
 
 def load_rows(results_dir: Path) -> pd.DataFrame:
@@ -162,19 +164,17 @@ def check(results_dir: Path, check_dir: Path, resamples: Path) -> dict:
 
 
 def draw_row(ax: plt.Axes, y: float, row: pd.Series, color: str) -> None:
-    ax.errorbar(
-        row["point"],
-        y,
-        xerr=[[row["point"] - row["ci_lo"]], [row["ci_hi"] - row["point"]]],
-        fmt="o",
-        ms=MARKER_SIZE,
+    """The CI as a thick bar without caps, the point estimate on it, the seeds as ticks above."""
+    ax.plot(
+        [row["ci_lo"], row["ci_hi"]],
+        [y, y],
         color=color,
-        mfc=color,
-        mew=0.8,
-        elinewidth=1.0,
-        capsize=2.2,
-        capthick=1.0,
-        zorder=4,
+        lw=CI_LW,
+        solid_capstyle="butt",
+        zorder=3,
+    )
+    ax.plot(
+        row["point"], y, "o", ms=POINT_SIZE, mfc=color, mec="white", mew=0.7, zorder=4
     )
     seeds = [row[f"seed_{k}"] for k in (1, 2, 3)]
     ax.plot(
@@ -190,8 +190,17 @@ def draw_row(ax: plt.Axes, y: float, row: pd.Series, color: str) -> None:
 
 
 def sources_figure(rows: pd.DataFrame) -> plt.Figure:
-    with plt.rc_context(RC):
+    with plt.rc_context(
+        {
+            **RC,
+            "axes.edgecolor": INK,
+            "xtick.color": INK,
+            "ytick.color": INK,
+            "axes.labelcolor": INK,
+        }
+    ):
         fig = plt.figure(figsize=(TEXT_W_IN, FIG_H_IN))
+        top = BOTTOM + HEIGHT
         for i, ((metric, xlim, xticks), (left, width)) in enumerate(
             zip(PANELS, AXES, strict=True)
         ):
@@ -203,44 +212,58 @@ def sources_figure(rows: pd.DataFrame) -> plt.Figure:
                 draw_row(ax, y, row, color)
                 ax.text(
                     values_x,
-                    y,
-                    f"{row['point']:.3f} [{row['ci_lo']:.3f}, {row['ci_hi']:.3f}]",
+                    y - 0.03,
+                    bold(f"{row['point']:.3f}"),
                     transform=values,
                     ha="center",
-                    va="center",
+                    va="bottom",
                     color=INK,
-                    fontsize=FONT_SIZE - 1,
+                    fontsize=FONT_SIZE - 1.5,
                 )
-            ax.text(
+                ax.text(
+                    values_x,
+                    y + 0.03,
+                    f"[{row['ci_lo']:.3f}, {row['ci_hi']:.3f}]",
+                    transform=values,
+                    ha="center",
+                    va="top",
+                    color=MUTED,
+                    fontsize=FONT_SIZE - 1.5,
+                )
+            fig.text(
                 values_x,
-                BOTTOM + HEIGHT + 0.03,
-                f"{metric} [95% CI]",
-                transform=fig.transFigure,
+                top + 0.005,
+                f"{metric}\n[95% CI]",
                 ha="center",
                 va="bottom",
-                color=INK,
-                fontsize=FONT_SIZE - 1,
+                color=FAINT,
+                fontsize=FONT_SIZE - 2,
+                linespacing=1.0,
             )
             labels = [label for _, label, _ in MODELS] if i == 0 else []
             ax.set_yticks(range(len(MODELS)), labels)
-            ax.set_ylim(len(MODELS) - 0.5, -0.6)
-            ax.tick_params(axis="y", length=0)
+            ax.set_ylim(len(MODELS) - 0.45, -0.6)
+            ax.tick_params(axis="y", length=0, pad=6, labelsize=FONT_SIZE - 0.5)
+            ax.tick_params(axis="x", length=3, width=0.6, labelsize=FONT_SIZE - 0.5)
             ax.set_xlim(*xlim)
             ax.set_xticks(xticks)
             ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%.2f"))
-            ax.set_xlabel(metric)
-            ax.grid(axis="x", color=GRID, lw=0.5, zorder=0)
-            clean_spines(ax)
-            if i == 1:
-                ax.spines["left"].set_visible(False)
+            ax.set_xlabel(bold(metric), labelpad=4)
+            ax.grid(axis="x", color=GRID, lw=0.8, zorder=0)
+            ax.set_axisbelow(True)
+            for side in ("top", "right"):
+                ax.spines[side].set_visible(False)
+            for side in ("left", "bottom"):
+                ax.spines[side].set_linewidth(0.6)
+            letter_x = (left - LABELS_W if i == 0 else left) + LETTER_DX[i]
             fig.text(
-                0.005 if i == 0 else left - 0.03,
-                BOTTOM + HEIGHT + 0.03,
+                letter_x,
+                top + 0.04,
                 f"({'ab'[i]})",
                 ha="left",
                 va="bottom",
                 color=INK,
-                fontsize=FONT_SIZE + 1,
+                fontsize=FONT_SIZE,
             )
     return fig
 
