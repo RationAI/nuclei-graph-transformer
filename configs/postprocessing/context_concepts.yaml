@@ -1,0 +1,50 @@
+# @package _global_
+
+# fig:res-context-concepts: where the context helps, by the SAE concept dominating each test
+# nucleus (postprocessing.context_concepts). Stored predictions and stored SAE codes only.
+# The configurations, resamples and paths are those of tab:res-context (results_context).
+
+defaults:
+  - /postprocessing/results_context
+  - _self_
+
+configurations_used: [self, knn, dense] # seed-averaged probabilities (mean of the 3 seeds)
+differences: # (larger context, smaller context); negative = the larger context lowers the loss
+  - name: knn_vs_self
+    label: k-NN − self-only
+    plus: knn
+    minus: self
+  - name: dense_vs_knn
+    label: dense − k-NN
+    plus: dense
+    minus: knn
+probability_clip: 1.0e-7 # log-loss of p clipped to [eps, 1 − eps]
+
+# The analysed SAE: k = 16, L1, seed 1 (SAE training run 4cf1db8f), explaining c8f26853.
+xai_dir: ${inputs_path}/xai/c8f268536be8416f9fe395eea95c458e
+xai:
+  index: ${xai_dir}/activations/test/index.parquet
+  head: ${xai_dir}/activations/head.npz
+  sae_model: ${xai_dir}/sae/sae_k16_seed1_l13.pt
+  codes: ${xai_dir}/concepts/k16_seed1/codes_test.npy # κ (encoder codes, L1)
+  contributions: ${xai_dir}/concepts/k16_seed1/contrib_test.npy # φ_ij = κ_ij wᵀu_j, checked
+  deck_key: ${xai_dir}/session/key.csv
+  stable_concepts: [A, B, C, D, E, F, G, H]
+  stable_indices: [0, 1, 2, 3, 4, 6, 8, 12] # asserted against the deck key
+  contribution_tolerance: 1.0e-5 # |stored φ − κ wᵀu| (float32 storage)
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+links:
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  context_table_run_id: 027eeaee99854b09955e608b11b23295
+
+out_dir: ${project_path}/evaluation/radboud_test/q3_context_concepts
+repo_figures_dir: null # optional copy of res_context_concepts.{pdf,png}
+
+metadata:
+  run_name: "Q3 context by dominant SAE concept: log-loss differences (Radboud test)"
+  hyperparams:
+    resamples: ${resamples}
+    ci_level: ${bootstrap.ci_level}
+    probability_clip: ${probability_clip}
+    sae_model: ${xai.sae_model}
