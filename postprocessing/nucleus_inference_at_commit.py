@@ -13,6 +13,12 @@ YAML), ``outputs`` (one parquet per run) and ``device``. Each output holds (slid
 every nucleus, slide = row in ``slides``, key = the 64-bit prefix of the nucleus id, sorted; with
 ``"logits": true`` in the job also the logit, and for models with a self-evidence head (study
 small_foci, B1) its two components ``logit_context`` and ``logit_self`` (logit = their sum).
+
+Representations (optional, ``h_sample`` and ``h_outputs`` in the job): ``h_sample`` is a parquet
+of (slide, key) rows sorted like the outputs; for each run, the output of ``net.final_norm``
+(the input of ``class_head``) at those nuclei is written to its ``h_outputs`` path (.npy,
+float16, rows in ``h_sample`` order). class_head(h) is checked against the logits on every
+slide before the cast; the largest difference per run goes to ``<h_output>.json``.
 Only standard-library and third-party modules are imported at module level.
 """
 
@@ -33,6 +39,10 @@ def nucleus_keys(ids):  # as postprocessing.bootstrap_sources.nucleus_keys
     assert (ids.str.len() == 64).all(), "unexpected nucleus id format"
     prefix = "".join(ids.str.slice(0, 16))
     return np.frombuffer(bytes.fromhex(prefix), dtype=">u8").astype(np.uint64)
+
+
+def captured_dim(model) -> int:
+    return model.net.class_head.in_features
 
 
 def main() -> None:
@@ -98,6 +108,20 @@ def main() -> None:
 
     with_logits = bool(job.get("logits", False))
     frames = [[] for _ in models]
+
+    h_sample = job.get("h_sample")
+    captured: dict[int, object] = {}
+    h_parts: list[list] = [[] for _ in models]
+    h_diff = [0.0 for _ in models]
+    if h_sample is not None:
+        h_sample = pd.read_parquet(h_sample)
+        sample_bounds = np.searchsorted(
+            h_sample["slide"].to_numpy(), np.arange(len(slides) + 1)
+        )
+        for m, model in enumerate(models):
+            model.net.final_norm.register_forward_hook(
+                lambda _mod, _inp, out, m=m: captured.__setitem__(m, out.detach())
+            )
     for s in tqdm(range(len(ds)), desc=Path(job["outputs"][0]).stem):
         batch = collate([ds[s]])
         inputs = move_data_to_device(
@@ -112,6 +136,19 @@ def main() -> None:
             logits = out["nuclei"].squeeze(-1)
             p = torch.sigmoid(logits).float().cpu().numpy().ravel()
             assert len(p) == len(ids)
+            if h_sample is not None:
+                h = captured.pop(m).reshape(-1, captured_dim(model))[: len(ids)]
+                with torch.inference_mode():
+                    z = model.net.class_head(h).squeeze(-1)
+                h_diff[m] = max(
+                    h_diff[m], float((z.float() - logits.float().ravel()).abs().max())
+                )
+                lo, hi = sample_bounds[s], sample_bounds[s + 1]
+                rows = pd.Index(keys).get_indexer(h_sample["key"].to_numpy()[lo:hi])
+                assert (rows >= 0).all(), "sampled nuclei missing from the slide"
+                h_parts[m].append(
+                    h[torch.as_tensor(rows, device=h.device)].half().cpu().numpy()
+                )
             cols = {"slide": np.full(len(p), s, np.int16), "key": keys, "p": p}
             if with_logits:
                 cols["logit"] = logits.float().cpu().numpy().ravel()
@@ -126,6 +163,15 @@ def main() -> None:
                             .ravel()
                         )
             frames[m].append(pd.DataFrame(cols))
+    if h_sample is not None:
+        for m, path in enumerate(job["h_outputs"]):
+            h_all = np.concatenate(h_parts[m])
+            assert len(h_all) == len(h_sample)
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+            np.save(path, h_all)
+            Path(path).with_suffix(".json").write_text(
+                json.dumps({"rows": len(h_all), "class_head_max_abs_diff": h_diff[m]})
+            )
     for f, path in zip(frames, job["outputs"], strict=True):
         df = pd.concat(f, ignore_index=True).sort_values(
             ["slide", "key"], ignore_index=True

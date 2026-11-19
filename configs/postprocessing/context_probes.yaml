@@ -1,0 +1,49 @@
+# @package _global_
+
+# tab:res-context-probes (postprocessing.context_probes): linear probes from the final
+# representation h of each context configuration to the concept activations of the thesis model.
+# h comes from scripts/reporting/context_probes_extract.py (each evaluation run's code and mask).
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+work_dir: ${project_path}/evaluation/radboud_test/context_probes # extraction outputs (read)
+out_dir: ${work_dir}/probes
+max_slide_share: 0.01 # of the validation sample (fit)
+
+xai_dir: /mnt/public_projects/nuclei_based_wsi_analysis/xai/c8f268536be8416f9fe395eea95c458e
+xai:
+  sae_model: ${xai_dir}/sae/sae_k16_seed1_l13.pt # k = 16, L1, seed 1 (SAE training run 4cf1db8f)
+  deck_key: ${xai_dir}/session/key.csv
+  stable_concepts: [A, B, C, D, E, F, G, H]
+  stable_indices: [0, 1, 2, 3, 4, 6, 8, 12] # asserted against the deck key
+  index:
+    validation: ${xai_dir}/activations/validation/index.parquet
+    test: ${xai_dir}/activations/test/index.parquet
+  h:
+    validation: ${xai_dir}/activations/validation/h.npy
+    test: ${xai_dir}/activations/test/h.npy
+  codes: # κ (encoder codes)
+    validation: ${xai_dir}/concepts/k16_seed1/morphometry/codes_validation.npy
+    test: ${xai_dir}/concepts/k16_seed1/codes_test.npy
+  code_tolerance: 1.0e-3 # |stored κ − encode(stored h)| (TF32 / float32)
+
+reference:
+  model_run: c8f268536be8416f9fe395eea95c458e
+
+table_rows: # configuration -> row label
+  self: nucleus alone
+  knn: local context (k-NN)
+  dense: global context (dense)
+  reference: analysed model (k-NN + RoVE)
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+links:
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  context_table_run_id: 027eeaee99854b09955e608b11b23295
+
+metadata:
+  run_name: "Q3 context: linear probes of h to the SAE concepts A-H (Radboud)"
+  hyperparams:
+    work_dir: ${work_dir}
