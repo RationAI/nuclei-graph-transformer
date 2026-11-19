@@ -1,0 +1,125 @@
+# @package _global_
+
+# Q2 "How much do shape, texture, and position contribute?" on the epithelial test nuclei of
+# PANDA Radboud only. The configurations, evaluation runs and the eight comparisons of
+# tab:res-sources (postprocessing.results_sources, the "sources" family of runs a925ae67 and
+# 4081f97a); the epithelial nuclei of the Q3 context run (postprocessing.results_context, run
+# 027eeaee). Paired slide-level bootstrap over the stored test predictions, reusing the Q2
+# resamples and the 4081f97a logit grid. No training, no inference.
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+# The public project, mounted read-only on the sensitive cluster's notebook (/mnt/projects there).
+inputs_path: /mnt/public_projects/nuclei_based_wsi_analysis
+metadata_uri: ${dataset.providers.radboud.metadata.test}
+supervision_dir: ${inputs_path}/nuclei_supervision/PANDA/Radboud/annotation
+label_column: annot_label
+predictions_artifact: predictions
+
+# Run 4081f97a (Q2/Q3 positions; its sources family = a925ae67's, which made tab:res-sources):
+# its all-nuclei replicates, configurations and sources comparisons are compared with the ones
+# recomputed here, and its per-run checks are copied.
+reference_run: 4081f97a7b3040a8a257599e1860d76c
+reference_dir: ${project_path}/evaluation/radboud_test/q2_q3_positions
+reference_family: sources
+# Run 027eeaee (Q3 context): its epithelial counts must be reproduced, and its epithelial
+# replicates of the shared runs (shape self-only, thesis model) compared with the ones here.
+context_run: 027eeaee99854b09955e608b11b23295
+context_dir: ${project_path}/evaluation/radboud_test/q3_context
+# Saved by the Q2 run (205c2bea); seed 20261108, 2,000 resamples stratified by positive slide.
+resamples: ${inputs_path}/evaluation/radboud_test/q2_sources_bootstrap/bootstrap_resamples_radboud_test.npz
+
+# As configs/postprocessing/results_sources.yaml (k = 24, three seeds each); names as there.
+configurations:
+  position_knn:
+    label: Position only, k-NN + RoVE
+    short: position only
+    # seed 1 = training 5e3274c2 / evaluation 1f5e2e4a (since 04064f4b)
+    training_runs: [5e3274c2, 4a283f49, 11c588c4]
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+  shape_self:
+    label: Shape, self-only
+    short: shape self-only
+    training_runs: [5dbc2c07, bcd05361, fa631c23]
+    eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+  shape_knn:
+    label: Shape, k-NN + RoVE (thesis model)
+    short: shape k-NN + RoVE
+    training_runs: [5401eebe, 084da1a0, c8f26853]
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_self:
+    label: Texture, self-only
+    short: texture self-only
+    training_runs: [8d9ae3e5, 70c9b7fb, c36cce85]
+    eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+  texture_knn:
+    label: Texture, k-NN + RoVE
+    short: texture k-NN + RoVE
+    training_runs: [2cea190b, 0f28da4a, ed4a6c81]
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+
+# Names in 027eeaee's replicates (configuration of the same runs there)
+context_names: {shape_self: self, shape_knn: thesis}
+
+# = the sources family of results_sources.yaml (same names, weights). Holm per subset over the
+# eight AUPRC comparisons; the epithelial nuclei are their own family.
+comparisons:
+  - name: shape_vs_texture_self
+    label: Shape − texture, self-only
+    weights: {shape_self: 1, texture_self: -1}
+  - name: shape_vs_texture_knn
+    label: Shape − texture, k-NN + RoVE
+    weights: {shape_knn: 1, texture_knn: -1}
+  - name: shape_vs_position_knn
+    label: Shape − position only, k-NN + RoVE
+    weights: {shape_knn: 1, position_knn: -1}
+  - name: texture_vs_position_knn
+    label: Texture − position only, k-NN + RoVE
+    weights: {texture_knn: 1, position_knn: -1}
+  - name: context_gain_shape
+    label: Context gain, shape
+    weights: {shape_knn: 1, shape_self: -1}
+  - name: context_gain_texture
+    label: Context gain, texture
+    weights: {texture_knn: 1, texture_self: -1}
+  - name: interaction
+    label: Context gain, texture − shape
+    weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}
+  - name: position_knn_vs_shape_self
+    label: Position only − shape, self-only
+    weights: {position_knn: 1, shape_self: -1}
+
+# Supporting, not in a Holm family: a comparison's epithelial value minus its all-nuclei value,
+# paired within each resample (does the gap grow or shrink on epithelial nuclei?).
+subset_contrasts: [shape_vs_texture_self, shape_vs_texture_knn]
+
+epithelium:
+  classes_dir: ${project_path}/evaluation/xai_epithelium_separation/classes/test
+  counts: ${project_path}/evaluation/xai_epithelium_separation/counts.csv
+  slides: ${inputs_path}/xai/c8f268536be8416f9fe395eea95c458e/slides.parquet
+
+bootstrap:
+  ci_level: 0.95
+  alpha: 0.05
+histogram:
+  tolerance: 1.0e-4 # |histogram − exact|, every run, both subsets; grid of run 4081f97a, doubled if needed
+  max_bins: 160000
+
+block_mask_fix_commit: 752565f2
+
+cache_dir: ${project_path}/evaluation/radboud_test/predictions # aligned predictions, one parquet per run
+out_dir: ${project_path}/evaluation/radboud_test/q2_sources_epithelium
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e # the thesis model (shape, k-NN + RoVE, seed 3)
+
+metadata:
+  run_name: "Q2 sources on epithelial nuclei (Radboud test)"
+  hyperparams:
+    resamples: ${resamples}
+    reference_run: ${reference_run}
+    context_run: ${context_run}
+    ci_level: ${bootstrap.ci_level}
+    alpha: ${bootstrap.alpha}
+    histogram_tolerance: ${histogram.tolerance}
