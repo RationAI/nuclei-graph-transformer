@@ -28,7 +28,8 @@ enrichment: log ratio vs 0; for the epithelial difference: vs 0) = 2 x the small
 fraction, unadjusted (descriptive).
 
 Outputs in `out_dir` (no slide ids): `sets.csv`, `concepts.csv`, `epithelium.csv`,
-`morphometry.csv`, `tables.md`, `checks.json`, `figures/res_disagreement.{pdf,png}`.
+`morphometry.csv`, `tables.md`, `checks.json`, `figures/res_disagreement_{context,sources}.{pdf,png}`
+(all disagreements; the strong ones are in the CSVs only).
 """
 
 import json
@@ -52,7 +53,7 @@ from postprocessing.bootstrap_sources import (
 )
 from postprocessing.context_concepts import xai_order
 from postprocessing.results_context import REPO, epithelium_classes
-from visualization.disagreement_figure import FIGURE_STEM, save_disagreement_figure
+from visualization.disagreement_figure import FIGURES, save_disagreement_figures
 
 
 CLASSES = (("carcinoma", 1), ("benign", 0))
@@ -471,7 +472,7 @@ def compute(config: DictConfig) -> tuple[Path, dict]:
     figure_dirs = [out / "figures"]
     if config.get("repo_figures_dir"):
         figure_dirs.append(Path(config.repo_figures_dir))
-    save_disagreement_figure(out, figure_dirs)
+    save_disagreement_figures(out, figure_dirs)
     return out, checks
 
 
@@ -494,8 +495,9 @@ def logged(config: DictConfig, logger: MLFlowLogger) -> None:
     for name in ("sets.csv", "concepts.csv", "epithelium.csv", "morphometry.csv",
                  "tables.md", "checks.json"):
         logger.log_artifact(str(out / name))
-    for ext in ("pdf", "png"):
-        logger.log_artifact(str(out / "figures" / f"{FIGURE_STEM}.{ext}"), "figures")
+    for stem in FIGURES:
+        for ext in ("pdf", "png"):
+            logger.log_artifact(str(out / "figures" / f"{stem}.{ext}"), "figures")
     for source in SOURCES:
         logger.log_artifact(str(REPO / source), "code")
     (out / "config-resolved.yaml").write_text(OmegaConf.to_yaml(config, resolve=True))

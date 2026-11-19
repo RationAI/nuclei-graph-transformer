@@ -17,8 +17,8 @@ uniform draw among the feasible slides. A short stratum is filled from the other
 Items per slide: 3 T>S, then 2 S>T, then for each T>S item one C of the same true class and
 dominant concept (else the same class only; counted), each drawn at random among the
 candidates ≥ 50 µm from every item already chosen. Aliases S01-S10 are a random permutation of
-the slides. Repeats: on 8 random slides, one random item gets a second marker (`repeat_mode`,
-see the config). Item numbers run 1..N over S01..S10, in random order within a slide.
+the slides. Repeats (`repeats`, 0 = none, the current setting): on that many random slides,
+one random item gets a second marker (`repeat_mode`, see the config). Item numbers run 1..N over S01..S10, in random order within a slide.
 
 Outputs in `private_dir` (not logged to MLflow; folder mode 700):
 - `reviewer/S01.geojson` ... : GeoJSON point features (level-0 px), property `name` = item number;
@@ -231,7 +231,10 @@ def build(config: DictConfig) -> dict:
     slide_order = list(selected)
     aliases = {s: f"S{i + 1:02d}" for i, s in
                enumerate(np.asarray(slide_order)[rng.permutation(len(slide_order))])}
-    repeat_slides = set(rng.choice(sorted(selected), size=int(r.repeats), replace=False).tolist())
+    repeat_slides = (
+        set(rng.choice(sorted(selected), size=int(r.repeats), replace=False).tolist())
+        if r.repeats else set()
+    )
     rows, repeat_failures = [], 0
     for s in sorted(selected, key=lambda s: aliases[s]):
         chosen, _, nuclei = selected[s]

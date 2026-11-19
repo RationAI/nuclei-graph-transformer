@@ -17,7 +17,7 @@ review:
   slides_without_carcinoma: 3
   per_slide: {T>S: 3, S>T: 2, C: 3} # per slide; each C matched to one T>S item
   min_distance_um: 50.0 # between items of a slide (repeats excepted)
-  repeats: 8 # one per slide on this many slides
+  repeats: 0 # repeat markers, one per slide on this many slides; 0 = none
   repeat_max_distance_um: 5.0
   # same_nucleus: the repeat marker sits on the original nucleus, offset ≤ repeat_offset_um from its
   #   centroid, inside its polygon, with the original still the nearest nucleus centroid;

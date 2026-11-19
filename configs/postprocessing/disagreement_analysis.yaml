@@ -94,7 +94,7 @@ links:
 
 compute_only: false # true: write the outputs without an MLflow run (no credentials needed)
 out_dir: ${project_path}/evaluation/radboud_test/disagreement
-repo_figures_dir: null # optional copy of res_disagreement.{pdf,png}
+repo_figures_dir: null # optional copy of res_disagreement_{context,sources}.{pdf,png}
 
 metadata:
   run_name: "Disagreement profiles between configurations (Q3, Q4; Radboud test)"
