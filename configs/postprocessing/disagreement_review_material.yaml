@@ -1,0 +1,29 @@
+# @package _global_
+
+# Blinded pathologist review of texture vs shape disagreements (postprocessing.disagreement_review_material,
+# part B). Inputs as part A (disagreement_analysis); outputs go to a private folder only (no MLflow).
+
+defaults:
+  - /postprocessing/disagreement_analysis
+  - _self_
+
+review:
+  first: texture_knn # T
+  second: shape_knn # S
+  candidate_min_difference: 0.5 # T>S and S>T: |p_T − p_S| at least this
+  control_max_difference: 0.1 # C: both correct, |p_T − p_S| below this
+  seed: 20261108
+  slides_with_carcinoma: 7
+  slides_without_carcinoma: 3
+  per_slide: {T>S: 3, S>T: 2, C: 3} # per slide; each C matched to one T>S item
+  min_distance_um: 50.0 # between items of a slide (repeats excepted)
+  repeats: 8 # one per slide on this many slides
+  repeat_max_distance_um: 5.0
+  # same_nucleus: the repeat marker sits on the original nucleus, offset ≤ repeat_offset_um from its
+  #   centroid, inside its polygon, with the original still the nearest nucleus centroid;
+  # neighbour: the marker sits on the centroid of another nucleus within repeat_max_distance_um.
+  repeat_mode: same_nucleus
+  repeat_offset_um: 2.0
+  nuclei_root_remap: ["/mnt/projects/", "/mnt/public_projects/"] # slide tables hold the public cluster's paths
+
+private_dir: ${project_path}/evaluation/radboud_test/disagreement_review_private

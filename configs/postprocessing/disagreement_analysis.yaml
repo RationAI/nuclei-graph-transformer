@@ -1,0 +1,107 @@
+# @package _global_
+
+# Disagreement analysis between model configurations on the PANDA Radboud test nuclei
+# (postprocessing.disagreement_analysis, part A). Stored predictions, stored SAE grouping, the
+# epithelial mask and the morphometry of the thesis analysis only; no training, no inference.
+# Paths, resamples, Q3 configurations and the epithelium cache are those of tab:res-context
+# (results_context); the Q4 configurations are the with-context models of tab:res-sources.
+
+defaults:
+  - /postprocessing/results_context
+  - _self_
+
+# Q4: k-NN + RoVE, k = 24, three seeds each; asserted equal to configs/postprocessing/results_sources.yaml.
+q4_configurations:
+  shape_knn:
+    label: shape (k-NN + RoVE, thesis model)
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_knn:
+    label: texture (k-NN + RoVE)
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+  position_knn:
+    label: position only (k-NN + RoVE)
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+sources_config: configs/postprocessing/results_sources.yaml
+# Q3 (self, knn, dense) come from results_context.yaml's `configurations` (no positions in attention).
+
+threshold: 0.40 # nucleus-level operating point of the thesis (Youden on validation, 0.4021)
+strong_disagreement: 0.5 # |p_X − p_Y| at least this
+# X > Y = X correct and Y wrong at `threshold` (seed-mean probabilities, p >= threshold = carcinoma)
+pairs:
+  - name: texture_vs_shape
+    question: Q4
+    x: texture_knn
+    y: shape_knn
+    x_short: texture
+    y_short: shape
+  - name: shape_vs_position
+    question: Q4
+    x: shape_knn
+    y: position_knn
+    x_short: shape
+    y_short: position only
+  - name: knn_vs_self
+    question: Q3
+    x: knn
+    y: self
+    x_short: k-NN
+    y_short: self-only
+  - name: dense_vs_knn
+    question: Q3
+    x: dense
+    y: knn
+    x_short: dense
+    y_short: k-NN
+
+# Dominant stable concept per nucleus (A-H / other) saved by run 3c6e64a5 (sources_concepts), rows in
+# the predictions' (slide, key) order; its per-group nucleus and carcinoma counts are asserted.
+concepts:
+  run: 3c6e64a5e1d34530b8806f516fe07524
+  dir: ${project_path}/evaluation/radboud_test/q2_sources_concepts
+# Epithelial nuclei of run 44ffd165 (carcinoma ∪ benign epithelium by the vertex rule); its count is asserted.
+epithelium_run: 44ffd16586d84e70967d5a4e5051594a
+epithelium_counts_reference: ${project_path}/evaluation/radboud_test/q2_sources_epithelium/counts.csv
+
+# Morphometry: the continuous attributes of the thesis concept signature (xai.concept_morphometry,
+# xai.morphometry_context); rows in the order of the XAI index (matched by slide and nucleus key).
+xai:
+  index: ${xai_dir}/activations/test/index.parquet
+xai_dir: ${inputs_path}/xai/c8f268536be8416f9fe395eea95c458e
+morphometry:
+  polygons: ${xai_dir}/concepts/k16_seed1/morphometry/morphometry_test.parquet
+  context: ${xai_dir}/concepts/k16_seed1/morphometry/context_test.parquet
+  # column -> label; OD is measured on the random per-slide sample only (od_random_sample)
+  features:
+    area_um2: area
+    long_axis_um: long axis
+    short_axis_um: short axis
+    circularity: circularity
+    irregularity: contour irregularity
+    h_od_mean_norm: hematoxylin OD (norm.)
+    knn8_mean_dist_um: 8-NN distance
+    pleomorphism_cv: pleomorphism of neighbours
+    orientation_coherence: orientation coherence of neighbours
+    boundary_dist_um: distance to epithelium-stroma boundary
+  od_features: [h_od_mean_norm]
+  top_n: 5
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+links:
+  sources_concepts_run: 3c6e64a5e1d34530b8806f516fe07524
+  sources_epithelium_run: 44ffd16586d84e70967d5a4e5051594a
+  context_table_run: 027eeaee99854b09955e608b11b23295
+  sources_table_run: a925ae67
+
+compute_only: false # true: write the outputs without an MLflow run (no credentials needed)
+out_dir: ${project_path}/evaluation/radboud_test/disagreement
+repo_figures_dir: null # optional copy of res_disagreement.{pdf,png}
+
+metadata:
+  run_name: "Disagreement profiles between configurations (Q3, Q4; Radboud test)"
+  hyperparams:
+    threshold: ${threshold}
+    strong_disagreement: ${strong_disagreement}
+    resamples: ${resamples}
+    ci_level: ${bootstrap.ci_level}
+    concepts_run: ${concepts.run}
+    epithelium_run: ${epithelium_run}
