@@ -1,0 +1,76 @@
+{
+ "params": {
+  "sessionName": "radboud-nucleus-review",
+  "bypassCookies": true,
+  "theme": "auto"
+ },
+ "data": [
+  {
+   "dataID": "data/Public/Public/prostate/PANDA/train_images/SLIDE.tiff",
+   "protocol": "wsi_service"
+  },
+  {
+   "dataID": "public_mlflow/37/RUN/artifacts/markers/S00.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  },
+  {
+   "dataID": "public_mlflow/38/cd504aaafb8c408184584d808a99cf15/artifacts/carcinoma_mask/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  }
+ ],
+ "background": [
+  {
+   "id": "bg0",
+   "name": "Prostate slide",
+   "dataReference": 0,
+   "visualizationIndex": 0,
+   "lossless": false
+  }
+ ],
+ "visualizations": [
+  {
+   "name": "Prostate slide",
+   "order": [
+    "markers",
+    "annotation"
+   ],
+   "shaders": {
+    "markers": {
+     "type": "heatmap",
+     "name": "Review items",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#00e5ff",
+      "threshold": 50,
+      "inverse": false,
+      "opacity": 1.0
+     },
+     "dataReferences": [
+      1
+     ]
+    },
+    "annotation": {
+     "type": "edge",
+     "name": "Reference annotation (switch on last)",
+     "visible": 0,
+     "fixed": false,
+     "params": {
+      "inner_color": "#ff0000",
+      "outer_color": "#ff0000",
+      "threshold": 50,
+      "opacity": 0.5
+     },
+     "dataReferences": [
+      2
+     ]
+    }
+   }
+  }
+ ],
+ "plugins": {
+  "slide-info": {}
+ }
+}
