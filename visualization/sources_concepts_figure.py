@@ -114,6 +114,8 @@ def sources_concepts_figure(table: pd.DataFrame) -> plt.Figure:
         ax.set_xticks(x, rows["group"].tolist())
         ax.tick_params(axis="x", length=0, pad=4)
         ax.set_xlim(-0.6, x[-1] + 0.6)
+        low = min(rows[f"{s[0]}_ci_lo"].min() for s in SERIES)
+        ax.set_ylim(bottom=low - 0.07)  # room for the note under the lowest interval
         ax.set_ylabel(r"$\Delta$ mean log-loss")
         ax.text(
             1.0,
