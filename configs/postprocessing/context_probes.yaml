@@ -27,7 +27,9 @@ xai:
   codes: # κ (encoder codes)
     validation: ${xai_dir}/concepts/k16_seed1/morphometry/codes_validation.npy
     test: ${xai_dir}/concepts/k16_seed1/codes_test.npy
-  code_tolerance: 1.0e-3 # |stored κ − encode(stored h)| (TF32 / float32)
+  # stored κ vs FP32 encoding of the stored h: validation codes were encoded in FP32 (0 difference),
+  # test codes on the GPU in TF32 (max 3.0e-3 vs FP32, 1.4e-4 vs TF32; κ up to ~20)
+  code_tolerance: 5.0e-3
 
 reference:
   model_run: c8f268536be8416f9fe395eea95c458e
