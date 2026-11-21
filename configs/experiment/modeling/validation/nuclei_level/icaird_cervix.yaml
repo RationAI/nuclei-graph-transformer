@@ -1,0 +1,46 @@
+defaults:
+  - /experiment/modeling/validation/base@_here_
+  - /data/sources/icaird_cervix
+  - /model/meta_archs@model: nuclei
+  - /model/models@model.net: self_attn_transformer
+  - /data/datasets/crop@data.dataset: nuclei_classification
+  - /data/supervision@data.supervision.eval_strategy: annotation_sparse
+  - /callbacks/plot_curves@trainer.callbacks.thresholds: nuclei
+  - _self_
+
+checkpoint: ???
+mlflow_run_id: null
+mlflow_parent_run_id: ??? 
+
+data:
+  _target_: nuclei_graph.data.datamodules.crop.CropDataModule
+  batch_size: 1
+  k: 24 
+  context: knn # none, dense, knn
+
+  metadata: ${dataset.mlflow_uris.metadata} # train, valid, test
+  split_size: null
+  split_stratify_col: null
+  split_group_col: null
+
+  dataset:
+    efd_order: 16
+    patch_size: 40 # unused with efd
+    embedding_mode: efd # efd, bbox, blank
+  supervision:
+    paths: ${dataset.paths.supervision} # annotation
+
+model:
+  net:
+    config:
+      dim: 256
+      hidden_dim: 1024
+      num_heads: 8
+      num_layers: 8
+      drop_path_rate: 0.25
+      use_rope: true
+      attention_variant: vrope # rotated values (RoVE)
+      embedding_mode: ${data.dataset.embedding_mode}
+
+metadata:
+  run_name: "iCAIRD: Threshold Estimation"
