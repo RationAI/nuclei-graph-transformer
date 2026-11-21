@@ -1,0 +1,87 @@
+# @package _global_
+
+# Gleason pattern and the SAE concepts (postprocessing.gleason_concepts), PANDA Radboud test.
+# (1) per Gleason pattern of the carcinoma nuclei (mask value at the centroid): share of active
+#     nuclei and mean activation of the stable concepts A-H, AUROC of each concept for G4+5 vs G3;
+#     benign epithelium as a reference row.
+# (2) linear probes (L2 logistic regression) from h to G4+5 vs G3: the analysed model vs the
+#     self-only model (three seeds of tab:res-context).
+
+defaults:
+  - /data/sources/panda
+  - _self_
+
+inputs_path: /mnt/public_projects/nuclei_based_wsi_analysis # public project, read-only here
+label_masks_dir: ${dataset.paths.masks.annotation} # 0 bg, 1 stroma, 2 benign, 3-5 Gleason; level 0
+overlap_threshold: 0.5 # vertex rule of the thesis labels (checked against the stored labels)
+workers: 24
+
+# Nuclei, slides and the h of the self-only models: the extraction of tab:res-context-probes
+# (postprocessing.context_probes, run 03d76ec7; scripts/reporting/context_probes_extract.py).
+probe_inputs_dir: ${project_path}/evaluation/radboud_test/context_probes
+
+xai_dir: ${inputs_path}/xai/c8f268536be8416f9fe395eea95c458e
+xai:
+  sae_model: ${xai_dir}/sae/sae_k16_seed1_l13.pt # k = 16, L1, seed 1 (SAE training run 4cf1db8f)
+  deck_key: ${xai_dir}/session/key.csv
+  stable_concepts: [A, B, C, D, E, F, G, H]
+  stable_indices: [0, 1, 2, 3, 4, 6, 8, 12] # asserted against the deck key
+  index:
+    validation: ${xai_dir}/activations/validation/index.parquet
+    test: ${xai_dir}/activations/test/index.parquet
+  h:
+    validation: ${xai_dir}/activations/validation/h.npy
+    test: ${xai_dir}/activations/test/h.npy
+  codes_test: ${xai_dir}/concepts/k16_seed1/codes_test.npy
+  code_check_rows: 200000 # carcinoma test rows: stored κ vs encoding the stored h
+  code_tolerance: 5.0e-3 # stored test codes were encoded in TF32 (context_probes)
+
+# Benign epithelium (reference row): vertex-rule classes of xai.epithelium_separation (run 0b24e5db),
+# as in tab:res-context / tab:res-sources-epithelium (class 2 = benign epithelium).
+epithelium:
+  classes_dir: ${project_path}/evaluation/xai_epithelium_separation/classes/test
+  slides: ${xai_dir}/slides.parquet
+
+# Shared stratified slide bootstrap (Q2 run 205c2bea; seed 20261108, B = 2,000).
+resamples: ${inputs_path}/evaluation/radboud_test/q2_sources_bootstrap/bootstrap_resamples_radboud_test.npz
+bootstrap:
+  ci_level: 0.95
+histogram: # AUROC per resample from per-slide histograms on quantile bins of the score
+  initial_bins: 4096
+  max_bins: 262144
+  tolerance: 1.0e-4 # |histogram AUROC − exact AUROC| on the full test set
+
+models:
+  analysed:
+    label: analysed model (k-NN + RoVE)
+    runs: [c8f268536be8416f9fe395eea95c458e] # h stored with the XAI activations
+  self:
+    label: nucleus alone (self-only)
+    runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+
+probe:
+  seed: 20261121
+  heldout_slide_share: 0.25 # validation slides held out to choose the L2 strength
+  max_slide_share: 0.01 # of a balanced fit sample
+  C_grid: [1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 3.0e-2, 0.1, 0.3, 1.0, 3.0, 10.0]
+  max_iter: 5000
+  selection_tolerance: 5.0e-4 # held-out AUROC: smallest C within this of the best
+
+cache_dir: ${project_path}/evaluation/radboud_test/gleason_concepts_cache # per slide id: local only
+out_dir: ${project_path}/evaluation/radboud_test/gleason_concepts
+compute_only: false # true: no MLflow run
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+links:
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  context_table_run_id: 027eeaee99854b09955e608b11b23295
+  context_probes_run_id: 03d76ec7f61346d694dff5c3aa8ab56c
+  epithelium_separation_run_id: 0b24e5db2f6e42d3b9c797af2b83a3de
+
+metadata:
+  run_name: "Gleason pattern: SAE concepts A-H and probes of h, G4+5 vs G3 (Radboud test)"
+  hyperparams:
+    resamples: ${resamples}
+    probe_seed: ${probe.seed}
+    max_slide_share: ${probe.max_slide_share}
+    heldout_slide_share: ${probe.heldout_slide_share}
