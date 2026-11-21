@@ -9,8 +9,17 @@ exclude_slides_uris:
   - ${dataset.mlflow_uris.qc_exclusion}
 categories: ${dataset.categories} # train, valid and test: no low grade, in no table
 # The test set: the slides re-annotated by a pathologist, plus every test slide of `test_slides.categories`.
+# Positives = the 60 slides drawn for the annotation report (`slides_uri`), minus `removed`, plus
+# `added`; every one must have its label file in `labels_dir` (regions exported).
 test_slides:
   slides_uri: ${dataset.mlflow_uris.reannotated_test_slides}
+  # skipped by the pathologist at the review (2026-11-19), no regions
+  removed:
+    IC-CX-01301-01: "removed at review: tumour necrosis, nothing to annotate"
+    IC-CX-02435-01: "removed at review: not tumour (missed miscarriage mimicking it)"
+  # replacements (Malignant · Other, the report's additional section), regions exported 2026-11-21
+  added: [IC-CX-02436-01, IC-CX-03102-01]
+  labels_dir: ${dataset.paths.supervision.reannotation}
   categories: [normal_inflammation]
 nuclei_path: ${dataset.paths.nuclei_seg}
 nuclei_batch_name: ${dataset.nuclei_batch}
@@ -22,8 +31,10 @@ metadata:
     `${dataset.nuclei_batch}` batch (cleaned Cellpose segmentation, see its `_cleanup.json`).
     No low-grade slides in train, valid or test; slides excluded for blur (QC, rule of
     PANDA - Radboud) and slides with no nuclei are left out everywhere; the test set is the 60
-    slides re-annotated by a pathologist plus the normal / inflammation test slides. Low grade is
-    used nowhere (no training, validation or evaluation). See `icaird_cervix/excluded_slides.csv`.
+    slides re-annotated by a pathologist (IC-CX-01301-01 and IC-CX-02435-01, removed at the review,
+    replaced by IC-CX-02436-01 and IC-CX-03102-01; list in `icaird_cervix/reannotated_test_slides.csv`)
+    plus the normal / inflammation test slides. Low grade is used nowhere (no training, validation
+    or evaluation). See `icaird_cervix/excluded_slides.csv`.
   hyperparams:
     categories: ${categories}
     test_slides: ${test_slides}

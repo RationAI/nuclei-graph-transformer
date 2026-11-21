@@ -1,3 +1,5 @@
+# @package _global_
+
 defaults:
   - /experiment/modeling/prediction/base@_here_
   - /data/sources/icaird_cervix
@@ -10,9 +12,9 @@ defaults:
   - _self_
 
 
-checkpoint: ??? 
+checkpoint: mlflow-artifacts:/37/85c30c1e116a488d86b91deba8751b66/artifacts/checkpoints/epoch=1947-step=95452/checkpoint.ckpt
 mlflow_run_id: null
-mlflow_parent_run_id: ??? 
+mlflow_parent_run_id: 85c30c1e116a488d86b91deba8751b66 
 
 trainer:
   callbacks:
@@ -29,7 +31,7 @@ data:
   dataset:
     efd_order: 16
     patch_size: 40 # unused with efd
-    embedding_mode: efd # efd, bbox, blank
+    embedding_mode: blank # efd, bbox, blank
   supervision:
     paths:
       annotation: ${dataset.paths.supervision.reannotation}
@@ -43,7 +45,7 @@ model:
       num_layers: 8
       drop_path_rate: 0.25
       use_rope: true
-      attention_variant: vrope # rotated values (RoVE)
+      attention_variant: vrope 
       embedding_mode: ${data.dataset.embedding_mode}
 
 metadata:

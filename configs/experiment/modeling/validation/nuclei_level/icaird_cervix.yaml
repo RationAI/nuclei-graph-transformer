@@ -1,3 +1,5 @@
+# @package _global_
+
 defaults:
   - /experiment/modeling/validation/base@_here_
   - /data/sources/icaird_cervix

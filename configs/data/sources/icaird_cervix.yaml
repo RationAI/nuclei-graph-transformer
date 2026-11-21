@@ -8,8 +8,7 @@ dataset:
   # cervix_cellpose (Cellpose) or cervix_lsp-detr (LSP-DETR).
   nuclei_batch: cervix_cellpose
 
-  # Diagnoses (`category` of the index) of train, valid and test. Low grade is used nowhere (no
-  # training, validation or evaluation) and is in no metadata table.
+  # Diagnoses (`category` of the index) of train, valid and test. Low grade is not used.
   categories: [normal_inflammation, high_grade, malignant]
 
   mask_tile_width: 512
@@ -43,18 +42,17 @@ dataset:
     # median blur coverage >= 0.2 (rule of PANDA - Radboud); 23 slides, none re-annotated
     qc_exclusion: ${mlflow_project_pc}/59ed1027e0f14a139d54dac6715d20e1/artifacts/qc_exclusion/to_exclude_based_on_qc.csv
 
-    # the 60 test slides (high grade / malignant) re-annotated precisely by a pathologist
-    # (annotation report run; columns slide_id, category, subcategory, positive_tissue_area_mm2)
+    # the 60 test slides (high grade / malignant) drawn for the pathologist's re-annotation
+    # (annotation report run; columns slide_id, category, subcategory, positive_tissue_area_mm2).
     reannotated_test_slides: ${mlflow_project_pc}/0fc2b02cf7864c508d2868b25ce7b5e6/artifacts/selected_slides.csv
 
     # preprocessing/metadata_mapping/icaird_cervix.py (cleaned Cellpose batch; blur-excluded slides and
     # slides with no nuclei left out; no low grade in train, valid or test; test = the 60 re-annotated
-    # slides + normal / inflammation): train 792, valid 392, test 245 slides. (The run's
-    # slides_mapping_test_low_grade table was deleted on 2026-11-16: low grade is not used.)
+    # slides + normal / inflammation): train 792, valid 392, test 245 slides.
     metadata:
-      train: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_train.parquet
-      valid: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_valid.parquet
-      test: ${mlflow_project_pc}/bbacb1c8f3334be5b2edc1bb077a22a7/artifacts/icaird_cervix/slides_mapping_test.parquet
+      train: ${mlflow_project_pc}/8ac7be17811d47ce8a2b607ca934d499/artifacts/icaird_cervix/slides_mapping_train.parquet
+      valid: ${mlflow_project_pc}/8ac7be17811d47ce8a2b607ca934d499/artifacts/icaird_cervix/slides_mapping_valid.parquet
+      test: ${mlflow_project_pc}/8ac7be17811d47ce8a2b607ca934d499/artifacts/icaird_cervix/slides_mapping_test.parquet
 
     masks:
       annotation:
