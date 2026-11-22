@@ -1,0 +1,76 @@
+{
+ "params": {
+  "sessionName": "icaird-test-predictions",
+  "bypassCookies": true,
+  "theme": "auto"
+ },
+ "data": [
+  {
+   "dataID": "data/Public/Public/cervix/iCAIRD/slides/SLIDE.tiff",
+   "protocol": "wsi_service"
+  },
+  {
+   "dataID": "public_mlflow/37/98f53183f3064eb19f6d121e08445369/artifacts/prediction_masks/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  },
+  {
+   "dataID": "public_mlflow/37/a3f5e18485d44849bacfe9d099e7d4f7/artifacts/prediction_masks/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  }
+ ],
+ "background": [
+  {
+   "id": "bg0",
+   "name": "iCAIRD slide",
+   "dataReference": 0,
+   "visualizationIndex": 0,
+   "lossless": false
+  }
+ ],
+ "visualizations": [
+  {
+   "name": "iCAIRD slide",
+   "order": [
+    "shape",
+    "position"
+   ],
+   "shaders": {
+    "shape": {
+     "type": "heatmap",
+     "name": "Polygons + RoVE (seed 1): carcinoma probability",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#ff6d00",
+      "threshold": 1,
+      "inverse": false,
+      "opacity": 0.8
+     },
+     "dataReferences": [
+      1
+     ]
+    },
+    "position": {
+     "type": "heatmap",
+     "name": "Position only + RoVE (seed 1): carcinoma probability",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#d500f9",
+      "threshold": 1,
+      "inverse": false,
+      "opacity": 0.8
+     },
+     "dataReferences": [
+      2
+     ]
+    }
+   }
+  }
+ ],
+ "plugins": {
+  "slide-info": {}
+ }
+}

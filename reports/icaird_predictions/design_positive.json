@@ -1,0 +1,137 @@
+{
+ "params": {
+  "sessionName": "icaird-test-predictions",
+  "bypassCookies": true,
+  "theme": "auto"
+ },
+ "data": [
+  {
+   "dataID": "data/Public/Public/cervix/iCAIRD/slides/SLIDE.tiff",
+   "protocol": "wsi_service"
+  },
+  {
+   "dataID": "public_mlflow/37/98f53183f3064eb19f6d121e08445369/artifacts/prediction_masks/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  },
+  {
+   "dataID": "public_mlflow/37/a3f5e18485d44849bacfe9d099e7d4f7/artifacts/prediction_masks/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  },
+  {
+   "dataID": "public_mlflow/37/RUN/artifacts/pathologist_regions/SLIDE.tiff",
+   "protocol": "wsi_service",
+   "options": {"format": "png"}
+  },
+  {
+   "dataID": "public_mlflow/37/93f7b7810011443eba78350bd1eb19a0/artifacts/high_grade/SLIDE.tiff",
+   "protocol": "wsi_service"
+  },
+  {
+   "dataID": "public_mlflow/37/93f7b7810011443eba78350bd1eb19a0/artifacts/malignant/SLIDE.tiff",
+   "protocol": "wsi_service"
+  }
+ ],
+ "background": [
+  {
+   "id": "bg0",
+   "name": "iCAIRD slide",
+   "dataReference": 0,
+   "visualizationIndex": 0,
+   "lossless": false
+  }
+ ],
+ "visualizations": [
+  {
+   "name": "iCAIRD slide",
+   "order": [
+    "shape",
+    "position",
+    "pathologist",
+    "high_grade",
+    "malignant"
+   ],
+   "shaders": {
+    "shape": {
+     "type": "heatmap",
+     "name": "Polygons + RoVE (seed 1): carcinoma probability",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#ff6d00",
+      "threshold": 1,
+      "inverse": false,
+      "opacity": 0.8
+     },
+     "dataReferences": [
+      1
+     ]
+    },
+    "position": {
+     "type": "heatmap",
+     "name": "Position only + RoVE (seed 1): carcinoma probability",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#d500f9",
+      "threshold": 1,
+      "inverse": false,
+      "opacity": 0.8
+     },
+     "dataReferences": [
+      2
+     ]
+    },
+    "pathologist": {
+     "type": "heatmap",
+     "name": "Test labels: nuclei in the pathologist's regions",
+     "visible": 1,
+     "fixed": false,
+     "params": {
+      "color": "#00e5ff",
+      "threshold": 50,
+      "inverse": false,
+      "opacity": 0.6
+     },
+     "dataReferences": [
+      3
+     ]
+    },
+    "high_grade": {
+     "type": "heatmap",
+     "name": "Dataset annotation: high grade",
+     "visible": 0,
+     "fixed": false,
+     "params": {
+      "color": "#2962ff",
+      "threshold": 1.0,
+      "inverse": false,
+      "opacity": 0.3
+     },
+     "dataReferences": [
+      4
+     ]
+    },
+    "malignant": {
+     "type": "heatmap",
+     "name": "Dataset annotation: malignant",
+     "visible": 0,
+     "fixed": false,
+     "params": {
+      "color": "#00e676",
+      "threshold": 1.0,
+      "inverse": false,
+      "opacity": 0.3
+     },
+     "dataReferences": [
+      5
+     ]
+    }
+   }
+  }
+ ],
+ "plugins": {
+  "slide-info": {}
+ }
+}
