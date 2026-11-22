@@ -1,0 +1,103 @@
+# @package _global_
+
+# iCAIRD cervix test results for the thesis (postprocessing.icaird_test_results, NB-A-114):
+# (1) tab:res-nucleus iCAIRD row, Shape + RoVE + k-NN (k = 24); (2) per-slide picture at the
+# validation Youden threshold; (3) information ladder (Q4): position only (blank token) vs shape on
+# the same nuclei; (4) settings check (training configs vs the PANDA Radboud model).
+# Stored test predictions of the evaluation runs, except shape seed 2 (see `shape.replacements`).
+
+defaults:
+  - /data/sources/icaird_cervix
+  - _self_
+
+# public MLflow (experiment 37); MLFLOW_TRACKING_USERNAME / MLFLOW_TRACKING_PASSWORD from the environment
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz
+dataset_label: iCAIRD
+
+metadata_uri: ${dataset.mlflow_uris.metadata.test} # mapping run 8ac7be17: 60 re-annotated positives + 185 negatives
+valid_metadata_uri: ${dataset.mlflow_uris.metadata.valid}
+# test positives: label 1 = >= 75 % of the polygon inside the pathologist's regions (annotation run
+# 43a04125, exp. 187); every other nucleus of a positive slide is ignored. Negative slides: all 0.
+test_supervision_dir: ${dataset.paths.supervision.reannotation}
+# validation: the training supervision (annotation_sparse: label-1 nuclei of positive slides, all
+# nuclei of negative slides)
+valid_supervision_dir: ${dataset.paths.supervision.annotation}
+label_column: annot_label
+predictions_artifact: predictions
+expected_eval: # every evaluation run's resolved config
+  supervision_mode: annotation_sparse
+  annot_dir_suffix: nuclei_supervision/iCAIRD/reannotation
+  k: 24
+  context: knn
+  attention_variant: vrope
+  use_rope: true
+checkpoint_monitor: validation/loss
+
+models:
+  shape:
+    label: Shape + RoVE
+    embedding_mode: efd
+    eval_runs:
+      - 98f53183f3064eb19f6d121e08445369
+      - 7f555b52001b4764906de53eecacb1ac
+      - 38cb840775cb40c4958fa1896270f399
+    # Seed 2 was evaluated (7f555b52) at epoch 567 while still training; its training run now holds
+    # only epoch 687 (lower validation loss), so 567 cannot be re-run for the validation threshold.
+    # User decision (2026-11-22): re-predict seed 2 at 687 (test and validation) and use it everywhere.
+    replacements:
+      7f555b52001b4764906de53eecacb1ac:
+        checkpoint_epoch: 687
+        test_predictions: ${inference_dir}/f1778db59b254b658f79d73fe15897ed_test.parquet
+  position:
+    label: Position only (blank token) + RoVE
+    embedding_mode: blank
+    eval_runs:
+      - a3f5e18485d44849bacfe9d099e7d4f7
+      - e33f5c8640aa4187a19b58aa12436141
+      - e45b0b61065049348efffa5077193e8e
+
+# Validation predictions of the three shape checkpoints (postprocessing/nucleus_inference_at_commit.py,
+# model code unchanged since the evaluation commits a1329ed3 / e03323ec; one job per part, so a GPU
+# out-of-memory on a huge slide loses only that part): <training run>_valid_<part>.parquet,
+# slide = row of valid_<part>_slides.parquet.
+inference_dir: ${project_path}/evaluation/icaird_test/inference
+valid_training_runs: # seed order as `models.shape`
+  - b11255b6544141b2ab5834c07df0bf1c
+  - f1778db59b254b658f79d73fe15897ed
+  - 85397ce971cb4c1a87eeafcea3699ad9
+valid_parts: [main, big0, big1, big2, big3] # main: <= 1.6M nuclei; big<i>: one slide each
+# big0 (2.3M nuclei) does not fit the 22 GB GPU slice with the unpatched script; it was predicted with
+# postprocessing/nucleus_inference_lowmem.py (per-head, in-place RoPE rotation; bit-identical on big1).
+checkpoints_dir: ${project_path}/evaluation/icaird_test/checkpoints # local copies used for the inference
+
+radboud_training_run: c8f268536be8416f9fe395eea95c458e # settings comparison (tab:res-nucleus Radboud seed)
+
+cache_dir: ${project_path}/evaluation/icaird_test/predictions
+out_dir: ${project_path}/evaluation/icaird_test/results
+
+bootstrap:
+  n_resamples: 2000
+  seed: 20261108
+  ci_level: 0.95
+
+pi0_reference: 0.5 # calibrated AUPRC of tab:res-nucleus (Siblini et al. 2020), as Radboud and MMCI
+min_carcinoma_nuclei: 50
+# carcinoma share of a positive slide: lower edge inclusive; "none" = negative slides
+share_bins: [0.0, 0.01, 0.05, 0.20, 0.50, 1.0]
+share_bin_labels: ["<1%", "1-5%", "5-20%", "20-50%", ">50%"]
+
+histogram:
+  n_bins: 100000
+  max_bins: 1600000
+  tolerance: 1.0e-4 # |histogram − exact| for every seed's full-test-set AUPRC, AUROC and calibrated AUPRC
+
+log_mlflow: true
+metadata:
+  experiment_id: "37"
+  run_name: "iCAIRD test: tab:res-nucleus, per-slide picture, Q4 position only vs shape"
+  description: >-
+    iCAIRD cervix test (60 re-annotated positive slides, label-1 nuclei only; 185 normal/inflammation
+    slides, all nuclei 0): Shape + RoVE + k-NN (k = 24) AUPRC, calibrated AUPRC (pi0 = 0.5), AUROC with
+    stratified slide-bootstrap CIs (B = 2000, seed 20261108); per-slide recall at the validation Youden
+    threshold vs carcinoma share; position only vs shape paired differences. Seed 2 of the shape model
+    re-predicted at epoch 687.
