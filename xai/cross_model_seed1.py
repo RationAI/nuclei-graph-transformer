@@ -7,7 +7,7 @@ rule trained on the final representation h of each other training seed of the mo
 `xai.cross_model_concepts` are reused, they were trained with the code and config of
 4cf1db8f).
 
-Per model, on all PANDA Radboud test nuclei (tab:res-faithfulness, ℓ1 codes, no refit):
+Per model, on all PANDA Radboud test nuclei (tab:res-faithfulness, l1 codes, no refit):
 E_h = RE (RMS ‖h - ĥ‖), EV (1 - RE² / total variance of h), E_z = FE (RMS of f - f_A,
 f = wᵀh + β, f_A = wᵀĥ + β), E_lin = MCE (OLS head on the validation codes), Spearman of f
 with f_A, SD ratio std(f_A) / std(f), AUPRC of f_A, and the flip rate at the thesis Youden
@@ -31,8 +31,9 @@ and the same sign.
 Comparison with the earlier analysis (run d2ad948d, the SAE seed with the lowest holdout RE
 = seed 0 in both models, 2M random test nuclei): its stored seed-0 codes are matched again
 on the 2M nuclei (reproduces its table) and on all nuclei, and every seed-1 partner is
-linked to its seed-0 counterpart in the same model by decoder cosine, which separates the
-effect of the SAE seed from that of the nuclei.
+compared with the earlier partner in the same model by their decoder cosine (same feature if
+≥ `stability_threshold`), which separates the effect of the SAE seed from that of the
+nuclei.
 
     python -m xai.cross_model_seed1 +experiment=xai/radboud reference.dir=<analysed dir> \
         "models=[{name, run_id, dir, sae_training_run_id}, ...]"
@@ -296,10 +297,8 @@ def previous_comparison(
         s: load_autoencoder(str(p))[0].decoder_weight.detach().numpy()
         for s, p in paths.items()
     }
-    # seed-1 latent -> its seed-0 counterpart (Hungarian decoder cosine, same model)
-    counterpart, cosine = matched_cosines(
-        decoders[config.sae_seed], decoders[prev_seed]
-    )
+    # decoder cosines between the two SAE seeds of the same model (unit-norm rows)
+    cosines = decoders[config.sae_seed].astype(np.float64) @ decoders[prev_seed].T
     w0 = concept_logit_weights(
         decoders[prev_seed].astype(np.float64),
         LinearHead.from_npz(str(model_dir / "activations" / "head.npz")),
@@ -343,9 +342,14 @@ def previous_comparison(
                 "seed1_partner": p1,
                 "seed1_r_all": float(seed1.loc[letter, "r"]),
                 "seed1_matched": bool(seed1.loc[letter, "matched"]),
-                "seed1_partner_seed0_counterpart": int(counterpart[p1]),
-                "seed1_partner_seed0_cosine": float(cosine[p1]),
-                "same_feature_as_previous": int(counterpart[p1]) == p_all,
+                # direct cosine to the earlier partner; a global Hungarian assignment
+                # of the decoders can pair a latent elsewhere although it is the same
+                "cosine_to_previous_partner": float(cosines[p1, p_all]),
+                "seed1_partner_nearest_seed0": int(np.argmax(cosines[p1])),
+                "seed1_partner_nearest_seed0_cosine": float(cosines[p1].max()),
+                "same_feature_as_previous": bool(
+                    cosines[p1, p_all] >= config.stability_threshold
+                ),
                 "verdict_changed": bool(seed1.loc[letter, "matched"])
                 != bool(previous.loc[letter, "matched"]),
             }
@@ -396,9 +400,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
             "sae_training_run_id": config.reference.sae_training_run_id,
             "stored": {s: ref_dir / config.reference.codes[s] for s in SPLITS},
         }
-    ] + [
-        {**entry, "dir": Path(entry.dir), "stored": None} for entry in config.models
-    ]
+    ] + [{**entry, "dir": Path(entry.dir), "stored": None} for entry in config.models]
 
     selection, faithfulness, results = [], [], {}
     for m in models:
@@ -448,7 +450,7 @@ def main(config: DictConfig, logger: MLFlowLogger) -> None:
     checks["reference_vs_stored_table_abs_diff"] = diffs
     assert max(diffs.values()) < 1e-4, diffs
 
-    ref_codes, ref_w, ref_shares, ref_stability, ref_labels = results["reference"]
+    ref_codes, ref_w, _, _, ref_labels = results["reference"]
     matches, correlations, latents, comparisons = [], [], [], []
     for m in models:
         name = m["name"]
