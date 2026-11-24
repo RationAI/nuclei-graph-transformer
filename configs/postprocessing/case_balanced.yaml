@@ -102,30 +102,30 @@ radboud:
     sources: # 4081f97a / a925ae67 (all), 44ffd165 (epithelial)
       subsets: [all, epithelium]
       comparisons:
-        - {name: shape_vs_texture_self, label: Shape − texture, self-only, weights: {shape_self: 1, texture_self: -1}}
-        - {name: shape_vs_texture_knn, label: Shape − texture, k-NN + RoVE, weights: {shape_knn: 1, texture_knn: -1}}
-        - {name: shape_vs_position_knn, label: Shape − position only, k-NN + RoVE, weights: {shape_knn: 1, position_knn: -1}, report: true}
-        - {name: texture_vs_position_knn, label: Texture − position only, k-NN + RoVE, weights: {texture_knn: 1, position_knn: -1}}
-        - {name: context_gain_shape, label: Context gain, shape, weights: {shape_knn: 1, shape_self: -1}}
-        - {name: context_gain_texture, label: Context gain, texture, weights: {texture_knn: 1, texture_self: -1}}
-        - {name: interaction, label: Context gain, texture − shape, weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}}
-        - {name: position_knn_vs_shape_self, label: Position only − shape self-only, weights: {position_knn: 1, shape_self: -1}}
+        - {name: shape_vs_texture_self, label: "Shape − texture, self-only", weights: {shape_self: 1, texture_self: -1}}
+        - {name: shape_vs_texture_knn, label: "Shape − texture, k-NN + RoVE", weights: {shape_knn: 1, texture_knn: -1}}
+        - {name: shape_vs_position_knn, label: "Shape − position only, k-NN + RoVE", weights: {shape_knn: 1, position_knn: -1}, report: true}
+        - {name: texture_vs_position_knn, label: "Texture − position only, k-NN + RoVE", weights: {texture_knn: 1, position_knn: -1}}
+        - {name: context_gain_shape, label: "Context gain, shape", weights: {shape_knn: 1, shape_self: -1}}
+        - {name: context_gain_texture, label: "Context gain, texture", weights: {texture_knn: 1, texture_self: -1}}
+        - {name: interaction, label: "Context gain, texture − shape", weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}}
+        - {name: position_knn_vs_shape_self, label: "Position only − shape self-only", weights: {position_knn: 1, shape_self: -1}}
       # texture − shape = −(shape_vs_texture_knn); reported with the sign flipped (same p)
-      flipped: {shape_vs_texture_knn: Texture − shape, k-NN + RoVE}
+      flipped: {shape_vs_texture_knn: "Texture − shape, k-NN + RoVE"}
     context: # 4081f97a (all), 027eeaee (all, epithelial)
       subsets: [all, epithelium]
       comparisons:
-        - {name: knn_vs_self, label: k-NN − self-only, weights: {shape_knn_nopos: 1, shape_self: -1}, report: true}
-        - {name: dense_vs_knn, label: Dense − k-NN, weights: {shape_dense_nopos: 1, shape_knn_nopos: -1}, report: true}
-        - {name: dense_vs_self, label: Dense − self-only, weights: {shape_dense_nopos: 1, shape_self: -1}}
+        - {name: knn_vs_self, label: "k-NN − self-only", weights: {shape_knn_nopos: 1, shape_self: -1}, report: true}
+        - {name: dense_vs_knn, label: "Dense − k-NN", weights: {shape_dense_nopos: 1, shape_knn_nopos: -1}, report: true}
+        - {name: dense_vs_self, label: "Dense − self-only", weights: {shape_dense_nopos: 1, shape_self: -1}}
     positions: # 4081f97a (all nuclei only)
       subsets: [all]
       comparisons:
-        - {name: rope_vs_none, label: RoPE − none, weights: {shape_knn_rope: 1, shape_knn_nopos: -1}, report: true}
-        - {name: rotated_vs_none, label: RoVE − none, weights: {shape_knn: 1, shape_knn_nopos: -1}, report: true}
-        - {name: relpos_vs_none, label: RPV − none, weights: {shape_knn_relpos: 1, shape_knn_nopos: -1}, report: true}
-        - {name: rotated_vs_rope, label: RoVE − RoPE, weights: {shape_knn: 1, shape_knn_rope: -1}, report: true}
-        - {name: relpos_vs_rotated, label: RPV − RoVE, weights: {shape_knn_relpos: 1, shape_knn: -1}, report: true}
+        - {name: rope_vs_none, label: "RoPE − none", weights: {shape_knn_rope: 1, shape_knn_nopos: -1}, report: true}
+        - {name: rotated_vs_none, label: "RoVE − none", weights: {shape_knn: 1, shape_knn_nopos: -1}, report: true}
+        - {name: relpos_vs_none, label: "RPV − none", weights: {shape_knn_relpos: 1, shape_knn_nopos: -1}, report: true}
+        - {name: rotated_vs_rope, label: "RoVE − RoPE", weights: {shape_knn: 1, shape_knn_rope: -1}, report: true}
+        - {name: relpos_vs_rotated, label: "RPV − RoVE", weights: {shape_knn_relpos: 1, shape_knn: -1}, report: true}
 
 # --------------------------------------------------------------------------------------------
 # (c) MMCI TL test, run e8682243 (postprocessing.nucleus_results_mmci): patient = case
