@@ -1,0 +1,160 @@
+# @package _global_
+
+# Case-balanced nucleus-level evaluation (postprocessing.case_balanced): every case (a slide; an
+# MMCI patient) contributes equally within its class, w_i = 1 / n(case, class), next to the pooled
+# values of the thesis tables. Stored test predictions of existing evaluation runs; no training, no
+# inference. The bootstrap resamples of the pooled versions are reused, not redrawn.
+
+defaults:
+  - /data/sources/panda # project_path only; every input below is explicit
+  - _self_
+
+mlflow_tracking_uri: https://mlflow.rationai.cloud.e-infra.cz # public (exp. 37): logging, iCAIRD and Radboud tables
+mlflow_sensitive_uri: http://mlflow.rationai-mlflow:5000/ # MMCI table and patient resamples (exp. 97 / 65)
+
+pi0_reference: 0.5 # calibrated AUPRC (Siblini et al. 2020); prevalence of the weighted classes
+metrics_ci_level: 0.95
+alpha: 0.05 # Holm, within a family, AUPRC only (as the pooled versions)
+histogram:
+  tolerance: 1.0e-4 # |histogram − exact| for every run, both weightings, AUPRC / AUROC / calibrated AUPRC
+  max_doublings: 3 # of each set's reference grid
+
+# --------------------------------------------------------------------------------------------
+# (a) iCAIRD test, run b973c17b (postprocessing.icaird_test_results)
+# --------------------------------------------------------------------------------------------
+icaird:
+  reference_dir: ${project_path}/evaluation/icaird_test/results # b973c17b outputs (pooled)
+  metadata_uri: mlflow-artifacts:/37/8ac7be17811d47ce8a2b607ca934d499/artifacts/icaird_cervix/slides_mapping_test.parquet
+  supervision_dir: ${project_path}/nuclei_supervision/iCAIRD/reannotation
+  label_column: annot_label
+  resamples: ${icaird.reference_dir}/bootstrap_resamples_icaird_test.npz # seed 20261108, stratified by slide label
+  cache_dir: ${project_path}/evaluation/icaird_test/predictions
+  predictions_artifact: predictions
+  models: # as configs/postprocessing/icaird_test_results.yaml
+    shape:
+      label: Shape + RoVE
+      eval_runs: [98f53183f3064eb19f6d121e08445369, 7f555b52001b4764906de53eecacb1ac, 38cb840775cb40c4958fa1896270f399]
+      replacements: # seed 2 re-predicted at epoch 687 (user decision 2026-11-22)
+        7f555b52001b4764906de53eecacb1ac:
+          test_predictions: ${project_path}/evaluation/icaird_test/inference/f1778db59b254b658f79d73fe15897ed_test.parquet
+    position:
+      label: Position only + RoVE
+      eval_runs: [a3f5e18485d44849bacfe9d099e7d4f7, e33f5c8640aa4187a19b58aa12436141, e45b0b61065049348efffa5077193e8e]
+  comparisons:
+    - name: shape_vs_position
+      label: Shape − position only
+      weights: {shape: 1, position: -1}
+
+# --------------------------------------------------------------------------------------------
+# (b), (d) PANDA Radboud test
+# --------------------------------------------------------------------------------------------
+radboud:
+  metadata_uri: mlflow-artifacts:/37/5b9c6f096026425fa2b04c4e74b7a6f3/artifacts/panda/slides_mapping_test.parquet
+  supervision_dir: /mnt/public_projects/nuclei_based_wsi_analysis/nuclei_supervision/PANDA/Radboud/annotation
+  label_column: annot_label
+  resamples: /mnt/public_projects/nuclei_based_wsi_analysis/evaluation/radboud_test/q2_sources_bootstrap/bootstrap_resamples_radboud_test.npz
+  cache_dir: ${project_path}/evaluation/radboud_test/predictions
+  predictions_artifact: predictions
+  # pooled references: 4081f97a (all nuclei; configurations, every family), 027eeaee (context,
+  # epithelial nuclei), 44ffd165 (sources, epithelial nuclei), tab:res-nucleus run (main model)
+  reference_all_dir: ${project_path}/evaluation/radboud_test/q2_q3_positions
+  reference_context_dir: ${project_path}/evaluation/radboud_test/q3_context
+  reference_sources_epithelium_dir: ${project_path}/evaluation/radboud_test/q2_sources_epithelium
+  reference_nucleus_results: /mnt/public_projects/nuclei_based_wsi_analysis/evaluation/radboud_test/nucleus_results/nucleus_results.csv
+  # epithelial nuclei as 027eeaee: carcinoma ∪ benign epithelium (vertex rule, xai.epithelium_separation 0b24e5db)
+  epithelium:
+    classes_dir: ${project_path}/evaluation/xai_epithelium_separation/classes/test
+    counts: ${project_path}/evaluation/xai_epithelium_separation/counts.csv
+    slides: /mnt/public_projects/nuclei_based_wsi_analysis/xai/c8f268536be8416f9fe395eea95c458e/slides.parquet
+  main_model: shape_knn # tab:res-nucleus
+  # evaluation runs = configs/postprocessing/results_sources.yaml (names as in 4081f97a)
+  configurations:
+    shape_self:
+      label: Shape, self-only
+      eval_runs: [24ef0778c482421ea1776caa0051bf35, 683bc01ddab944919dbc1f53317da338, eaa33dc4279f4c53a001a4754ef144d5]
+    shape_knn:
+      label: Shape, k-NN + RoVE (main model)
+      eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+    texture_self:
+      label: Texture, self-only
+      eval_runs: [6ab750115ce64417b5b96f73add2e3b2, 1807361872dc4973852eddcb366f0631, 56b80c8abbe545d3a1dcca1cfeddd6b8]
+    texture_knn:
+      label: Texture, k-NN + RoVE
+      eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+    position_knn:
+      label: Position only, k-NN + RoVE
+      eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+    shape_knn_nopos:
+      label: Shape, k-NN, no positions
+      eval_runs: [28cfe9796d924a3ca31a3922947aca05, be5e23d0adad4c0b8f1e77da8057a7ba, 8eef7874b48c4051aaa86b7b6be4c50f]
+    shape_knn_rope:
+      label: Shape, k-NN, RoPE
+      eval_runs: [76fc240c8da748ae8f96dc95991950ab, d4b470306d134c2f9af7f61098f84e87, ba19f8dff0474f87ab94fb0b23051e44]
+    shape_knn_relpos:
+      label: Shape, k-NN, RPV
+      eval_runs: [4dda120e5f154736866cb6c7d8cbf5b6, e72e2d6e84074c2ebc78f50caba82dcf, 27960cda928943eb95256d6f5b40844f]
+    shape_dense_nopos:
+      label: Shape, dense, no positions
+      eval_runs: [9363c68f37da442f89c940d80efa49d5, df298e11a4c543dbaf57a378baab98e6, ba58d016ece74741a93b409d49526e5a]
+  # Holm families as the pooled versions (Holm over a family's AUPRC rows, per subset); `subsets`:
+  # where the pooled family exists. `report`: the rows asked for (the rest of a family is in the CSV).
+  families:
+    sources: # 4081f97a / a925ae67 (all), 44ffd165 (epithelial)
+      subsets: [all, epithelium]
+      comparisons:
+        - {name: shape_vs_texture_self, label: Shape − texture, self-only, weights: {shape_self: 1, texture_self: -1}}
+        - {name: shape_vs_texture_knn, label: Shape − texture, k-NN + RoVE, weights: {shape_knn: 1, texture_knn: -1}}
+        - {name: shape_vs_position_knn, label: Shape − position only, k-NN + RoVE, weights: {shape_knn: 1, position_knn: -1}, report: true}
+        - {name: texture_vs_position_knn, label: Texture − position only, k-NN + RoVE, weights: {texture_knn: 1, position_knn: -1}}
+        - {name: context_gain_shape, label: Context gain, shape, weights: {shape_knn: 1, shape_self: -1}}
+        - {name: context_gain_texture, label: Context gain, texture, weights: {texture_knn: 1, texture_self: -1}}
+        - {name: interaction, label: Context gain, texture − shape, weights: {texture_knn: 1, texture_self: -1, shape_knn: -1, shape_self: 1}}
+        - {name: position_knn_vs_shape_self, label: Position only − shape self-only, weights: {position_knn: 1, shape_self: -1}}
+      # texture − shape = −(shape_vs_texture_knn); reported with the sign flipped (same p)
+      flipped: {shape_vs_texture_knn: Texture − shape, k-NN + RoVE}
+    context: # 4081f97a (all), 027eeaee (all, epithelial)
+      subsets: [all, epithelium]
+      comparisons:
+        - {name: knn_vs_self, label: k-NN − self-only, weights: {shape_knn_nopos: 1, shape_self: -1}, report: true}
+        - {name: dense_vs_knn, label: Dense − k-NN, weights: {shape_dense_nopos: 1, shape_knn_nopos: -1}, report: true}
+        - {name: dense_vs_self, label: Dense − self-only, weights: {shape_dense_nopos: 1, shape_self: -1}}
+    positions: # 4081f97a (all nuclei only)
+      subsets: [all]
+      comparisons:
+        - {name: rope_vs_none, label: RoPE − none, weights: {shape_knn_rope: 1, shape_knn_nopos: -1}, report: true}
+        - {name: rotated_vs_none, label: RoVE − none, weights: {shape_knn: 1, shape_knn_nopos: -1}, report: true}
+        - {name: relpos_vs_none, label: RPV − none, weights: {shape_knn_relpos: 1, shape_knn_nopos: -1}, report: true}
+        - {name: rotated_vs_rope, label: RoVE − RoPE, weights: {shape_knn: 1, shape_knn_rope: -1}, report: true}
+        - {name: relpos_vs_rotated, label: RPV − RoVE, weights: {shape_knn_relpos: 1, shape_knn: -1}, report: true}
+
+# --------------------------------------------------------------------------------------------
+# (c) MMCI TL test, run e8682243 (postprocessing.nucleus_results_mmci): patient = case
+# --------------------------------------------------------------------------------------------
+mmci:
+  reference_dir: ${project_path}/evaluation/mmci_test/nucleus_results_ignore_another_exclude # e8682243
+  metadata_uri: mlflow-artifacts:/97/28a05b3cbc2a434eae6221f103d56020/artifacts/tile_level_annotations_test/slides_mapping.parquet
+  supervision_dir: ${project_path}/nuclei_supervision/MMCI-TL-Data/annotation
+  label_column: annot_label
+  test_ignore_dir: ${project_path}/nuclei_supervision/MMCI-TL-Data/test_ignore # Another pathology + Exclude ignored
+  cache_dir: ${project_path}/evaluation/mmci_test/predictions
+  predictions_artifact: predictions
+  eval_runs: [69d2eaeeacaa4942b074edf2bea5d3fd, 778e0c2b4daf457a9cea637b7c6d70ca, bfea483039a04d53b2b6020b4edd80b0]
+  # The patient resamples of the pooled MMCI row (tile-level run e97db5a5, seed 20261114, B = 2000;
+  # all slides of a drawn patient). They hold real patient ids: read, never logged.
+  resamples_run: e97db5a51cf4470e8febbf6805938894
+  resamples_artifact: bootstrap_resamples.npz
+  resamples_seed: 20261114
+  patient_label_mapping: ${project_path}/results/mmci_tl_per_patient/patient_label_mapping.csv # ids for the preflight only
+
+out_dir: ${project_path}/evaluation/case_balanced
+log_mlflow: true
+metadata:
+  experiment_id: "37"
+  run_name: "Case-balanced evaluation: iCAIRD, PANDA Radboud, MMCI (pooled vs per-case weights)"
+  description: >-
+    Each case (slide; MMCI patient) contributes equally within its class: w = 1 / n(case, class).
+    Weighted AUROC, AUPRC and calibrated AUPRC (pi0 = 0.5 on the weighted classes), seed means, the
+    pooled versions' resamples (slides or patients, weights per drawn case). iCAIRD test (b973c17b):
+    shape and position only, shape - position only. PANDA Radboud: main model (all, epithelial
+    nuclei) and the context, information-ladder and positions comparisons with their Holm families
+    (4081f97a, 027eeaee, 44ffd165). MMCI test (e8682243 rule), patient as the case.
