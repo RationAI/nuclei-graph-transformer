@@ -1,0 +1,49 @@
+# @package _global_
+
+# The analysed SAE (k = 16, SAE seed 1) against SAE seed 1 of the other training seeds of
+# the same model, matched over all 16 latents on all test nuclei; see
+# xai/cross_model_seed1.py. Each model's `dir` holds its activations and sae/ (xai.train_sae).
+num_concepts: 16
+sae_seed: 1
+reference:
+  dir: ${out_dir} # the analysed model
+  sae_training_run_id: 4cf1db8f2cff4fef844426e57a387b99
+  codes: # the stored codes (GPU encoding) used by every concept analysis
+    validation: concepts/k16_seed1/morphometry/codes_validation.npy
+    test: concepts/k16_seed1/codes_test.npy
+  metrics: concepts/k16_seed1/refit_nnls/metrics.csv # tab:res-faithfulness, sae_l1 row (check)
+  deck_key: session/key.csv # letters A-H
+stable_concepts: [G, B, H, A, F, E, D, C] # tab:res-concepts order
+models: ??? # list of {name, run_id, dir, sae_training_run_id}
+
+# flip rate at the thesis Youden threshold (seed-mean validation probability, p ≈ 0.40)
+thresholds: ${project_path}/evaluation/radboud_test/slide_error_analysis/thresholds.json
+reference_flips: ${project_path}/evaluation/radboud_test/faithfulness/flips/faithfulness_flips_table.csv
+
+# the earlier analysis (run d2ad948d: the SAE seed with the lowest holdout RE, 2M test nuclei)
+previous:
+  run_id: d2ad948db48d4b20a9b8220541a14c55
+  dir: ${project_path}/xai/${parent_run_id}/cross_model
+  subsample: 2000000 # with `seed`, as that run
+output_dir: ${project_path}/xai/${parent_run_id}/cross_model_seed1
+
+# the λ selection rule of xai.train_sae (configs/xai/train_sae.yaml), re-checked on lambda_grid.csv
+selection:
+  l0_range: [2.0, 4.0]
+  max_dead_fraction: 0.05
+
+match:
+  min_correlation: 0.7 # and the same sign of wᵀu
+stability_threshold: 0.8 # Hungarian decoder cosine to the other SAE seeds of the same model
+flip_margin: 1.0 # as xai.refit_magnitudes (only for its |f| < 1 column)
+chunk_size: 524288
+device: ${oc.env:XAI_DEVICE,cuda}
+
+metadata:
+  run_name: "XAI: Concepts Across Model Seeds (SAE seed 1, all latents)"
+  hyperparams:
+    num_concepts: ${num_concepts}
+    sae_seed: ${sae_seed}
+    min_correlation: ${match.min_correlation}
+    stability_threshold: ${stability_threshold}
+    nuclei: all test nuclei
