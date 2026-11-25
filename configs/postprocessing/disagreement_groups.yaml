@@ -1,0 +1,113 @@
+# @package _global_
+
+# Recall / specificity differences between model configurations in model-independent groups of
+# nuclei (postprocessing.disagreement_groups), PANDA Radboud test, all nuclei. Replaces the
+# concept-group comparison of run cdaf1247 (disagreement_net). Stored test predictions, stored
+# validation predictions, the label masks; no training, no inference.
+# Paths, resamples, Q3 configurations and the epithelium cache are those of tab:res-context
+# (results_context); the Q4 configurations are the with-context models of tab:res-sources.
+
+defaults:
+  - /postprocessing/results_context
+  - _self_
+
+# Q4: k-NN + RoVE, k = 24, three seeds each; asserted equal to configs/postprocessing/results_sources.yaml.
+q4_configurations:
+  shape_knn:
+    label: shape (k-NN + RoVE, thesis model)
+    eval_runs: [a5ee0cd9d08f4e3e92e5e55d71a1d9a7, 98fc505c09ed41348e5b5b200afd465c, 777fb4134250483bab02ba57ce484ea4]
+  texture_knn:
+    label: texture (k-NN + RoVE)
+    eval_runs: [750915eae4e54d9493667ab27a1c5398, c34590a148594bb08814b4f7220bebbe, 06b0580706da4afdb7641cb3a18eff77]
+  position_knn:
+    label: position only (k-NN + RoVE)
+    eval_runs: [1f5e2e4ae47f4c21af954e62352a2eff, da7333771a3e46ec9f719da2b3f31061, d0311fe0668c4591b9727ed2a5bb14d4]
+sources_config: configs/postprocessing/results_sources.yaml
+# Q3 (self, knn, dense) come from results_context.yaml's `configurations` (no positions in attention).
+
+# X vs Y: Δ = share(X correct, Y wrong) − share(Y correct, X wrong); positive = X better.
+pairs:
+  - {name: position_vs_shape, question: Q4, x: position_knn, y: shape_knn, x_short: position only, y_short: shape}
+  - {name: shape_vs_texture, question: Q4, x: shape_knn, y: texture_knn, x_short: shape, y_short: texture}
+  - {name: self_vs_knn, question: Q3, x: self, y: knn, x_short: self-only, y_short: k-NN}
+  - {name: knn_vs_dense, question: Q3, x: knn, y: dense, x_short: k-NN, y_short: dense}
+figures: # stem -> pairs, one panel each
+  res_groups_sources: [position_vs_shape, shape_vs_texture]
+  res_groups_context: [self_vs_knn, knn_vs_dense]
+
+# Operating point: each configuration's own Youden threshold (max TPR − FPR, highest t on ties) of
+# the seed-mean probability on every validation nucleus (the training runs' split_train_val,
+# random_state = 42; 392 slides, 6,118,936 nuclei; labels as the test: annot_label, missing -> 0,
+# is_carcinoma = False -> 0). Validation predictions, re-predicted with each evaluation run's code:
+#   Q3: tab:res-context-probes extraction (run 03d76ec7; evaluation configs, context none for
+#       self-only; its test re-prediction reproduces the stored test predictions, mean |Δp| ≤ 8e-5);
+#   Q4: focus_size_analysis_radboud inference cache, <evaluation commit>/<training run>_validation.
+# Per-seed Youden values are compared with the evaluation runs' logged thresholds/val_nuclei_j.
+validation:
+  slides: ${project_path}/evaluation/radboud_test/context_probes/slides_validation.parquet
+  probes_dir: ${project_path}/evaluation/radboud_test/context_probes/outputs # <eval run>_validation.parquet
+  inference_dir: ${project_path}/evaluation/radboud_test/inference_predictions # <commit[:8]>/<training run>_validation.parquet
+  source: # configuration -> probes | inference
+    self: probes
+    knn: probes
+    dense: probes
+    shape_knn: inference
+    texture_knn: inference
+    position_knn: inference
+  # (eval run[:8], commit[:8], training run) of the inference files, seeds in eval_runs order
+  inference_files:
+    shape_knn:
+      - [a5ee0cd9, 96860cec, 5401eebe1212414d99b19e903a22db31]
+      - [98fc505c, 96860cec, 084da1a0f82748049381c84d87b74462]
+      - [777fb413, 96860cec, c8f268536be8416f9fe395eea95c458e]
+    texture_knn:
+      - [750915ea, b4379405, 2cea190be3c04cc1a1c26893c6ebdeae]
+      - [c34590a1, 0a54d195, 0f28da4af751430ca9c0d38f0040aafb]
+      - [06b05807, 0a54d195, ed4a6c81b1524588aa7a19f9ab3c0d85]
+    position_knn:
+      - [1f5e2e4a, a2f10781, 5e3274c285b74d7494d2abeca7b68b36]
+      - [da733377, 96860cec, 4a283f494d8441d6a329971e3565a28d]
+      - [d0311fe0, 96860cec, 11c588c4fbb547cd890154c4856c13b3]
+  # Youden thresholds of the same seed means from focus_size_analysis_radboud (checked, 1e-4)
+  reference_thresholds: ${project_path}/evaluation/radboud_test/focus_size_analysis/thresholds.json
+  reference_names: {shape_knn: shape_knn, self: shape_self, dense: shape_dense, position_knn: blank_knn, texture_knn: texture_knn}
+
+groups:
+  # carcinoma nuclei by the share of carcinoma nuclei in their slide; lower edge inclusive, last bin closed
+  share_edges: [0.0, 0.05, 0.20, 0.50, 1.0]
+  share_labels: ["< 5 %", "5–20 %", "20–50 %", "> 50 %"]
+  # benign nuclei on slides with carcinoma: centroid distance to the nearest carcinoma nucleus (µm)
+  near_um: 50 # near: d ≤ near_um
+  workers: 24
+
+# Gleason pattern of each carcinoma nucleus (mask value at the centroid; vertex majority if the
+# centroid lies outside G3-5): the per-slide cache of run fa36b112 (gleason_concepts), whose test
+# pattern counts are asserted.
+gleason:
+  run: fa36b112e0724fc3a194d3ffdbd18985
+  cache_dir: ${project_path}/evaluation/radboud_test/gleason_concepts_cache/test
+  checks: ${project_path}/evaluation/radboud_test/gleason_concepts/checks.json
+
+# Nucleus centroids (level 0, x/y) of every test slide; slide table paths are those of the public cluster.
+remote_project_path: /mnt/projects/nuclei_based_wsi_analysis
+
+parent_run_id: c8f268536be8416f9fe395eea95c458e
+links:
+  replaces_run: cdaf1247dde44868b3035b914987c743
+  gleason_concepts_run: ${gleason.run}
+  context_table_run: 027eeaee99854b09955e608b11b23295
+  sources_table_run: a925ae67
+  context_probes_run: 03d76ec7f61346d694dff5c3aa8ab56c
+
+compute_only: false # true: write the outputs without an MLflow run
+out_dir: ${project_path}/evaluation/radboud_test/disagreement_groups
+repo_figures_dir: null # optional copy of res_groups_{sources,context}.{pdf,png}
+
+metadata:
+  run_name: "Recall / specificity differences in model-independent groups (Q3, Q4; Radboud test)"
+  hyperparams:
+    operating_point: own Youden threshold (seed-mean validation probability)
+    resamples: ${resamples}
+    ci_level: ${bootstrap.ci_level}
+    near_um: ${groups.near_um}
+    gleason_run: ${gleason.run}
